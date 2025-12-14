@@ -98,15 +98,15 @@ export function AppButton({
           {
             backgroundColor: bg,
             borderColor,
-            borderWidth: variant === 'secondary' ? 1.5 : 0,
+            borderWidth: 0,
           },
           variant === 'primary'
             ? {
                 shadowColor: '#DC2626',
                 shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.25,
+                shadowOpacity: 0,
                 shadowRadius: 16,
-                elevation: 8,
+                elevation: 0,
               }
             : variant === 'secondary'
             ? {
