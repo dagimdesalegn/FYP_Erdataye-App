@@ -27,7 +27,7 @@ export function AppHeader({
 }) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const { themeMode, toggleThemeMode, isSirenMuted, toggleSirenMuted } = useAppState();
+  const { themeMode, toggleThemeMode } = useAppState();
   const router = useRouter();
 
   const colors = Colors[colorScheme ?? 'light'];
@@ -61,22 +61,6 @@ export function AppHeader({
         </View>
 
         <View style={styles.right}>
-          <Pressable
-            onPress={toggleSirenMuted}
-            style={({ pressed }) => [
-              styles.toggleBase,
-              {
-                backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
-                borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
-              },
-              pressed ? { opacity: 0.85 } : null,
-            ]}>
-            <MaterialIcons
-              name={isSirenMuted ? 'volume-off' : 'volume-up'}
-              size={18}
-              color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'}
-            />
-          </Pressable>
           {announcementHref ? (
             <Pressable
               onPress={() => router.push(announcementHref)}
