@@ -68,6 +68,13 @@ export default function HomeScreen() {
   }, [isDark, theme]);
 
   useEffect(() => {
+    // Set browser title for web
+    if (typeof window !== 'undefined') {
+      document.title = 'ErdAtaye Ambulance';
+    }
+  }, []);
+
+  useEffect(() => {
     isPlayingRef.current = isPlaying;
   }, [isPlaying]);
 
