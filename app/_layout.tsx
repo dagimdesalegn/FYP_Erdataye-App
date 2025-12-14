@@ -29,6 +29,7 @@ function ThemedRoot() {
     <ThemeProvider value={resolved === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'ErdAtaye Ambulance' }} />
+        <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <FirstAidFab />

@@ -574,7 +574,7 @@ export default function HomeScreen() {
               </View>
             ) : (
             <View style={styles.ctaStack}>
-              <View style={styles.buttonRow}>
+              <View style={styles.primaryButtonContainer}>
                 <AppButton
                   label="Register"
                   onPress={() => router.push('/register')}
@@ -583,12 +583,18 @@ export default function HomeScreen() {
                   style={styles.primaryCta}
                 />
               </View>
-              <View style={styles.secondaryRow}>
+              <View style={styles.dividerContainer}>
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2E3236' : '#E6ECF2' }]} />
+                <ThemedText style={[styles.dividerText, { color: isDark ? '#6B7280' : '#64748B' }]}>OR</ThemedText>
+                <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2E3236' : '#E6ECF2' }]} />
+              </View>
+              <View style={styles.secondaryButtonContainer}>
                 <AppButton
                   label="I already have an account"
                   onPress={() => router.push('/explore')}
                   variant="secondary"
                   fullWidth
+                  style={styles.secondaryCta}
                 />
               </View>
             </View>
@@ -913,19 +919,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
     textAlign: 'center',
+    fontFamily: Fonts.rounded,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 16,
     marginBottom: 10,
-    fontWeight: '800',
+    fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 22,
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.1,
   },
   description: {
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 360,
+    fontFamily: Fonts.sans,
+    fontWeight: '500',
   },
   card: {
     width: '100%',
@@ -942,24 +954,60 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     marginBottom: 6,
+    fontFamily: Fonts.sans,
+    letterSpacing: -0.2,
   },
   cardBody: {
     fontSize: 14,
     color: '#64748B',
     lineHeight: 20,
+    fontFamily: Fonts.sans,
+    fontWeight: '500',
+  },
+  primaryButtonContainer: {
+    marginBottom: 8,
+  },
+  secondaryButtonContainer: {
+    marginTop: 8,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginHorizontal: 16,
+    fontFamily: Fonts.sans,
+    letterSpacing: 1,
   },
   buttonRow: {
     marginTop: 12,
   },
   ctaStack: {
-    marginTop: 12,
-    gap: 12,
+    marginTop: 20,
+    gap: 8,
   },
   primaryCta: {
-    paddingVertical: 16,
-    borderRadius: 999,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  secondaryCta: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   secondaryRow: {
     marginTop: 0,

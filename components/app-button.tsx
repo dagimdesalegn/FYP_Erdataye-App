@@ -1,6 +1,7 @@
+import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleSheet, ViewStyle } from 'react-native';
 
 import { ThemedText } from './themed-text';
 
@@ -25,6 +26,7 @@ export function AppButton({
 }: AppButtonProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const animatedValue = React.useRef(new Animated.Value(0)).current;
 
   const bg =
     variant === 'primary'
@@ -40,58 +42,114 @@ export function AppButton({
       ? isDark
         ? '#2E3236'
         : '#E6ECF2'
-      : 'transparent';
+      : variant === 'secondary'
+        ? isDark
+          ? '#374151'
+          : '#CBD5E1'
+        : 'transparent';
 
   const textColor =
     variant === 'primary' ? '#fff' : isDark ? '#ECEDEE' : '#11181C';
 
+  const handlePressIn = () => {
+    Animated.timing(animatedValue, {
+      toValue: 1,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.timing(animatedValue, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: false,
+    }).start();
+    onPress();
+  };
+
+  const animatedStyle = {
+    transform: [
+      {
+        scale: animatedValue.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 0.96],
+          extrapolate: 'clamp',
+        }),
+      },
+    ],
+    shadowOpacity: animatedValue.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.25, 0.15],
+      extrapolate: 'clamp',
+    }),
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || loading}
-      hitSlop={10}
-      style={({ pressed }) => [
-        styles.base,
-        fullWidth ? styles.fullWidth : null,
-        { backgroundColor: bg, borderColor },
-        variant === 'primary'
-          ? {
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 12 },
-              shadowOpacity: 0.16,
-              shadowRadius: 18,
-              elevation: 6,
-            }
-          : null,
-        pressed ? { opacity: 0.92, transform: [{ scale: 0.99 }] } : null,
-        (disabled || loading) ? { opacity: 0.55 } : null,
-        style,
-      ]}>
-      {loading ? (
-        <ActivityIndicator color={textColor} />
-      ) : (
-        <ThemedText style={[styles.label, { color: textColor }]}>{label}</ThemedText>
-      )}
-    </Pressable>
+    <Animated.View style={[fullWidth ? styles.fullWidth : null, style]}>
+      <Pressable
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+        hitSlop={15}
+        style={[
+          styles.base,
+          fullWidth ? styles.fullWidth : null,
+          {
+            backgroundColor: bg,
+            borderColor,
+            borderWidth: variant === 'secondary' ? 1.5 : 0,
+          },
+          variant === 'primary'
+            ? {
+                shadowColor: '#DC2626',
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.25,
+                shadowRadius: 16,
+                elevation: 8,
+              }
+            : variant === 'secondary'
+            ? {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.1,
+                shadowRadius: 8,
+                elevation: 4,
+              }
+            : null,
+          animatedStyle,
+          (disabled || loading) ? { opacity: 0.55 } : null,
+        ]}>
+        {loading ? (
+          <ActivityIndicator color={textColor} size="small" />
+        ) : (
+          <ThemedText style={[styles.label, { color: textColor, fontFamily: Fonts.sans }]}>
+            {label}
+          </ThemedText>
+        )}
+      </Pressable>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 52,
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    borderWidth: 1,
+    minHeight: 60,
+    paddingVertical: 18,
+    paddingHorizontal: 28,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
   fullWidth: {
     width: '100%',
   },
   label: {
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: 0.2,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
 });

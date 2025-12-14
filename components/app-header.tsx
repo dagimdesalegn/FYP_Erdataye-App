@@ -164,8 +164,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: Platform.select({ ios: '700', default: '700' }),
+    fontWeight: Platform.select({ ios: '700', default: '800' }),
     letterSpacing: 0.2,
+    fontFamily: Fonts.sans,
   },
   right: {
     flexDirection: 'row',
@@ -190,5 +191,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     letterSpacing: 0.2,
+    fontFamily: Fonts.sans,
   },
 });

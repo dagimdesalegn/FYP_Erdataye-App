@@ -5,7 +5,7 @@ import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
@@ -44,15 +44,16 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <ThemedView style={styles.card}>
-            <View style={styles.cardTopRow}>
+            <View style={styles.navBar}>
               <Pressable
                 onPress={() => router.replace('/')}
                 style={({ pressed }) => [
-                  styles.iconBtn,
-                  isDark ? styles.closeBtnDark : styles.closeBtnLight,
-                  pressed ? { opacity: 0.9, transform: [{ scale: 0.98 }] } : null,
+                  styles.backButton,
+                  isDark ? styles.backButtonDark : styles.backButtonLight,
+                  pressed ? { opacity: 0.85, transform: [{ scale: 0.95 }] } : null,
                 ]}>
-                <MaterialIcons name="close" size={18} color={isDark ? '#ECEDEE' : '#0F172A'} />
+                <MaterialIcons name="arrow-back" size={20} color={isDark ? '#ECEDEE' : '#0F172A'} />
+                <ThemedText style={[styles.backText, { color: isDark ? '#ECEDEE' : '#0F172A' }]}>Back</ThemedText>
               </Pressable>
             </View>
             <ThemedText style={styles.title}>Welcome back</ThemedText>
@@ -108,31 +109,37 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  cardTopRow: {
+  navBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 6,
+    marginBottom: 20,
   },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  backButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 1.5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    gap: 8,
   },
-  closeBtnLight: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderColor: '#EEF2F6',
+  backButtonLight: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderColor: '#E6ECF2',
   },
-  closeBtnDark: {
-    backgroundColor: 'rgba(11,18,32,0.72)',
+  backButtonDark: {
+    backgroundColor: 'rgba(11,18,32,0.85)',
     borderColor: '#2E3236',
+  },
+  backText: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    fontFamily: Fonts.sans,
   },
   scroll: {
     flexGrow: 1,
@@ -155,31 +162,42 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 22,
-    fontWeight: '900',
-    marginBottom: 6,
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 8,
+    fontFamily: Fonts.sans,
+    letterSpacing: -0.5,
+    lineHeight: 32,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#64748B',
-    marginBottom: 14,
+    marginBottom: 20,
+    fontFamily: Fonts.sans,
+    fontWeight: '500',
+    lineHeight: 22,
   },
   form: {
-    gap: 10,
+    gap: 16,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.1,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1,
     borderColor: '#E6ECF2',
     backgroundColor: '#F8FAFC',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 14,
-    fontSize: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 16,
+    fontSize: 16,
     color: '#11181C',
+    fontFamily: Fonts.sans,
+    fontWeight: '500',
   },
   inputDark: {
     backgroundColor: '#0B1220',
@@ -187,17 +205,19 @@ const styles = StyleSheet.create({
     color: '#ECEDEE',
   },
   primaryBtn: {
-    marginTop: 8,
+    marginTop: 12,
   },
   footerRow: {
-    marginTop: 10,
+    marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
   },
   footerText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#64748B',
+    fontFamily: Fonts.sans,
+    fontWeight: '500',
   },
 });
