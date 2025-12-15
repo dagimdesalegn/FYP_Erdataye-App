@@ -6,7 +6,7 @@ import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Dimensions, Easing, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
@@ -21,7 +21,9 @@ export default function HomeScreen() {
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
   const screenWidth = Dimensions.get('window').width;
+  const screenHeight = Dimensions.get('window').height;
   const isSmall = screenWidth < 380;
+  const isShort = screenHeight < 740;
 
   const pageBg = Colors[theme].background;
   const titleColor = Colors[theme].text;
@@ -69,7 +71,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     // Set browser title for web
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       document.title = 'ErdAtaye Ambulance';
     }
   }, []);
@@ -182,24 +184,54 @@ export default function HomeScreen() {
       at < 1
         ? [
             Animated.delay(resume ? 0 : 500),
-            Animated.timing(ride, { toValue: 1, duration: toHospitalMs, useNativeDriver: true }),
+            Animated.timing(ride, {
+              toValue: 1,
+              duration: toHospitalMs,
+              easing: Easing.inOut(Easing.cubic),
+              useNativeDriver: true,
+            }),
             Animated.delay(650),
-            Animated.timing(ride, { toValue: 2, duration: LEG_MS, useNativeDriver: true }),
+            Animated.timing(ride, {
+              toValue: 2,
+              duration: LEG_MS,
+              easing: Easing.inOut(Easing.cubic),
+              useNativeDriver: true,
+            }),
             Animated.delay(850),
-            Animated.timing(ride, { toValue: 0, duration: RESET_MS, useNativeDriver: true }),
+            Animated.timing(ride, {
+              toValue: 0,
+              duration: RESET_MS,
+              easing: Easing.linear,
+              useNativeDriver: true,
+            }),
             Animated.delay(LOOP_GAP_MS),
           ]
         : at < 2
           ? [
               Animated.delay(0),
-              Animated.timing(ride, { toValue: 2, duration: toPatientMs, useNativeDriver: true }),
+              Animated.timing(ride, {
+                toValue: 2,
+                duration: toPatientMs,
+                easing: Easing.inOut(Easing.cubic),
+                useNativeDriver: true,
+              }),
               Animated.delay(850),
-              Animated.timing(ride, { toValue: 0, duration: RESET_MS, useNativeDriver: true }),
+              Animated.timing(ride, {
+                toValue: 0,
+                duration: RESET_MS,
+                easing: Easing.linear,
+                useNativeDriver: true,
+              }),
               Animated.delay(LOOP_GAP_MS),
             ]
           : [
               Animated.delay(LOOP_GAP_MS),
-              Animated.timing(ride, { toValue: 0, duration: RESET_MS, useNativeDriver: true }),
+              Animated.timing(ride, {
+                toValue: 0,
+                duration: RESET_MS,
+                easing: Easing.linear,
+                useNativeDriver: true,
+              }),
               Animated.delay(LOOP_GAP_MS),
             ];
 
@@ -207,22 +239,22 @@ export default function HomeScreen() {
 
     const wobbleAnim = Animated.loop(
       Animated.sequence([
-        Animated.timing(wobble, { toValue: 1, duration: 420, useNativeDriver: true }),
-        Animated.timing(wobble, { toValue: 0, duration: 420, useNativeDriver: true }),
+        Animated.timing(wobble, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(wobble, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     );
 
     const pulseAnim = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 950, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 950, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       ])
     );
 
     const roadAnim = Animated.loop(
       Animated.sequence([
-        Animated.timing(roadShift, { toValue: 1, duration: 950, useNativeDriver: true }),
-        Animated.timing(roadShift, { toValue: 0, duration: RESET_MS, useNativeDriver: true }),
+        Animated.timing(roadShift, { toValue: 1, duration: 950, easing: Easing.linear, useNativeDriver: true }),
+        Animated.timing(roadShift, { toValue: 0, duration: RESET_MS, easing: Easing.linear, useNativeDriver: true }),
         Animated.delay(LOOP_GAP_MS),
       ])
     );
@@ -311,7 +343,7 @@ export default function HomeScreen() {
         announcementHref="/modal"
       />
 
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.scrollContainer}>
         <View style={styles.pageContent}>
           <View style={styles.heroTop}>
             <ThemedText
@@ -320,7 +352,10 @@ export default function HomeScreen() {
                 {
                   color: titleColor,
                   fontSize: isSmall ? 32 : 36,
-                  fontFamily: Fonts.rounded,
+                  lineHeight: isSmall ? 44 : 48,
+                  paddingBottom: isSmall ? 8 : 6,
+                  marginBottom: isSmall ? 18 : 10,
+                  fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded,
                 },
               ]}>
               እርዳታዬ
@@ -331,6 +366,9 @@ export default function HomeScreen() {
                 {
                   color: subText,
                   fontSize: isSmall ? 14 : 15,
+                  marginTop: isSmall ? 2 : 0,
+                  marginBottom: isSmall ? 12 : 10,
+                  lineHeight: isSmall ? 20 : 22,
                   fontFamily: Fonts.sans,
                 },
               ]}>
@@ -342,6 +380,7 @@ export default function HomeScreen() {
                 {
                   color: subText,
                   fontSize: isSmall ? 13 : 14,
+                  lineHeight: isSmall ? 20 : 22,
                   fontFamily: Fonts.sans,
                 },
               ]}>
@@ -350,10 +389,18 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.midLogoRow}>
-            <View style={[styles.scene, { backgroundColor: logoBg, borderColor: cardBorder }]}
+            <View
+              style={[
+                styles.scene,
+                {
+                  backgroundColor: logoBg,
+                  borderColor: cardBorder,
+                  height: isSmall || isShort ? 220 : 260,
+                },
+              ]}
             >
               <View style={styles.sceneOverlayTop} />
-              <View
+              <Animated.View
                 style={[
                   styles.sceneGlow,
                   {
@@ -362,9 +409,9 @@ export default function HomeScreen() {
                   },
                 ]}
               />
-              <View style={[styles.road, { backgroundColor: isDark ? 'rgba(15,23,42,0.55)' : 'rgba(15,23,42,0.22)' }]} />
-              <View style={[styles.roadEdge, { backgroundColor: isDark ? 'rgba(226,232,240,0.10)' : 'rgba(15,23,42,0.10)' }]} />
-              <View style={[styles.roadEdge2, { backgroundColor: isDark ? 'rgba(226,232,240,0.08)' : 'rgba(15,23,42,0.08)' }]} />
+              <View style={styles.road} />
+              <View style={styles.roadEdge} />
+              <View style={styles.roadEdge2} />
               <Animated.View
                 style={[
                   styles.roadMarks,
@@ -552,7 +599,8 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={styles.ctaSection}>
+            <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
             <ThemedText style={[styles.cardTitle, { color: titleColor }]}>
               {isRegistered ? 'Emergency services' : 'Activate services'}
             </ThemedText>
@@ -599,9 +647,10 @@ export default function HomeScreen() {
               </View>
             </View>
             )}
-          </ThemedView>
+            </ThemedView>
+          </View>
         </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -611,15 +660,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 34,
-    justifyContent: 'space-between',
+    paddingBottom: 24,
+    justifyContent: 'flex-start',
   },
   pageContent: {
     flex: 1,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     gap: 14,
   },
   heroTop: {
@@ -628,13 +677,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     paddingTop: 10,
-    paddingBottom: 14,
+    paddingBottom: 10,
   },
   midLogoRow: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 14,
+    paddingBottom: 10,
     gap: 10,
+  },
+  ctaSection: {
+    marginTop: 0,
   },
   logoWrap: {
     width: 148,
@@ -661,6 +713,8 @@ const styles = StyleSheet.create({
     height: 280,
     borderRadius: 24,
     borderWidth: 1,
+    borderBottomWidth: 2,
+    borderBottomColor: '#0B0B0B',
     overflow: 'hidden',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -674,28 +728,31 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 46,
+    bottom: 0,
     height: 28,
+    backgroundColor: '#0B0B0B',
   },
   roadEdge: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 74,
+    bottom: 28,
     height: 3,
+    backgroundColor: 'rgba(255,255,255,0.10)',
   },
   roadEdge2: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 46,
+    bottom: 0,
     height: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   roadMarks: {
     position: 'absolute',
     left: 190,
     right: 18,
-    bottom: 58,
+    bottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -708,7 +765,7 @@ const styles = StyleSheet.create({
   patientWrap: {
     position: 'absolute',
     left: 10,
-    bottom: 92,
+    bottom: 46,
     alignItems: 'center',
     justifyContent: 'center',
     width: 84,
@@ -740,7 +797,7 @@ const styles = StyleSheet.create({
   ambulanceMotion: {
     position: 'absolute',
     left: 0,
-    bottom: 52,
+    bottom: 6,
     zIndex: 1,
   },
   sirenBlink: {
@@ -758,7 +815,7 @@ const styles = StyleSheet.create({
   hospitalWrap: {
     position: 'absolute',
     right: 8,
-    bottom: 46,
+    bottom: 0,
     alignItems: 'center',
     zIndex: 2,
   },
@@ -919,8 +976,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
     textAlign: 'center',
-    fontFamily: Fonts.rounded,
     letterSpacing: -0.5,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
   },
   subtitle: {
     fontSize: 16,
@@ -943,7 +1002,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EEF2F6',
     shadowColor: '#000',
@@ -967,15 +1026,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   primaryButtonContainer: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   secondaryButtonContainer: {
-    marginTop: 8,
+    marginTop: 6,
+    marginBottom: 0,
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 12,
   },
   dividerLine: {
     flex: 1,
