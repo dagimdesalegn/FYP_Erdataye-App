@@ -5,6 +5,8 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, ViewStyle } from 'r
 
 import { ThemedText } from './themed-text';
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 type AppButtonProps = {
   label: string;
   onPress: () => void;
@@ -87,7 +89,7 @@ export function AppButton({
 
   return (
     <Animated.View style={[fullWidth ? styles.fullWidth : null, style]}>
-      <Pressable
+      <AnimatedPressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled || loading}
@@ -127,7 +129,7 @@ export function AppButton({
             {label}
           </ThemedText>
         )}
-      </Pressable>
+      </AnimatedPressable>
     </Animated.View>
   );
 }
