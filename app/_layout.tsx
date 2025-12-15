@@ -7,7 +7,9 @@ import { AppStateProvider } from '@/components/app-state';
 import { FirstAidFab } from '@/components/first-aid-fab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { View } from 'react-native';
+import * as SystemUI from 'expo-system-ui';
+import React, { useEffect } from 'react';
+import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export const unstable_settings = {
@@ -27,6 +29,11 @@ export default function RootLayout() {
 function ThemedRoot() {
   const resolved = useColorScheme();
   const theme = resolved ?? 'light';
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    void SystemUI.setBackgroundColorAsync(Colors[theme].background);
+  }, [theme]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>
