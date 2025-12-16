@@ -99,7 +99,7 @@ export default function HelpScreen() {
                 zoomControlEnabled={false}
                 rotateEnabled={false}
                 onRegionChangeComplete={(r) => setRegion(r)}
-                customMapStyle={isDark ? darkMapStyle : undefined}
+                customMapStyle={isDark ? darkMapStyle : lightMapStyle}
               >
                 {mockAmbulances.map((a) => (
                   <Marker
@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   hero: {
+    flex: 1,
     borderRadius: 22,
     borderWidth: 1,
     padding: 14,
@@ -231,7 +232,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 500,
+    flex: 1,
+    minHeight: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 6,
   },
   map: {
     flex: 1,
@@ -346,4 +353,13 @@ const darkMapStyle = [
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#111827' }] },
   { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#0B1220' }] },
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0A1A2A' }] },
+];
+
+const lightMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#11181C' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }, { weight: 2 }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#0F172A' }] },
+  { featureType: 'road', elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }, { weight: 3 }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#0F172A' }] },
 ];

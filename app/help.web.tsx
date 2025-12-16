@@ -127,6 +127,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   hero: {
+    flex: 1,
     borderRadius: 22,
     borderWidth: 1,
     padding: 14,
@@ -166,7 +167,13 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 500,
+    flex: 1,
+    minHeight: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 6,
   },
   mapPlaceholder: {
     flex: 1,
