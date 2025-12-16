@@ -17,8 +17,11 @@ export default function LoginScreen() {
   const isDark = colorScheme === 'dark';
   const { setRegistered } = useAppState();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  React.useEffect(() => {
+    router.replace('/');
+  }, [router]);
+
+  const [contact, setContact] = useState('');
   const [loading, setLoading] = useState(false);
 
   const onLogin = async () => {
@@ -26,7 +29,6 @@ export default function LoginScreen() {
     try {
       await new Promise((r) => setTimeout(r, 600));
       setRegistered(true);
-      alert('Logged in (demo)!');
       router.replace('/help');
     } finally {
       setLoading(false);
@@ -60,24 +62,13 @@ export default function LoginScreen() {
             <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
 
             <View style={styles.form}>
-              <ThemedText style={styles.label}>Email</ThemedText>
+              <ThemedText style={styles.label}>Contact number</ThemedText>
               <TextInput
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
+                value={contact}
+                onChangeText={setContact}
+                placeholder="Contact Number"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                style={[styles.input, isDark ? styles.inputDark : null]}
-              />
-
-              <ThemedText style={styles.label}>Password</ThemedText>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                secureTextEntry
+                keyboardType="phone-pad"
                 style={[styles.input, isDark ? styles.inputDark : null]}
               />
 
@@ -143,16 +134,16 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    padding: 16,
+    padding: 14,
     justifyContent: 'center',
-    paddingBottom: 40,
+    paddingBottom: 28,
   },
   card: {
-    maxWidth: 520,
+    maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EEF2F6',
     shadowColor: '#000',
@@ -162,39 +153,39 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
-    lineHeight: 32,
+    lineHeight: 28,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
-    marginBottom: 20,
+    marginBottom: 16,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   input: {
     borderWidth: 0.8,
     borderColor: '#E6ECF2',
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    fontSize: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    fontSize: 15,
     color: '#11181C',
     fontFamily: Fonts.sans,
     fontWeight: '500',
@@ -205,17 +196,17 @@ const styles = StyleSheet.create({
     color: '#ECEDEE',
   },
   primaryBtn: {
-    marginTop: 12,
+    marginTop: 10,
   },
   footerRow: {
-    marginTop: 16,
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   footerText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#64748B',
     fontFamily: Fonts.sans,
     fontWeight: '500',

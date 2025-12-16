@@ -621,8 +621,7 @@ export default function HomeScreen() {
                 />
               </View>
             ) : (
-            <View style={styles.ctaStack}>
-              <View style={styles.primaryButtonContainer}>
+              <View style={styles.buttonRow}>
                 <AppButton
                   label="Register"
                   onPress={() => router.push('/register')}
@@ -631,21 +630,6 @@ export default function HomeScreen() {
                   style={styles.primaryCta}
                 />
               </View>
-              <View style={styles.dividerContainer}>
-                <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2E3236' : '#E6ECF2' }]} />
-                <ThemedText style={[styles.dividerText, { color: isDark ? '#6B7280' : '#64748B' }]}>OR</ThemedText>
-                <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2E3236' : '#E6ECF2' }]} />
-              </View>
-              <View style={styles.secondaryButtonContainer}>
-                <AppButton
-                  label="I already have an account"
-                  onPress={() => router.push('/explore')}
-                  variant="secondary"
-                  fullWidth
-                  style={styles.secondaryCta}
-                />
-              </View>
-            </View>
             )}
             </ThemedView>
           </View>

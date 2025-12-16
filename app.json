@@ -1,5 +1,9 @@
 {
   "expo": {
+    "platforms": [
+      "android",
+      "ios"
+    ],
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

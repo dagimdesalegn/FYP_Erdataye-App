@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { AppStateProvider } from '@/components/app-state';
-import { FirstAidFab } from '@/components/first-aid-fab';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import * as SystemUI from 'expo-system-ui';
@@ -41,9 +40,9 @@ function ThemedRoot() {
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'ErdAtaye Ambulance' }} />
           <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
+          <Stack.Screen name="help" options={{ headerShown: false, title: 'Help' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <FirstAidFab />
         <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
       </ThemeProvider>
     </View>

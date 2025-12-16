@@ -1,7 +1,7 @@
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
 import { ThemedText } from './themed-text';
 
@@ -14,7 +14,8 @@ type AppButtonProps = {
   fullWidth?: boolean;
   loading?: boolean;
   disabled?: boolean;
-  style?: ViewStyle;
+  leftIcon?: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function AppButton({
@@ -24,6 +25,7 @@ export function AppButton({
   fullWidth,
   loading,
   disabled,
+  leftIcon,
   style,
 }: AppButtonProps) {
   const colorScheme = useColorScheme();
@@ -88,7 +90,7 @@ export function AppButton({
   };
 
   return (
-    <Animated.View style={[fullWidth ? styles.fullWidth : null, style]}>
+    <Animated.View style={fullWidth ? styles.fullWidth : null}>
       <AnimatedPressable
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -100,34 +102,36 @@ export function AppButton({
           {
             backgroundColor: bg,
             borderColor,
-            borderWidth: 0,
+            borderWidth: variant === 'primary' ? 0 : 1,
           },
           variant === 'primary'
             ? {
                 shadowColor: '#DC2626',
                 shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0,
+                shadowOpacity: 0.18,
                 shadowRadius: 16,
-                elevation: 0,
+                elevation: 5,
               }
             : variant === 'secondary'
             ? {
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.1,
+                shadowOpacity: isDark ? 0.18 : 0.1,
                 shadowRadius: 8,
                 elevation: 4,
               }
             : null,
           animatedStyle,
           (disabled || loading) ? { opacity: 0.55 } : null,
+          style,
         ]}>
         {loading ? (
           <ActivityIndicator color={textColor} size="small" />
         ) : (
-          <ThemedText style={[styles.label, { color: textColor, fontFamily: Fonts.sans }]}>
-            {label}
-          </ThemedText>
+          <View style={styles.contentRow}>
+            {leftIcon ? <View style={styles.iconWrap}>{leftIcon}</View> : null}
+            <ThemedText style={[styles.label, { color: textColor }]}>{label}</ThemedText>
+          </View>
         )}
       </AnimatedPressable>
     </Animated.View>
@@ -136,22 +140,33 @@ export function AppButton({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 60,
-    paddingVertical: 18,
-    paddingHorizontal: 28,
+    minHeight: 52,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'hidden',
   },
+  contentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   fullWidth: {
     width: '100%',
   },
   label: {
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.4,
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.2,
     textAlign: 'center',
+    fontFamily: Fonts.sans,
   },
 });

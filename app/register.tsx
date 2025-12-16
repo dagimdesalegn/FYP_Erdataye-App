@@ -29,7 +29,6 @@ export default function RegisterScreen() {
 
   const handleSubmit = () => {
     setRegistered(true);
-    alert('Registration submitted!');
     router.replace('/help');
   };
 
@@ -159,16 +158,16 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flexGrow: 1,
-    padding: 16,
+    padding: 14,
     justifyContent: 'center',
-    paddingBottom: 40,
+    paddingBottom: 28,
   },
   card: {
-    maxWidth: 520,
+    maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EEF2F6',
     shadowColor: '#000',
@@ -178,39 +177,39 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     marginBottom: 8,
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
-    lineHeight: 32,
+    lineHeight: 28,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748B',
-    marginBottom: 20,
+    marginBottom: 16,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 22,
+    lineHeight: 20,
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   input: {
     borderWidth: 0.8,
     borderColor: '#E6ECF2',
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    fontSize: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    fontSize: 15,
     color: '#11181C',
     fontFamily: Fonts.sans,
     fontWeight: '500',
@@ -221,6 +220,6 @@ const styles = StyleSheet.create({
     color: '#ECEDEE',
   },
   primaryBtn: {
-    marginTop: 12,
+    marginTop: 10,
   },
 });
