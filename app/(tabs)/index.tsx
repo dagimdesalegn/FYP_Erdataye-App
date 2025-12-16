@@ -395,7 +395,7 @@ export default function HomeScreen() {
                 {
                   backgroundColor: logoBg,
                   borderColor: cardBorder,
-                  height: isSmall || isShort ? 220 : 260,
+                  height: isSmall || isShort ? 260 : 320,
                 },
               ]}
             >
@@ -652,8 +652,8 @@ const styles = StyleSheet.create({
   },
   pageContent: {
     flex: 1,
-    justifyContent: 'flex-start',
-    gap: 14,
+    justifyContent: 'space-between',
+    gap: 12,
   },
   heroTop: {
     maxWidth: 520,
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   midLogoRow: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 10,
+    paddingBottom: 6,
     gap: 10,
   },
   ctaSection: {
