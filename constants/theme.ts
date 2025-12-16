@@ -39,9 +39,9 @@ export const Fonts = Platform.select({
     mono: 'SF Mono, Monaco, monospace',
   },
   android: {
-    sans: 'Roboto, sans-serif-medium',
+    sans: 'Roboto',
     serif: 'serif',
-    rounded: 'Roboto, sans-serif-medium',
+    rounded: 'Roboto',
     mono: 'monospace',
   },
   default: {
