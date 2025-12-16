@@ -160,7 +160,7 @@ export default function HelpScreen() {
                   variant="ghost"
                   fullWidth
                   leftIcon={<MaterialIcons name="person" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
-                  style={[styles.actionBtn, styles.cleanBtn]}
+                  style={[styles.actionBtn, styles.modalMeBtn]}
                 />
               </View>
               <View style={styles.actionCol}>
@@ -170,7 +170,7 @@ export default function HelpScreen() {
                   variant="ghost"
                   fullWidth
                   leftIcon={<MaterialIcons name="groups" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
-                  style={[styles.actionBtn, styles.cleanBtn]}
+                  style={[styles.actionBtn, styles.modalOtherBtn]}
                 />
               </View>
             </View>
@@ -336,6 +336,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderColor: 'transparent',
     borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  modalMeBtn: {
+    backgroundColor: 'transparent',
+    borderColor: '#DC2626',
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  modalOtherBtn: {
+    backgroundColor: 'transparent',
+    borderColor: '#10B981',
+    borderWidth: 1,
     shadowOpacity: 0,
     elevation: 0,
   },
