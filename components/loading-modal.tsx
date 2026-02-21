@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Dimensions, Modal, StyleSheet, View } from 'react-native';
+import { Animated, Modal, StyleSheet, View } from 'react-native';
 import { ThemedText } from './themed-text';
 
 interface LoadingModalProps {
