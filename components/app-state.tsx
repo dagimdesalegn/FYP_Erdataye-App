@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { AuthUser, onAuthStateChange } from '../utils/auth';
 
 type AppState = {
   isRegistered: boolean;
@@ -8,6 +9,9 @@ type AppState = {
   toggleThemeMode: () => void;
   isSirenMuted: boolean;
   toggleSirenMuted: () => void;
+  user: AuthUser | null;
+  setUser: (user: AuthUser | null) => void;
+  isLoading: boolean;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -16,6 +20,19 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const [isRegistered, setIsRegistered] = useState(false);
   const [themeMode, setThemeMode] = useState<'system' | 'light' | 'dark'>('system');
   const [isSirenMuted, setIsSirenMuted] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Listen to auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChange((authUser) => {
+      setUser(authUser);
+      setIsRegistered(!!authUser);
+      setIsLoading(false);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const toggleThemeMode = () => {
     setThemeMode((prev) => (prev === 'system' ? 'dark' : prev === 'dark' ? 'light' : 'system'));
@@ -34,8 +51,11 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       toggleThemeMode,
       isSirenMuted,
       toggleSirenMuted,
+      user,
+      setUser,
+      isLoading,
     }),
-    [isRegistered, themeMode, isSirenMuted]
+    [isRegistered, themeMode, isSirenMuted, user, isLoading]
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;
