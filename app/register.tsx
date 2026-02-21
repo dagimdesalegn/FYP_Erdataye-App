@@ -46,8 +46,6 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      console.log('Starting signup with:', { email: form.email, fullName: form.fullName });
-      
       // Sign up user
       const { user, error } = await signUp(form.email, form.password, {
         full_name: form.fullName,
@@ -55,16 +53,11 @@ export default function RegisterScreen() {
         role: 'patient',
       });
 
-      console.log('Signup result:', { user, error });
-
       if (error || !user) {
-        console.error('Signup error:', error);
         Alert.alert('Registration Failed', error?.message || 'Failed to create account');
         setLoading(false);
         return;
       }
-
-      console.log('User created, creating medical profile:', user.id);
 
       // Create medical profile
       const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
@@ -75,18 +68,16 @@ export default function RegisterScreen() {
         medical_conditions: [],
       });
 
-      console.log('Medical profile result:', { medicalSuccess, medicalError });
-
-      if (!medicalSuccess) {
-        console.warn('Warning: Medical profile creation failed:', medicalError?.message);
+      if (!medicalSuccess && medicalError) {
+        console.warn('Medical profile creation warning:', medicalError.message);
       }
 
+      // Medical profile is optional - continue regardless
       setUser(user);
       setRegistered(true);
       
       // Smooth redirect after 2.5 seconds (let loading animation play)
       setTimeout(() => {
-        console.log('Redirecting to home...');
         setLoading(false);
         router.replace('/(tabs)');
       }, 2500);

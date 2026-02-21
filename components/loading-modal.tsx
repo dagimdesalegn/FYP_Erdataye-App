@@ -26,7 +26,7 @@ export const LoadingModal = ({
       Animated.timing(spinValue, {
         toValue: 1,
         duration: 2000,
-        useNativeDriver: true,
+        useNativeDriver: false,
       })
     ).start();
 
