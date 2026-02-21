@@ -16,13 +16,31 @@ export const signUp = async (
   userData?: { phone?: string; full_name?: string; role?: string }
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: userData,
-      },
-    });
+    const maxAttempts = 3;
+    const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+    let attempt = 0;
+    let data: any = null;
+    let error: any = null;
+
+    while (attempt < maxAttempts) {
+      const res = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: userData },
+      });
+      data = res.data;
+      error = res.error;
+      if (!error) break;
+      const status = (error as any)?.status;
+      const msg = String((error as any)?.message || '');
+      if (status === 429 || /too many requests/i.test(msg)) {
+        attempt += 1;
+        const backoff = Math.pow(2, attempt) * 250;
+        await sleep(backoff);
+        continue;
+      }
+      break;
+    }
 
     if (error) {
       return { user: null, error };
