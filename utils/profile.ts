@@ -106,33 +106,32 @@ export const upsertMedicalProfile = async (
   try {
     const now = new Date().toISOString();
     
-    // Only include columns that definitely exist
+    // Use patient_id as per actual schema
     const profilePayload: any = {
-      user_id: userId,
-      blood_type: medicalData.blood_type,
-      allergies: medicalData.allergies,
-      emergency_contact_name: medicalData.emergency_contact_name,
-      emergency_contact_phone: medicalData.emergency_contact_phone,
+      patient_id: userId,
+      blood_type: medicalData.blood_type || 'Unknown',
+      allergies: Array.isArray(medicalData.allergies) ? medicalData.allergies.join(', ') : medicalData.allergies || '',
+      emergency_contact_name: medicalData.emergency_contact_name || '',
+      emergency_contact_phone: medicalData.emergency_contact_phone || '',
+      chronic_conditions: medicalData.medical_conditions ? medicalData.medical_conditions.join(', ') : '',
+      medications: '',
       created_at: now,
       updated_at: now,
-      // Skip medical_conditions if it doesn't exist in schema
-      // medical_conditions: medicalData.medical_conditions,
     };
 
-    const { data, error } = await supabase.from('medical_profiles').upsert(
+    const { data: medicalData_result, error: medicalError } = await supabase.from('medical_profiles').upsert(
       profilePayload,
-      { onConflict: 'user_id' }
+      { onConflict: 'patient_id' }
     );
 
-    if (error) {
-      console.error('Medical profile upsert error:', error);
-      throw error;
+    if (medicalError) {
+      console.warn('Medical profile upsert warning:', medicalError.message);
+      return { success: false, error: medicalError as Error };
     }
 
-    console.log('Medical profile upserted successfully:', data);
     return { success: true, error: null };
   } catch (error) {
-    console.error('Medical profile upsert exception:', error);
+    console.warn('Medical profile upsert exception:', error);
     return { success: false, error: error as Error };
   }
 };

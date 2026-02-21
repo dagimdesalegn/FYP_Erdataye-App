@@ -37,28 +37,26 @@ export const signUp = async (
 
     // Create profile in profiles table
     try {
-      const { error: profileError } = await supabase.from('profiles').insert({
+      const now = new Date().toISOString();
+      const { data: profileData, error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
-        // Skip email if column doesn't exist - Supabase auth already stores it
-        // email: data.user.email,
         role: userData?.role || 'patient',
         full_name: userData?.full_name || '',
         phone: userData?.phone || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
       });
 
       if (profileError) {
-        console.error('Profile creation error:', profileError);
-        // Don't fail entirely, but log the error
+        console.warn('Profile upsert warning:', profileError.message);
       }
     } catch (profileErr) {
-      console.error('Exception creating profile:', profileErr);
+      console.warn('Profile upsert exception:', profileErr);
     }
 
     const user: AuthUser = {
       id: data.user.id,
-      email: data.user.email,
+      email: data.user.email || email,
       role: userData?.role || 'patient',
     };
 
