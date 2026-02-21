@@ -2,8 +2,13 @@
   "expo": {
     "platforms": [
       "android",
-      "ios"
+      "ios",
+      "web"
     ],
+    "updates": {
+      "enabled": false,
+      "fallbackToCacheTimeout": 0
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -47,7 +52,8 @@
     "web": {
       "favicon": "./assets/images/ambulance-favicon.png",
       "output": "static",
-      "title": "ErdAtaye Ambulance"
+      "title": "ErdAtaye Ambulance",
+      "bundler": "metro"
     }
   }
 }
