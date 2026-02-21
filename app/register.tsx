@@ -1,11 +1,12 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { LoadingModal } from '@/components/loading-modal';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signUp } from '@/utils/auth';
@@ -45,6 +46,8 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
+      console.log('Starting signup with:', { email: form.email, fullName: form.fullName });
+      
       // Sign up user
       const { user, error } = await signUp(form.email, form.password, {
         full_name: form.fullName,
@@ -52,11 +55,16 @@ export default function RegisterScreen() {
         role: 'patient',
       });
 
+      console.log('Signup result:', { user, error });
+
       if (error || !user) {
+        console.error('Signup error:', error);
         Alert.alert('Registration Failed', error?.message || 'Failed to create account');
         setLoading(false);
         return;
       }
+
+      console.log('User created, creating medical profile:', user.id);
 
       // Create medical profile
       const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
@@ -67,24 +75,31 @@ export default function RegisterScreen() {
         medical_conditions: [],
       });
 
+      console.log('Medical profile result:', { medicalSuccess, medicalError });
+
       if (!medicalSuccess) {
         console.warn('Warning: Medical profile creation failed:', medicalError?.message);
       }
 
       setUser(user);
       setRegistered(true);
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/help') }
-      ]);
+      
+      // Smooth redirect after 2.5 seconds (let loading animation play)
+      setTimeout(() => {
+        console.log('Redirecting to home...');
+        setLoading(false);
+        router.replace('/(tabs)');
+      }, 2500);
     } catch (error) {
+      console.error('Registration exception:', error);
       Alert.alert('Error', `Registration failed: ${error}`);
-    } finally {
       setLoading(false);
     }
   };
 
   return (
     <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
+      <LoadingModal visible={loading} colorScheme={colorScheme} message="Creating your account..." />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -176,11 +191,14 @@ export default function RegisterScreen() {
               />
 
               <View style={styles.buttonContainer}>
-                {loading ? (
-                  <ActivityIndicator size="large" color={isDark ? '#fff' : '#000'} />
-                ) : (
-                  <AppButton label="Create Account" onPress={handleSubmit} variant="primary" fullWidth style={styles.primaryBtn} />
-                )}
+                <AppButton 
+                  label={loading ? "Creating Account..." : "Create Account"} 
+                  onPress={handleSubmit} 
+                  variant="primary" 
+                  fullWidth 
+                  style={styles.primaryBtn}
+                  disabled={loading}
+                />
               </View>
             </View>
           </ThemedView>

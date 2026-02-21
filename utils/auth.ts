@@ -28,25 +28,42 @@ export const signUp = async (
       return { user: null, error };
     }
 
-    const user: AuthUser = {
-      id: data.user?.id || '',
-      email: data.user?.email || '',
-      role: userData?.role || 'patient',
-    };
+    if (!data.user) {
+      return { 
+        user: null, 
+        error: new Error('No user returned from signup') as AuthError 
+      };
+    }
 
     // Create profile in profiles table
-    if (data.user) {
-      await supabase.from('profiles').insert({
+    try {
+      const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
         email: data.user.email,
         role: userData?.role || 'patient',
         full_name: userData?.full_name || '',
         phone: userData?.phone || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        // Don't fail entirely, but log the error
+      }
+    } catch (profileErr) {
+      console.error('Exception creating profile:', profileErr);
     }
+
+    const user: AuthUser = {
+      id: data.user.id,
+      email: data.user.email,
+      role: userData?.role || 'patient',
+    };
 
     return { user, error: null };
   } catch (error) {
+    console.error('SignUp exception:', error);
     const authError = new Error(String(error)) as AuthError;
     return { user: null, error: authError };
   }
