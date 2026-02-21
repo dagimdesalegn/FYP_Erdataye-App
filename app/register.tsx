@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
@@ -8,16 +8,20 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { signUp } from '@/utils/auth';
+import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { setRegistered } = useAppState();
+  const { setRegistered, setUser } = useAppState();
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
+    email: '',
+    password: '',
     fullName: '',
-    age: '',
     bloodType: '',
     contact: '',
     allergies: '',
@@ -27,9 +31,56 @@ export default function RegisterScreen() {
     setForm({ ...form, [key]: value });
   };
 
-  const handleSubmit = () => {
-    setRegistered(true);
-    router.replace('/help');
+  const handleSubmit = async () => {
+    // Validate form
+    if (!form.email || !form.password || !form.fullName || !form.contact) {
+      Alert.alert('Error', 'Please fill in all required fields (email, password, name, contact)');
+      return;
+    }
+
+    if (form.password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Sign up user
+      const { user, error } = await signUp(form.email, form.password, {
+        full_name: form.fullName,
+        phone: form.contact,
+        role: 'patient',
+      });
+
+      if (error || !user) {
+        Alert.alert('Registration Failed', error?.message || 'Failed to create account');
+        setLoading(false);
+        return;
+      }
+
+      // Create medical profile
+      const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
+        blood_type: form.bloodType || 'Unknown',
+        allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()) : [],
+        emergency_contact_name: form.fullName,
+        emergency_contact_phone: form.contact,
+        medical_conditions: [],
+      });
+
+      if (!medicalSuccess) {
+        console.warn('Warning: Medical profile creation failed:', medicalError?.message);
+      }
+
+      setUser(user);
+      setRegistered(true);
+      Alert.alert('Success', 'Account created successfully!', [
+        { text: 'OK', onPress: () => router.replace('/help') }
+      ]);
+    } catch (error) {
+      Alert.alert('Error', `Registration failed: ${error}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,29 +106,42 @@ export default function RegisterScreen() {
                 <ThemedText style={[styles.backText, { color: isDark ? '#ECEDEE' : '#0F172A' }]}>Back</ThemedText>
               </Pressable>
             </View>
-            <ThemedText style={styles.title}>Register medical profile</ThemedText>
+            <ThemedText style={styles.title}>Create Account</ThemedText>
             <ThemedText style={styles.subtitle}>
-              This helps responders and the app provide faster, safer assistance.
+              Register to get emergency ambulance assistance quickly and safely.
             </ThemedText>
 
             <View style={styles.form}>
-              <ThemedText style={styles.label}>Full name</ThemedText>
+              <ThemedText style={styles.label}>Email *</ThemedText>
+              <TextInput
+                style={[styles.input, isDark ? styles.inputDark : null]}
+                placeholder="Email Address"
+                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                keyboardType="email-address"
+                value={form.email}
+                onChangeText={(text) => handleChange('email', text)}
+                editable={!loading}
+              />
+
+              <ThemedText style={styles.label}>Password *</ThemedText>
+              <TextInput
+                style={[styles.input, isDark ? styles.inputDark : null]}
+                placeholder="Password (min 6 characters)"
+                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                secureTextEntry
+                value={form.password}
+                onChangeText={(text) => handleChange('password', text)}
+                editable={!loading}
+              />
+
+              <ThemedText style={styles.label}>Full name *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="Full Name"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 value={form.fullName}
                 onChangeText={(text) => handleChange('fullName', text)}
-              />
-
-              <ThemedText style={styles.label}>Age</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Age"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                keyboardType="numeric"
-                value={form.age}
-                onChangeText={(text) => handleChange('age', text)}
+                editable={!loading}
               />
 
               <ThemedText style={styles.label}>Blood type</ThemedText>
@@ -87,9 +151,10 @@ export default function RegisterScreen() {
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 value={form.bloodType}
                 onChangeText={(text) => handleChange('bloodType', text)}
+                editable={!loading}
               />
 
-              <ThemedText style={styles.label}>Contact number</ThemedText>
+              <ThemedText style={styles.label}>Contact number *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="Contact Number"
@@ -97,18 +162,26 @@ export default function RegisterScreen() {
                 keyboardType="phone-pad"
                 value={form.contact}
                 onChangeText={(text) => handleChange('contact', text)}
+                editable={!loading}
               />
 
               <ThemedText style={styles.label}>Allergies (optional)</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Allergies (if any)"
+                placeholder="Allergies (comma-separated)"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 value={form.allergies}
                 onChangeText={(text) => handleChange('allergies', text)}
+                editable={!loading}
               />
 
-              <AppButton label="Submit" onPress={handleSubmit} variant="primary" fullWidth style={styles.primaryBtn} />
+              <View style={styles.buttonContainer}>
+                {loading ? (
+                  <ActivityIndicator size="large" color={isDark ? '#fff' : '#000'} />
+                ) : (
+                  <AppButton label="Create Account" onPress={handleSubmit} variant="primary" fullWidth style={styles.primaryBtn} />
+                )}
+              </View>
             </View>
           </ThemedView>
         </ScrollView>
@@ -221,5 +294,10 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     marginTop: 10,
+  },
+  buttonContainer: {
+    marginTop: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

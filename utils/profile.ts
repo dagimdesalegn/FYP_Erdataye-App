@@ -1,0 +1,193 @@
+import { supabase } from './supabase';
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  full_name: string;
+  phone: string;
+  role: 'patient' | 'driver' | 'hospital_staff' | 'admin';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MedicalProfile {
+  id: string;
+  user_id: string;
+  blood_type: string;
+  allergies: string[];
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  medical_conditions: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Get user profile
+ */
+export const getUserProfile = async (userId: string): Promise<{
+  profile: UserProfile | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return { profile: data as UserProfile, error: null };
+  } catch (error) {
+    return { profile: null, error: error as Error };
+  }
+};
+
+/**
+ * Update user profile
+ */
+export const updateUserProfile = async (
+  userId: string,
+  updates: Partial<UserProfile>
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+};
+
+/**
+ * Get medical profile
+ */
+export const getMedicalProfile = async (userId: string): Promise<{
+  profile: MedicalProfile | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('medical_profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return { profile: data as MedicalProfile, error: null };
+  } catch (error) {
+    return { profile: null, error: error as Error };
+  }
+};
+
+/**
+ * Create or update medical profile
+ */
+export const upsertMedicalProfile = async (
+  userId: string,
+  medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const { error } = await supabase.from('medical_profiles').upsert(
+      {
+        user_id: userId,
+        ...medicalData,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+};
+
+/**
+ * Get all drivers
+ */
+export const getDrivers = async (): Promise<{
+  drivers: UserProfile[] | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'driver');
+
+    if (error) {
+      throw error;
+    }
+
+    return { drivers: data as UserProfile[], error: null };
+  } catch (error) {
+    return { drivers: null, error: error as Error };
+  }
+};
+
+/**
+ * Get all patients
+ */
+export const getPatients = async (): Promise<{
+  patients: UserProfile[] | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'patient');
+
+    if (error) {
+      throw error;
+    }
+
+    return { patients: data as UserProfile[], error: null };
+  } catch (error) {
+    return { patients: null, error: error as Error };
+  }
+};
+
+/**
+ * Get hospital staff
+ */
+export const getHospitalStaff = async (): Promise<{
+  staff: UserProfile[] | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('role', 'hospital_staff');
+
+    if (error) {
+      throw error;
+    }
+
+    return { staff: data as UserProfile[], error: null };
+  } catch (error) {
+    return { staff: null, error: error as Error };
+  }
+};
