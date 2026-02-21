@@ -104,21 +104,35 @@ export const upsertMedicalProfile = async (
   medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase.from('medical_profiles').upsert(
-      {
-        user_id: userId,
-        ...medicalData,
-        updated_at: new Date().toISOString(),
-      },
+    const now = new Date().toISOString();
+    
+    // Only include columns that definitely exist
+    const profilePayload: any = {
+      user_id: userId,
+      blood_type: medicalData.blood_type,
+      allergies: medicalData.allergies,
+      emergency_contact_name: medicalData.emergency_contact_name,
+      emergency_contact_phone: medicalData.emergency_contact_phone,
+      created_at: now,
+      updated_at: now,
+      // Skip medical_conditions if it doesn't exist in schema
+      // medical_conditions: medicalData.medical_conditions,
+    };
+
+    const { data, error } = await supabase.from('medical_profiles').upsert(
+      profilePayload,
       { onConflict: 'user_id' }
     );
 
     if (error) {
+      console.error('Medical profile upsert error:', error);
       throw error;
     }
 
+    console.log('Medical profile upserted successfully:', data);
     return { success: true, error: null };
   } catch (error) {
+    console.error('Medical profile upsert exception:', error);
     return { success: false, error: error as Error };
   }
 };

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Dimensions, Modal, StyleSheet, View } from 'react-native';
 import { ThemedText } from './themed-text';
-import { Colors } from '@/constants/theme';
 
 interface LoadingModalProps {
   visible: boolean;
