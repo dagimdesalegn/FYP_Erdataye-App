@@ -1,61 +1,45 @@
-# 🚀 Quick Start Guide - ErdAtaye with Supabase
+# Quick Start Guide - ErdAtaye with Supabase
 
-## ⚡ 30-Second Setup
+## 30-Second Setup
 
 ```bash
-# 1. Credentials already configured in .env.local ✓
-# 2. Dependencies already installed ✓
-# 3. Start dev server
+# 1. Create local environment file
+cp .env.example .env.local
+
+# 2. Add Supabase credentials to .env.local
+# EXPO_PUBLIC_SUPABASE_URL=...
+# EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+
+# 3. Install dependencies (if needed)
+npm install
+
+# 4. Start dev server
 npm start
 
-# 4. Choose platform
+# 5. Choose platform
 # - Web: Press 'w'
 # - Android: Press 'a'
 # - iOS: Press 'i'
 ```
 
-## ✅ What's Connected
+## What's Connected
 
 | Component | Status | Details |
 |-----------|--------|---------|
-| Supabase URL | ✅ | Connected to production database |
-| Authentication | ✅ | Email/password sign-up enabled |
-| Profiles | ✅ | Patient, driver, staff management |
-| Medical Data | ✅ | Blood type, allergies stored |
-| Emergency Requests | ✅ | Real incident creation working |
-| Location Tracking | ✅ | GPS updates to database |
-| Ambulance Finder | ✅ | PostGIS nearest-search enabled |
-| Real-time Chat | ✅ | First-aid conversations stored |
+| Supabase URL | Ready | Uses `EXPO_PUBLIC_SUPABASE_URL` |
+| Authentication | Ready | Email/password sign-up enabled |
+| Profiles | Ready | Patient, driver, and staff profile support |
+| Medical Data | Ready | Blood type and allergies storage |
+| Emergency Requests | Ready | Incident creation in database |
+| Location Tracking | Ready | GPS updates to database |
+| Ambulance Finder | Ready | PostGIS nearest-search integration |
+| Real-time Chat | Ready | Message storage and subscriptions |
 
-## 📱 Test the Emergency System
-
-### 1. Register
-- Open the app  
-- Click "Register"
-- Enter credentials (real email optional for testing)
-- Fill medical info (blood type, phone, contacts)
-- Submit
-
-### 2. Call Emergency
-- Go to Emergency screen
-- Tap big red "CALL AMBULANCE" button
-- App will:
-  - Get your GPS location
-  - Create emergency_request in Supabase
-  - Find nearest ambulances
-  - Show nearby vehicles
-
-### 3. Verify in Supabase Dashboard
-- Go to https://app.supabase.com
-- Check `emergency_requests` table for your request
-- Check `profiles` table for your user
-- Check `location_updates` for GPS data
-
-## 🔍 Check Real Data Connections
+## Check Real Data Connections
 
 ### Database Tables
-```typescript
-// Check these exist in your database:
+
+```text
 profiles
 medical_profiles
 emergency_requests
@@ -65,89 +49,26 @@ location_updates
 chat_history
 ```
 
-### API Keys
-```
-SUPABASE_URL: https://padezipdfcicydyncmkw.supabase.co
-SUPABASE_ANON_KEY: Configured ✓
+### Environment Variables
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+# Optional legacy fallback:
+# EXPO_PUBLIC_SUPABASE_ANON_KEY=your_legacy_anon_key
 ```
 
-## 🛠️ Development Workflow
+## Development Workflow
 
 ```bash
-# Watch for changes
 npm start
-
-# Run linter
 npm run lint
-
-# Type checking
 npx tsc --noEmit
-
-# Rebuild if needed
-npm run reset-project
 ```
 
-## 📍 File Structure
+## Troubleshooting
 
-```
-app/
-├── emergency.tsx         ← Emergency request creation
-├── register.tsx          ← User signup with Supabase Auth
-└── (tabs)/              ← Main app screens
-
-utils/
-├── supabase.ts          ← Supabase client config
-├── auth.ts              ← Authentication functions
-├── emergency.ts         ← Emergency & ambulance logic
-├── profile.ts           ← User profile management
-└── chat.ts              ← AI first-aid chat
-
-components/
-└── app-state.tsx        ← Global auth state (with Supabase)
-```
-
-## 🤔 Troubleshooting
-
-**"Cannot find module" errors?**
-```bash
-rm -rf node_modules
-npm install
-```
-
-**Supabase connection failing?**
-- Verify .env.local has correct credentials
-- Check network connectivity
-- Restart dev server with `npm start`
-
-**Real-time updates not working?**
-- Ensure `location_updates` table has real-time replication enabled
-- Check RLS policies in Supabase dashboard
-
-## 📞 Next Steps
-
-1. **Deploy to test device:**
-   ```bash
-   npm run ios    # iPhone
-   npm run android # Android
-   ```
-
-2. **Add more features:**
-   - Driver app (claim emergencies)
-   - Hospital dashboard (incoming patients)
-   - Admin analytics
-
-3. **Customize:**
-   - Edit database schema in Supabase
-   - Modify RLS policies
-   - Add new tables
-
-## 🎯 Key Features Ready
-
-✨ **Real Authentication** - Supabase Auth  
-✨ **Live GPS Tracking** - PostGIS enabled  
-✨ **Instant Sync** - Real-time database  
-✨ **Secure Data** - RLS policies active  
-✨ **Medical Profiles** - Patient metadata  
-✨ **Ambulance Routing** - Nearest-search ready  
-
-You're all set! 🚀
+- Verify `.env.local` exists and has valid keys.
+- Restart dev server after env changes.
+- Ensure Supabase RLS policies allow the intended operations.
+- Ensure realtime replication is enabled for tables that use subscriptions.
