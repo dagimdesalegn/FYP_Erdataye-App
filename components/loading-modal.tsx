@@ -13,83 +13,53 @@ export const LoadingModal = ({
   message = 'Creating your account...', 
   colorScheme = 'light' 
 }: LoadingModalProps) => {
-  const ambulanceX = useRef(new Animated.Value(-100)).current;
-  const ambulancePulse = useRef(new Animated.Value(0)).current;
-  const dotScale1 = useRef(new Animated.Value(0)).current;
-  const dotScale2 = useRef(new Animated.Value(0)).current;
-  const dotScale3 = useRef(new Animated.Value(0)).current;
+  const spinValue = useRef(new Animated.Value(0)).current;
+  const pulseValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!visible) {
       return;
     }
 
-    // Ambulance sliding animation
+    // Continuous rotation animation
     Animated.loop(
-      Animated.sequence([
-        Animated.timing(ambulanceX, {
-          toValue: Dimensions.get('window').width + 100,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(ambulanceX, {
-          toValue: -100,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 2000,
+        useNativeDriver: true,
+      })
     ).start();
 
-    // Pulse animation
+    // Pulsing ring animation
     Animated.loop(
       Animated.sequence([
-        Animated.timing(ambulancePulse, {
+        Animated.timing(pulseValue, {
           toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
+          duration: 1200,
+          useNativeDriver: false,
         }),
-        Animated.timing(ambulancePulse, {
+        Animated.timing(pulseValue, {
           toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
+          duration: 1200,
+          useNativeDriver: false,
         }),
       ])
     ).start();
+  }, [visible, spinValue, pulseValue]);
 
-    // Dots animation
-    const createDotAnimation = (dot: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.sequence([
-            Animated.timing(dot, {
-              toValue: 1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(dot, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-          ]),
-        ])
-      );
-    };
-
-    createDotAnimation(dotScale1, 0).start();
-    createDotAnimation(dotScale2, 200).start();
-    createDotAnimation(dotScale3, 400).start();
-  }, [visible]);
-
-  const pulseScale = ambulancePulse.interpolate({
+  const spin = spinValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, 1.2],
+    outputRange: ['0deg', '360deg'],
   });
 
-  const pulseOpacity = ambulancePulse.interpolate({
+  const pulseOpacity = pulseValue.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.3, 0],
+    outputRange: [0.8, 0.2],
+  });
+
+  const pulseScale = pulseValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.4],
   });
 
   const isDark = colorScheme === 'dark';
@@ -101,54 +71,41 @@ export const LoadingModal = ({
     <Modal visible={visible} transparent statusBarTranslucent>
       <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
         <View style={[styles.container, { backgroundColor: bgColor }]}>
-          {/* Animated Ambulance */}
-          <View style={styles.ambulanceContainer}>
+          {/* Loading Spinner Container */}
+          <View style={styles.spinnerContainer}>
+            {/* Outer Pulsing Ring */}
             <Animated.View
               style={[
-                styles.ambulancePulse,
+                styles.pulseRing,
                 {
-                  transform: [{ scale: pulseScale }],
                   opacity: pulseOpacity,
+                  transform: [{ scale: pulseScale }],
                 },
               ]}
             />
-            <Animated.Text
+            
+            {/* Middle Static Ring */}
+            <View style={styles.staticRing} />
+            
+            {/* Rotating Spinner */}
+            <Animated.View
               style={[
-                styles.ambulanceEmoji,
+                styles.spinner,
                 {
-                  transform: [{ translateX: ambulanceX }],
+                  transform: [{ rotate: spin }],
                 },
               ]}>
-              🚑
-            </Animated.Text>
+              <View style={styles.spinnerDot} />
+            </Animated.View>
+            
+            {/* Center Circle */}
+            <View style={styles.centerCircle} />
           </View>
 
           {/* Message */}
           <ThemedText style={[styles.message, { color: textColor }]}>
             {message}
           </ThemedText>
-
-          {/* Animated Dots */}
-          <View style={styles.dotsContainer}>
-            <Animated.View
-              style={[
-                styles.dot,
-                { transform: [{ scale: dotScale1 }] },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.dot,
-                { transform: [{ scale: dotScale2 }] },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.dot,
-                { transform: [{ scale: dotScale3 }] },
-              ]}
-            />
-          </View>
 
           {/* Loading Progress Text */}
           <ThemedText style={[styles.progressText, { color: subTextColor }]}>
@@ -178,44 +135,66 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 20,
   },
-  ambulanceContainer: {
-    marginBottom: 24,
+  spinnerContainer: {
+    width: 100,
+    height: 100,
+    marginBottom: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    height: 80,
+    position: 'relative',
   },
-  ambulancePulse: {
+  pulseRing: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#EF4444',
+  },
+  staticRing: {
     position: 'absolute',
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#EF4444',
+    borderWidth: 2,
+    borderColor: '#FECACA',
+    opacity: 0.4,
   },
-  ambulanceEmoji: {
-    fontSize: 60,
-    fontWeight: '800',
+  spinner: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: 'transparent',
+    borderTopColor: '#EF4444',
+    borderRightColor: '#EF4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  spinnerDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+    top: 0,
+    left: '50%',
+    marginLeft: -3,
+  },
+  centerCircle: {
+    position: 'absolute',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EF4444',
   },
   message: {
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
     letterSpacing: -0.3,
     lineHeight: 24,
-  },
-  dotsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 24,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#EF4444',
   },
   progressText: {
     fontSize: 12,
