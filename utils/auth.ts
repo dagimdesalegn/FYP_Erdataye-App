@@ -39,7 +39,8 @@ export const signUp = async (
     try {
       const { error: profileError } = await supabase.from('profiles').insert({
         id: data.user.id,
-        email: data.user.email,
+        // Skip email if column doesn't exist - Supabase auth already stores it
+        // email: data.user.email,
         role: userData?.role || 'patient',
         full_name: userData?.full_name || '',
         phone: userData?.phone || '',
