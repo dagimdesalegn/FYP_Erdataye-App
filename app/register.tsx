@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { signUp } from '@/utils/auth';
+import { getCurrentUserWithRole, signUp, UserRole } from '@/utils/auth';
 import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
@@ -19,6 +19,7 @@ export default function RegisterScreen() {
   const isDark = colorScheme === 'dark';
   const { setRegistered, setUser } = useAppState();
   const [loading, setLoading] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>('patient');
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -33,27 +34,51 @@ export default function RegisterScreen() {
   };
 
   const handleSubmit = async () => {
+    console.log('handleSubmit called');
+    
     // Validate form
-    if (!form.email || !form.password || !form.fullName || !form.contact) {
-      Alert.alert('Error', 'Please fill in all required fields (email, password, name, contact)');
+    if (!form.email || !form.password || !form.fullName) {
+      console.log('Validation failed:', { email: !!form.email, password: !!form.password, fullName: !!form.fullName });
+      Alert.alert('Error', 'Please fill in all required fields (email, password, name)');
       return;
     }
 
     if (form.password.length < 6) {
+      console.log('Password too short');
       Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
+    // Contact is recommended but not required
+    if (!form.contact) {
+      Alert.alert('Warning', 'Contact number is recommended for emergency purposes. Continue anyway?', [
+        { text: 'Go Back', onPress: () => {}, style: 'cancel' },
+        { text: 'Continue', onPress: () => performSignup() },
+      ]);
+      return;
+    }
+
+    performSignup();
+  };
+
+  const performSignup = async () => {
+    console.log('performSignup called');
     setLoading(true);
     try {
-      console.log('Starting signup with:', { email: form.email, fullName: form.fullName });
-      
-      // Sign up user
-      const { user, error } = await signUp(form.email, form.password, {
-        full_name: form.fullName,
-        phone: form.contact,
-        role: 'patient',
+      console.log('Starting signup with:', { 
+        email: form.email, 
+        fullName: form.fullName,
+        role: userRole 
       });
+      
+      // Sign up user with role
+      const { user, error } = await signUp(
+        form.email,
+        form.password,
+        userRole,
+        form.fullName,
+        form.contact
+      );
 
       console.log('Signup result:', { user, error });
 
@@ -64,37 +89,90 @@ export default function RegisterScreen() {
         return;
       }
 
-      console.log('User created, creating medical profile:', user.id);
+      console.log('User created:', user.id);
 
-      // Create medical profile
-      const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
-        blood_type: form.bloodType || 'Unknown',
-        allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()) : [],
-        emergency_contact_name: form.fullName,
-        emergency_contact_phone: form.contact,
-        medical_conditions: [],
-      });
+      // For patient role, create medical profile
+      if (userRole === 'patient') {
+        try {
+          const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
+            blood_type: form.bloodType || 'Unknown',
+            allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()) : [],
+            emergency_contact_name: form.fullName,
+            emergency_contact_phone: form.contact,
+            medical_conditions: [],
+          });
 
-      console.log('Medical profile result:', { medicalSuccess, medicalError });
+          console.log('Medical profile result:', { medicalSuccess, medicalError });
 
-      if (!medicalSuccess) {
-        console.warn('Warning: Medical profile creation failed:', medicalError?.message);
+          if (!medicalSuccess) {
+            console.warn('Warning: Medical profile creation failed:', medicalError?.message);
+            Alert.alert('Warning', 'Account created but medical profile could not be saved. You can update it later in your profile.');
+          } else {
+            console.log('Medical profile created successfully');
+          }
+        } catch (err) {
+          console.warn('Exception creating medical profile:', err);
+          Alert.alert('Warning', 'Account created but medical profile could not be saved. You can update it later in your profile.');
+        }
       }
 
       setUser(user);
       setRegistered(true);
       
-      // Smooth redirect after 2.5 seconds (let loading animation play)
-      setTimeout(() => {
-        console.log('Redirecting to home...');
+      // Redirect based on role after successful registration
+      setTimeout(async () => {
+        console.log('Redirecting based on role:', user.role);
+        
+        // Fetch full user info including verified role from database
+        const fullUser = await getCurrentUserWithRole();
+        if (fullUser) {
+          console.log('Full user info from database:', { id: fullUser.id, role: fullUser.role });
+          setUser(fullUser);
+        }
+        
         setLoading(false);
-        router.replace('/(tabs)');
-      }, 2500);
+        
+        // Route based on user role
+        const route = (fullUser?.role || user.role) === 'driver' ? '/driver-home' : '/(tabs)';
+        console.log('Navigating to route:', route);
+        router.replace(route as any);
+      }, 600);
     } catch (error) {
       console.error('Registration exception:', error);
       Alert.alert('Error', `Registration failed: ${error}`);
       setLoading(false);
     }
+  };
+
+  const RoleButton = ({ role, label, icon }: { role: UserRole; label: string; icon: string }) => {
+    const isSelected = userRole === role;
+    return (
+      <Pressable
+        onPress={() => !loading && setUserRole(role)}
+        style={({ pressed }) => [
+          styles.roleButton,
+          isSelected 
+            ? isDark 
+              ? styles.roleButtonSelectedDark 
+              : styles.roleButtonSelectedLight
+            : isDark 
+              ? styles.roleButtonDark 
+              : styles.roleButtonLight,
+          pressed && { opacity: 0.8 },
+        ]}>
+        <MaterialIcons 
+          name={icon as any} 
+          size={24} 
+          color={isSelected ? '#0EA5E9' : isDark ? '#9CA3AF' : '#6B7280'} 
+        />
+        <ThemedText style={[
+          styles.roleButtonLabel,
+          isSelected && styles.roleButtonLabelSelected
+        ]}>
+          {label}
+        </ThemedText>
+      </Pressable>
+    );
   };
 
   return (
@@ -111,7 +189,7 @@ export default function RegisterScreen() {
           <ThemedView style={styles.card}>
             <View style={styles.navBar}>
               <Pressable
-                onPress={() => router.replace('/')}
+                onPress={() => !loading && router.replace('/')}
                 style={({ pressed }: { pressed: boolean }) => [
                   styles.backButton,
                   isDark ? styles.backButtonDark : styles.backButtonLight,
@@ -121,10 +199,20 @@ export default function RegisterScreen() {
                 <ThemedText style={[styles.backText, { color: isDark ? '#ECEDEE' : '#0F172A' }]}>Back</ThemedText>
               </Pressable>
             </View>
+            
             <ThemedText style={styles.title}>Create Account</ThemedText>
             <ThemedText style={styles.subtitle}>
               Register to get emergency ambulance assistance quickly and safely.
             </ThemedText>
+
+            {/* Role Selection */}
+            <View style={styles.roleSection}>
+              <ThemedText style={styles.roleLabel}>I am a:</ThemedText>
+              <View style={styles.roleButtons}>
+                <RoleButton role="patient" label="Patient" icon="favorite" />
+                <RoleButton role="driver" label="Driver" icon="local-shipping" />
+              </View>
+            </View>
 
             <View style={styles.form}>
               <ThemedText style={styles.label}>Email *</ThemedText>
@@ -159,16 +247,6 @@ export default function RegisterScreen() {
                 editable={!loading}
               />
 
-              <ThemedText style={styles.label}>Blood type</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Blood Type (e.g. A+, O-)"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.bloodType}
-                onChangeText={(text) => handleChange('bloodType', text)}
-                editable={!loading}
-              />
-
               <ThemedText style={styles.label}>Contact number *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
@@ -180,15 +258,30 @@ export default function RegisterScreen() {
                 editable={!loading}
               />
 
-              <ThemedText style={styles.label}>Allergies (optional)</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Allergies (comma-separated)"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.allergies}
-                onChangeText={(text) => handleChange('allergies', text)}
-                editable={!loading}
-              />
+              {/* Patient-specific fields */}
+              {userRole === 'patient' && (
+                <>
+                  <ThemedText style={styles.label}>Blood type</ThemedText>
+                  <TextInput
+                    style={[styles.input, isDark ? styles.inputDark : null]}
+                    placeholder="Blood Type (e.g. A+, O-)"
+                    placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                    value={form.bloodType}
+                    onChangeText={(text) => handleChange('bloodType', text)}
+                    editable={!loading}
+                  />
+
+                  <ThemedText style={styles.label}>Allergies (optional)</ThemedText>
+                  <TextInput
+                    style={[styles.input, isDark ? styles.inputDark : null]}
+                    placeholder="Allergies (comma-separated)"
+                    placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                    value={form.allergies}
+                    onChangeText={(text) => handleChange('allergies', text)}
+                    editable={!loading}
+                  />
+                </>
+              )}
 
               <View style={styles.buttonContainer}>
                 <AppButton 
@@ -282,6 +375,60 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: '500',
     lineHeight: 20,
+  },
+  roleSection: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E6ECF2',
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.1,
+    marginBottom: 10,
+  },
+  roleButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  roleButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 6,
+  },
+  roleButtonLight: {
+    backgroundColor: '#F8FAFC',
+    borderColor: '#E6ECF2',
+  },
+  roleButtonDark: {
+    backgroundColor: '#0B1220',
+    borderColor: '#2E3236',
+  },
+  roleButtonSelectedLight: {
+    backgroundColor: '#E0F2FE',
+    borderColor: '#0EA5E9',
+  },
+  roleButtonSelectedDark: {
+    backgroundColor: 'rgba(14, 165, 233, 0.1)',
+    borderColor: '#0EA5E9',
+  },
+  roleButtonLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+    color: '#6B7280',
+  },
+  roleButtonLabelSelected: {
+    color: '#0EA5E9',
+    fontWeight: '700',
   },
   form: {
     gap: 14,
