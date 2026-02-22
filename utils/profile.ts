@@ -106,23 +106,30 @@ export const upsertMedicalProfile = async (
   try {
     const now = new Date().toISOString();
     
-    // Only include columns that definitely exist
+    // Include all medical profile fields
     const profilePayload: any = {
       user_id: userId,
       blood_type: medicalData.blood_type,
       allergies: medicalData.allergies,
       emergency_contact_name: medicalData.emergency_contact_name,
       emergency_contact_phone: medicalData.emergency_contact_phone,
+      medical_conditions: medicalData.medical_conditions || [],
       created_at: now,
       updated_at: now,
-      // Skip medical_conditions if it doesn't exist in schema
-      // medical_conditions: medicalData.medical_conditions,
     };
 
-    const { data, error } = await supabase.from('medical_profiles').upsert(
-      profilePayload,
-      { onConflict: 'user_id' }
-    );
+    // First try to insert, if it exists, update instead
+    let result = await supabase.from('medical_profiles').insert(profilePayload);
+    
+    if (result.error && result.error.code === '23505') {
+      // Unique constraint violation - record exists, update it instead
+      const { created_at, updated_at, ...updatePayload } = profilePayload;
+      result = await supabase.from('medical_profiles')
+        .update({ ...updatePayload, updated_at: now })
+        .eq('user_id', userId);
+    }
+    
+    const { data, error } = result;
 
     if (error) {
       console.error('Medical profile upsert error:', error);
