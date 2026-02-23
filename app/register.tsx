@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getCurrentUserWithRole, signUp, UserRole } from '@/utils/auth';
+import { signUp, UserRole } from '@/utils/auth';
 import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
@@ -120,20 +120,11 @@ export default function RegisterScreen() {
       setRegistered(true);
       
       // Redirect based on role after successful registration
-      setTimeout(async () => {
+      setTimeout(() => {
         console.log('Redirecting based on role:', user.role);
-        
-        // Fetch full user info including verified role from database
-        const fullUser = await getCurrentUserWithRole();
-        if (fullUser) {
-          console.log('Full user info from database:', { id: fullUser.id, role: fullUser.role });
-          setUser(fullUser);
-        }
-        
         setLoading(false);
-        
-        // Route based on user role
-        const route = (fullUser?.role || user.role) === 'driver' ? '/driver-home' : '/(tabs)';
+
+        const route = user.role === 'driver' ? '/driver-home' : '/(tabs)';
         console.log('Navigating to route:', route);
         router.replace(route as any);
       }, 600);

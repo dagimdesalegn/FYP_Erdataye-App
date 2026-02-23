@@ -49,6 +49,45 @@ export interface HospitalInfo {
   specialties: string[];
 }
 
+const toNumber = (value: unknown): number => {
+  const num = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const isMissingColumnError = (error: any, column: string): boolean => {
+  const message = String(error?.message ?? '').toLowerCase();
+  return error?.code === 'PGRST204' && message.includes(`'${column.toLowerCase()}'`);
+};
+
+const normalizeEmergency = (raw: any): PatientEmergency => {
+  const location = raw?.location && typeof raw.location === 'object' ? raw.location : null;
+
+  return {
+    ...raw,
+    latitude: toNumber(
+      raw?.latitude ??
+        raw?.location_lat ??
+        raw?.lat ??
+        location?.lat ??
+        location?.latitude
+    ),
+    longitude: toNumber(
+      raw?.longitude ??
+        raw?.location_lon ??
+        raw?.location_lng ??
+        raw?.lon ??
+        raw?.lng ??
+        location?.lon ??
+        location?.lng ??
+        location?.longitude
+    ),
+    status: (raw?.status ?? 'pending') as PatientEmergency['status'],
+    severity: (raw?.severity ?? 'medium') as PatientEmergency['severity'],
+    created_at: raw?.created_at ?? new Date().toISOString(),
+    updated_at: raw?.updated_at ?? raw?.created_at ?? new Date().toISOString(),
+  } as PatientEmergency;
+};
+
 /**
  * Create an emergency request as a patient
  * @param patientId The patient's user ID
@@ -71,27 +110,61 @@ export const createEmergency = async (
       throw new Error('Missing required fields: patientId, latitude, longitude');
     }
 
-    const { data, error } = await supabase
+    const timestamp = new Date().toISOString();
+    const primaryPayload = {
+      patient_id: patientId,
+      latitude,
+      longitude,
+      severity,
+      status: 'pending',
+      description,
+      patient_condition: patientCondition,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+
+    let { data, error } = await supabase
       .from('emergency_requests')
-      .insert({
+      .insert(primaryPayload)
+      .select()
+      .single();
+
+    // Fallback for legacy schemas that store coordinates in a `location` object.
+    if (
+      error &&
+      (isMissingColumnError(error, 'latitude') || isMissingColumnError(error, 'longitude'))
+    ) {
+      const legacyPayload = {
         patient_id: patientId,
-        latitude,
-        longitude,
+        location: { lat: latitude, lon: longitude },
         severity,
         status: 'pending',
         description,
         patient_condition: patientCondition,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+        created_at: timestamp,
+        updated_at: timestamp,
+      };
+
+      ({ data, error } = await supabase
+        .from('emergency_requests')
+        .insert(legacyPayload)
+        .select()
+        .single());
+    }
 
     if (error) {
+      if (
+        isMissingColumnError(error, 'latitude') ||
+        isMissingColumnError(error, 'longitude')
+      ) {
+        throw new Error(
+          'Database schema is outdated for emergency_requests. Run migrations/003_emergency_requests_location_hotfix.sql in Supabase SQL Editor.'
+        );
+      }
       throw error;
     }
 
-    return { emergency: data as PatientEmergency, error: null };
+    return { emergency: normalizeEmergency(data), error: null };
   } catch (error) {
     console.error('Error creating emergency:', error);
     return { emergency: null, error: error as Error };
@@ -105,7 +178,7 @@ export const getActiveEmergency = async (
   patientId: string
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -114,12 +187,23 @@ export const getActiveEmergency = async (
       .limit(1)
       .single();
 
+    // Legacy fallback if `status` column is missing.
+    if (error && isMissingColumnError(error, 'status')) {
+      ({ data, error } = await supabase
+        .from('emergency_requests')
+        .select('*')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single());
+    }
+
     if (error && error.code !== 'PGRST116') {
       // PGRST116 = no rows returned, which is fine
       throw error;
     }
 
-    return { emergency: data as PatientEmergency | null, error: null };
+    return { emergency: data ? normalizeEmergency(data) : null, error: null };
   } catch (error) {
     console.error('Error fetching active emergency:', error);
     return { emergency: null, error: error as Error };
@@ -145,7 +229,10 @@ export const getPatientEmergencies = async (
       throw error;
     }
 
-    return { emergencies: (data || []) as PatientEmergency[], error: null };
+    return {
+      emergencies: (data || []).map((item: any) => normalizeEmergency(item)),
+      error: null,
+    };
   } catch (error) {
     console.error('Error fetching patient emergencies:', error);
     return { emergencies: [], error: error as Error };
@@ -196,7 +283,7 @@ export const getEmergencyDetails = async (
     }
 
     return {
-      emergency: emergencyData as PatientEmergency,
+      emergency: emergencyData ? normalizeEmergency(emergencyData) : null,
       assignment: assignmentData as EmergencyAssignment | null,
       ambulance,
       error: null,

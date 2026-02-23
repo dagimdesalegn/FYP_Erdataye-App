@@ -1,4 +1,4 @@
-import { AuthError, Session } from '@supabase/supabase-js';
+import { AuthChangeEvent, AuthError, Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
 export type UserRole = 'patient' | 'driver' | 'admin';
@@ -10,6 +10,61 @@ export interface AuthUser {
   fullName?: string;
   phone?: string;
 }
+
+const isUserRole = (value: unknown): value is UserRole =>
+  value === 'patient' || value === 'driver' || value === 'admin';
+
+const getRoleFromMetadata = (value: unknown): UserRole | null =>
+  isUserRole(value) ? value : null;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isObfuscatedExistingSignupUser = (user: any, session: Session | null): boolean => {
+  const identities = user?.identities;
+  return !session && Array.isArray(identities) && identities.length === 0;
+};
+
+const buildProfilePayload = ({
+  id,
+  email,
+  role,
+  fullName,
+  phone,
+}: {
+  id: string;
+  email: string;
+  role: UserRole;
+  fullName: string;
+  phone: string;
+}) => ({
+  id,
+  email,
+  role,
+  full_name: fullName,
+  phone: phone || null,
+  updated_at: new Date().toISOString(),
+});
+
+const upsertProfileWithRetry = async (
+  payload: ReturnType<typeof buildProfilePayload>,
+  retries: number = 2
+) => {
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+    if (!error) {
+      return { error: null };
+    }
+
+    if (error.code === '23503' && attempt < retries) {
+      await sleep(250 * (attempt + 1));
+      continue;
+    }
+
+    return { error };
+  }
+
+  return { error: null };
+};
 
 /**
  * Sign up a new user with role (patient, driver, or admin)
@@ -52,8 +107,6 @@ export const signUp = async (
       return { user: null, error };
     }
 
-    console.log('Signup successful, user created:', data.user.id);
-
     if (!data.user) {
       console.error('No user returned from signup');
       return { 
@@ -62,54 +115,55 @@ export const signUp = async (
       };
     }
 
+    if (isObfuscatedExistingSignupUser(data.user, data.session ?? null)) {
+      return {
+        user: null,
+        error: new Error('This email is already registered. Please sign in instead.') as AuthError,
+      };
+    }
+
+    console.log('Signup successful, user created:', data.user.id);
+
+    const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
+    const resolvedRole = roleFromMetadata ?? role;
+
     // Create profile in profiles table
     try {
-      console.log('Creating profile for user:', data.user.id);
-      const profileData = {
+      const profileData = buildProfilePayload({
         id: data.user.id,
         email: data.user.email || email,
-        role,
-        full_name: fullName,
-        phone: phone || null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      console.log('Profile payload:', profileData);
-      
-      const { error: profileError, data: profileResult } = await supabase.from('profiles').insert(profileData);
+        role: resolvedRole,
+        fullName,
+        phone,
+      });
+
+      const { error: profileError } = await upsertProfileWithRetry(profileData);
 
       if (profileError) {
-        // If profile already exists (duplicate key), that's OK - treat as success
-        if (profileError.code === '23505') {
-          console.log('Profile already exists, treating as success');
-        } else if (profileError.code === '23502') {
-          // NOT NULL constraint violation
-          console.error('Database constraint error - required field missing:', profileError.message);
-          return { 
-            user: null, 
-            error: new Error(`Database error: ${profileError.message}`) as AuthError 
-          };
+        if (profileError.code === '23503') {
+          // In some projects auth.users insert is not yet visible right after signUp.
+          // Continue; profile will be re-attempted on sign-in.
+          console.warn('Profile insert deferred due FK timing:', profileError.message);
         } else {
-          console.error('Profile creation error:', profileError);
-          console.error('Error code:', profileError.code);
-          console.error('Error message:', profileError.message);
-          return { 
-            user: null, 
-            error: new Error(`Database error: ${profileError.message}`) as AuthError 
+          console.error('Profile upsert error:', profileError);
+          return {
+            user: null,
+            error: new Error(`Database error: ${profileError.message}`) as AuthError,
           };
         }
-      } else {
-        console.log('Profile created successfully:', profileResult);
       }
     } catch (profileErr) {
       console.error('Exception creating profile:', profileErr);
-      // Continue - don't fail signup if profile creation fails
+      return {
+        user: null,
+        error: new Error(`Database error: ${String(profileErr)}`) as AuthError,
+      };
     }
 
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email || '',
-      role,
+      role: resolvedRole,
       fullName,
       phone,
     };
@@ -146,13 +200,27 @@ export const signIn = async (
       };
     }
 
-    // Fetch user role from profiles table
-    const role = await getUserRole(data.user.id);
+    const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
+
+    // Heal missing profile rows so role lookups and medical profile writes work reliably.
+    const profilePayload = buildProfilePayload({
+      id: data.user.id,
+      email: data.user.email || email,
+      role: roleFromMetadata ?? 'patient',
+      fullName: String(data.user.user_metadata?.full_name || ''),
+      phone: String(data.user.user_metadata?.phone || ''),
+    });
+    const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
+    if (upsertProfileError && upsertProfileError.code !== '23503') {
+      console.error('Profile ensure error on sign in:', upsertProfileError);
+    }
+
+    const role = roleFromMetadata ?? (await getUserRole(data.user.id)) ?? 'patient';
 
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email || '',
-      role: role as UserRole || 'patient',
+      role,
     };
 
     return { user, error: null };
@@ -197,12 +265,13 @@ export const getCurrentUserWithRole = async (): Promise<AuthUser | null> => {
       return null;
     }
 
-    const role = await getUserRole(data.user.id);
+    const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
+    const role = roleFromMetadata ?? (await getUserRole(data.user.id)) ?? 'patient';
 
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email || '',
-      role: role as UserRole || 'patient',
+      role,
     };
 
     return user;
@@ -252,20 +321,43 @@ export const onAuthStateChange = (
   callback: (user: AuthUser | null) => void
 ) => {
   const { data: authListener } = supabase.auth.onAuthStateChange(
-    async (event: any, session: any) => {
-      if (session && session.user) {
-        const role = await getUserRole(session.user.id);
-        const user: AuthUser = {
-          id: session.user.id,
-          email: session.user.email || '',
-          role: role as UserRole || 'patient',
-        };
-        callback(user);
-      } else {
+    (_event: AuthChangeEvent, session: Session | null) => {
+      if (!session?.user) {
         callback(null);
+        return;
       }
+
+      const sessionUser = session.user;
+      const roleFromMetadata = getRoleFromMetadata(sessionUser.user_metadata?.role);
+      const fallbackUser: AuthUser = {
+        id: sessionUser.id,
+        email: sessionUser.email || '',
+        role: roleFromMetadata ?? 'patient',
+      };
+
+      if (roleFromMetadata) {
+        callback(fallbackUser);
+        return;
+      }
+
+      // Avoid calling Supabase APIs synchronously inside this callback.
+      // auth-js holds an internal lock while this runs, and nested auth access can deadlock.
+      setTimeout(async () => {
+        try {
+          const role = await getUserRole(sessionUser.id);
+          callback({
+            ...fallbackUser,
+            role: role ?? 'patient',
+          });
+        } catch (error) {
+          console.error('Error resolving role during auth state change:', error);
+          callback(fallbackUser);
+        }
+      }, 0);
     }
   );
 
-  return authListener?.subscription.unsubscribe;
+  return () => {
+    authListener?.subscription.unsubscribe();
+  };
 };

@@ -14,7 +14,7 @@ export interface AmbulanceAssignment {
   id: string;
   ambulance_id: string;
   emergency_id: string;
-  emergency: {
+  emergency_requests: {
     id: string;
     patient_id: string;
     latitude: number;
@@ -28,6 +28,62 @@ export interface AmbulanceAssignment {
   assigned_at: string;
 }
 
+const isMissingColumnError = (error: any, column: string): boolean => {
+  const message = String(error?.message ?? '').toLowerCase();
+  return error?.code === '42703' && message.includes(column.toLowerCase());
+};
+
+/**
+ * Get ambulance ID for a driver
+ */
+export const getDriverAmbulanceId = async (
+  driverId: string
+): Promise<{ ambulanceId: string | null; error: Error | null }> => {
+  try {
+    let { data, error } = await supabase
+      .from('ambulances')
+      .select('id')
+      .eq('driver_id', driverId)
+      .limit(1)
+      .maybeSingle();
+
+    // Legacy schema fallback: some projects still use different driver-link columns.
+    if (error && isMissingColumnError(error, 'driver_id')) {
+      const { data: legacyRows, error: legacyError } = await supabase
+        .from('ambulances')
+        .select('*')
+        .limit(200);
+
+      if (legacyError) {
+        throw legacyError;
+      }
+
+      const legacyMatch = (legacyRows || []).find((row: any) => {
+        const candidates = [
+          row?.driver_id,
+          row?.user_id,
+          row?.driver_user_id,
+          row?.assigned_driver_id,
+          row?.driver,
+        ];
+        return candidates.some((value) => String(value ?? '') === driverId);
+      });
+
+      data = legacyMatch ? { id: legacyMatch.id } : null;
+      error = null;
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    return { ambulanceId: data?.id ?? null, error: null };
+  } catch (error) {
+    console.error('Error fetching driver ambulance:', error);
+    return { ambulanceId: null, error: error as Error };
+  }
+};
+
 /**
  * Get driver's ambulance assignment
  */
@@ -35,23 +91,56 @@ export const getDriverAssignment = async (
   driverId: string
 ): Promise<{ assignment: AmbulanceAssignment | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    const { ambulanceId, error: ambulanceError } = await getDriverAmbulanceId(driverId);
+    if (ambulanceError) {
+      throw ambulanceError;
+    }
+
+    if (!ambulanceId) {
+      return { assignment: null, error: null };
+    }
+
+    let data: any = null;
+    let error: any = null;
+
+    ({ data, error } = await supabase
       .from('emergency_assignments')
       .select(`
         *,
-        emergency:emergency_requests(*)
+        emergency_requests(*)
       `)
-      .eq('assigned_by', driverId)
+      .eq('ambulance_id', ambulanceId)
       .eq('status', 'pending')
       .order('assigned_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle());
 
-    if (error && error.code !== 'PGRST116') {
+    // Fallback for partially-migrated schemas missing emergency_assignments.status.
+    if (error && (error.code === '42703' || String(error.message || '').toLowerCase().includes('status'))) {
+      ({ data, error } = await supabase
+        .from('emergency_assignments')
+        .select(`
+          *,
+          emergency_requests(*)
+        `)
+        .eq('ambulance_id', ambulanceId)
+        .order('assigned_at', { ascending: false })
+        .limit(1)
+        .maybeSingle());
+    }
+
+    if (error) {
       throw error;
     }
 
-    return { assignment: data as AmbulanceAssignment | null, error: null };
+    const assignment = data
+      ? ({
+          ...data,
+          status: data.status ?? 'pending',
+        } as AmbulanceAssignment)
+      : null;
+
+    return { assignment, error: null };
   } catch (error) {
     console.error('Error fetching driver assignment:', error);
     return { assignment: null, error: error as Error };
@@ -292,25 +381,47 @@ export const subscribeToAssignments = (
   driverId: string,
   onAssignment: (assignment: AmbulanceAssignment) => void
 ) => {
-  const subscription = supabase
-    .channel(`assignments:${driverId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'emergency_assignments',
-        filter: `assigned_by=eq.${driverId}`,
-      },
-      (payload: any) => {
-        console.log('New assignment received:', payload.new);
-        onAssignment(payload.new as AmbulanceAssignment);
-      }
-    )
-    .subscribe();
+  let isClosed = false;
+  let subscription: ReturnType<typeof supabase.channel> | null = null;
+
+  void (async () => {
+    const { ambulanceId, error } = await getDriverAmbulanceId(driverId);
+    if (isClosed) return;
+
+    if (error) {
+      console.error('Failed to subscribe to assignments:', error);
+      return;
+    }
+
+    if (!ambulanceId) {
+      console.warn('No ambulance linked to this driver. Assignment subscription skipped.');
+      return;
+    }
+
+    subscription = supabase
+      .channel(`assignments:${ambulanceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'emergency_assignments',
+          filter: `ambulance_id=eq.${ambulanceId}`,
+        },
+        (payload: any) => {
+          console.log('New assignment received:', payload.new);
+          onAssignment({
+            ...(payload.new as AmbulanceAssignment),
+            status: payload.new.status ?? 'pending',
+          });
+        }
+      )
+      .subscribe();
+  })();
 
   return () => {
-    subscription.unsubscribe();
+    isClosed = true;
+    subscription?.unsubscribe();
   };
 };
 

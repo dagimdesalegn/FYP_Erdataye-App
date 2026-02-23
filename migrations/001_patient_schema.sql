@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS public.emergency_assignments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   emergency_id UUID NOT NULL REFERENCES public.emergency_requests(id) ON DELETE CASCADE,
   ambulance_id UUID NOT NULL REFERENCES public.ambulances(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'declined')),
   assigned_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   pickup_eta_minutes INTEGER,
@@ -113,6 +114,8 @@ CREATE INDEX IF NOT EXISTS idx_ambulances_status ON public.ambulances(status);
 CREATE INDEX IF NOT EXISTS idx_ambulance_locations_ambulance_id ON public.ambulance_locations(ambulance_id);
 CREATE INDEX IF NOT EXISTS idx_emergency_assignments_emergency_id ON public.emergency_assignments(emergency_id);
 CREATE INDEX IF NOT EXISTS idx_emergency_assignments_ambulance_id ON public.emergency_assignments(ambulance_id);
+CREATE INDEX IF NOT EXISTS idx_emergency_assignments_status ON public.emergency_assignments(status);
+CREATE INDEX IF NOT EXISTS idx_emergency_assignments_assigned_at ON public.emergency_assignments(assigned_at DESC);
 CREATE INDEX IF NOT EXISTS idx_hospital_assignments_emergency_id ON public.hospital_assignments(emergency_id);
 
 -- Enable Row Level Security
@@ -212,6 +215,17 @@ CREATE POLICY "Assignment: Drivers read own assignments" ON public.emergency_ass
 CREATE POLICY "Assignment: Only admins create assignments" ON public.emergency_assignments
   FOR INSERT
   WITH CHECK ((SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
+
+CREATE POLICY "Assignment: Drivers update own assignments" ON public.emergency_assignments
+  FOR UPDATE
+  USING (
+    ambulance_id IN (SELECT id FROM public.ambulances WHERE driver_id = auth.uid()) OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+  )
+  WITH CHECK (
+    ambulance_id IN (SELECT id FROM public.ambulances WHERE driver_id = auth.uid()) OR
+    (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+  );
 
 -- AMBULANCE LOCATIONS: Only drivers can insert/update own, admins can manage all
 CREATE POLICY "Location: Drivers update own location" ON public.ambulance_locations

@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getCurrentUserWithRole, signIn } from '@/utils/auth';
+import { signIn } from '@/utils/auth';
 import { useRouter } from 'expo-router';
 
 export default function LoginScreen() {
@@ -49,30 +49,19 @@ export default function LoginScreen() {
         return;
       }
 
-      console.log('User signed in, fetching role:', user.id);
-      
-      // Get full user info with role
-      const fullUser = await getCurrentUserWithRole();
-      
-      if (fullUser) {
-        console.log('Full user info retrieved:', { id: fullUser.id, role: fullUser.role });
-        setUser(fullUser);
-        setRegistered(true);
-        
-        // Route based on user role (admin users also route to patient tabs)
-        const route = fullUser.role === 'driver' ? '/driver-home' : '/(tabs)';
-        console.log('Navigating to route:', route);
-        
-        // Redirect after a brief delay for smooth transition
-        setTimeout(() => {
-          setLoading(false);
-          router.replace(route as any);
-        }, 600);
-      } else {
-        console.error('Failed to fetch user role from database');
+      console.log('User signed in:', { id: user.id, role: user.role });
+      setUser(user);
+      setRegistered(true);
+
+      // Route based on user role (admin users also route to patient tabs)
+      const route = user.role === 'driver' ? '/driver-home' : '/(tabs)';
+      console.log('Navigating to route:', route);
+
+      // Redirect after a brief delay for smooth transition
+      setTimeout(() => {
         setLoading(false);
-        Alert.alert('Error', 'Failed to fetch user information. Please try logging in again.');
-      }
+        router.replace(route as any);
+      }, 600);
     } catch (error) {
       console.error('Login exception:', error);
       setLoading(false);
