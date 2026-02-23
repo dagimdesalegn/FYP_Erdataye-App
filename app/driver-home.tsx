@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { getDriverAssignment, sendLocationUpdate, subscribeToAssignments } from '@/utils/driver';
+import { getDriverAmbulanceId, getDriverAssignment, sendLocationUpdate, subscribeToAssignments } from '@/utils/driver';
 import { useRouter } from 'expo-router';
 
 /**
@@ -27,6 +27,23 @@ export default function DriverHomeScreen() {
   const [loading, setLoading] = useState(false);
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
+  const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
+
+  // Load driver's ambulance ID
+  useEffect(() => {
+    if (!user) return;
+
+    const loadAmbulance = async () => {
+      const { ambulanceId: id, error } = await getDriverAmbulanceId(user.id);
+      if (error) {
+        console.error('Failed to load driver ambulance:', error);
+        return;
+      }
+      setAmbulanceId(id);
+    };
+
+    loadAmbulance();
+  }, [user]);
 
   // Check for existing assignment
   useEffect(() => {
@@ -58,7 +75,7 @@ export default function DriverHomeScreen() {
 
   // Send location updates when available
   useEffect(() => {
-    if (!isAvailable || !user) return;
+    if (!isAvailable || !user || !ambulanceId) return;
 
     let locationSubscription: Location.LocationSubscription | null = null;
     let intervalId: any = null;
@@ -75,17 +92,12 @@ export default function DriverHomeScreen() {
 
         // Send initial location
         const location = await Location.getCurrentPositionAsync();
-        if (user.id) {
-          // In production, get ambulance_id from driver profile
-          await sendLocationUpdate(user.id, location.coords.latitude, location.coords.longitude);
-        }
+        await sendLocationUpdate(ambulanceId, location.coords.latitude, location.coords.longitude);
 
         // Send location updates every 10 seconds
         intervalId = setInterval(async () => {
           const currentLocation = await Location.getCurrentPositionAsync();
-          if (user.id) {
-            await sendLocationUpdate(user.id, currentLocation.coords.latitude, currentLocation.coords.longitude);
-          }
+          await sendLocationUpdate(ambulanceId, currentLocation.coords.latitude, currentLocation.coords.longitude);
         }, 10000);
 
         console.log('Location tracking started');
@@ -99,7 +111,7 @@ export default function DriverHomeScreen() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAvailable, user]);
+  }, [isAvailable, user, ambulanceId]);
 
   const handleLogout = async () => {
     setIsAvailable(false);

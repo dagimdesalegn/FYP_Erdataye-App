@@ -17,23 +17,6 @@ import {
 } from '@/utils/driver';
 import { useRouter } from 'expo-router';
 
-interface Assignment {
-  id: string;
-  emergency_id: string;
-  driver_id: string;
-  ambulance_id: string;
-  status: string;
-  created_at: string;
-  emergency_requests: {
-    id: string;
-    patient_id: string;
-    severity: string;
-    location: { lat: number; lon: number };
-    description: string;
-    status: string;
-  };
-}
-
 interface PatientInfo {
   id: string;
   full_name: string;
@@ -74,7 +57,7 @@ export default function DriverEmergencyScreen() {
 
           // Load patient info
           const { info, error: patientError } = await getPatientInfo(
-            assignment.emergency?.patient_id || ''
+            assignment.emergency_requests?.patient_id || ''
           );
           if (!patientError && info) {
             setPatientInfo(info);
@@ -232,7 +215,7 @@ export default function DriverEmergencyScreen() {
             <View style={{ marginLeft: 12, flex: 1 }}>
               <ThemedText style={styles.detailLabel}>Location</ThemedText>
               <ThemedText style={styles.detailValue}>
-                {emergency.location?.lat.toFixed(4)}, {emergency.location?.lon.toFixed(4)}
+                {Number(emergency.latitude).toFixed(4)}, {Number(emergency.longitude).toFixed(4)}
               </ThemedText>
             </View>
           </View>
