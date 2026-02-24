@@ -1,20 +1,72 @@
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
+import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getActiveEmergency } from '@/utils/patient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HelpScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
+  const { user } = useAppState();
   const colors = Colors[colorScheme];
   const isDark = colorScheme === 'dark';
   const [helpOpen, setHelpOpen] = React.useState(false);
+  const [activeEmergencyId, setActiveEmergencyId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadActiveEmergency = async () => {
+      if (!user?.id) {
+        if (!cancelled) setActiveEmergencyId(null);
+        return;
+      }
+
+      const { emergency } = await getActiveEmergency(user.id);
+      if (!cancelled) {
+        setActiveEmergencyId(emergency?.id ?? null);
+      }
+    };
+
+    void loadActiveEmergency();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  const openPatientEmergency = React.useCallback(() => {
+    if (!user?.id) {
+      router.push('/login');
+      return;
+    }
+
+    if (activeEmergencyId) {
+      router.push(`/patient-emergency-tracking?emergencyId=${activeEmergencyId}`);
+      return;
+    }
+
+    router.push('/patient-emergency');
+  }, [activeEmergencyId, router, user?.id]);
+
+  const handleForMe = () => {
+    setHelpOpen(false);
+    openPatientEmergency();
+  };
+
+  const handleForOther = () => {
+    setHelpOpen(false);
+    router.push('/patient-emergency');
+  };
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
@@ -68,7 +120,7 @@ export default function HelpScreen() {
           <View style={styles.actionCol}>
             <AppButton
               label="Direct"
-              onPress={() => {}}
+              onPress={openPatientEmergency}
               variant="secondary"
               fullWidth
               leftIcon={<MaterialIcons name="phone-in-talk" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
@@ -77,40 +129,75 @@ export default function HelpScreen() {
           </View>
         </View>
 
-        <Modal transparent visible={helpOpen} animationType="fade" onRequestClose={() => setHelpOpen(false)}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setHelpOpen(false)} />
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) + 14, backgroundColor: isDark ? '#0B1220' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
-            <View style={styles.sheetHeader}>
-              <ThemedText style={styles.sheetTitle}>Choose help type</ThemedText>
-              <Pressable onPress={() => setHelpOpen(false)} style={({ pressed }) => [styles.sheetClose, pressed ? { opacity: 0.7 } : null]}>
-                <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
-              </Pressable>
-            </View>
+        <View style={styles.quickRow}>
+          <View style={styles.actionCol}>
+            <AppButton
+              label={activeEmergencyId ? 'Track Emergency' : 'Request Ambulance'}
+              onPress={openPatientEmergency}
+              variant="primary"
+              fullWidth
+              leftIcon={<MaterialIcons name="emergency" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+              style={styles.actionBtn}
+            />
+          </View>
+          <View style={styles.actionCol}>
+            <AppButton
+              label="Medical Profile"
+              onPress={() => router.push('/patient-profile')}
+              variant="secondary"
+              fullWidth
+              leftIcon={<MaterialIcons name="badge" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+              style={styles.actionBtn}
+            />
+          </View>
+        </View>
 
-            <View style={styles.modalActionsRow}>
-              <View style={styles.actionCol}>
-                <AppButton
-                  label="For me"
-                  onPress={() => {}}
-                  variant="ghost"
-                  fullWidth
-                  leftIcon={<MaterialIcons name="person" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
-                  style={[styles.actionBtn, styles.modalMeBtn]}
-                />
+        {helpOpen ? (
+          <View style={styles.modalRoot}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setHelpOpen(false)} />
+            <View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, 14) + 14,
+                  backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
+                  borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                },
+              ]}>
+              <View style={styles.sheetHeader}>
+                <ThemedText style={styles.sheetTitle}>Choose help type</ThemedText>
+                <Pressable
+                  onPress={() => setHelpOpen(false)}
+                  style={({ pressed }) => [styles.sheetClose, pressed ? { opacity: 0.7 } : null]}>
+                  <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+                </Pressable>
               </View>
-              <View style={styles.actionCol}>
-                <AppButton
-                  label="For other"
-                  onPress={() => {}}
-                  variant="ghost"
-                  fullWidth
-                  leftIcon={<MaterialIcons name="groups" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
-                  style={[styles.actionBtn, styles.modalOtherBtn]}
-                />
+
+              <View style={styles.modalActionsRow}>
+                <View style={styles.actionCol}>
+                  <AppButton
+                    label="For me"
+                    onPress={handleForMe}
+                    variant="ghost"
+                    fullWidth
+                    leftIcon={<MaterialIcons name="person" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+                    style={[styles.actionBtn, styles.modalMeBtn]}
+                  />
+                </View>
+                <View style={styles.actionCol}>
+                  <AppButton
+                    label="For other"
+                    onPress={handleForOther}
+                    variant="ghost"
+                    fullWidth
+                    leftIcon={<MaterialIcons name="groups" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+                    style={[styles.actionBtn, styles.modalOtherBtn]}
+                  />
+                </View>
               </View>
             </View>
           </View>
-        </Modal>
+        ) : null}
       </View>
     </View>
   );
@@ -196,6 +283,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
+  quickRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    gap: 12,
+  },
   modalActionsRow: {
     marginTop: 12,
     flexDirection: 'row',
@@ -207,6 +299,10 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
   },
   sheet: {
     position: 'absolute',
