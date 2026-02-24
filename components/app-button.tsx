@@ -69,7 +69,10 @@ export function AppButton({
       duration: 150,
       useNativeDriver: false,
     }).start();
-    onPress();
+    // Call onPress immediately, don't wait for animation
+    if (!disabled && !loading && onPress) {
+      onPress();
+    }
   };
 
   const animatedStyle = {
