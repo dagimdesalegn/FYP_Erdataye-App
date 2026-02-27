@@ -20,10 +20,12 @@ export function AppHeader({
   title,
   actions,
   announcementHref,
+  onProfilePress,
 }: {
   title: string;
   actions?: HeaderAction[];
   announcementHref?: Href;
+  onProfilePress?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -128,6 +130,21 @@ export function AppHeader({
               </ThemedText>
             </Pressable>
           ))}
+          {onProfilePress ? (
+            <Pressable
+              onPress={onProfilePress}
+              style={({ pressed }) => [
+                styles.toggleBase,
+                {
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.08)',
+                  borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
+                  borderRadius: 20,
+                },
+                pressed ? { opacity: 0.85 } : null,
+              ]}>
+              <MaterialIcons name="person" size={18} color="#DC2626" />
+            </Pressable>
+          ) : null}
         </View>
       </View>
     </View>
