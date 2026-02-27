@@ -167,7 +167,7 @@ export default function RegisterScreen() {
         try {
           const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
             blood_type: form.bloodType || 'Unknown',
-            allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()).filter(Boolean) : [],
+            allergies: form.allergies.trim(),
             emergency_contact_name: form.fullName.trim(),
             emergency_contact_phone: emergencyContactPhone,
             medical_conditions: '',

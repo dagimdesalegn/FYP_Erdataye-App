@@ -33,15 +33,15 @@ interface PatientProfileForm {
 }
 
 /**
- * Parse allergies from DB into a comma-separated display string.
- * Handles: JS array, PostgreSQL text-array literal "{a,b}", plain string, null.
+ * Parse allergies from DB into a display string.
+ * Handles: JS array (legacy), PostgreSQL text-array literal "{a,b}" (legacy), plain string, null.
  */
 const parseAllergiesToString = (raw: unknown): string => {
   if (!raw) return '';
   if (Array.isArray(raw)) return raw.filter(Boolean).join(', ');
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
-    // PostgreSQL array literal: {val1,val2}
+    // Legacy PostgreSQL array literal: {val1,val2}
     if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
       return trimmed
         .slice(1, -1)
@@ -50,20 +50,16 @@ const parseAllergiesToString = (raw: unknown): string => {
         .filter(Boolean)
         .join(', ');
     }
+    // Legacy JSON array: ["a","b"]
+    if (trimmed.startsWith('[')) {
+      try {
+        const arr = JSON.parse(trimmed);
+        if (Array.isArray(arr)) return arr.filter(Boolean).join(', ');
+      } catch { /* not JSON, treat as plain string */ }
+    }
     return trimmed;
   }
   return String(raw);
-};
-
-/**
- * Convert a comma-separated allergies string into a proper JS array for DB storage.
- */
-const parseAllergiesToArray = (text: string): string[] => {
-  if (!text || !text.trim()) return [];
-  return text
-    .split(',')
-    .map((a) => a.trim())
-    .filter(Boolean);
 };
 
 export default function PatientProfileScreen() {
@@ -188,7 +184,7 @@ export default function PatientProfileScreen() {
       // 2. Update medical_profiles table
       const { success, error } = await upsertMedicalProfile(user.id, {
         blood_type: form.bloodType || 'Unknown',
-        allergies: parseAllergiesToArray(form.allergies),
+        allergies: form.allergies.trim(),
         medical_conditions: form.medicalConditions || '',
         emergency_contact_name: form.emergencyContactName.trim(),
         emergency_contact_phone: form.emergencyContactPhone
