@@ -84,12 +84,14 @@ export default function PatientProfileScreen() {
           allergies: Array.isArray(medicalProfile.allergies)
             ? medicalProfile.allergies.join(', ')
             : '',
-          medicalConditions: Array.isArray(medicalProfile.medical_conditions)
-            ? medicalProfile.medical_conditions.join(', ')
+          medicalConditions: Array.isArray(medicalProfile.chronic_conditions)
+            ? medicalProfile.chronic_conditions.join(', ')
             : '',
           emergencyContactName: medicalProfile.emergency_contact_name || '',
           emergencyContactPhone: medicalProfile.emergency_contact_phone || '',
-          medications: '',
+          medications: Array.isArray(medicalProfile.medications)
+            ? medicalProfile.medications.join(', ')
+            : '',
           notes: '',
         }));
       }
@@ -131,8 +133,11 @@ export default function PatientProfileScreen() {
       const { success, error } = await upsertMedicalProfile(user.id, {
         blood_type: form.bloodType || 'Unknown',
         allergies: form.allergies ? form.allergies.split(',').map((a) => a.trim()) : [],
-        medical_conditions: form.medicalConditions
+        chronic_conditions: form.medicalConditions
           ? form.medicalConditions.split(',').map((c) => c.trim())
+          : [],
+        medications: form.medications
+          ? form.medications.split(',').map((m) => m.trim())
           : [],
         emergency_contact_name: form.emergencyContactName,
         emergency_contact_phone: form.emergencyContactPhone,
