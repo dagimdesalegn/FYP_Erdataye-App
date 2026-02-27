@@ -51,7 +51,7 @@ export default function AdminScreen() {
       setError(null);
       let query = supabase
         .from('profiles')
-        .select('id, full_name, email, phone, role, created_at, updated_at')
+        .select('id, full_name, phone, role, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (filterRole !== 'all') {
@@ -216,7 +216,7 @@ export default function AdminScreen() {
           <MaterialIcons name="search" size={20} color={subText} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Search by name, email, or phone..."
+            placeholder="Search by name or phone..."
             placeholderTextColor={subText}
             value={search}
             onChangeText={setSearch}
