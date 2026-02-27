@@ -1,9 +1,10 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
+import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -11,7 +12,13 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { getDriverAmbulanceId, getDriverAssignment, sendLocationUpdate, subscribeToAssignments } from '@/utils/driver';
+import {
+  getDriverAmbulanceId,
+  getDriverAssignment,
+  sendLocationUpdate,
+  subscribeToAssignments,
+} from '@/utils/driver';
+import { getUserProfile, type UserProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
 /**
@@ -22,12 +29,17 @@ export default function DriverHomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user, setUser } = useAppState();
-  
+
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
+
+  // Profile modal
+  const [profileVisible, setProfileVisible] = useState(false);
+  const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   // Load driver's ambulance ID
   useEffect(() => {
@@ -64,7 +76,7 @@ export default function DriverHomeScreen() {
   useEffect(() => {
     if (!user || !isAvailable) return;
 
-    const unsubscribe = subscribeToAssignments(user.id, (assignment) => {
+    const unsubscribe = subscribeToAssignments(user.id, (_assignment) => {
       setHasAssignment(true);
       setAssignmentCount((prev) => prev + 1);
       Alert.alert('New Emergency', 'You have a new emergency assignment');
@@ -77,12 +89,10 @@ export default function DriverHomeScreen() {
   useEffect(() => {
     if (!isAvailable || !user || !ambulanceId) return;
 
-    let locationSubscription: Location.LocationSubscription | null = null;
-    let intervalId: any = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startLocationTracking = async () => {
       try {
-        // Request location permission
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
           Alert.alert('Permission Denied', 'Location access is required for ambulance tracking');
@@ -90,14 +100,16 @@ export default function DriverHomeScreen() {
           return;
         }
 
-        // Send initial location
         const location = await Location.getCurrentPositionAsync();
         await sendLocationUpdate(ambulanceId, location.coords.latitude, location.coords.longitude);
 
-        // Send location updates every 10 seconds
         intervalId = setInterval(async () => {
           const currentLocation = await Location.getCurrentPositionAsync();
-          await sendLocationUpdate(ambulanceId, currentLocation.coords.latitude, currentLocation.coords.longitude);
+          await sendLocationUpdate(
+            ambulanceId,
+            currentLocation.coords.latitude,
+            currentLocation.coords.longitude
+          );
         }, 10000);
 
         console.log('Location tracking started');
@@ -128,28 +140,75 @@ export default function DriverHomeScreen() {
     router.push('/driver-emergency' as any);
   };
 
+  const handleProfilePress = async () => {
+    setProfileVisible(true);
+    if (!user?.id || driverProfile) return;
+    setProfileLoading(true);
+    try {
+      const { profile } = await getUserProfile(user.id);
+      if (profile) setDriverProfile(profile);
+    } catch (e) {
+      console.error('Error loading driver profile:', e);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // --- Profile Info Row ---
+  const InfoRow = ({
+    icon,
+    label,
+    value,
+  }: {
+    icon: keyof typeof MaterialIcons.glyphMap;
+    label: string;
+    value: string;
+  }) => (
+    <View style={styles.infoRow}>
+      <MaterialIcons
+        name={icon}
+        size={20}
+        color={isDark ? '#0EA5E9' : '#0284C7'}
+        style={{ marginRight: 12 }}
+      />
+      <View style={{ flex: 1 }}>
+        <ThemedText style={styles.infoLabel}>{label}</ThemedText>
+        <ThemedText style={styles.infoValue}>{value || '—'}</ThemedText>
+      </View>
+    </View>
+  );
+
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Loading..." />
 
+      {/* App Header – project name top-left, theme toggle + profile icon top-right */}
+      <AppHeader title="ErdAtaye" onProfilePress={handleProfilePress} />
+
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <ThemedView style={styles.header}>
-          <View>
-            <ThemedText style={styles.greeting}>Welcome, Driver</ThemedText>
-            <ThemedText style={styles.email}>{user?.email}</ThemedText>
+        {/* Welcome Card */}
+        <ThemedView style={styles.welcomeCard}>
+          <View style={styles.welcomeRow}>
+            <View style={[styles.avatarCircle, isDark && styles.avatarCircleDark]}>
+              <MaterialIcons
+                name="local-shipping"
+                size={28}
+                color={isDark ? '#0EA5E9' : '#0284C7'}
+              />
+            </View>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <ThemedText style={styles.greeting}>
+                Welcome, {user?.fullName || 'Driver'}
+              </ThemedText>
+              <ThemedText style={styles.email}>{user?.email}</ThemedText>
+            </View>
           </View>
-          <Pressable
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.logoutBtn, pressed && { opacity: 0.7 }]}>
-            <MaterialIcons name="logout" size={24} color="#DC2626" />
-          </Pressable>
         </ThemedView>
 
         {/* Status Card */}
         <ThemedView style={[styles.card, styles.statusCard]}>
           <ThemedText style={styles.cardTitle}>Driver Status</ThemedText>
-          
+
           <Pressable
             onPress={() => setIsAvailable(!isAvailable)}
             style={[
@@ -182,7 +241,8 @@ export default function DriverHomeScreen() {
               <ThemedText style={styles.alertTitle}>New Assignment!</ThemedText>
             </View>
             <ThemedText style={styles.alertSubtitle}>
-              You have {assignmentCount} incoming emergency{assignmentCount > 1 ? 's' : ''}
+              You have {assignmentCount} incoming emergency
+              {assignmentCount > 1 ? 's' : ''}
             </ThemedText>
             <AppButton
               label="View Assignment"
@@ -215,15 +275,101 @@ export default function DriverHomeScreen() {
           </ThemedView>
         </View>
 
-        {/* Help Section */}
-        <ThemedView style={styles.card}>
-          <ThemedText style={styles.cardTitle}>Need Help?</ThemedText>
-          <Pressable style={styles.helpButton}>
-            <MaterialIcons name="help-outline" size={20} color="#0EA5E9" />
-            <ThemedText style={{ color: '#0EA5E9', marginLeft: 8 }}>Contact Support</ThemedText>
-          </Pressable>
-        </ThemedView>
+        {/* Sign Out */}
+        <AppButton
+          label="Sign Out"
+          onPress={handleLogout}
+          variant="secondary"
+          fullWidth
+          style={{ marginTop: 8 }}
+        />
       </ScrollView>
+
+      {/* ===== Driver Profile Modal (read-only) ===== */}
+      <Modal
+        visible={profileVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setProfileVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <ThemedView
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? '#111827' : '#FFFFFF' },
+            ]}>
+            {/* Close button top-right of the modal card */}
+            <Pressable
+              onPress={() => setProfileVisible(false)}
+              style={[
+                styles.modalCloseBtn,
+                {
+                  backgroundColor: isDark ? '#1E2028' : '#F1F5F9',
+                  borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                },
+              ]}>
+              <MaterialIcons
+                name="close"
+                size={20}
+                color={isDark ? '#E6E9EC' : '#11181C'}
+              />
+            </Pressable>
+
+            {/* Avatar */}
+            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+              <View
+                style={[
+                  styles.profileAvatar,
+                  isDark ? styles.profileAvatarDark : styles.profileAvatarLight,
+                ]}>
+                <MaterialIcons
+                  name="person"
+                  size={40}
+                  color={isDark ? '#0EA5E9' : '#0284C7'}
+                />
+              </View>
+              <ThemedText style={styles.profileTitle}>Driver Profile</ThemedText>
+            </View>
+
+            {profileLoading ? (
+              <ThemedText style={{ textAlign: 'center', marginVertical: 20, opacity: 0.6 }}>
+                Loading...
+              </ThemedText>
+            ) : driverProfile ? (
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: 360 }}>
+                <InfoRow icon="person" label="Full Name" value={driverProfile.full_name} />
+                <InfoRow icon="email" label="Email" value={driverProfile.email || ''} />
+                <InfoRow icon="phone" label="Phone" value={driverProfile.phone} />
+                <InfoRow icon="badge" label="Role" value={driverProfile.role} />
+                <InfoRow
+                  icon="local-hospital"
+                  label="Hospital ID"
+                  value={driverProfile.hospital_id || 'Not assigned'}
+                />
+                <InfoRow
+                  icon="local-shipping"
+                  label="Ambulance ID"
+                  value={ambulanceId || 'Not assigned'}
+                />
+                <InfoRow
+                  icon="calendar-today"
+                  label="Member Since"
+                  value={
+                    driverProfile.created_at
+                      ? new Date(driverProfile.created_at).toLocaleDateString()
+                      : ''
+                  }
+                />
+              </ScrollView>
+            ) : (
+              <ThemedText style={{ textAlign: 'center', marginVertical: 20, opacity: 0.6 }}>
+                No profile data available
+              </ThemedText>
+            )}
+          </ThemedView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -236,27 +382,36 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  header: {
+  welcomeCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  welcomeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingVertical: 12,
+  },
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCircleDark: {
+    backgroundColor: '#0C1F3A',
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     fontFamily: Fonts.sans,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   email: {
     fontSize: 13,
     opacity: 0.6,
     fontFamily: Fonts.sans,
-  },
-  logoutBtn: {
-    padding: 8,
-    borderRadius: 12,
   },
   card: {
     borderRadius: 16,
@@ -338,9 +493,73 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: Fonts.sans,
   },
-  helpButton: {
+  /* ---- Profile Modal ---- */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  profileAvatarLight: {
+    backgroundColor: '#F0F9FF',
+  },
+  profileAvatarDark: {
+    backgroundColor: '#0C1F3A',
+  },
+  profileTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    fontFamily: Fonts.sans,
+  },
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.5,
+    fontFamily: Fonts.sans,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
   },
 });
