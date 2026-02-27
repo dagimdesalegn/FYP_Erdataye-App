@@ -25,7 +25,7 @@ export default function RegisterScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
   const [form, setForm] = useState({
-    email: '',
+    phone: '',
     password: '',
     fullName: '',
     bloodType: '',
@@ -35,7 +35,36 @@ export default function RegisterScreen() {
     registrationNumber: '',
   });
 
+  /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
+  const phoneToAuthEmail = (phone: string): string => {
+    let digits = phone.replace(/[^0-9]/g, '');
+    if (digits.startsWith('0') && digits.length === 10) digits = '251' + digits.substring(1);
+    if (digits.length === 9 && digits.startsWith('9')) digits = '251' + digits;
+    return digits + '@phone.erdataye.app';
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    const digits = phone.replace(/[^0-9]/g, '');
+    if (digits.length === 10 && digits.startsWith('0')) return true;
+    if (digits.length === 9 && digits.startsWith('9')) return true;
+    if (digits.length === 12 && digits.startsWith('251')) return true;
+    return false;
+  };
+
+  const formatPhoneForDB = (phone: string): string => {
+    let digits = phone.replace(/[^0-9]/g, '');
+    if (digits.startsWith('0') && digits.length === 10) digits = '251' + digits.substring(1);
+    if (digits.length === 9 && digits.startsWith('9')) digits = '251' + digits;
+    return '+' + digits;
+  };
+
   const handleChange = (key: string, value: string) => {
+    // Phone fields: strip non-numeric except leading +
+    if (key === 'phone' || key === 'contact') {
+      const cleaned = value.replace(/[^0-9+]/g, '');
+      setForm({ ...form, [key]: cleaned });
+      return;
+    }
     setForm({ ...form, [key]: value });
   };
 
@@ -43,9 +72,19 @@ export default function RegisterScreen() {
     console.log('handleSubmit called');
     
     // Validate form
-    if (!form.email || !form.password || !form.fullName) {
-      console.log('Validation failed:', { email: !!form.email, password: !!form.password, fullName: !!form.fullName });
-      Alert.alert('Error', 'Please fill in all required fields (email, password, name)');
+    if (!form.phone || !form.password || !form.fullName) {
+      console.log('Validation failed:', { phone: !!form.phone, password: !!form.password, fullName: !!form.fullName });
+      Alert.alert('Error', 'Please fill in all required fields (phone, password, name)');
+      return;
+    }
+
+    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+      Alert.alert('Error', 'Please enter a valid full name (at least 2 characters)');
+      return;
+    }
+
+    if (!validatePhone(form.phone)) {
+      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678');
       return;
     }
 
@@ -56,11 +95,17 @@ export default function RegisterScreen() {
     }
 
     // Contact is recommended but not required
-    if (!form.contact) {
-      Alert.alert('Warning', 'Contact number is recommended for emergency purposes. Continue anyway?', [
+    if (!form.contact && userRole === 'patient') {
+      Alert.alert('Warning', 'Emergency contact number is recommended. Continue anyway?', [
         { text: 'Go Back', onPress: () => {}, style: 'cancel' },
         { text: 'Continue', onPress: () => performSignup() },
       ]);
+      return;
+    }
+
+    // Validate emergency contact phone format if provided
+    if (form.contact && !validatePhone(form.contact)) {
+      Alert.alert('Invalid Contact', 'Emergency contact must be a valid Ethiopian phone number.\nExample: 0912345678');
       return;
     }
 
@@ -79,19 +124,23 @@ export default function RegisterScreen() {
     console.log('performSignup called');
     setLoading(true);
     try {
+      const authEmail = phoneToAuthEmail(form.phone);
+      const dbPhone = formatPhoneForDB(form.phone);
+      const emergencyContactPhone = form.contact ? formatPhoneForDB(form.contact) : '';
+
       console.log('Starting signup with:', { 
-        email: form.email, 
+        authEmail, 
         fullName: form.fullName,
         role: userRole 
       });
       
       // Sign up user with role
       const { user, error } = await signUp(
-        form.email,
+        authEmail,
         form.password,
         userRole,
-        form.fullName,
-        form.contact
+        form.fullName.trim(),
+        dbPhone
       );
 
       console.log('Signup result:', { user, error });
@@ -111,8 +160,8 @@ export default function RegisterScreen() {
           const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
             blood_type: form.bloodType || 'Unknown',
             allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()).filter(Boolean) : [],
-            emergency_contact_name: form.fullName,
-            emergency_contact_phone: form.contact,
+            emergency_contact_name: form.fullName.trim(),
+            emergency_contact_phone: emergencyContactPhone,
             medical_conditions: '',
           });
 
@@ -273,17 +322,18 @@ export default function RegisterScreen() {
             <View style={styles.form}>
               <View style={styles.row}>
                 <View style={styles.fieldHalf}>
-                  <ThemedText style={[styles.label, { color: textPrimary }]}>Email *</ThemedText>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="mail-outline" size={16} color={textSecondary} style={styles.inputIcon} />
+                    <MaterialIcons name="phone" size={16} color={textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="Email"
+                      placeholder="+2519XXXXXXXX"
                       placeholderTextColor={placeholderColor}
-                      keyboardType="email-address"
+                      keyboardType="phone-pad"
                       autoCapitalize="none"
-                      value={form.email}
-                      onChangeText={(t) => handleChange('email', t)}
+                      maxLength={13}
+                      value={form.phone}
+                      onChangeText={(t) => handleChange('phone', t)}
                       editable={!loading}
                     />
                   </View>
@@ -312,8 +362,9 @@ export default function RegisterScreen() {
                     <MaterialIcons name="person-outline" size={16} color={textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="Full Name"
+                      placeholder="Enter your full name"
                       placeholderTextColor={placeholderColor}
+                      autoCapitalize="words"
                       value={form.fullName}
                       onChangeText={(t) => handleChange('fullName', t)}
                       editable={!loading}
@@ -321,14 +372,15 @@ export default function RegisterScreen() {
                   </View>
                 </View>
                 <View style={styles.fieldHalf}>
-                  <ThemedText style={[styles.label, { color: textPrimary }]}>Contact *</ThemedText>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>Emergency Contact</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="phone" size={16} color={textSecondary} style={styles.inputIcon} />
+                    <MaterialIcons name="contact-phone" size={16} color={textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="Phone"
+                      placeholder="+2519XXXXXXXX"
                       placeholderTextColor={placeholderColor}
                       keyboardType="phone-pad"
+                      maxLength={13}
                       value={form.contact}
                       onChangeText={(t) => handleChange('contact', t)}
                       editable={!loading}
