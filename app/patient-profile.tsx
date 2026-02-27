@@ -132,7 +132,30 @@ export default function PatientProfileScreen() {
   };
 
   const handleChange = (key: keyof PatientProfileForm, value: string) => {
+    // Phone fields: strip non-numeric except leading +
+    if (key === 'phone' || key === 'emergencyContactPhone') {
+      const cleaned = value.replace(/[^0-9+]/g, '');
+      setForm((prev) => ({ ...prev, [key]: cleaned }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return false;
+    const digits = phone.replace(/[^0-9]/g, '');
+    if (digits.length === 10 && digits.startsWith('0')) return true;
+    if (digits.length === 9 && digits.startsWith('9')) return true;
+    if (digits.length === 12 && digits.startsWith('251')) return true;
+    return false;
+  };
+
+  const formatPhoneForDB = (phone: string): string => {
+    if (!phone) return '';
+    let digits = phone.replace(/[^0-9]/g, '');
+    if (digits.startsWith('0') && digits.length === 10) digits = '251' + digits.substring(1);
+    if (digits.length === 9 && digits.startsWith('9')) digits = '251' + digits;
+    return '+' + digits;
   };
 
   const handleSave = async () => {
@@ -141,8 +164,18 @@ export default function PatientProfileScreen() {
       return;
     }
 
-    if (!form.fullName || !form.phone) {
-      Alert.alert('Error', 'Please fill in name and phone number');
+    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
+      Alert.alert('Error', 'Please enter a valid full name (at least 2 characters)');
+      return;
+    }
+
+    if (!validatePhone(form.phone)) {
+      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678');
+      return;
+    }
+
+    if (form.emergencyContactPhone && !validatePhone(form.emergencyContactPhone)) {
+      Alert.alert('Invalid Phone', 'Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678');
       return;
     }
 
@@ -150,8 +183,8 @@ export default function PatientProfileScreen() {
     try {
       // 1. Update profiles table (full_name, phone)
       const { success: profileSuccess, error: profileError } = await updateUserProfile(user.id, {
-        full_name: form.fullName,
-        phone: form.phone,
+        full_name: form.fullName.trim(),
+        phone: formatPhoneForDB(form.phone),
       });
       if (!profileSuccess) {
         throw profileError || new Error('Failed to update profile');
@@ -162,8 +195,10 @@ export default function PatientProfileScreen() {
         blood_type: form.bloodType || 'Unknown',
         allergies: parseAllergiesToArray(form.allergies),
         medical_conditions: form.medicalConditions || '',
-        emergency_contact_name: form.emergencyContactName,
-        emergency_contact_phone: form.emergencyContactPhone,
+        emergency_contact_name: form.emergencyContactName.trim(),
+        emergency_contact_phone: form.emergencyContactPhone
+          ? formatPhoneForDB(form.emergencyContactPhone)
+          : '',
       });
 
       if (!success) {
@@ -171,7 +206,7 @@ export default function PatientProfileScreen() {
       }
 
       // 3. Update app state so name reflects everywhere
-      setUser({ ...user, fullName: form.fullName, phone: form.phone });
+      setUser({ ...user, fullName: form.fullName.trim(), phone: formatPhoneForDB(form.phone) });
 
       // 4. Show success banner
       setSuccessVisible(true);
@@ -257,8 +292,9 @@ export default function PatientProfileScreen() {
               <ThemedText style={styles.label}>Full Name *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Your full name"
+                placeholder="Enter your full name"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                autoCapitalize="words"
                 value={form.fullName}
                 onChangeText={(text) => handleChange('fullName', text)}
                 editable={!saving}
@@ -267,9 +303,10 @@ export default function PatientProfileScreen() {
               <ThemedText style={styles.label}>Phone Number *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Contact number"
+                placeholder="+2519XXXXXXXX"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 keyboardType="phone-pad"
+                maxLength={13}
                 value={form.phone}
                 onChangeText={(text) => handleChange('phone', text)}
                 editable={!saving}
@@ -352,6 +389,7 @@ export default function PatientProfileScreen() {
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="Emergency contact name"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                autoCapitalize="words"
                 value={form.emergencyContactName}
                 onChangeText={(text) => handleChange('emergencyContactName', text)}
                 editable={!saving}
@@ -360,9 +398,10 @@ export default function PatientProfileScreen() {
               <ThemedText style={styles.label}>Contact Phone</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Emergency contact number"
+                placeholder="+2519XXXXXXXX"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 keyboardType="phone-pad"
+                maxLength={13}
                 value={form.emergencyContactPhone}
                 onChangeText={(text) => handleChange('emergencyContactPhone', text)}
                 editable={!saving}

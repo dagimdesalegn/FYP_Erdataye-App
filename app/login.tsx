@@ -35,16 +35,53 @@ export default function LoginScreen() {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
 
-  const handleChange = (key: string, value: string) => setForm({ ...form, [key]: value });
+  const handleChange = (key: string, value: string) => {
+    // For phone field – strip non-numeric except leading +
+    if (key === 'email') {
+      // Allow digits and leading +
+      const cleaned = value.replace(/[^0-9+]/g, '');
+      setForm({ ...form, [key]: cleaned });
+      return;
+    }
+    setForm({ ...form, [key]: value });
+  };
+
+  /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
+  const phoneToAuthEmail = (phone: string): string => {
+    let digits = phone.replace(/[^0-9]/g, '');
+    // 09XXXXXXXX → 2519XXXXXXXX
+    if (digits.startsWith('0') && digits.length === 10) {
+      digits = '251' + digits.substring(1);
+    }
+    // 9XXXXXXXX → 2519XXXXXXXX
+    if (digits.length === 9 && digits.startsWith('9')) {
+      digits = '251' + digits;
+    }
+    return digits + '@phone.erdataye.app';
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    const digits = phone.replace(/[^0-9]/g, '');
+    // Accept: 09XXXXXXXX (10), 9XXXXXXXX (9), 2519XXXXXXXX (12)
+    if (digits.length === 10 && digits.startsWith('0')) return true;
+    if (digits.length === 9 && digits.startsWith('9')) return true;
+    if (digits.length === 12 && digits.startsWith('251')) return true;
+    return false;
+  };
 
   const handleLogin = async () => {
     if (!form.email || !form.password) {
-      Alert.alert('Error', 'Please enter both email and password');
+      Alert.alert('Error', 'Please enter both phone number and password');
+      return;
+    }
+    if (!validatePhone(form.email)) {
+      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251. Example: 0912345678');
       return;
     }
     setLoading(true);
     try {
-      const { user, error } = await signIn(form.email, form.password);
+      const authEmail = phoneToAuthEmail(form.email);
+      const { user, error } = await signIn(authEmail, form.password);
       if (error || !user) {
         setLoading(false);
         Alert.alert('Login Failed', error?.message || 'Failed to sign in');
@@ -129,20 +166,21 @@ export default function LoginScreen() {
 
             {/* Form */}
             <View style={styles.form}>
-              {/* Email */}
+              {/* Phone Number */}
               <View style={styles.fieldGroup}>
-                <ThemedText style={[styles.label, { color: textPrimary }]}>Email</ThemedText>
+                <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
                 <View style={[
                   styles.inputWrap,
                   { backgroundColor: inputBg, borderColor: focusedField === 'email' ? inputFocusBorder : inputBorder },
                 ]}>
-                  <MaterialIcons name="mail-outline" size={18} color={focusedField === 'email' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
+                  <MaterialIcons name="phone" size={18} color={focusedField === 'email' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: textPrimary }]}
-                    placeholder="you@example.com"
+                    placeholder="+2519XXXXXXXX"
                     placeholderTextColor={placeholderColor}
-                    keyboardType="email-address"
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
+                    maxLength={13}
                     value={form.email}
                     onChangeText={(t) => handleChange('email', t)}
                     onFocus={() => setFocusedField('email')}
