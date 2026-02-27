@@ -30,8 +30,6 @@ interface PatientProfileForm {
   medicalConditions: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
-  medications: string;
-  notes: string;
 }
 
 /**
@@ -85,8 +83,6 @@ export default function PatientProfileScreen() {
     medicalConditions: '',
     emergencyContactName: '',
     emergencyContactPhone: '',
-    medications: '',
-    notes: '',
   });
 
   useEffect(() => {
@@ -119,8 +115,7 @@ export default function PatientProfileScreen() {
           medicalConditions: medicalProfile.medical_conditions || '',
           emergencyContactName: medicalProfile.emergency_contact_name || '',
           emergencyContactPhone: medicalProfile.emergency_contact_phone || '',
-          medications: '',
-          notes: '',
+
         }));
       }
     } catch (error) {
@@ -353,29 +348,7 @@ export default function PatientProfileScreen() {
                 editable={!saving}
               />
 
-              <ThemedText style={styles.label}>Current Medications (comma-separated)</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="e.g. Aspirin, Insulin, Lisinopril"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.medications}
-                onChangeText={(text) => handleChange('medications', text)}
-                multiline
-                numberOfLines={2}
-                editable={!saving}
-              />
 
-              <ThemedText style={styles.label}>Additional Notes</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Any other medical information..."
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.notes}
-                onChangeText={(text) => handleChange('notes', text)}
-                multiline
-                numberOfLines={3}
-                editable={!saving}
-              />
             </View>
 
             {/* Emergency Contact Section */}
