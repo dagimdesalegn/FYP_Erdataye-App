@@ -34,6 +34,40 @@ interface PatientProfileForm {
   notes: string;
 }
 
+/**
+ * Parse allergies from DB into a comma-separated display string.
+ * Handles: JS array, PostgreSQL text-array literal "{a,b}", plain string, null.
+ */
+const parseAllergiesToString = (raw: unknown): string => {
+  if (!raw) return '';
+  if (Array.isArray(raw)) return raw.filter(Boolean).join(', ');
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    // PostgreSQL array literal: {val1,val2}
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return trimmed
+        .slice(1, -1)
+        .split(',')
+        .map((s) => s.trim().replace(/^"|"$/g, ''))
+        .filter(Boolean)
+        .join(', ');
+    }
+    return trimmed;
+  }
+  return String(raw);
+};
+
+/**
+ * Convert a comma-separated allergies string into a proper JS array for DB storage.
+ */
+const parseAllergiesToArray = (text: string): string[] => {
+  if (!text || !text.trim()) return [];
+  return text
+    .split(',')
+    .map((a) => a.trim())
+    .filter(Boolean);
+};
+
 export default function PatientProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -81,9 +115,7 @@ export default function PatientProfileScreen() {
         setForm((prev) => ({
           ...prev,
           bloodType: medicalProfile.blood_type || '',
-          allergies: Array.isArray(medicalProfile.allergies)
-            ? medicalProfile.allergies.join(', ')
-            : '',
+          allergies: parseAllergiesToString(medicalProfile.allergies),
           medicalConditions: medicalProfile.medical_conditions || '',
           emergencyContactName: medicalProfile.emergency_contact_name || '',
           emergencyContactPhone: medicalProfile.emergency_contact_phone || '',
@@ -128,7 +160,7 @@ export default function PatientProfileScreen() {
       // 2. Update medical_profiles table
       const { success, error } = await upsertMedicalProfile(user.id, {
         blood_type: form.bloodType || 'Unknown',
-        allergies: form.allergies ? form.allergies.split(',').map((a) => a.trim()) : [],
+        allergies: parseAllergiesToArray(form.allergies),
         medical_conditions: form.medicalConditions || '',
         emergency_contact_name: form.emergencyContactName,
         emergency_contact_phone: form.emergencyContactPhone,
