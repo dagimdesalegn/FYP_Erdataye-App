@@ -2,26 +2,25 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    useWindowDimensions,
+    View
 } from 'react-native';
 
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signIn } from '@/utils/auth';
 import { useRouter } from 'expo-router';
 
-const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_MAX_W = 440;
 
 export default function LoginScreen() {
@@ -33,6 +32,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [form, setForm] = useState({ email: '', password: '' });
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isSmallScreen = windowWidth < 480;
 
   const handleChange = (key: string, value: string) => setForm({ ...form, [key]: value });
 
@@ -78,7 +79,7 @@ export default function LoginScreen() {
   const placeholderColor = isDark ? '#475569' : '#94A3B8';
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <View style={[styles.root, { backgroundColor: bg }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Signing in..." />
 
       {/* Top accent gradient */}
@@ -90,16 +91,24 @@ export default function LoginScreen() {
       />
 
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, Platform.OS === 'web' && { minHeight: '100vh' as any }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[
+            styles.scroll,
+            Platform.OS === 'web' && { minHeight: '100vh' as any },
+            isSmallScreen && { paddingHorizontal: 8, paddingVertical: 12 },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
 
           {/* Card */}
-          <View style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={[
+            styles.card,
+            { backgroundColor: cardBg, borderColor: cardBorder },
+            isSmallScreen && { paddingHorizontal: 16, paddingVertical: 20, borderRadius: 14 },
+          ]}>
 
             {/* Logo / Header area */}
             <View style={styles.headerArea}>
@@ -226,20 +235,27 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  flex: { flex: 1 },
+  root: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any, overflow: 'auto' as any } : {}),
+  },
+  flex: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
+  },
   topGradient: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 220,
+    height: 260,
   },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
   /* ---- Card ---- */
   card: {
@@ -248,8 +264,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 28,
-    paddingVertical: 36,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
@@ -257,15 +273,15 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   /* ---- Header ---- */
-  headerArea: { alignItems: 'center', marginBottom: 28 },
+  headerArea: { alignItems: 'center', marginBottom: 14 },
   logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -273,34 +289,34 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   brand: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 1,
   },
   /* ---- Title / Subtitle ---- */
   title: {
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '800',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
-    marginBottom: 6,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   /* ---- Form ---- */
-  form: { gap: 20 },
+  form: { gap: 12 },
   fieldGroup: { gap: 6 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: {
@@ -313,9 +329,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 14,
-    height: 52,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 12,
   },
   inputIcon: { marginRight: 10 },
   input: {
@@ -333,13 +349,13 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   /* ---- Primary button ---- */
-  primaryBtn: { marginTop: 4, borderRadius: 14, overflow: 'hidden' },
+  primaryBtn: { marginTop: 2, borderRadius: 12, overflow: 'hidden' },
   primaryBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 12,
     gap: 8,
   },
   primaryBtnText: {
@@ -354,7 +370,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginVertical: 20,
+    marginVertical: 10,
   },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans },
@@ -363,8 +379,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 14,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1.5,
     gap: 8,
   },
