@@ -1,22 +1,14 @@
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { Dimensions, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
-import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const FEATURES = [
-  { icon: 'speed' as const, label: 'Fast Response', desc: 'Nearest ambulance dispatched in seconds' },
-  { icon: 'verified' as const, label: 'Verified Access', desc: 'Secure medical profile & identity' },
-  { icon: 'health-and-safety' as const, label: 'First Aid', desc: 'Step-by-step emergency guidance' },
-];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,9 +21,6 @@ export default function HomeScreen() {
   const titleColor = Colors[theme].text;
   const subText = isDark ? '#94A3B8' : '#64748B';
   const cardBorder = isDark ? '#1F2937' : '#E2E8F0';
-  const featureBg = isDark ? 'rgba(220,38,38,0.08)' : 'rgba(220,38,38,0.05)';
-  const featureBorder = isDark ? 'rgba(220,38,38,0.18)' : 'rgba(220,38,38,0.12)';
-  const featureIconBg = isDark ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.1)';
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -64,21 +53,6 @@ export default function HomeScreen() {
             <ThemedText style={[styles.description, { color: subText }]}>
               Quick ambulance request, verified access, and first-aid support designed for Ethiopia.
             </ThemedText>
-          </View>
-
-          {/* Features */}
-          <View style={styles.features}>
-            {FEATURES.map((f, i) => (
-              <View key={i} style={[styles.featureCard, { backgroundColor: featureBg, borderColor: featureBorder }]}>
-                <View style={[styles.featureIcon, { backgroundColor: featureIconBg }]}>
-                  <MaterialIcons name={f.icon} size={20} color="#DC2626" />
-                </View>
-                <View style={styles.featureText}>
-                  <ThemedText style={[styles.featureTitle, { color: titleColor }]}>{f.label}</ThemedText>
-                  <ThemedText style={[styles.featureDesc, { color: subText }]}>{f.desc}</ThemedText>
-                </View>
-              </View>
-            ))}
           </View>
 
           {/* CTA Buttons */}
@@ -170,44 +144,6 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-  },
-
-  /* Features */
-  features: {
-    width: '100%',
-    gap: 10,
-  },
-  featureCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  featureIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureText: {
-    flex: 1,
-    gap: 1,
-  },
-  featureTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-    letterSpacing: -0.1,
-  },
-  featureDesc: {
-    fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: '500',
-    lineHeight: 17,
   },
 
   /* CTA */
