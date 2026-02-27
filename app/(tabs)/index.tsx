@@ -315,60 +315,77 @@ export default function HomeScreen() {
         announcementHref="/modal"
       />
 
-      <View style={styles.scrollContainer}>
+      <View style={[styles.scrollContainer, isWide && styles.scrollContainerWide]}>
         <View style={[styles.pageContent, isWide && styles.pageContentWide]}>
-          <View style={[isWide && styles.leftColumn]}>
-          <View style={styles.heroTop}>
-            <ThemedText
-              style={[
-                styles.title,
-                {
-                  color: titleColor,
-                  fontSize: isSmall ? 28 : 32,
-                  lineHeight: isSmall ? 36 : 42,
-                  paddingBottom: isSmall ? 2 : 2,
-                  marginBottom: isSmall ? 4 : 4,
-                  fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded,
-                },
-              ]}>
-              እርዳታዬ
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.subtitle,
-                {
-                  color: subText,
-                  fontSize: isSmall ? 13 : 14,
-                  marginTop: isSmall ? 0 : 0,
-                  marginBottom: isSmall ? 4 : 4,
-                  lineHeight: isSmall ? 18 : 20,
-                  fontFamily: Fonts.sans,
-                },
-              ]}>
-              Emergency Ambulance Service for Ethiopia
-            </ThemedText>
-            <ThemedText
-              style={[
-                styles.description,
-                {
-                  color: subText,
-                  fontSize: isSmall ? 12 : 13,
-                  lineHeight: isSmall ? 18 : 20,
-                  fontFamily: Fonts.sans,
-                },
-              ]}>
-              Quick ambulance request, verified access, and first-aid support designed for Ethiopia.
-            </ThemedText>
-          </View>
+          {/* Left Column: Hero + Animation */}
+          <View style={[styles.leftColumn, isWide && styles.leftColumnWide]}>
+            <View style={[styles.heroTop, isWide && styles.heroTopWide]}>
+              <ThemedText
+                style={[
+                  styles.title,
+                  {
+                    color: titleColor,
+                    fontSize: isWide ? 48 : isSmall ? 28 : 32,
+                    lineHeight: isWide ? 56 : isSmall ? 36 : 42,
+                    paddingBottom: 2,
+                    marginBottom: isWide ? 8 : 4,
+                    fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded,
+                  },
+                ]}>
+                እርዳታዬ
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.subtitle,
+                  {
+                    color: subText,
+                    fontSize: isWide ? 18 : isSmall ? 13 : 14,
+                    marginBottom: isWide ? 10 : 4,
+                    lineHeight: isWide ? 26 : isSmall ? 18 : 20,
+                    fontFamily: Fonts.sans,
+                  },
+                ]}>
+                Emergency Ambulance Service for Ethiopia
+              </ThemedText>
+              <ThemedText
+                style={[
+                  styles.description,
+                  {
+                    color: subText,
+                    fontSize: isWide ? 15 : isSmall ? 12 : 13,
+                    lineHeight: isWide ? 24 : isSmall ? 18 : 20,
+                    maxWidth: isWide ? 440 : 360,
+                    fontFamily: Fonts.sans,
+                  },
+                ]}>
+                Quick ambulance request, verified access, and first-aid support designed for Ethiopia.
+              </ThemedText>
 
-          <View style={styles.midLogoRow}>
+              {/* Feature badges - desktop only */}
+              {isWide && (
+                <View style={styles.featureBadges}>
+                  {[
+                    { icon: 'speed', label: 'Fast Response' },
+                    { icon: 'verified', label: 'Verified Access' },
+                    { icon: 'health-and-safety', label: 'First Aid' },
+                  ].map((f, i) => (
+                    <View key={i} style={[styles.featureBadge, { backgroundColor: isDark ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.08)', borderColor: isDark ? 'rgba(220,38,38,0.25)' : 'rgba(220,38,38,0.15)' }]}>
+                      <MaterialIcons name={f.icon as any} size={16} color="#DC2626" />
+                      <ThemedText style={[styles.featureBadgeText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>{f.label}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={[styles.midLogoRow, isWide && styles.midLogoRowWide]}>
             <View
               style={[
                 styles.scene,
                 {
                   backgroundColor: logoBg,
                   borderColor: cardBorder,
-                  height: isSmall || isShort ? 180 : 200,
+                  height: isWide ? 280 : isSmall || isShort ? 180 : 200,
                 },
               ]}
             >
@@ -571,15 +588,20 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-
           </View>
 
+          {/* Right Column: CTA Card */}
           <View style={[styles.ctaSection, isWide && styles.rightColumn]}>
-            <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
-            <ThemedText style={[styles.cardTitle, { color: titleColor }]}>
+            <ThemedView style={[styles.card, isWide && styles.cardWide, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.cardIconRow}>
+              <View style={[styles.cardIconCircle, { backgroundColor: isDark ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.1)' }]}>
+                <MaterialIcons name={isRegistered ? 'local-hospital' : 'rocket-launch'} size={isWide ? 28 : 22} color="#DC2626" />
+              </View>
+            </View>
+            <ThemedText style={[styles.cardTitle, isWide && styles.cardTitleWide, { color: titleColor }]}>
               {isRegistered ? 'Emergency services' : 'Activate services'}
             </ThemedText>
-            <ThemedText style={[styles.cardBody, { color: subText }]}>
+            <ThemedText style={[styles.cardBody, isWide && styles.cardBodyWide, { color: subText }]}>
               {isRegistered
                 ? 'You are registered. Continue to request assistance.'
                 : 'Register your medical profile to unlock emergency actions and first-aid support.'}
@@ -634,6 +656,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
+  scrollContainerWide: {
+    paddingHorizontal: 40,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
   pageContent: {
     justifyContent: 'center',
     alignItems: 'center',
@@ -643,16 +670,19 @@ const styles = StyleSheet.create({
   },
   pageContentWide: {
     flexDirection: 'row',
-    maxWidth: 960,
-    gap: 32,
+    maxWidth: 1100,
+    gap: 48,
     alignItems: 'center',
   },
   leftColumn: {
-    flex: 1,
     alignItems: 'center',
   },
+  leftColumnWide: {
+    flex: 1.2,
+    alignItems: 'flex-start',
+  },
   rightColumn: {
-    flex: 1,
+    flex: 0.8,
     marginTop: 0,
   },
   heroTop: {
@@ -663,12 +693,41 @@ const styles = StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 4,
   },
+  heroTopWide: {
+    alignItems: 'flex-start',
+    paddingBottom: 16,
+  },
+  featureBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 16,
+  },
+  featureBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  featureBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.2,
+  },
   midLogoRow: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 4,
     gap: 6,
     width: '100%',
+  },
+  midLogoRowWide: {
+    paddingBottom: 0,
+    paddingTop: 8,
   },
   ctaSection: {
     marginTop: 0,
@@ -692,7 +751,7 @@ const styles = StyleSheet.create({
   },
   scene: {
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 620,
     height: 200,
     borderRadius: 20,
     borderWidth: 1,
@@ -956,7 +1015,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 2,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: -1,
     textShadow: '0px 2px 10px rgba(0,0,0,0.35)',
   } as any,
   subtitle: {
@@ -975,30 +1034,53 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     fontFamily: Fonts.sans,
     fontWeight: '500',
+    opacity: 0.85,
   },
   card: {
     width: '100%',
     alignSelf: 'center',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#EEF2F6',
-    boxShadow: '0px 14px 24px rgba(0, 0, 0, 0.1)',
-    elevation: 6,
+    boxShadow: '0px 16px 32px rgba(0, 0, 0, 0.12)',
+    elevation: 8,
+  },
+  cardWide: {
+    padding: 28,
+    borderRadius: 24,
+  },
+  cardIconRow: {
+    marginBottom: 12,
+  },
+  cardIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    marginBottom: 4,
+    marginBottom: 6,
     fontFamily: Fonts.sans,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+  },
+  cardTitleWide: {
+    fontSize: 22,
+    marginBottom: 8,
   },
   cardBody: {
     fontSize: 13,
     color: '#64748B',
-    lineHeight: 18,
+    lineHeight: 20,
     fontFamily: Fonts.sans,
     fontWeight: '500',
+  },
+  cardBodyWide: {
+    fontSize: 15,
+    lineHeight: 24,
   },
   primaryButtonContainer: {
     marginBottom: 6,
@@ -1027,8 +1109,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   ctaStack: {
-    marginTop: 10,
-    gap: 6,
+    marginTop: 16,
+    gap: 10,
   },
   primaryCta: {
     boxShadow: '0px 12px 24px rgba(220, 38, 38, 0.4)',
