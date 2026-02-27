@@ -13,10 +13,12 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
 import {
+  getDriverAmbulanceDetails,
   getDriverAmbulanceId,
   getDriverAssignment,
   sendLocationUpdate,
   subscribeToAssignments,
+  type AmbulanceDetails,
 } from '@/utils/driver';
 import { getUserProfile, type UserProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
@@ -35,13 +37,14 @@ export default function DriverHomeScreen() {
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
+  const [ambulanceDetails, setAmbulanceDetails] = useState<AmbulanceDetails | null>(null);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
   const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Load driver's ambulance ID
+  // Load driver's ambulance ID and details
   useEffect(() => {
     if (!user) return;
 
@@ -52,6 +55,10 @@ export default function DriverHomeScreen() {
         return;
       }
       setAmbulanceId(id);
+
+      // Also load full details
+      const { ambulance } = await getDriverAmbulanceDetails(user.id);
+      if (ambulance) setAmbulanceDetails(ambulance);
     };
 
     loadAmbulance();
@@ -343,14 +350,19 @@ export default function DriverHomeScreen() {
                 <InfoRow icon="phone" label="Phone" value={driverProfile.phone} />
                 <InfoRow icon="badge" label="Role" value={driverProfile.role} />
                 <InfoRow
-                  icon="local-hospital"
-                  label="Hospital ID"
-                  value={driverProfile.hospital_id || 'Not assigned'}
+                  icon="directions-car"
+                  label="Plate Number"
+                  value={ambulanceDetails?.vehicle_number || 'Not assigned'}
                 />
                 <InfoRow
-                  icon="local-shipping"
-                  label="Ambulance ID"
-                  value={ambulanceId || 'Not assigned'}
+                  icon="assignment"
+                  label="Ambulance Type"
+                  value={ambulanceDetails?.type || 'Not assigned'}
+                />
+                <InfoRow
+                  icon="local-hospital"
+                  label="Hospital"
+                  value={driverProfile.hospital_id || 'Not assigned'}
                 />
                 <InfoRow
                   icon="calendar-today"

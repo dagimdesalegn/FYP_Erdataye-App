@@ -15,6 +15,7 @@ import {
     getDriverAssignment,
     getPatientInfo,
 } from '@/utils/driver';
+import { parsePostGISPoint } from '@/utils/emergency';
 import { useRouter } from 'expo-router';
 
 interface PatientInfo {
@@ -183,8 +184,9 @@ export default function DriverEmergencyScreen() {
   }
 
   const emergency = assignment.emergency_requests;
-  const severityColor = getSeverityColor(emergency.severity);
-  const severityIcon = getSeverityIcon(emergency.severity);
+  const emergencyCoords = parsePostGISPoint(emergency.patient_location);
+  const severityColor = getSeverityColor(emergency.emergency_type);
+  const severityIcon = getSeverityIcon(emergency.emergency_type);
 
   return (
     <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
@@ -200,7 +202,7 @@ export default function DriverEmergencyScreen() {
           <MaterialIcons name={severityIcon} size={48} color={severityColor} />
           <View style={{ marginLeft: 12, flex: 1 }}>
             <ThemedText style={[styles.severity, { color: severityColor }]}>
-              {emergency.severity?.toUpperCase() || 'UNKNOWN'} SEVERITY
+              {emergency.emergency_type?.toUpperCase() || 'UNKNOWN'} SEVERITY
             </ThemedText>
             <ThemedText style={styles.emergencyType}>Emergency Request</ThemedText>
           </View>
@@ -215,7 +217,7 @@ export default function DriverEmergencyScreen() {
             <View style={{ marginLeft: 12, flex: 1 }}>
               <ThemedText style={styles.detailLabel}>Location</ThemedText>
               <ThemedText style={styles.detailValue}>
-                {Number(emergency.latitude).toFixed(4)}, {Number(emergency.longitude).toFixed(4)}
+                {Number(emergencyCoords?.latitude ?? 0).toFixed(4)}, {Number(emergencyCoords?.longitude ?? 0).toFixed(4)}
               </ThemedText>
             </View>
           </View>

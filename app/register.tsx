@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signUp, UserRole } from '@/utils/auth';
+import { upsertDriverAmbulance } from '@/utils/driver';
 import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
@@ -63,6 +64,14 @@ export default function RegisterScreen() {
       return;
     }
 
+    // Driver-specific validation
+    if (userRole === 'driver') {
+      if (!form.plateNumber || !form.registrationNumber) {
+        Alert.alert('Error', 'Please enter both plate number and registration number');
+        return;
+      }
+    }
+
     performSignup();
   };
 
@@ -101,10 +110,10 @@ export default function RegisterScreen() {
         try {
           const { success: medicalSuccess, error: medicalError } = await upsertMedicalProfile(user.id, {
             blood_type: form.bloodType || 'Unknown',
-            allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()) : [],
+            allergies: form.allergies ? form.allergies.split(',').map(a => a.trim()).filter(Boolean) : [],
             emergency_contact_name: form.fullName,
             emergency_contact_phone: form.contact,
-            medical_conditions: [],
+            medical_conditions: '',
           });
 
           console.log('Medical profile result:', { medicalSuccess, medicalError });
@@ -118,6 +127,26 @@ export default function RegisterScreen() {
         } catch (err) {
           console.warn('Exception creating medical profile:', err);
           Alert.alert('Warning', 'Account created but medical profile could not be saved. You can update it later in your profile.');
+        }
+      }
+
+      // For driver role, create ambulance row
+      if (userRole === 'driver' && form.plateNumber) {
+        try {
+          const { ambulanceId, error: ambError } = await upsertDriverAmbulance(
+            user.id,
+            form.plateNumber,
+            form.registrationNumber || 'standard'
+          );
+
+          if (ambError) {
+            console.warn('Warning: Ambulance creation failed:', ambError.message);
+            Alert.alert('Warning', 'Account created but ambulance could not be linked. Contact admin.');
+          } else {
+            console.log('Ambulance linked to driver:', ambulanceId);
+          }
+        } catch (err) {
+          console.warn('Exception creating ambulance:', err);
         }
       }
 
@@ -567,7 +596,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: '500',
     height: '100%',
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
   primaryBtn: {
     marginTop: 4,

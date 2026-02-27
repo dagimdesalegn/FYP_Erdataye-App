@@ -109,13 +109,17 @@ export default function PatientEmergencyScreen() {
 
     setLoading(true);
     try {
+      // Combine description + condition into a single description field
+      const fullDescription = [description, patientCondition ? `Condition: ${patientCondition}` : '']
+        .filter(Boolean)
+        .join(' — ') || undefined;
+
       const { emergency, error } = await createEmergency(
         user.id,
         location.latitude,
         location.longitude,
-        severity,
-        description || undefined,
-        patientCondition || undefined
+        severity,        // stored as emergency_type in DB
+        fullDescription
       );
 
       if (error || !emergency) {
