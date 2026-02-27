@@ -25,7 +25,6 @@ export default function HomeScreen() {
   const screenHeight = Dimensions.get('window').height;
   const isSmall = screenWidth < 380;
   const isShort = screenHeight < 740;
-  const isWide = screenWidth >= 768;
 
   const pageBg = Colors[theme].background;
   const titleColor = Colors[theme].text;
@@ -315,20 +314,20 @@ export default function HomeScreen() {
         announcementHref="/modal"
       />
 
-      <View style={[styles.scrollContainer, isWide && styles.scrollContainerWide]}>
-        <View style={[styles.pageContent, isWide && styles.pageContentWide]}>
-          {/* Left Column: Hero + Animation */}
-          <View style={[styles.leftColumn, isWide && styles.leftColumnWide]}>
-            <View style={[styles.heroTop, isWide && styles.heroTopWide]}>
+      <View style={styles.scrollContainer}>
+        <View style={styles.pageContent}>
+          {/* Top Section: Hero + Animation */}
+          <View style={styles.topSection}>
+            <View style={styles.heroTop}>
               <ThemedText
                 style={[
                   styles.title,
                   {
                     color: titleColor,
-                    fontSize: isWide ? 48 : isSmall ? 28 : 32,
-                    lineHeight: isWide ? 56 : isSmall ? 36 : 42,
+                    fontSize: isSmall ? 28 : 36,
+                    lineHeight: isSmall ? 36 : 44,
                     paddingBottom: 2,
-                    marginBottom: isWide ? 8 : 4,
+                    marginBottom: 4,
                     fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded,
                   },
                 ]}>
@@ -339,9 +338,9 @@ export default function HomeScreen() {
                   styles.subtitle,
                   {
                     color: subText,
-                    fontSize: isWide ? 18 : isSmall ? 13 : 14,
-                    marginBottom: isWide ? 10 : 4,
-                    lineHeight: isWide ? 26 : isSmall ? 18 : 20,
+                    fontSize: isSmall ? 13 : 15,
+                    marginBottom: 4,
+                    lineHeight: isSmall ? 18 : 22,
                     fontFamily: Fonts.sans,
                   },
                 ]}>
@@ -352,40 +351,38 @@ export default function HomeScreen() {
                   styles.description,
                   {
                     color: subText,
-                    fontSize: isWide ? 15 : isSmall ? 12 : 13,
-                    lineHeight: isWide ? 24 : isSmall ? 18 : 20,
-                    maxWidth: isWide ? 440 : 360,
+                    fontSize: isSmall ? 12 : 13,
+                    lineHeight: isSmall ? 18 : 20,
+                    maxWidth: 420,
                     fontFamily: Fonts.sans,
                   },
                 ]}>
                 Quick ambulance request, verified access, and first-aid support designed for Ethiopia.
               </ThemedText>
 
-              {/* Feature badges - desktop only */}
-              {isWide && (
-                <View style={styles.featureBadges}>
-                  {[
-                    { icon: 'speed', label: 'Fast Response' },
-                    { icon: 'verified', label: 'Verified Access' },
-                    { icon: 'health-and-safety', label: 'First Aid' },
-                  ].map((f, i) => (
-                    <View key={i} style={[styles.featureBadge, { backgroundColor: isDark ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.08)', borderColor: isDark ? 'rgba(220,38,38,0.25)' : 'rgba(220,38,38,0.15)' }]}>
-                      <MaterialIcons name={f.icon as any} size={16} color="#DC2626" />
-                      <ThemedText style={[styles.featureBadgeText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>{f.label}</ThemedText>
-                    </View>
-                  ))}
-                </View>
-              )}
+              {/* Feature badges */}
+              <View style={styles.featureBadges}>
+                {[
+                  { icon: 'speed', label: 'Fast Response' },
+                  { icon: 'verified', label: 'Verified Access' },
+                  { icon: 'health-and-safety', label: 'First Aid' },
+                ].map((f, i) => (
+                  <View key={i} style={[styles.featureBadge, { backgroundColor: isDark ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.08)', borderColor: isDark ? 'rgba(220,38,38,0.25)' : 'rgba(220,38,38,0.15)' }]}>
+                    <MaterialIcons name={f.icon as any} size={14} color="#DC2626" />
+                    <ThemedText style={[styles.featureBadgeText, { color: isDark ? '#FCA5A5' : '#991B1B' }]}>{f.label}</ThemedText>
+                  </View>
+                ))}
+              </View>
             </View>
 
-            <View style={[styles.midLogoRow, isWide && styles.midLogoRowWide]}>
+            <View style={styles.midLogoRow}>
             <View
               style={[
                 styles.scene,
                 {
                   backgroundColor: logoBg,
                   borderColor: cardBorder,
-                  height: isWide ? 280 : isSmall || isShort ? 180 : 200,
+                  height: isSmall || isShort ? 160 : 190,
                 },
               ]}
             >
@@ -590,22 +587,24 @@ export default function HomeScreen() {
           </View>
           </View>
 
-          {/* Right Column: CTA Card */}
-          <View style={[styles.ctaSection, isWide && styles.rightColumn]}>
-            <ThemedView style={[styles.card, isWide && styles.cardWide, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-            <View style={styles.cardIconRow}>
+          {/* Bottom Section: CTA Card */}
+          <View style={styles.bottomSection}>
+            <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.cardTopRow}>
               <View style={[styles.cardIconCircle, { backgroundColor: isDark ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.1)' }]}>
-                <MaterialIcons name={isRegistered ? 'local-hospital' : 'rocket-launch'} size={isWide ? 28 : 22} color="#DC2626" />
+                <MaterialIcons name={isRegistered ? 'local-hospital' : 'rocket-launch'} size={20} color="#DC2626" />
+              </View>
+              <View style={styles.cardTextGroup}>
+                <ThemedText style={[styles.cardTitle, { color: titleColor }]}>
+                  {isRegistered ? 'Emergency services' : 'Activate services'}
+                </ThemedText>
+                <ThemedText style={[styles.cardBody, { color: subText }]}>
+                  {isRegistered
+                    ? 'You are registered. Continue to request assistance.'
+                    : 'Register your medical profile to unlock emergency actions and first-aid support.'}
+                </ThemedText>
               </View>
             </View>
-            <ThemedText style={[styles.cardTitle, isWide && styles.cardTitleWide, { color: titleColor }]}>
-              {isRegistered ? 'Emergency services' : 'Activate services'}
-            </ThemedText>
-            <ThemedText style={[styles.cardBody, isWide && styles.cardBodyWide, { color: subText }]}>
-              {isRegistered
-                ? 'You are registered. Continue to request assistance.'
-                : 'Register your medical profile to unlock emergency actions and first-aid support.'}
-            </ThemedText>
 
             {isRegistered ? (
               <View style={styles.buttonRow}>
@@ -618,7 +617,7 @@ export default function HomeScreen() {
                 />
               </View>
             ) : (
-              <View style={styles.ctaStack}>
+              <View style={styles.ctaButtonsRow}>
                 <AppButton
                   label="Sign In"
                   onPress={() => router.push('/login')}
@@ -649,41 +648,29 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    paddingBottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
-  scrollContainerWide: {
-    paddingHorizontal: 40,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
   pageContent: {
-    justifyContent: 'center',
+    flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
+    width: '100%',
     maxWidth: 520,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  topSection: {
+    alignItems: 'center',
     width: '100%',
   },
-  pageContentWide: {
-    flexDirection: 'row',
-    maxWidth: 1100,
-    gap: 48,
-    alignItems: 'center',
-  },
-  leftColumn: {
-    alignItems: 'center',
-  },
-  leftColumnWide: {
-    flex: 1.2,
-    alignItems: 'flex-start',
-  },
-  rightColumn: {
-    flex: 0.8,
-    marginTop: 0,
+  bottomSection: {
+    width: '100%',
+    marginTop: 8,
   },
   heroTop: {
     maxWidth: 520,
@@ -691,29 +678,27 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     alignItems: 'center',
     paddingTop: 0,
-    paddingBottom: 4,
-  },
-  heroTopWide: {
-    alignItems: 'flex-start',
-    paddingBottom: 16,
+    paddingBottom: 0,
   },
   featureBadges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 16,
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
   featureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
   },
   featureBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.2,
@@ -721,13 +706,9 @@ const styles = StyleSheet.create({
   midLogoRow: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 4,
-    gap: 6,
-    width: '100%',
-  },
-  midLogoRowWide: {
     paddingBottom: 0,
-    paddingTop: 8,
+    paddingTop: 6,
+    width: '100%',
   },
   ctaSection: {
     marginTop: 0,
@@ -751,9 +732,9 @@ const styles = StyleSheet.create({
   },
   scene: {
     width: '100%',
-    maxWidth: 620,
-    height: 200,
-    borderRadius: 20,
+    maxWidth: 520,
+    height: 190,
+    borderRadius: 18,
     borderWidth: 1,
     borderBottomWidth: 2,
     borderBottomColor: '#0B0B0B',
@@ -1039,48 +1020,42 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     alignSelf: 'center',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#EEF2F6',
-    boxShadow: '0px 16px 32px rgba(0, 0, 0, 0.12)',
-    elevation: 8,
+    boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.1)',
+    elevation: 6,
   },
-  cardWide: {
-    padding: 28,
-    borderRadius: 24,
-  },
-  cardIconRow: {
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 12,
   },
+  cardTextGroup: {
+    flex: 1,
+  },
   cardIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 2,
     fontFamily: Fonts.sans,
     letterSpacing: -0.3,
   },
-  cardTitleWide: {
-    fontSize: 22,
-    marginBottom: 8,
-  },
   cardBody: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    lineHeight: 20,
+    lineHeight: 17,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-  },
-  cardBodyWide: {
-    fontSize: 15,
-    lineHeight: 24,
   },
   primaryButtonContainer: {
     marginBottom: 6,
@@ -1106,11 +1081,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   buttonRow: {
-    marginTop: 12,
+    marginTop: 4,
   },
-  ctaStack: {
-    marginTop: 16,
+  ctaButtonsRow: {
+    flexDirection: 'row',
     gap: 10,
+    marginTop: 4,
   },
   primaryCta: {
     boxShadow: '0px 12px 24px rgba(220, 38, 38, 0.4)',
