@@ -622,14 +622,12 @@ export default function HomeScreen() {
                   label="Sign In"
                   onPress={() => router.push('/login')}
                   variant="secondary"
-                  fullWidth
                   style={styles.secondaryCta}
                 />
                 <AppButton
                   label="Create Account"
                   onPress={() => router.push('/register')}
                   variant="primary"
-                  fullWidth
                   style={styles.primaryCta}
                 />
               </View>
