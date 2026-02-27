@@ -164,20 +164,6 @@ export default function PatientProfileScreen() {
     <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
       <LoadingModal visible={saving} colorScheme={colorScheme} message="Saving profile..." />
 
-      {/* Close / Back button */}
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.closeBtn,
-          {
-            backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
-            borderColor: isDark ? '#2E3236' : '#E6ECF2',
-          },
-        ]}
-      >
-        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
-      </Pressable>
-
       {/* Success Banner */}
       {successVisible && (
         <Animated.View
@@ -203,6 +189,20 @@ export default function PatientProfileScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <ThemedView style={styles.card}>
+            {/* Close / Back button – top-right of the card */}
+            <Pressable
+              onPress={() => router.back()}
+              style={[
+                styles.closeBtn,
+                {
+                  backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
+                  borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                },
+              ]}
+            >
+              <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+            </Pressable>
+
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.avatarContainer}>
@@ -464,9 +464,9 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: 18,
-    right: 16,
-    zIndex: 100,
+    top: 12,
+    right: 12,
+    zIndex: 10,
     width: 36,
     height: 36,
     borderRadius: 12,

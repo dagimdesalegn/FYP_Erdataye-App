@@ -259,37 +259,47 @@ export const signIn = async (
 
     const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
 
-    // Heal missing profile rows so role lookups and medical profile writes work reliably.
-    const profilePayload = buildProfilePayload({
-      id: data.user.id,
-      email: data.user.email || '',
-      role: roleFromMetadata ?? 'patient',
-      fullName: String(data.user.user_metadata?.full_name || ''),
-      phone: String(data.user.user_metadata?.phone || `phone_${Date.now()}`),
-    });
-    const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
-    if (upsertProfileError && upsertProfileError.code !== '23503') {
-      console.error('Profile ensure error on sign in:', upsertProfileError);
-    }
-
-    const role = roleFromMetadata ?? (await getUserRole(data.user.id)) ?? 'patient';
-
-    // Read profile from DB to get the latest full_name and phone
+    // Read existing profile from DB (single query for both heal-check and data)
     let dbFullName = '';
     let dbPhone = '';
+    let profileExists = false;
+    let dbRole: UserRole | null = null;
     try {
       const { data: profileRow } = await supabase
         .from('profiles')
-        .select('full_name, phone')
+        .select('full_name, phone, role')
         .eq('id', data.user.id)
         .single();
       if (profileRow) {
+        profileExists = true;
         dbFullName = profileRow.full_name || '';
         dbPhone = profileRow.phone || '';
+        dbRole = isUserRole(profileRow.role) ? profileRow.role : null;
       }
     } catch (e) {
       console.warn('Could not read profile from DB on sign-in:', e);
     }
+
+    // Only create a profile row if one doesn't exist (heal missing rows).
+    // Do NOT upsert over an existing row – that would overwrite user-edited data.
+    if (!profileExists) {
+      const profilePayload = buildProfilePayload({
+        id: data.user.id,
+        email: data.user.email || '',
+        role: roleFromMetadata ?? 'patient',
+        fullName: String(data.user.user_metadata?.full_name || ''),
+        phone: String(data.user.user_metadata?.phone || `phone_${Date.now()}`),
+      });
+      const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
+      if (upsertProfileError && upsertProfileError.code !== '23503') {
+        console.error('Profile ensure error on sign in:', upsertProfileError);
+      }
+      // Use the values we just inserted
+      dbFullName = String(data.user.user_metadata?.full_name || '');
+      dbPhone = String(data.user.user_metadata?.phone || '');
+    }
+
+    const role = roleFromMetadata ?? dbRole ?? (await getUserRole(data.user.id)) ?? 'patient';
 
     const user: AuthUser = {
       id: data.user.id,
