@@ -194,6 +194,17 @@ export const upsertDriverAmbulance = async (
         .single();
     }
 
+    // Retry without type if check constraint fails (code 23514)
+    if (insertResult.error && (insertResult.error as any).code === '23514') {
+      delete insertPayload.type;
+      delete insertPayload.registration_number; // also strip in case column missing
+      insertResult = await db
+        .from('ambulances')
+        .insert(insertPayload)
+        .select('id')
+        .single();
+    }
+
     if (insertResult.error) throw insertResult.error;
     return { ambulanceId: insertResult.data?.id ?? null, error: null };
   } catch (error) {
