@@ -5,8 +5,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getActiveEmergency } from '@/utils/patient';
 import { signOut } from '@/utils/auth';
+import { getActiveEmergency } from '@/utils/patient';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -86,31 +86,22 @@ export default function HelpScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <AppHeader title="ErdAtaye" announcementHref="/modal" />
+      <AppHeader title="ErdAtaye" announcementHref="/modal" onProfilePress={() => setProfileOpen(!profileOpen)} />
 
-      {/* Profile Icon - top right */}
-      <Pressable
-        onPress={() => setProfileOpen(!profileOpen)}
-        style={[
-          styles.profileIcon,
-          {
-            backgroundColor: isDark ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.08)',
-            borderColor: isDark ? '#2E3236' : '#E6ECF2',
-            top: Math.max(insets.top, 12) + 6,
-          },
-        ]}
-      >
-        <MaterialIcons name="person" size={22} color="#DC2626" />
-      </Pressable>
+      {/* Profile Dropdown Backdrop - click anywhere to close */}
+      {profileOpen && (
+        <Pressable style={styles.profileBackdrop} onPress={() => setProfileOpen(false)} />
+      )}
 
       {/* Profile Dropdown */}
       {profileOpen && (
         <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: isDark ? '#1E2028' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
-          <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
-          <Pressable onPress={() => { setProfileOpen(false); router.push('/patient-profile'); }} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
-            <MaterialIcons name="visibility" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
-            <ThemedText style={[styles.profileMenuText, { color: colors.text }]}>View Profile</ThemedText>
-          </Pressable>
+          <View style={styles.profileDropdownHeader}>
+            <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
+            <Pressable onPress={() => setProfileOpen(false)} style={({ pressed }) => [styles.profileCloseBtn, pressed && { opacity: 0.7 }]}>
+              <MaterialIcons name="close" size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+            </Pressable>
+          </View>
           <Pressable onPress={() => { setProfileOpen(false); router.push('/patient-profile'); }} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
             <MaterialIcons name="edit" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
             <ThemedText style={[styles.profileMenuText, { color: colors.text }]}>Edit Profile</ThemedText>
@@ -180,18 +171,7 @@ export default function HelpScreen() {
           </View>
         </View>
 
-        <View style={styles.quickRow}>
-          <View style={styles.actionCol}>
-            <AppButton
-              label={activeEmergencyId ? 'Track Emergency' : 'Request Ambulance'}
-              onPress={openPatientEmergency}
-              variant="primary"
-              fullWidth
-              leftIcon={<MaterialIcons name="emergency" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
-              style={styles.actionBtn}
-            />
-          </View>
-        </View>
+
 
         {helpOpen ? (
           <View style={styles.modalRoot}>
@@ -501,17 +481,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
 
-  /* Profile Icon */
-  profileIcon: {
-    position: 'absolute',
-    right: 16,
-    zIndex: 100,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
+  /* Profile Dropdown */
+  profileBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 150,
   },
   profileDropdown: {
     position: 'absolute',
@@ -527,11 +500,24 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 10,
   },
+  profileDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   profileEmail: {
     fontSize: 12,
     fontWeight: '600',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flex: 1,
+  },
+  profileCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   profileMenuItem: {
     flexDirection: 'row',
