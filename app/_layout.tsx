@@ -12,7 +12,7 @@ import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  initialRouteName: 'index',
 };
 
 export default function RootLayout() {
@@ -38,6 +38,7 @@ function ThemedRoot() {
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>
       <ThemeProvider value={resolved === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false, title: 'ErdAtaye' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'ErdAtaye Ambulance' }} />
           <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
           <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
