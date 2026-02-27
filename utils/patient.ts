@@ -137,10 +137,9 @@ export const getActiveEmergency = async (
       .in('status', ['pending', 'assigned', 'en_route', 'arrived'])
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows returned, which is fine
+    if (error) {
       throw error;
     }
 

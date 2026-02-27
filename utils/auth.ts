@@ -405,28 +405,36 @@ export const onAuthStateChange = (
       }
 
       const sessionUser = session.user;
-      const roleFromMetadata = getRoleFromMetadata(sessionUser.user_metadata?.role);
+      const meta = sessionUser.user_metadata ?? {};
+      const roleFromMetadata = getRoleFromMetadata(meta.role);
       const fallbackUser: AuthUser = {
         id: sessionUser.id,
         role: roleFromMetadata ?? 'patient',
+        fullName: String(meta.full_name || ''),
+        phone: String(meta.phone || ''),
       };
 
-      if (roleFromMetadata) {
-        callback(fallbackUser);
-        return;
-      }
-
-      // Avoid calling Supabase APIs synchronously inside this callback.
-      // auth-js holds an internal lock while this runs, and nested auth access can deadlock.
+      // Always try to load full profile from DB (async, deferred).
       setTimeout(async () => {
         try {
-          const role = await getUserRole(sessionUser.id);
+          const { data: profileRow } = await supabase
+            .from('profiles')
+            .select('full_name, phone, role')
+            .eq('id', sessionUser.id)
+            .maybeSingle();
+
+          const role = (profileRow?.role && isUserRole(profileRow.role))
+            ? profileRow.role
+            : roleFromMetadata ?? (await getUserRole(sessionUser.id)) ?? 'patient';
+
           callback({
-            ...fallbackUser,
-            role: role ?? 'patient',
+            id: sessionUser.id,
+            role,
+            fullName: profileRow?.full_name || fallbackUser.fullName || '',
+            phone: profileRow?.phone || fallbackUser.phone || '',
           });
         } catch (error) {
-          console.error('Error resolving role during auth state change:', error);
+          console.error('Error resolving profile during auth state change:', error);
           callback(fallbackUser);
         }
       }, 0);
