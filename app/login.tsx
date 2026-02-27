@@ -52,7 +52,7 @@ export default function LoginScreen() {
       }
       setUser(user);
       setRegistered(true);
-      const route = user.role === 'driver' ? '/driver-home' : '/(tabs)';
+      const route = user.role === 'admin' ? '/admin' : user.role === 'driver' ? '/driver-home' : '/help';
       setTimeout(() => {
         setLoading(false);
         router.replace(route as any);

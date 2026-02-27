@@ -90,48 +90,96 @@ export const signUp = async (
       };
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          phone,
-          role,
+    // Use Admin API with service role key to bypass rate limits
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+    let userId: string | null = null;
+    let userEmail: string = email;
+    let adminCreated = false;
+
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+          method: 'POST',
+          headers: {
+            'apikey': serviceRoleKey,
+            'Authorization': `Bearer ${serviceRoleKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            email_confirm: true,
+            phone: phone || undefined,
+            user_metadata: { full_name: fullName, phone, role },
+          }),
+        });
+        const adminData = await adminRes.json();
+        if (adminData.id) {
+          userId = adminData.id;
+          userEmail = adminData.email || email;
+          adminCreated = true;
+          console.log('User created via Admin API (rate limit bypassed):', userId);
+        } else {
+          console.warn('Admin API failed, falling back to standard signup:', adminData.message || adminData.msg);
+        }
+      } catch (adminErr) {
+        console.warn('Admin API error, falling back to standard signup:', adminErr);
+      }
+    }
+
+    // Fallback to standard signup if admin API not available
+    if (!adminCreated) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone,
+            role,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      console.error('Supabase signup error:', error);
-      return { user: null, error };
+      if (error) {
+        console.error('Supabase signup error:', error);
+        return { user: null, error };
+      }
+
+      if (!data.user) {
+        console.error('No user returned from signup');
+        return { 
+          user: null, 
+          error: new Error('No user returned from signup') as AuthError 
+        };
+      }
+
+      if (isObfuscatedExistingSignupUser(data.user, data.session ?? null)) {
+        return {
+          user: null,
+          error: new Error('This email is already registered. Please sign in instead.') as AuthError,
+        };
+      }
+
+      userId = data.user.id;
+      userEmail = data.user.email || email;
     }
 
-    if (!data.user) {
-      console.error('No user returned from signup');
-      return { 
-        user: null, 
-        error: new Error('No user returned from signup') as AuthError 
-      };
+    if (!userId) {
+      return { user: null, error: new Error('Failed to create user') as AuthError };
     }
 
-    if (isObfuscatedExistingSignupUser(data.user, data.session ?? null)) {
-      return {
-        user: null,
-        error: new Error('This email is already registered. Please sign in instead.') as AuthError,
-      };
-    }
+    console.log('Signup successful, user created:', userId);
 
-    console.log('Signup successful, user created:', data.user.id);
-
-    const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
-    const resolvedRole = roleFromMetadata ?? role;
+    const resolvedRole = role;
 
     // Create profile in profiles table
     try {
       const profileData = buildProfilePayload({
-        id: data.user.id,
-        email: data.user.email || email,
+        id: userId,
+        email: userEmail,
         role: resolvedRole,
         fullName,
         phone,
@@ -161,12 +209,21 @@ export const signUp = async (
     }
 
     const user: AuthUser = {
-      id: data.user.id,
-      email: data.user.email || '',
+      id: userId,
+      email: userEmail,
       role: resolvedRole,
       fullName,
       phone,
     };
+
+    // Auto sign-in if created via admin API
+    if (adminCreated) {
+      try {
+        await supabase.auth.signInWithPassword({ email, password });
+      } catch (e) {
+        console.warn('Auto sign-in after admin create failed:', e);
+      }
+    }
 
     return { user, error: null };
   } catch (error) {
