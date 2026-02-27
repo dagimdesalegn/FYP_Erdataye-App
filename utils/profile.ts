@@ -23,11 +23,10 @@ export interface UserProfile {
 
 export interface MedicalProfile {
   id: string;
-  patient_id: string;
+  user_id: string;
   blood_type: string;
   allergies: string[];
-  chronic_conditions: string[];
-  medications: string[];
+  medical_conditions: string[];
   emergency_contact_name: string;
   emergency_contact_phone: string;
   created_at: string;
@@ -98,7 +97,7 @@ export const getMedicalProfile = async (userId: string): Promise<{
     const { data, error } = await client
       .from('medical_profiles')
       .select('*')
-      .eq('patient_id', userId)
+      .eq('user_id', userId)
       .single();
 
     if (error) {
@@ -116,7 +115,7 @@ export const getMedicalProfile = async (userId: string): Promise<{
  */
 export const upsertMedicalProfile = async (
   userId: string,
-  medicalData: Omit<MedicalProfile, 'id' | 'patient_id' | 'created_at' | 'updated_at'>
+  medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const client = getServiceClient();
@@ -124,11 +123,10 @@ export const upsertMedicalProfile = async (
     
     // Map to actual DB column names
     const profilePayload: any = {
-      patient_id: userId,
+      user_id: userId,
       blood_type: medicalData.blood_type,
       allergies: medicalData.allergies,
-      chronic_conditions: medicalData.chronic_conditions || [],
-      medications: medicalData.medications || [],
+      medical_conditions: medicalData.medical_conditions || [],
       emergency_contact_name: medicalData.emergency_contact_name,
       emergency_contact_phone: medicalData.emergency_contact_phone,
       updated_at: now,
@@ -138,7 +136,7 @@ export const upsertMedicalProfile = async (
     const { data: existing } = await client
       .from('medical_profiles')
       .select('id')
-      .eq('patient_id', userId)
+      .eq('user_id', userId)
       .single();
 
     let result;
@@ -146,7 +144,7 @@ export const upsertMedicalProfile = async (
       // Update existing record
       result = await client.from('medical_profiles')
         .update(profilePayload)
-        .eq('patient_id', userId);
+        .eq('user_id', userId);
     } else {
       // Insert new record
       result = await client.from('medical_profiles')
