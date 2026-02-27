@@ -207,25 +207,24 @@ export default function PatientEmergencyScreen() {
 
       <AppHeader title="Emergency Service" />
 
-      {/* Close / Back button */}
-      <Pressable
-        onPress={() => router.back()}
-        style={[
-          styles.closeBtn,
-          {
-            backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
-            borderColor: isDark ? '#2E3236' : '#E6ECF2',
-          },
-        ]}
-      >
-        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
-      </Pressable>
-
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <ThemedView style={styles.card}>
+          {/* Close / Back button inside card */}
+          <Pressable
+            onPress={() => router.back()}
+            style={[
+              styles.closeBtn,
+              {
+                backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
+                borderColor: isDark ? '#2E3236' : '#E6ECF2',
+              },
+            ]}
+          >
+            <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+          </Pressable>
           {/* Status Badge */}
           <View style={styles.statusContainer}>
             <View
@@ -362,8 +361,8 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     position: 'absolute',
-    top: 58,
-    right: 16,
+    top: 12,
+    right: 12,
     zIndex: 100,
     width: 36,
     height: 36,
@@ -380,7 +379,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     padding: 16,
-    paddingTop: 28,
+    paddingTop: 32,
     paddingBottom: 32,
   },
   card: {
