@@ -191,7 +191,7 @@ export default function PatientEmergencyTrackingScreen() {
   }
 
   const statusColor = getStatusColor(emergency.status);
-  const severityColor = getSeverityColor(emergency.severity);
+  const severityColor = getSeverityColor(emergency.emergency_type);
 
   return (
     <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
@@ -222,7 +222,7 @@ export default function PatientEmergencyTrackingScreen() {
             <View style={[styles.severityBadge, { backgroundColor: `${severityColor}20` }]}>
               <MaterialIcons name="warning" size={18} color={severityColor} />
               <ThemedText style={[styles.severityText, { color: severityColor }]}>
-                {getSeverityLabel(emergency.severity)} Severity
+                {getSeverityLabel(emergency.emergency_type)} Severity
               </ThemedText>
             </View>
           </View>
@@ -242,7 +242,7 @@ export default function PatientEmergencyTrackingScreen() {
               <View style={styles.detailContent}>
                 <ThemedText style={styles.detailLabel}>Location</ThemedText>
                 <ThemedText style={styles.detailValue}>
-                  {emergency.latitude.toFixed(4)}, {emergency.longitude.toFixed(4)}
+                  {Number(emergency.latitude || 0).toFixed(4)}, {Number(emergency.longitude || 0).toFixed(4)}
                 </ThemedText>
               </View>
             </View>
@@ -257,15 +257,6 @@ export default function PatientEmergencyTrackingScreen() {
               </View>
             )}
 
-            {emergency.patient_condition && (
-              <View style={styles.detailRow}>
-                <MaterialIcons name="health-and-safety" size={18} color="#0EA5E9" />
-                <View style={styles.detailContent}>
-                  <ThemedText style={styles.detailLabel}>Your Condition</ThemedText>
-                  <ThemedText style={styles.detailValue}>{emergency.patient_condition}</ThemedText>
-                </View>
-              </View>
-            )}
           </View>
 
           {/* Ambulance Information */}

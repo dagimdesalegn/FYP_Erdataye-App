@@ -1,12 +1,12 @@
 import { supabase } from './supabase';
 
+import { toPostGISPoint } from './emergency';
+
 export interface DriverStatus {
   id: string;
   user_id: string;
   ambulance_id: string;
   status: 'available' | 'offline' | 'responding' | 'at_scene' | 'transporting' | 'at_hospital';
-  current_latitude: number;
-  current_longitude: number;
   updated_at: string;
 }
 
@@ -17,9 +17,8 @@ export interface AmbulanceAssignment {
   emergency_requests: {
     id: string;
     patient_id: string;
-    latitude: number;
-    longitude: number;
-    severity: 'low' | 'medium' | 'high' | 'critical';
+    patient_location?: string; // PostGIS geometry hex WKB
+    emergency_type: string;
     description: string;
     status: string;
     created_at: string;
@@ -33,8 +32,18 @@ const isMissingColumnError = (error: any, column: string): boolean => {
   return error?.code === '42703' && message.includes(column.toLowerCase());
 };
 
+export interface AmbulanceDetails {
+  id: string;
+  vehicle_number: string;
+  type: string | null;
+  is_available: boolean;
+  hospital_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
- * Get ambulance ID for a driver
+ * Get ambulance ID for a driver (DB column: current_driver_id)
  */
 export const getDriverAmbulanceId = async (
   driverId: string
@@ -43,12 +52,12 @@ export const getDriverAmbulanceId = async (
     let { data, error } = await supabase
       .from('ambulances')
       .select('id')
-      .eq('driver_id', driverId)
+      .eq('current_driver_id', driverId)
       .limit(1)
       .maybeSingle();
 
     // Legacy schema fallback: some projects still use different driver-link columns.
-    if (error && isMissingColumnError(error, 'driver_id')) {
+    if (error && isMissingColumnError(error, 'current_driver_id')) {
       const { data: legacyRows, error: legacyError } = await supabase
         .from('ambulances')
         .select('*')
@@ -60,11 +69,11 @@ export const getDriverAmbulanceId = async (
 
       const legacyMatch = (legacyRows || []).find((row: any) => {
         const candidates = [
+          row?.current_driver_id,
           row?.driver_id,
           row?.user_id,
           row?.driver_user_id,
           row?.assigned_driver_id,
-          row?.driver,
         ];
         return candidates.some((value) => String(value ?? '') === driverId);
       });
@@ -80,6 +89,78 @@ export const getDriverAmbulanceId = async (
     return { ambulanceId: data?.id ?? null, error: null };
   } catch (error) {
     console.error('Error fetching driver ambulance:', error);
+    return { ambulanceId: null, error: error as Error };
+  }
+};
+
+/**
+ * Get full ambulance details for a driver
+ */
+export const getDriverAmbulanceDetails = async (
+  driverId: string
+): Promise<{ ambulance: AmbulanceDetails | null; error: Error | null }> => {
+  try {
+    const { data, error } = await supabase
+      .from('ambulances')
+      .select('id, vehicle_number, type, is_available, hospital_id, created_at, updated_at')
+      .eq('current_driver_id', driverId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    return { ambulance: data as AmbulanceDetails | null, error: null };
+  } catch (error) {
+    console.error('Error fetching ambulance details:', error);
+    return { ambulance: null, error: error as Error };
+  }
+};
+
+/**
+ * Create or link an ambulance to a driver during registration
+ */
+export const upsertDriverAmbulance = async (
+  driverId: string,
+  vehicleNumber: string,
+  type: string = 'standard'
+): Promise<{ ambulanceId: string | null; error: Error | null }> => {
+  try {
+    const now = new Date().toISOString();
+
+    // Check if an ambulance with this vehicle_number already exists
+    const { data: existing } = await supabase
+      .from('ambulances')
+      .select('id')
+      .eq('vehicle_number', vehicleNumber)
+      .maybeSingle();
+
+    if (existing) {
+      // Link the driver to the existing ambulance
+      const { error: updateErr } = await supabase
+        .from('ambulances')
+        .update({ current_driver_id: driverId, updated_at: now })
+        .eq('id', existing.id);
+      if (updateErr) throw updateErr;
+      return { ambulanceId: existing.id, error: null };
+    }
+
+    // Insert new ambulance
+    const { data: inserted, error: insertErr } = await supabase
+      .from('ambulances')
+      .insert({
+        vehicle_number: vehicleNumber,
+        type,
+        current_driver_id: driverId,
+        is_available: true,
+        created_at: now,
+        updated_at: now,
+      })
+      .select('id')
+      .single();
+
+    if (insertErr) throw insertErr;
+    return { ambulanceId: inserted?.id ?? null, error: null };
+  } catch (error) {
+    console.error('Error upserting driver ambulance:', error);
     return { ambulanceId: null, error: error as Error };
   }
 };
@@ -245,13 +326,12 @@ export const sendLocationUpdate = async (
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('ambulance_locations')
-      .insert({
-        ambulance_id: ambulanceId,
-        latitude,
-        longitude,
-        timestamp: new Date().toISOString(),
-      });
+      .from('ambulances')
+      .update({
+        last_known_location: toPostGISPoint(latitude, longitude),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', ambulanceId);
 
     if (error) {
       throw error;

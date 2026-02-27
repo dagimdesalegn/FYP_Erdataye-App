@@ -12,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
+    getDriverAmbulanceId,
     sendLocationUpdate,
     subscribeToEmergencyStatus,
     updateEmergencyStatus
@@ -45,6 +46,7 @@ export default function DriverEmergencyTrackingScreen() {
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [hospitalInfo, setHospitalInfo] = useState<any>(null);
   const [locationTracking, setLocationTracking] = useState(true);
+  const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
 
   const statusFlow = ['pending', 'assigned', 'en_route', 'at_scene', 'transporting', 'at_hospital', 'completed'];
 
@@ -65,7 +67,9 @@ export default function DriverEmergencyTrackingScreen() {
     const loadData = async () => {
       try {
         setLoading(true);
-        // Patient info will be fetched when status updates
+        // Resolve the driver's ambulance ID for location updates
+        const { ambulanceId: ambId } = await getDriverAmbulanceId(user.id);
+        if (ambId) setAmbulanceId(ambId);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -87,7 +91,7 @@ export default function DriverEmergencyTrackingScreen() {
   useEffect(() => {
     if (
       !locationTracking ||
-      !user ||
+      !ambulanceId ||
       !['en_route', 'at_scene', 'transporting'].includes(currentStatus)
     ) {
       return;
@@ -102,12 +106,12 @@ export default function DriverEmergencyTrackingScreen() {
 
         // Send location immediately
         const location = await Location.getCurrentPositionAsync();
-        await sendLocationUpdate(user.id, location.coords.latitude, location.coords.longitude);
+        await sendLocationUpdate(ambulanceId, location.coords.latitude, location.coords.longitude);
 
         // Send location every 10 seconds
         intervalId = setInterval(async () => {
           const currentLoc = await Location.getCurrentPositionAsync();
-          await sendLocationUpdate(user.id, currentLoc.coords.latitude, currentLoc.coords.longitude);
+          await sendLocationUpdate(ambulanceId, currentLoc.coords.latitude, currentLoc.coords.longitude);
         }, 10000);
       } catch (error) {
         console.error('Location error:', error);
@@ -119,7 +123,7 @@ export default function DriverEmergencyTrackingScreen() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [locationTracking, user, currentStatus]);
+  }, [locationTracking, ambulanceId, currentStatus]);
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (!emergencyId || !user) return;
