@@ -1,9 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
     KeyboardAvoidingView,
     Platform,
+    Pressable,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -17,7 +19,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getMedicalProfile, getUserProfile, upsertMedicalProfile } from '@/utils/profile';
+import { getMedicalProfile, getUserProfile, updateUserProfile, upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
 interface PatientProfileForm {
@@ -36,9 +38,11 @@ export default function PatientProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const { user } = useAppState();
+  const { user, setUser } = useAppState();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [successVisible, setSuccessVisible] = useState(false);
+  const successAnim = useRef(new Animated.Value(0)).current;
   const [form, setForm] = useState<PatientProfileForm>({
     fullName: '',
     phone: '',
@@ -114,6 +118,16 @@ export default function PatientProfileScreen() {
 
     setSaving(true);
     try {
+      // 1. Update profiles table (full_name, phone)
+      const { success: profileSuccess, error: profileError } = await updateUserProfile(user.id, {
+        full_name: form.fullName,
+        phone: form.phone,
+      });
+      if (!profileSuccess) {
+        throw profileError || new Error('Failed to update profile');
+      }
+
+      // 2. Update medical_profiles table
       const { success, error } = await upsertMedicalProfile(user.id, {
         blood_type: form.bloodType || 'Unknown',
         allergies: form.allergies ? form.allergies.split(',').map((a) => a.trim()) : [],
@@ -125,10 +139,19 @@ export default function PatientProfileScreen() {
       });
 
       if (!success) {
-        throw error || new Error('Failed to save profile');
+        throw error || new Error('Failed to save medical profile');
       }
 
-      Alert.alert('Success', 'Profile updated successfully');
+      // 3. Update app state so name reflects everywhere
+      setUser({ ...user, fullName: form.fullName, phone: form.phone });
+
+      // 4. Show success banner
+      setSuccessVisible(true);
+      Animated.sequence([
+        Animated.timing(successAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.delay(2200),
+        Animated.timing(successAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
+      ]).start(() => setSuccessVisible(false));
     } catch (error) {
       console.error('Error saving profile:', error);
       Alert.alert('Error', `Failed to save profile: ${error}`);
@@ -144,6 +167,37 @@ export default function PatientProfileScreen() {
   return (
     <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
       <LoadingModal visible={saving} colorScheme={colorScheme} message="Saving profile..." />
+
+      {/* Close / Back button */}
+      <Pressable
+        onPress={() => router.back()}
+        style={[
+          styles.closeBtn,
+          {
+            backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
+            borderColor: isDark ? '#2E3236' : '#E6ECF2',
+          },
+        ]}
+      >
+        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+      </Pressable>
+
+      {/* Success Banner */}
+      {successVisible && (
+        <Animated.View
+          style={[
+            styles.successBanner,
+            {
+              opacity: successAnim,
+              transform: [{ translateY: successAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }],
+            },
+          ]}
+        >
+          <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
+          <ThemedText style={styles.successText}>Profile updated successfully!</ThemedText>
+        </Animated.View>
+      )}
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -411,5 +465,47 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginTop: 0,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 18,
+    right: 16,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  successBanner: {
+    position: 'absolute',
+    top: 24,
+    left: 20,
+    right: 60,
+    zIndex: 200,
+    backgroundColor: '#10B981',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  successText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
   },
 });
