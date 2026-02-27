@@ -25,7 +25,7 @@ export interface MedicalProfile {
   id: string;
   user_id: string;
   blood_type: string;
-  allergies: string[];
+  allergies: string;
   medical_conditions: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
