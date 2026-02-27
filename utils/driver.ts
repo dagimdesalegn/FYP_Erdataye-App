@@ -134,8 +134,7 @@ export const getDriverAmbulanceDetails = async (
 export const upsertDriverAmbulance = async (
   driverId: string,
   vehicleNumber: string,
-  registrationNumber: string = '',
-  type: string = 'standard'
+  registrationNumber: string = ''
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
@@ -172,7 +171,6 @@ export const upsertDriverAmbulance = async (
     // Insert new ambulance
     const insertPayload: any = {
       vehicle_number: vehicleNumber,
-      type,
       current_driver_id: driverId,
       is_available: true,
       created_at: now,
