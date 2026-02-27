@@ -10,8 +10,8 @@
  *   hospitals: name, address, location (geometry), phone
  */
 
-import { supabase } from './supabase';
 import { parsePostGISPoint, toPostGISPoint } from './emergency';
+import { supabase } from './supabase';
 
 // ─── Interfaces aligned with actual DB schema ────────────────────────
 

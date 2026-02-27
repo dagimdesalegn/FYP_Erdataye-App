@@ -1,13 +1,18 @@
 import { AppHeader } from '@/components/app-header';
+import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { signOut } from '@/utils/auth';
 import { supabase } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
+    Modal,
     Platform,
     Pressable,
     RefreshControl,
@@ -38,6 +43,8 @@ export default function AdminScreen() {
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
   const colors = Colors[theme];
+  const router = useRouter();
+  const { user, setUser } = useAppState();
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +52,20 @@ export default function AdminScreen() {
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState<FilterRole>('all');
   const [error, setError] = useState<string | null>(null);
+  const [profileVisible, setProfileVisible] = useState(false);
+
+  const handleProfilePress = () => setProfileVisible(true);
+
+  const handleLogout = async () => {
+    setProfileVisible(false);
+    const { error: logoutErr } = await signOut();
+    if (!logoutErr) {
+      setUser(null);
+      router.replace('/');
+    } else {
+      Alert.alert('Error', 'Failed to sign out');
+    }
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -187,7 +208,7 @@ export default function AdminScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <AppHeader title="Admin Panel" />
+      <AppHeader title="ErdAtaye" onProfilePress={handleProfilePress} />
 
       <View style={styles.container}>
         {/* Stats Row */}
@@ -274,6 +295,74 @@ export default function AdminScreen() {
         )}
       </View>
 
+      {/* ===== Admin Profile Dropdown Modal ===== */}
+      <Modal
+        visible={profileVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setProfileVisible(false)}>
+        <Pressable style={styles.dropdownOverlay} onPress={() => setProfileVisible(false)}>
+          <View
+            style={[
+              styles.dropdownCard,
+              {
+                backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
+                borderColor: isDark ? '#2D3039' : '#E5E7EB',
+              },
+            ]}>
+            {/* Profile Header */}
+            <View style={styles.dropdownHeader}>
+              <View
+                style={[
+                  styles.dropdownAvatar,
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(220,38,38,0.15)'
+                      : 'rgba(220,38,38,0.08)',
+                  },
+                ]}>
+                <MaterialIcons name="admin-panel-settings" size={28} color="#DC2626" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[styles.dropdownName, { color: colors.text }]}>
+                  {user?.fullName || 'Admin'}
+                </ThemedText>
+                <ThemedText style={[styles.dropdownPhone, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                  {user?.phone || ''}
+                </ThemedText>
+                <View
+                  style={[
+                    styles.dropdownRoleBadge,
+                    { backgroundColor: isDark ? '#FCE7F333' : '#FCE7F3' },
+                  ]}>
+                  <ThemedText style={[styles.dropdownRoleText, { color: '#BE185D' }]}>
+                    ADMIN
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+
+            {/* Divider */}
+            <View
+              style={[
+                styles.dropdownDivider,
+                { backgroundColor: isDark ? '#2D3039' : '#E5E7EB' },
+              ]}
+            />
+
+            {/* Sign Out Button */}
+            <Pressable
+              onPress={handleLogout}
+              style={({ pressed }) => [
+                styles.dropdownSignOut,
+                pressed && { opacity: 0.7 },
+              ]}>
+              <MaterialIcons name="logout" size={20} color="#DC2626" />
+              <ThemedText style={styles.dropdownSignOutText}>Sign Out</ThemedText>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -453,5 +542,76 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-
+  /* Profile Dropdown */
+  dropdownOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 90,
+    paddingRight: 16,
+  },
+  dropdownCard: {
+    width: 260,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dropdownAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownName: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  dropdownPhone: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginTop: 2,
+  },
+  dropdownRoleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginTop: 4,
+  },
+  dropdownRoleText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.5,
+  },
+  dropdownDivider: {
+    height: 1,
+    marginVertical: 12,
+  },
+  dropdownSignOut: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  dropdownSignOutText: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    color: '#DC2626',
+  },
 });
