@@ -69,10 +69,6 @@ export function AppButton({
       duration: 150,
       useNativeDriver: false,
     }).start();
-    // Call onPress immediately, don't wait for animation
-    if (!disabled && !loading && onPress) {
-      onPress();
-    }
   };
 
   const animatedStyle = {
@@ -95,10 +91,11 @@ export function AppButton({
   return (
     <Animated.View style={fullWidth ? styles.fullWidth : null}>
       <AnimatedPressable
+        onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled || loading}
-        hitSlop={15}
+        hitSlop={8}
         style={[
           styles.base,
           fullWidth ? styles.fullWidth : null,

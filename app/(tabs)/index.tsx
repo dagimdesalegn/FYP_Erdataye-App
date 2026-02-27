@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const screenHeight = Dimensions.get('window').height;
   const isSmall = screenWidth < 380;
   const isShort = screenHeight < 740;
+  const isWide = screenWidth >= 768;
 
   const pageBg = Colors[theme].background;
   const titleColor = Colors[theme].text;
@@ -315,7 +316,8 @@ export default function HomeScreen() {
       />
 
       <View style={styles.scrollContainer}>
-        <View style={styles.pageContent}>
+        <View style={[styles.pageContent, isWide && styles.pageContentWide]}>
+          <View style={[isWide && styles.leftColumn]}>
           <View style={styles.heroTop}>
             <ThemedText
               style={[
@@ -570,7 +572,9 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          <View style={styles.ctaSection}>
+          </View>
+
+          <View style={[styles.ctaSection, isWide && styles.rightColumn]}>
             <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
             <ThemedText style={[styles.cardTitle, { color: titleColor }]}>
               {isRegistered ? 'Emergency services' : 'Activate services'}
@@ -636,6 +640,20 @@ const styles = StyleSheet.create({
     gap: 6,
     maxWidth: 520,
     width: '100%',
+  },
+  pageContentWide: {
+    flexDirection: 'row',
+    maxWidth: 960,
+    gap: 32,
+    alignItems: 'center',
+  },
+  leftColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  rightColumn: {
+    flex: 1,
+    marginTop: 0,
   },
   heroTop: {
     maxWidth: 520,
