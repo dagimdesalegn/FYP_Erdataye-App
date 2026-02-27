@@ -194,7 +194,8 @@ export default function RegisterScreen() {
           const { ambulanceId, error: ambError } = await upsertDriverAmbulance(
             user.id,
             form.plateNumber,
-            form.registrationNumber || 'standard'
+            form.registrationNumber,
+            'standard'
           );
 
           if (ambError) {

@@ -35,6 +35,7 @@ const isMissingColumnError = (error: any, column: string): boolean => {
 export interface AmbulanceDetails {
   id: string;
   vehicle_number: string;
+  registration_number: string | null;
   type: string | null;
   is_available: boolean;
   hospital_id: string | null;
@@ -100,12 +101,24 @@ export const getDriverAmbulanceDetails = async (
   driverId: string
 ): Promise<{ ambulance: AmbulanceDetails | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('ambulances')
-      .select('id, vehicle_number, type, is_available, hospital_id, created_at, updated_at')
+      .select('id, vehicle_number, registration_number, type, is_available, hospital_id, created_at, updated_at')
       .eq('current_driver_id', driverId)
       .limit(1)
       .maybeSingle();
+
+    // Fallback if registration_number column doesn't exist yet
+    if (error && isMissingColumnError(error, 'registration_number')) {
+      const fallback = await supabase
+        .from('ambulances')
+        .select('id, vehicle_number, type, is_available, hospital_id, created_at, updated_at')
+        .eq('current_driver_id', driverId)
+        .limit(1)
+        .maybeSingle();
+      data = fallback.data ? { ...fallback.data, registration_number: null } : null;
+      error = fallback.error;
+    }
 
     if (error) throw error;
     return { ambulance: data as AmbulanceDetails | null, error: null };
@@ -121,6 +134,7 @@ export const getDriverAmbulanceDetails = async (
 export const upsertDriverAmbulance = async (
   driverId: string,
   vehicleNumber: string,
+  registrationNumber: string = '',
   type: string = 'standard'
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
@@ -135,30 +149,52 @@ export const upsertDriverAmbulance = async (
 
     if (existing) {
       // Link the driver to the existing ambulance
+      const updatePayload: any = { current_driver_id: driverId, updated_at: now };
+      if (registrationNumber) updatePayload.registration_number = registrationNumber;
       const { error: updateErr } = await supabase
         .from('ambulances')
-        .update({ current_driver_id: driverId, updated_at: now })
+        .update(updatePayload)
         .eq('id', existing.id);
-      if (updateErr) throw updateErr;
+      // Retry without registration_number if column doesn't exist
+      if (updateErr && isMissingColumnError(updateErr, 'registration_number')) {
+        const { error: retryErr } = await supabase
+          .from('ambulances')
+          .update({ current_driver_id: driverId, updated_at: now })
+          .eq('id', existing.id);
+        if (retryErr) throw retryErr;
+      } else if (updateErr) throw updateErr;
       return { ambulanceId: existing.id, error: null };
     }
 
     // Insert new ambulance
-    const { data: inserted, error: insertErr } = await supabase
+    const insertPayload: any = {
+      vehicle_number: vehicleNumber,
+      type,
+      current_driver_id: driverId,
+      is_available: true,
+      created_at: now,
+      updated_at: now,
+    };
+    if (registrationNumber) insertPayload.registration_number = registrationNumber;
+
+    let insertResult = await supabase
       .from('ambulances')
-      .insert({
-        vehicle_number: vehicleNumber,
-        type,
-        current_driver_id: driverId,
-        is_available: true,
-        created_at: now,
-        updated_at: now,
-      })
+      .insert(insertPayload)
       .select('id')
       .single();
 
-    if (insertErr) throw insertErr;
-    return { ambulanceId: inserted?.id ?? null, error: null };
+    // Retry without registration_number if column doesn't exist
+    if (insertResult.error && isMissingColumnError(insertResult.error, 'registration_number')) {
+      delete insertPayload.registration_number;
+      insertResult = await supabase
+        .from('ambulances')
+        .insert(insertPayload)
+        .select('id')
+        .single();
+    }
+
+    if (insertResult.error) throw insertResult.error;
+    return { ambulanceId: insertResult.data?.id ?? null, error: null };
   } catch (error) {
     console.error('Error upserting driver ambulance:', error);
     return { ambulanceId: null, error: error as Error };

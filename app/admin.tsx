@@ -19,7 +19,6 @@ import {
 interface Profile {
   id: string;
   full_name: string | null;
-  email: string | null;
   phone: string | null;
   role: 'patient' | 'driver' | 'admin';
   created_at: string;
