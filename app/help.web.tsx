@@ -7,6 +7,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
 import { getActiveEmergency } from '@/utils/patient';
+import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -24,6 +25,25 @@ export default function HelpScreen() {
   const [directOpen, setDirectOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
   const [activeEmergencyId, setActiveEmergencyId] = React.useState<string | null>(null);
+  const [profileName, setProfileName] = React.useState<string>(user?.fullName || '');
+
+  // Load profile name from DB (always fresh)
+  React.useEffect(() => {
+    let cancelled = false;
+    const loadProfile = async () => {
+      if (!user?.id) return;
+      const { profile } = await getUserProfile(user.id);
+      if (!cancelled && profile?.full_name) {
+        setProfileName(profile.full_name);
+        // Also sync to app state
+        if (profile.full_name !== user.fullName) {
+          setUser({ ...user, fullName: profile.full_name });
+        }
+      }
+    };
+    void loadProfile();
+    return () => { cancelled = true; };
+  }, [user?.id, user?.fullName]);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -98,8 +118,8 @@ export default function HelpScreen() {
         <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: isDark ? '#1E2028' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
           <View style={styles.profileDropdownHeader}>
             <View style={{ flex: 1 }}>
-              {user?.fullName ? (
-                <ThemedText style={[styles.profileName, { color: colors.text }]}>{user.fullName}</ThemedText>
+              {(profileName || user?.fullName) ? (
+                <ThemedText style={[styles.profileName, { color: colors.text }]}>{profileName || user?.fullName}</ThemedText>
               ) : null}
               <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
             </View>
