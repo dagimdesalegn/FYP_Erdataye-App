@@ -30,6 +30,8 @@ export default function RegisterScreen() {
     bloodType: '',
     contact: '',
     allergies: '',
+    plateNumber: '',
+    registrationNumber: '',
   });
 
   const handleChange = (key: string, value: string) => {
@@ -333,6 +335,42 @@ export default function RegisterScreen() {
                         placeholderTextColor={placeholderColor}
                         value={form.allergies}
                         onChangeText={(t) => handleChange('allergies', t)}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Driver-specific fields */}
+              {userRole === 'driver' && (
+                <View style={styles.row}>
+                  <View style={styles.fieldHalf}>
+                    <ThemedText style={[styles.label, { color: textPrimary }]}>Plate Number *</ThemedText>
+                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+                      <MaterialIcons name="directions-car" size={16} color={textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: textPrimary }]}
+                        placeholder="e.g. AA-12345"
+                        placeholderTextColor={placeholderColor}
+                        autoCapitalize="characters"
+                        value={form.plateNumber}
+                        onChangeText={(t) => handleChange('plateNumber', t)}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.fieldHalf}>
+                    <ThemedText style={[styles.label, { color: textPrimary }]}>Registration No. *</ThemedText>
+                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+                      <MaterialIcons name="assignment" size={16} color={textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: textPrimary }]}
+                        placeholder="Reg. number"
+                        placeholderTextColor={placeholderColor}
+                        autoCapitalize="characters"
+                        value={form.registrationNumber}
+                        onChangeText={(t) => handleChange('registrationNumber', t)}
                         editable={!loading}
                       />
                     </View>

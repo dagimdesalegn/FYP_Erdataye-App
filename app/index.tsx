@@ -6,28 +6,20 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 /**
- * Root/Landing page - handles initial navigation based on auth state
- * Shows loading while checking auth, then redirects to login or main app
+ * Root index - shows the main app page directly.
+ * The (tabs)/index.tsx handles both authenticated and unauthenticated states.
  */
 export default function IndexScreen() {
   const router = useRouter();
-  const { isRegistered, isLoading } = useAppState();
+  const { isLoading } = useAppState();
   const colorScheme = useColorScheme();
 
   useEffect(() => {
-    // Wait for auth state to be loaded
     if (isLoading) return;
+    // Always go to (tabs) - the home screen handles both logged-in and guest states
+    router.replace('/(tabs)');
+  }, [isLoading]);
 
-    // If user is authenticated, go to main app
-    if (isRegistered) {
-      router.replace('/(tabs)');
-    } else {
-      // Otherwise, go to login page
-      router.replace('/login');
-    }
-  }, [isLoading, isRegistered]);
-
-  // Show loading indicator while checking auth state
   return (
     <View
       style={{
