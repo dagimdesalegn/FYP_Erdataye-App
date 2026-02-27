@@ -380,6 +380,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     padding: 16,
+    paddingTop: 28,
     paddingBottom: 32,
   },
   card: {
