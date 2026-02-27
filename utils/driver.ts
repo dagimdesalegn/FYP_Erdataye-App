@@ -172,6 +172,7 @@ export const upsertDriverAmbulance = async (
     const insertPayload: any = {
       vehicle_number: vehicleNumber,
       current_driver_id: driverId,
+      type: 'standard',
       is_available: true,
       created_at: now,
       updated_at: now,
