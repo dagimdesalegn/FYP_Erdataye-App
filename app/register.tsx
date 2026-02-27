@@ -129,7 +129,7 @@ export default function RegisterScreen() {
         console.log('Redirecting based on role:', user.role);
         setLoading(false);
 
-        const route = user.role === 'driver' ? '/driver-home' : '/(tabs)';
+        const route = user.role === 'admin' ? '/admin' : user.role === 'driver' ? '/driver-home' : '/help';
         console.log('Navigating to route:', route);
         router.replace(route as any);
       }, 600);
