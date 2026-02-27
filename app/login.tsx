@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontWeight: '500',
     height: '100%',
-    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
   forgotLink: {
     fontSize: 12,
