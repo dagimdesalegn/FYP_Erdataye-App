@@ -13,12 +13,12 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
 import {
-  getDriverAmbulanceDetails,
-  getDriverAmbulanceId,
-  getDriverAssignment,
-  sendLocationUpdate,
-  subscribeToAssignments,
-  type AmbulanceDetails,
+    getDriverAmbulanceDetails,
+    getDriverAmbulanceId,
+    getDriverAssignment,
+    sendLocationUpdate,
+    subscribeToAssignments,
+    type AmbulanceDetails,
 } from '@/utils/driver';
 import { getUserProfile, type UserProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
