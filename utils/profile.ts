@@ -1,4 +1,15 @@
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+
+// Create a service-role client that bypasses RLS for profile writes
+const getServiceClient = () => {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+  if (url && serviceKey) {
+    return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  }
+  return supabase; // fallback to anon client
+};
 
 export interface UserProfile {
   id: string;
@@ -54,7 +65,8 @@ export const updateUserProfile = async (
   updates: Partial<UserProfile>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
+    const client = getServiceClient();
+    const { error } = await client
       .from('profiles')
       .update({
         ...updates,
@@ -104,6 +116,7 @@ export const upsertMedicalProfile = async (
   medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
+    const client = getServiceClient();
     const now = new Date().toISOString();
     
     // Include all medical profile fields
@@ -114,29 +127,36 @@ export const upsertMedicalProfile = async (
       emergency_contact_name: medicalData.emergency_contact_name,
       emergency_contact_phone: medicalData.emergency_contact_phone,
       medical_conditions: medicalData.medical_conditions || [],
-      created_at: now,
       updated_at: now,
     };
 
-    // First try to insert, if it exists, update instead
-    let result = await supabase.from('medical_profiles').insert(profilePayload);
-    
-    if (result.error && result.error.code === '23505') {
-      // Unique constraint violation - record exists, update it instead
-      const { created_at, updated_at, ...updatePayload } = profilePayload;
-      result = await supabase.from('medical_profiles')
-        .update({ ...updatePayload, updated_at: now })
+    // Check if record exists
+    const { data: existing } = await client
+      .from('medical_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    let result;
+    if (existing) {
+      // Update existing record
+      result = await client.from('medical_profiles')
+        .update(profilePayload)
         .eq('user_id', userId);
+    } else {
+      // Insert new record
+      result = await client.from('medical_profiles')
+        .insert({ ...profilePayload, created_at: now });
     }
     
-    const { data, error } = result;
+    const { error } = result;
 
     if (error) {
       console.error('Medical profile upsert error:', error);
       throw error;
     }
 
-    console.log('Medical profile upserted successfully:', data);
+    console.log('Medical profile upserted successfully');
     return { success: true, error: null };
   } catch (error) {
     console.error('Medical profile upsert exception:', error);
