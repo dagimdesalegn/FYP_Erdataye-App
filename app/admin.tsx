@@ -6,14 +6,14 @@ import { supabase } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  FlatList,
-  Platform,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  TextInput,
-  View,
+    ActivityIndicator,
+    FlatList,
+    Platform,
+    Pressable,
+    RefreshControl,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 
 interface Profile {
