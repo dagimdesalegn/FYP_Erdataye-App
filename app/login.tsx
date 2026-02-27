@@ -31,15 +31,14 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ phone: '', password: '' });
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
 
   const handleChange = (key: string, value: string) => {
-    // For phone field – strip non-numeric except leading +
-    if (key === 'email') {
-      // Allow digits and leading +
-      const cleaned = value.replace(/[^0-9+]/g, '');
+    // For phone field – digits only
+    if (key === 'phone') {
+      const cleaned = value.replace(/[^0-9]/g, '');
       setForm({ ...form, [key]: cleaned });
       return;
     }
@@ -70,17 +69,17 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!form.email || !form.password) {
+    if (!form.phone || !form.password) {
       Alert.alert('Error', 'Please enter both phone number and password');
       return;
     }
-    if (!validatePhone(form.email)) {
-      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251. Example: 0912345678');
+    if (!validatePhone(form.phone)) {
+      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number.\nExample: 0912345678');
       return;
     }
     setLoading(true);
     try {
-      const authEmail = phoneToAuthEmail(form.email);
+      const authEmail = phoneToAuthEmail(form.phone);
       const { user, error } = await signIn(authEmail, form.password);
       if (error || !user) {
         setLoading(false);
@@ -171,19 +170,19 @@ export default function LoginScreen() {
                 <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
                 <View style={[
                   styles.inputWrap,
-                  { backgroundColor: inputBg, borderColor: focusedField === 'email' ? inputFocusBorder : inputBorder },
+                  { backgroundColor: inputBg, borderColor: focusedField === 'phone' ? inputFocusBorder : inputBorder },
                 ]}>
-                  <MaterialIcons name="phone" size={18} color={focusedField === 'email' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
+                  <MaterialIcons name="phone" size={18} color={focusedField === 'phone' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: textPrimary }]}
-                    placeholder="+2519XXXXXXXX"
+                    placeholder="09XXXXXXXX"
                     placeholderTextColor={placeholderColor}
                     keyboardType="phone-pad"
                     autoCapitalize="none"
-                    maxLength={13}
-                    value={form.email}
-                    onChangeText={(t) => handleChange('email', t)}
-                    onFocus={() => setFocusedField('email')}
+                    maxLength={10}
+                    value={form.phone}
+                    onChangeText={(t) => handleChange('phone', t)}
+                    onFocus={() => setFocusedField('phone')}
                     onBlur={() => setFocusedField(null)}
                     editable={!loading}
                   />

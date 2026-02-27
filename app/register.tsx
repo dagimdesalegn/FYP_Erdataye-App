@@ -59,9 +59,9 @@ export default function RegisterScreen() {
   };
 
   const handleChange = (key: string, value: string) => {
-    // Phone fields: strip non-numeric except leading +
+    // Phone fields: digits only
     if (key === 'phone' || key === 'contact') {
-      const cleaned = value.replace(/[^0-9+]/g, '');
+      const cleaned = value.replace(/[^0-9]/g, '');
       setForm({ ...form, [key]: cleaned });
       return;
     }
@@ -71,26 +71,31 @@ export default function RegisterScreen() {
   const handleSubmit = async () => {
     console.log('handleSubmit called');
     
-    // Validate form
-    if (!form.phone || !form.password || !form.fullName) {
-      console.log('Validation failed:', { phone: !!form.phone, password: !!form.password, fullName: !!form.fullName });
-      Alert.alert('Error', 'Please fill in all required fields (phone, password, name)');
+    // Validate form — field-specific errors
+    if (!form.fullName.trim()) {
+      Alert.alert('Full Name Required', 'Please enter your full name.');
+      return;
+    }
+    if (form.fullName.trim().length < 2) {
+      Alert.alert('Invalid Name', 'Full name must be at least 2 characters.');
       return;
     }
 
-    if (!form.fullName.trim() || form.fullName.trim().length < 2) {
-      Alert.alert('Error', 'Please enter a valid full name (at least 2 characters)');
+    if (!form.phone) {
+      Alert.alert('Phone Required', 'Please enter your phone number.');
       return;
     }
-
     if (!validatePhone(form.phone)) {
-      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678');
+      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number.\nExample: 0912345678');
       return;
     }
 
+    if (!form.password) {
+      Alert.alert('Password Required', 'Please enter a password.');
+      return;
+    }
     if (form.password.length < 6) {
-      console.log('Password too short');
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
       return;
     }
 
@@ -111,8 +116,12 @@ export default function RegisterScreen() {
 
     // Driver-specific validation
     if (userRole === 'driver') {
-      if (!form.plateNumber || !form.registrationNumber) {
-        Alert.alert('Error', 'Please enter both plate number and registration number');
+      if (!form.plateNumber) {
+        Alert.alert('Plate Number Required', 'Please enter the ambulance plate number.');
+        return;
+      }
+      if (!form.registrationNumber) {
+        Alert.alert('Registration Required', 'Please enter the ambulance registration number.');
         return;
       }
     }
@@ -327,11 +336,11 @@ export default function RegisterScreen() {
                     <MaterialIcons name="phone" size={16} color={textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="+2519XXXXXXXX"
+                      placeholder="09XXXXXXXX"
                       placeholderTextColor={placeholderColor}
                       keyboardType="phone-pad"
                       autoCapitalize="none"
-                      maxLength={13}
+                      maxLength={10}
                       value={form.phone}
                       onChangeText={(t) => handleChange('phone', t)}
                       editable={!loading}
@@ -377,10 +386,10 @@ export default function RegisterScreen() {
                     <MaterialIcons name="contact-phone" size={16} color={textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="+2519XXXXXXXX"
+                      placeholder="09XXXXXXXX"
                       placeholderTextColor={placeholderColor}
                       keyboardType="phone-pad"
-                      maxLength={13}
+                      maxLength={10}
                       value={form.contact}
                       onChangeText={(t) => handleChange('contact', t)}
                       editable={!loading}

@@ -86,7 +86,6 @@ export default function AdminScreen() {
     const q = search.toLowerCase();
     return (
       (u.full_name ?? '').toLowerCase().includes(q) ||
-      (u.email ?? '').toLowerCase().includes(q) ||
       (u.phone ?? '').toLowerCase().includes(q)
     );
   });
@@ -160,7 +159,7 @@ export default function AdminScreen() {
             <ThemedText style={[styles.userName, { color: colors.text }]}>
               {item.full_name || 'No Name'}
             </ThemedText>
-            <ThemedText style={[styles.userEmail, { color: subText }]}>{item.email || 'No email'}</ThemedText>
+            <ThemedText style={[styles.userEmail, { color: subText }]}>{item.phone || 'No phone'}</ThemedText>
           </View>
           <View style={[styles.roleBadge, { backgroundColor: isDark ? `${roleStyle.bg}33` : roleStyle.bg }]}>
             <ThemedText style={[styles.roleText, { color: roleStyle.text }]}>
