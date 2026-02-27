@@ -97,7 +97,12 @@ export default function HelpScreen() {
       {profileOpen && (
         <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: isDark ? '#1E2028' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
           <View style={styles.profileDropdownHeader}>
-            <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
+            <View style={{ flex: 1 }}>
+              {user?.fullName ? (
+                <ThemedText style={[styles.profileName, { color: colors.text }]}>{user.fullName}</ThemedText>
+              ) : null}
+              <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
+            </View>
             <Pressable onPress={() => setProfileOpen(false)} style={({ pressed }) => [styles.profileCloseBtn, pressed && { opacity: 0.7 }]}>
               <MaterialIcons name="close" size={16} color={isDark ? '#94A3B8' : '#64748B'} />
             </Pressable>
@@ -511,6 +516,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     flex: 1,
+  },
+  profileName: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
   },
   profileCloseBtn: {
     width: 28,
