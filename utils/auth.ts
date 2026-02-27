@@ -26,19 +26,22 @@ const isObfuscatedExistingSignupUser = (user: any, session: Session | null): boo
 
 const buildProfilePayload = ({
   id,
+  email,
   role,
   fullName,
   phone,
 }: {
   id: string;
+  email: string;
   role: UserRole;
   fullName: string;
   phone: string;
 }) => ({
   id,
+  email,
   role,
   full_name: fullName,
-  phone: phone || 'N/A',
+  phone: phone || `phone_${Date.now()}`,
   updated_at: new Date().toISOString(),
 });
 
@@ -176,6 +179,7 @@ export const signUp = async (
     try {
       const profileData = buildProfilePayload({
         id: userId,
+        email: userEmail,
         role: resolvedRole,
         fullName,
         phone,
@@ -258,9 +262,10 @@ export const signIn = async (
     // Heal missing profile rows so role lookups and medical profile writes work reliably.
     const profilePayload = buildProfilePayload({
       id: data.user.id,
+      email: data.user.email || '',
       role: roleFromMetadata ?? 'patient',
       fullName: String(data.user.user_metadata?.full_name || ''),
-      phone: String(data.user.user_metadata?.phone || 'N/A'),
+      phone: String(data.user.user_metadata?.phone || `phone_${Date.now()}`),
     });
     const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
     if (upsertProfileError && upsertProfileError.code !== '23503') {

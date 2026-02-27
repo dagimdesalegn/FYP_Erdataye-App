@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
-// Create a service-role client that bypasses RLS for profile writes
+// Service-role client for tables with RLS enabled (e.g. medical_profiles)
 const getServiceClient = () => {
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
@@ -15,6 +15,7 @@ export interface UserProfile {
   id: string;
   full_name: string;
   phone: string;
+  email: string | null;
   role: 'patient' | 'driver' | 'hospital_staff' | 'admin';
   hospital_id: string | null;
   created_at: string;
@@ -26,7 +27,7 @@ export interface MedicalProfile {
   user_id: string;
   blood_type: string;
   allergies: string[];
-  medical_conditions: string[];
+  medical_conditions: string;
   emergency_contact_name: string;
   emergency_contact_phone: string;
   created_at: string;
@@ -41,8 +42,8 @@ export const getUserProfile = async (userId: string): Promise<{
   error: Error | null;
 }> => {
   try {
-    const client = getServiceClient();
-    const { data, error } = await client
+    // profiles table has RLS disabled – anon client works fine
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -66,8 +67,8 @@ export const updateUserProfile = async (
   updates: Partial<UserProfile>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const client = getServiceClient();
-    const { error } = await client
+    // profiles table has RLS disabled – anon client works fine
+    const { error } = await supabase
       .from('profiles')
       .update({
         ...updates,
@@ -126,7 +127,7 @@ export const upsertMedicalProfile = async (
       user_id: userId,
       blood_type: medicalData.blood_type,
       allergies: medicalData.allergies,
-      medical_conditions: medicalData.medical_conditions || [],
+      medical_conditions: medicalData.medical_conditions || '',
       emergency_contact_name: medicalData.emergency_contact_name,
       emergency_contact_phone: medicalData.emergency_contact_phone,
       updated_at: now,

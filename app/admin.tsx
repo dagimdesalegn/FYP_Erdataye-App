@@ -19,6 +19,7 @@ import {
 interface Profile {
   id: string;
   full_name: string | null;
+  email: string | null;
   phone: string | null;
   role: 'patient' | 'driver' | 'admin';
   created_at: string;
@@ -51,7 +52,7 @@ export default function AdminScreen() {
       setError(null);
       let query = supabase
         .from('profiles')
-        .select('id, full_name, phone, role, created_at, updated_at')
+        .select('id, full_name, email, phone, role, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (filterRole !== 'all') {
@@ -85,6 +86,7 @@ export default function AdminScreen() {
     const q = search.toLowerCase();
     return (
       (u.full_name ?? '').toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q) ||
       (u.phone ?? '').toLowerCase().includes(q)
     );
   });
@@ -158,7 +160,7 @@ export default function AdminScreen() {
             <ThemedText style={[styles.userName, { color: colors.text }]}>
               {item.full_name || 'No Name'}
             </ThemedText>
-            <ThemedText style={[styles.userEmail, { color: subText }]}>{item.phone || 'No phone'}</ThemedText>
+            <ThemedText style={[styles.userEmail, { color: subText }]}>{item.email || 'No email'}</ThemedText>
           </View>
           <View style={[styles.roleBadge, { backgroundColor: isDark ? `${roleStyle.bg}33` : roleStyle.bg }]}>
             <ThemedText style={[styles.roleText, { color: roleStyle.text }]}>
