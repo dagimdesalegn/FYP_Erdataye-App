@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 import { toPostGISPoint } from './emergency';
 
@@ -140,8 +140,11 @@ export const upsertDriverAmbulance = async (
   try {
     const now = new Date().toISOString();
 
+    // Use service-role client to bypass RLS during registration
+    const db = supabaseAdmin;
+
     // Check if an ambulance with this vehicle_number already exists
-    const { data: existing } = await supabase
+    const { data: existing } = await db
       .from('ambulances')
       .select('id')
       .eq('vehicle_number', vehicleNumber)
@@ -151,13 +154,13 @@ export const upsertDriverAmbulance = async (
       // Link the driver to the existing ambulance
       const updatePayload: any = { current_driver_id: driverId, updated_at: now };
       if (registrationNumber) updatePayload.registration_number = registrationNumber;
-      const { error: updateErr } = await supabase
+      const { error: updateErr } = await db
         .from('ambulances')
         .update(updatePayload)
         .eq('id', existing.id);
       // Retry without registration_number if column doesn't exist
       if (updateErr && isMissingColumnError(updateErr, 'registration_number')) {
-        const { error: retryErr } = await supabase
+        const { error: retryErr } = await db
           .from('ambulances')
           .update({ current_driver_id: driverId, updated_at: now })
           .eq('id', existing.id);
@@ -177,7 +180,7 @@ export const upsertDriverAmbulance = async (
     };
     if (registrationNumber) insertPayload.registration_number = registrationNumber;
 
-    let insertResult = await supabase
+    let insertResult = await db
       .from('ambulances')
       .insert(insertPayload)
       .select('id')
@@ -186,7 +189,7 @@ export const upsertDriverAmbulance = async (
     // Retry without registration_number if column doesn't exist
     if (insertResult.error && isMissingColumnError(insertResult.error, 'registration_number')) {
       delete insertPayload.registration_number;
-      insertResult = await supabase
+      insertResult = await db
         .from('ambulances')
         .insert(insertPayload)
         .select('id')
