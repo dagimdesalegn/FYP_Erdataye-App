@@ -31,11 +31,20 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ phone: '', password: '' });
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
 
   const handleChange = (key: string, value: string) => {
+    // Clear error for this field when user types
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
     // For phone field – digits only
     if (key === 'phone') {
       const cleaned = value.replace(/[^0-9]/g, '');
@@ -69,14 +78,20 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!form.phone || !form.password) {
-      Alert.alert('Error', 'Please enter both phone number and password');
+    const errors: Record<string, string> = {};
+    if (!form.phone) {
+      errors.phone = 'Please enter your phone number';
+    } else if (!validatePhone(form.phone)) {
+      errors.phone = 'Invalid phone number (e.g. 0912345678)';
+    }
+    if (!form.password) {
+      errors.password = 'Please enter your password';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-    if (!validatePhone(form.phone)) {
-      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number.\nExample: 0912345678');
-      return;
-    }
+    setFieldErrors({});
     setLoading(true);
     try {
       const authEmail = phoneToAuthEmail(form.phone);
@@ -170,9 +185,9 @@ export default function LoginScreen() {
                 <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
                 <View style={[
                   styles.inputWrap,
-                  { backgroundColor: inputBg, borderColor: focusedField === 'phone' ? inputFocusBorder : inputBorder },
+                  { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? inputFocusBorder : inputBorder) },
                 ]}>
-                  <MaterialIcons name="phone" size={18} color={focusedField === 'phone' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
+                  <MaterialIcons name="phone" size={18} color={fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? '#DC2626' : textSecondary)} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: textPrimary }]}
                     placeholder="09XXXXXXXX"
@@ -187,6 +202,7 @@ export default function LoginScreen() {
                     editable={!loading}
                   />
                 </View>
+                {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
               </View>
 
               {/* Password */}
@@ -199,9 +215,9 @@ export default function LoginScreen() {
                 </View>
                 <View style={[
                   styles.inputWrap,
-                  { backgroundColor: inputBg, borderColor: focusedField === 'password' ? inputFocusBorder : inputBorder },
+                  { backgroundColor: inputBg, borderColor: fieldErrors.password ? '#DC2626' : (focusedField === 'password' ? inputFocusBorder : inputBorder) },
                 ]}>
-                  <MaterialIcons name="lock-outline" size={18} color={focusedField === 'password' ? '#DC2626' : textSecondary} style={styles.inputIcon} />
+                  <MaterialIcons name="lock-outline" size={18} color={fieldErrors.password ? '#DC2626' : (focusedField === 'password' ? '#DC2626' : textSecondary)} style={styles.inputIcon} />
                   <TextInput
                     style={[styles.input, { color: textPrimary }]}
                     placeholder="Enter your password"
@@ -217,6 +233,7 @@ export default function LoginScreen() {
                     <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={20} color={textSecondary} />
                   </Pressable>
                 </View>
+                {fieldErrors.password ? <ThemedText style={styles.fieldError}>{fieldErrors.password}</ThemedText> : null}
               </View>
 
               {/* Sign In button */}
@@ -378,6 +395,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     height: '100%',
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+  },
+  fieldError: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginTop: 2,
+    marginLeft: 2,
   },
   forgotLink: {
     fontSize: 12,

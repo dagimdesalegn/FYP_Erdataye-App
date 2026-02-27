@@ -24,6 +24,7 @@ export default function RegisterScreen() {
   const [userRole, setUserRole] = useState<UserRole>('patient');
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
     phone: '',
     password: '',
@@ -59,6 +60,14 @@ export default function RegisterScreen() {
   };
 
   const handleChange = (key: string, value: string) => {
+    // Clear error for this field when user types
+    if (fieldErrors[key]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
     // Phone fields: digits only
     if (key === 'phone' || key === 'contact') {
       const cleaned = value.replace(/[^0-9]/g, '');
@@ -71,61 +80,51 @@ export default function RegisterScreen() {
   const handleSubmit = async () => {
     console.log('handleSubmit called');
     
-    // Validate form — field-specific errors
+    const errors: Record<string, string> = {};
+
+    // Full Name validation
     if (!form.fullName.trim()) {
-      Alert.alert('Full Name Required', 'Please enter your full name.');
-      return;
-    }
-    if (form.fullName.trim().length < 2) {
-      Alert.alert('Invalid Name', 'Full name must be at least 2 characters.');
-      return;
+      errors.fullName = 'Please enter your full name';
+    } else if (form.fullName.trim().length < 2) {
+      errors.fullName = 'Name must be at least 2 characters';
     }
 
+    // Phone validation
     if (!form.phone) {
-      Alert.alert('Phone Required', 'Please enter your phone number.');
-      return;
-    }
-    if (!validatePhone(form.phone)) {
-      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number.\nExample: 0912345678');
-      return;
+      errors.phone = 'Please enter your phone number';
+    } else if (!validatePhone(form.phone)) {
+      errors.phone = 'Invalid phone number (e.g. 0912345678)';
     }
 
+    // Password validation
     if (!form.password) {
-      Alert.alert('Password Required', 'Please enter a password.');
-      return;
-    }
-    if (form.password.length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters.');
-      return;
+      errors.password = 'Please enter a password';
+    } else if (form.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
     }
 
-    // Contact is recommended but not required
-    if (!form.contact && userRole === 'patient') {
-      Alert.alert('Warning', 'Emergency contact number is recommended. Continue anyway?', [
-        { text: 'Go Back', onPress: () => {}, style: 'cancel' },
-        { text: 'Continue', onPress: () => performSignup() },
-      ]);
-      return;
-    }
-
-    // Validate emergency contact phone format if provided
+    // Emergency contact validation (optional but must be valid if provided)
     if (form.contact && !validatePhone(form.contact)) {
-      Alert.alert('Invalid Contact', 'Emergency contact must be a valid Ethiopian phone number.\nExample: 0912345678');
-      return;
+      errors.contact = 'Invalid phone number (e.g. 0912345678)';
     }
 
     // Driver-specific validation
     if (userRole === 'driver') {
-      if (!form.plateNumber) {
-        Alert.alert('Plate Number Required', 'Please enter the ambulance plate number.');
-        return;
+      if (!form.plateNumber.trim()) {
+        errors.plateNumber = 'Please enter the plate number';
       }
-      if (!form.registrationNumber) {
-        Alert.alert('Registration Required', 'Please enter the ambulance registration number.');
-        return;
+      if (!form.registrationNumber.trim()) {
+        errors.registrationNumber = 'Please enter registration number';
       }
     }
 
+    // If any errors, show them and stop
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    setFieldErrors({});
     performSignup();
   };
 
@@ -332,8 +331,8 @@ export default function RegisterScreen() {
               <View style={styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="phone" size={16} color={textSecondary} style={styles.inputIcon} />
+                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : inputBorder }]}>
+                    <MaterialIcons name="phone" size={16} color={fieldErrors.phone ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
                       placeholder="09XXXXXXXX"
@@ -346,11 +345,12 @@ export default function RegisterScreen() {
                       editable={!loading}
                     />
                   </View>
+                  {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
                 </View>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Password *</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="lock-outline" size={16} color={textSecondary} style={styles.inputIcon} />
+                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.password ? '#DC2626' : inputBorder }]}>
+                    <MaterialIcons name="lock-outline" size={16} color={fieldErrors.password ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
                       placeholder="Min 6 chars"
@@ -361,14 +361,15 @@ export default function RegisterScreen() {
                       editable={!loading}
                     />
                   </View>
+                  {fieldErrors.password ? <ThemedText style={styles.fieldError}>{fieldErrors.password}</ThemedText> : null}
                 </View>
               </View>
 
               <View style={styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="person-outline" size={16} color={textSecondary} style={styles.inputIcon} />
+                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.fullName ? '#DC2626' : inputBorder }]}>
+                    <MaterialIcons name="person-outline" size={16} color={fieldErrors.fullName ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
                       placeholder="Enter your full name"
@@ -379,11 +380,12 @@ export default function RegisterScreen() {
                       editable={!loading}
                     />
                   </View>
+                  {fieldErrors.fullName ? <ThemedText style={styles.fieldError}>{fieldErrors.fullName}</ThemedText> : null}
                 </View>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Emergency Contact</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                    <MaterialIcons name="contact-phone" size={16} color={textSecondary} style={styles.inputIcon} />
+                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.contact ? '#DC2626' : inputBorder }]}>
+                    <MaterialIcons name="contact-phone" size={16} color={fieldErrors.contact ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
                       placeholder="09XXXXXXXX"
@@ -395,6 +397,7 @@ export default function RegisterScreen() {
                       editable={!loading}
                     />
                   </View>
+                  {fieldErrors.contact ? <ThemedText style={styles.fieldError}>{fieldErrors.contact}</ThemedText> : null}
                 </View>
               </View>
 
@@ -437,8 +440,8 @@ export default function RegisterScreen() {
                 <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Plate Number *</ThemedText>
-                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                      <MaterialIcons name="directions-car" size={16} color={textSecondary} style={styles.inputIcon} />
+                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.plateNumber ? '#DC2626' : inputBorder }]}>
+                      <MaterialIcons name="directions-car" size={16} color={fieldErrors.plateNumber ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, { color: textPrimary }]}
                         placeholder="e.g. AA-12345"
@@ -449,11 +452,12 @@ export default function RegisterScreen() {
                         editable={!loading}
                       />
                     </View>
+                    {fieldErrors.plateNumber ? <ThemedText style={styles.fieldError}>{fieldErrors.plateNumber}</ThemedText> : null}
                   </View>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Registration No. *</ThemedText>
-                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
-                      <MaterialIcons name="assignment" size={16} color={textSecondary} style={styles.inputIcon} />
+                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.registrationNumber ? '#DC2626' : inputBorder }]}>
+                      <MaterialIcons name="assignment" size={16} color={fieldErrors.registrationNumber ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                       <TextInput
                         style={[styles.input, { color: textPrimary }]}
                         placeholder="Reg. number"
@@ -464,6 +468,7 @@ export default function RegisterScreen() {
                         editable={!loading}
                       />
                     </View>
+                    {fieldErrors.registrationNumber ? <ThemedText style={styles.fieldError}>{fieldErrors.registrationNumber}</ThemedText> : null}
                   </View>
                 </View>
               )}
@@ -658,6 +663,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     height: '100%',
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
+  },
+  fieldError: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginTop: 2,
+    marginLeft: 2,
   },
   primaryBtn: {
     marginTop: 4,
