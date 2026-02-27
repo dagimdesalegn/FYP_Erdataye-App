@@ -5,7 +5,6 @@ export type UserRole = 'patient' | 'driver' | 'admin';
 
 export interface AuthUser {
   id: string;
-  email: string;
   role?: UserRole;
   fullName?: string;
   phone?: string;
@@ -26,19 +25,16 @@ const isObfuscatedExistingSignupUser = (user: any, session: Session | null): boo
 
 const buildProfilePayload = ({
   id,
-  email,
   role,
   fullName,
   phone,
 }: {
   id: string;
-  email: string;
   role: UserRole;
   fullName: string;
   phone: string;
 }) => ({
   id,
-  email,
   role,
   full_name: fullName,
   phone: phone || `phone_${Date.now()}`,
@@ -179,7 +175,6 @@ export const signUp = async (
     try {
       const profileData = buildProfilePayload({
         id: userId,
-        email: userEmail,
         role: resolvedRole,
         fullName,
         phone,
@@ -210,7 +205,6 @@ export const signUp = async (
 
     const user: AuthUser = {
       id: userId,
-      email: userEmail,
       role: resolvedRole,
       fullName,
       phone,
@@ -285,7 +279,6 @@ export const signIn = async (
     if (!profileExists) {
       const profilePayload = buildProfilePayload({
         id: data.user.id,
-        email: data.user.email || '',
         role: roleFromMetadata ?? 'patient',
         fullName: String(data.user.user_metadata?.full_name || ''),
         phone: String(data.user.user_metadata?.phone || `phone_${Date.now()}`),
@@ -303,7 +296,6 @@ export const signIn = async (
 
     const user: AuthUser = {
       id: data.user.id,
-      email: data.user.email || '',
       role,
       fullName: dbFullName || String(data.user.user_metadata?.full_name || ''),
       phone: dbPhone || String(data.user.user_metadata?.phone || ''),
@@ -356,7 +348,6 @@ export const getCurrentUserWithRole = async (): Promise<AuthUser | null> => {
 
     const user: AuthUser = {
       id: data.user.id,
-      email: data.user.email || '',
       role,
     };
 
@@ -417,7 +408,6 @@ export const onAuthStateChange = (
       const roleFromMetadata = getRoleFromMetadata(sessionUser.user_metadata?.role);
       const fallbackUser: AuthUser = {
         id: sessionUser.id,
-        email: sessionUser.email || '',
         role: roleFromMetadata ?? 'patient',
       };
 

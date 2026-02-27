@@ -132,9 +132,9 @@ export default function PatientProfileScreen() {
   };
 
   const handleChange = (key: keyof PatientProfileForm, value: string) => {
-    // Phone fields: strip non-numeric except leading +
+    // Phone fields: digits only
     if (key === 'phone' || key === 'emergencyContactPhone') {
-      const cleaned = value.replace(/[^0-9+]/g, '');
+      const cleaned = value.replace(/[^0-9]/g, '');
       setForm((prev) => ({ ...prev, [key]: cleaned }));
       return;
     }
@@ -303,10 +303,10 @@ export default function PatientProfileScreen() {
               <ThemedText style={styles.label}>Phone Number *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="+2519XXXXXXXX"
+                placeholder="09XXXXXXXX"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 keyboardType="phone-pad"
-                maxLength={13}
+                maxLength={10}
                 value={form.phone}
                 onChangeText={(text) => handleChange('phone', text)}
                 editable={!saving}
@@ -398,10 +398,10 @@ export default function PatientProfileScreen() {
               <ThemedText style={styles.label}>Contact Phone</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="+2519XXXXXXXX"
+                placeholder="09XXXXXXXX"
                 placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                 keyboardType="phone-pad"
-                maxLength={13}
+                maxLength={10}
                 value={form.emergencyContactPhone}
                 onChangeText={(text) => handleChange('emergencyContactPhone', text)}
                 editable={!saving}

@@ -207,7 +207,7 @@ export default function DriverHomeScreen() {
               <ThemedText style={styles.greeting}>
                 Welcome, {user?.fullName || 'Driver'}
               </ThemedText>
-              <ThemedText style={styles.email}>{user?.email}</ThemedText>
+              <ThemedText style={styles.email}>{user?.phone}</ThemedText>
             </View>
           </View>
         </ThemedView>
@@ -346,7 +346,6 @@ export default function DriverHomeScreen() {
                 showsVerticalScrollIndicator={false}
                 style={{ maxHeight: 360 }}>
                 <InfoRow icon="person" label="Full Name" value={driverProfile.full_name} />
-                <InfoRow icon="email" label="Email" value={driverProfile.email || ''} />
                 <InfoRow icon="phone" label="Phone" value={driverProfile.phone} />
                 <InfoRow icon="badge" label="Role" value={driverProfile.role} />
                 <InfoRow

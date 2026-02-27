@@ -121,7 +121,7 @@ export default function HelpScreen() {
               {(profileName || user?.fullName) ? (
                 <ThemedText style={[styles.profileName, { color: colors.text }]}>{profileName || user?.fullName}</ThemedText>
               ) : null}
-              <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.email ?? 'Not signed in'}</ThemedText>
+              <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.phone ?? 'Not signed in'}</ThemedText>
             </View>
             <Pressable onPress={() => setProfileOpen(false)} style={({ pressed }) => [styles.profileCloseBtn, pressed && { opacity: 0.7 }]}>
               <MaterialIcons name="close" size={16} color={isDark ? '#94A3B8' : '#64748B'} />
