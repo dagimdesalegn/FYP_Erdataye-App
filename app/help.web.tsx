@@ -6,9 +6,10 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { getActiveEmergency } from '@/utils/patient';
+import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, Pressable, StyleSheet, View } from 'react-native';
@@ -24,7 +25,11 @@ export default function HelpScreen() {
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [directOpen, setDirectOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const [activeEmergency, setActiveEmergency] = React.useState<PatientEmergency | null>(null);
   const [activeEmergencyId, setActiveEmergencyId] = React.useState<string | null>(null);
+  const [currentLocation, setCurrentLocation] = React.useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationError, setLocationError] = React.useState<string | null>(null);
+  const [locationLoading, setLocationLoading] = React.useState(true);
   const [profileName, setProfileName] = React.useState<string>(user?.fullName || '');
 
   // Load profile name from DB (always fresh)
@@ -56,6 +61,7 @@ export default function HelpScreen() {
 
       const { emergency } = await getActiveEmergency(user.id);
       if (!cancelled) {
+        setActiveEmergency(emergency ?? null);
         setActiveEmergencyId(emergency?.id ?? null);
       }
     };
@@ -66,6 +72,97 @@ export default function HelpScreen() {
       cancelled = true;
     };
   }, [user?.id]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentLocation = async () => {
+      try {
+        setLocationLoading(true);
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status !== 'granted') {
+          if (!cancelled) {
+            setLocationError('Location permission is required to show your position on web.');
+            setCurrentLocation(null);
+          }
+          return;
+        }
+
+        const position = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (!cancelled) {
+          setCurrentLocation({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+          });
+          setLocationError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setLocationError('Unable to read current location from this browser session.');
+          setCurrentLocation(null);
+        }
+      } finally {
+        if (!cancelled) setLocationLoading(false);
+      }
+    };
+
+    void loadCurrentLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const mapLocation = React.useMemo(() => {
+    if (
+      activeEmergency &&
+      Number.isFinite(activeEmergency.latitude) &&
+      Number.isFinite(activeEmergency.longitude)
+    ) {
+      return {
+        latitude: activeEmergency.latitude,
+        longitude: activeEmergency.longitude,
+        sourceLabel: 'Emergency location',
+      };
+    }
+
+    if (currentLocation) {
+      return {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        sourceLabel: 'Current device location',
+      };
+    }
+
+    return null;
+  }, [activeEmergency, currentLocation]);
+
+  const mapEmbedUrl = React.useMemo(() => {
+    if (!mapLocation) return null;
+
+    const lat = mapLocation.latitude;
+    const lon = mapLocation.longitude;
+    const delta = 0.0125;
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta}%2C${lat - delta}%2C${lon + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lon}`;
+  }, [mapLocation]);
+
+  const mapExternalUrl = React.useMemo(() => {
+    if (!mapLocation) return null;
+    return `https://www.openstreetmap.org/?mlat=${mapLocation.latitude}&mlon=${mapLocation.longitude}#map=16/${mapLocation.latitude}/${mapLocation.longitude}`;
+  }, [mapLocation]);
+
+  const mapSummaryText = React.useMemo(() => {
+    if (mapLocation) {
+      return `${mapLocation.latitude.toFixed(6)}, ${mapLocation.longitude.toFixed(6)}`;
+    }
+    if (locationLoading) return 'Getting your current location...';
+    if (locationError) return locationError;
+    return 'No active location is available yet.';
+  }, [locationError, locationLoading, mapLocation]);
 
   const openPatientEmergency = React.useCallback(() => {
     if (!user?.id) {
@@ -152,7 +249,7 @@ export default function HelpScreen() {
             <View style={styles.heroTextCol}>
               <ThemedText style={styles.heroTitle}>Live location</ThemedText>
               <ThemedText style={[styles.heroSubtitle, { color: isDark ? '#A3AAB3' : '#64748B' }]}
-              >Map is available on the mobile app (Android/iOS). Web preview uses a placeholder.</ThemedText>
+              >Showing patient location from active emergency data or current device coordinates.</ThemedText>
             </View>
           </View>
 
@@ -165,11 +262,53 @@ export default function HelpScreen() {
               },
             ]}
           >
-            <View style={styles.mapPlaceholder}>
-              <MaterialIcons name="map" size={22} color={isDark ? '#E6E9EC' : '#0F172A'} />
-              <ThemedText style={[styles.mapPlaceholderText, { color: isDark ? '#A3AAB3' : '#64748B' }]}
-              >Open on Android/iOS to see the live map and nearby ambulances.</ThemedText>
-            </View>
+            {mapLocation && mapEmbedUrl ? (
+              <View style={styles.liveMapRoot}>
+                <View style={styles.mapMetaRow}>
+                  <View style={styles.mapMetaLeft}>
+                    <MaterialIcons name="my-location" size={18} color={isDark ? '#E6E9EC' : '#0F172A'} />
+                    <View>
+                      <ThemedText style={styles.mapMetaLabel}>{mapLocation.sourceLabel}</ThemedText>
+                      <ThemedText
+                        style={[styles.mapMetaValue, { color: isDark ? '#A3AAB3' : '#64748B' }]}>
+                        {mapSummaryText}
+                      </ThemedText>
+                    </View>
+                  </View>
+                  {mapExternalUrl ? (
+                    <Pressable
+                      onPress={() => {
+                        void Linking.openURL(mapExternalUrl);
+                      }}
+                      style={({ pressed }) => [styles.openMapBtn, pressed ? { opacity: 0.75 } : null]}>
+                      <MaterialIcons name="open-in-new" size={16} color={isDark ? '#E6E9EC' : '#0F172A'} />
+                      <ThemedText style={styles.openMapText}>Open map</ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <View style={styles.mapFrameWrap}>
+                  {React.createElement('iframe', {
+                    title: 'Patient location map',
+                    src: mapEmbedUrl,
+                    loading: 'lazy',
+                    referrerPolicy: 'no-referrer-when-downgrade',
+                    style: {
+                      border: 0,
+                      width: '100%',
+                      height: '100%',
+                      display: 'block',
+                    },
+                  })}
+                </View>
+              </View>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <MaterialIcons name="map" size={22} color={isDark ? '#E6E9EC' : '#0F172A'} />
+                <ThemedText style={[styles.mapPlaceholderText, { color: isDark ? '#A3AAB3' : '#64748B' }]}>
+                  {mapSummaryText}
+                </ThemedText>
+              </View>
+            )}
           </View>
         </ThemedView>
 
@@ -392,6 +531,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  liveMapRoot: {
+    flex: 1,
+  },
+  mapMetaRow: {
+    minHeight: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(148,163,184,0.26)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  mapMetaLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  mapMetaLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  mapMetaValue: {
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  openMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  openMapText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  mapFrameWrap: {
+    flex: 1,
+    minHeight: 280,
   },
   actions: {
     marginTop: 18,
