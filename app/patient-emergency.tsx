@@ -207,6 +207,20 @@ export default function PatientEmergencyScreen() {
 
       <AppHeader title="Emergency Service" />
 
+      {/* Close / Back button */}
+      <Pressable
+        onPress={() => router.back()}
+        style={[
+          styles.closeBtn,
+          {
+            backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
+            borderColor: isDark ? '#2E3236' : '#E6ECF2',
+          },
+        ]}
+      >
+        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+      </Pressable>
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
@@ -345,6 +359,23 @@ export default function PatientEmergencyScreen() {
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 58,
+    right: 16,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   scroll: {
     flexGrow: 1,
