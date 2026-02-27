@@ -1,5 +1,5 @@
 import { AuthChangeEvent, AuthError, Session } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 export type UserRole = 'patient' | 'driver' | 'admin';
 
@@ -46,7 +46,7 @@ const upsertProfileWithRetry = async (
   retries: number = 2
 ) => {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+    const { error } = await supabaseAdmin.from('profiles').upsert(payload, { onConflict: 'id' });
     if (!error) {
       return { error: null };
     }

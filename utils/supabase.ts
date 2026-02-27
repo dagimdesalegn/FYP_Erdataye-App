@@ -22,4 +22,15 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   },
 });
 
+/**
+ * Service-role client – bypasses RLS.
+ * Use ONLY for server-side / registration operations that require elevated privileges.
+ */
+const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+export const supabaseAdmin = serviceRoleKey
+  ? createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : supabase; // fallback to regular client if no service role key
+
 export default supabase;
