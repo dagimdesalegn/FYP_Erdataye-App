@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppHeader } from '@/components/app-header';
@@ -12,10 +12,11 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isRegistered } = useAppState();
+  const { isRegistered, user } = useAppState();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
+  const redirected = useRef(false);
 
   const pageBg = Colors[theme].background;
   const titleColor = Colors[theme].text;
@@ -27,6 +28,15 @@ export default function HomeScreen() {
       document.title = 'ErdAtaye Ambulance';
     }
   }, []);
+
+  // Auto-redirect logged-in users to their role-specific page
+  useEffect(() => {
+    if (isRegistered && user && !redirected.current) {
+      redirected.current = true;
+      const route = user.role === 'admin' ? '/admin' : user.role === 'driver' ? '/driver-home' : '/help';
+      router.replace(route as any);
+    }
+  }, [isRegistered, user, router]);
 
   return (
     <View style={[styles.bg, { backgroundColor: pageBg }]}>
@@ -57,34 +67,23 @@ export default function HomeScreen() {
 
           {/* CTA Buttons */}
           <View style={styles.ctaSection}>
-            {isRegistered ? (
-              <Pressable
-                onPress={() => router.push('/help')}
-                style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.92 }]}>
-                <MaterialIcons name="arrow-forward" size={20} color="#FFF" />
-                <ThemedText style={styles.ctaPrimaryText}>Continue to Dashboard</ThemedText>
-              </Pressable>
-            ) : (
-              <>
-                <Pressable
-                  onPress={() => router.push('/login')}
-                  style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.92 }]}>
-                  <MaterialIcons name="login" size={20} color="#FFF" />
-                  <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push('/register')}
-                  style={({ pressed }) => [
-                    styles.ctaButton,
-                    styles.ctaSecondary,
-                    { borderColor: cardBorder, backgroundColor: isDark ? '#1F2937' : '#F8FAFC' },
-                    pressed && { opacity: 0.92 },
-                  ]}>
-                  <MaterialIcons name="person-add" size={20} color="#DC2626" />
-                  <ThemedText style={[styles.ctaSecondaryText, { color: titleColor }]}>Create Account</ThemedText>
-                </Pressable>
-              </>
-            )}
+            <Pressable
+              onPress={() => router.push('/login')}
+              style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.92 }]}>
+              <MaterialIcons name="login" size={20} color="#FFF" />
+              <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/register')}
+              style={({ pressed }) => [
+                styles.ctaButton,
+                styles.ctaSecondary,
+                { borderColor: cardBorder, backgroundColor: isDark ? '#1F2937' : '#F8FAFC' },
+                pressed && { opacity: 0.92 },
+              ]}>
+              <MaterialIcons name="person-add" size={20} color="#DC2626" />
+              <ThemedText style={[styles.ctaSecondaryText, { color: titleColor }]}>Create Account</ThemedText>
+            </Pressable>
           </View>
 
         </View>
