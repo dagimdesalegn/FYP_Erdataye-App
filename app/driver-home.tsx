@@ -355,8 +355,8 @@ export default function DriverHomeScreen() {
                 />
                 <InfoRow
                   icon="assignment"
-                  label="Ambulance Type"
-                  value={ambulanceDetails?.type || 'Not assigned'}
+                  label="Registration No."
+                  value={ambulanceDetails?.registration_number || 'Not assigned'}
                 />
                 <InfoRow
                   icon="local-hospital"
