@@ -26,22 +26,19 @@ const isObfuscatedExistingSignupUser = (user: any, session: Session | null): boo
 
 const buildProfilePayload = ({
   id,
-  email,
   role,
   fullName,
   phone,
 }: {
   id: string;
-  email: string;
   role: UserRole;
   fullName: string;
   phone: string;
 }) => ({
   id,
-  email,
   role,
   full_name: fullName,
-  phone: phone || null,
+  phone: phone || 'N/A',
   updated_at: new Date().toISOString(),
 });
 
@@ -179,7 +176,6 @@ export const signUp = async (
     try {
       const profileData = buildProfilePayload({
         id: userId,
-        email: userEmail,
         role: resolvedRole,
         fullName,
         phone,
@@ -262,10 +258,9 @@ export const signIn = async (
     // Heal missing profile rows so role lookups and medical profile writes work reliably.
     const profilePayload = buildProfilePayload({
       id: data.user.id,
-      email: data.user.email || email,
       role: roleFromMetadata ?? 'patient',
       fullName: String(data.user.user_metadata?.full_name || ''),
-      phone: String(data.user.user_metadata?.phone || ''),
+      phone: String(data.user.user_metadata?.phone || 'N/A'),
     });
     const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
     if (upsertProfileError && upsertProfileError.code !== '23503') {
@@ -274,12 +269,29 @@ export const signIn = async (
 
     const role = roleFromMetadata ?? (await getUserRole(data.user.id)) ?? 'patient';
 
+    // Read profile from DB to get the latest full_name and phone
+    let dbFullName = '';
+    let dbPhone = '';
+    try {
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', data.user.id)
+        .single();
+      if (profileRow) {
+        dbFullName = profileRow.full_name || '';
+        dbPhone = profileRow.phone || '';
+      }
+    } catch (e) {
+      console.warn('Could not read profile from DB on sign-in:', e);
+    }
+
     const user: AuthUser = {
       id: data.user.id,
       email: data.user.email || '',
       role,
-      fullName: String(data.user.user_metadata?.full_name || ''),
-      phone: String(data.user.user_metadata?.phone || ''),
+      fullName: dbFullName || String(data.user.user_metadata?.full_name || ''),
+      phone: dbPhone || String(data.user.user_metadata?.phone || ''),
     };
 
     return { user, error: null };
