@@ -52,6 +52,8 @@ function ThemedRoot() {
           <Stack.Screen name="driver-emergency" options={{ headerShown: false, title: 'Emergency Assignment' }} />
           <Stack.Screen name="driver-patient-info" options={{ headerShown: false, title: 'Patient Information' }} />
           <Stack.Screen name="driver-emergency-tracking" options={{ headerShown: false, title: 'Emergency Tracking' }} />
+          {/* Admin Route */}
+          <Stack.Screen name="admin" options={{ headerShown: false, title: 'Admin Panel' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
