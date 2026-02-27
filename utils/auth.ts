@@ -278,6 +278,8 @@ export const signIn = async (
       id: data.user.id,
       email: data.user.email || '',
       role,
+      fullName: String(data.user.user_metadata?.full_name || ''),
+      phone: String(data.user.user_metadata?.phone || ''),
     };
 
     return { user, error: null };
