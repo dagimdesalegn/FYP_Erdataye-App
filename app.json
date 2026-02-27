@@ -44,7 +44,9 @@
           "imageWidth": 200,
           "resizeMode": "contain"
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-audio"
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",

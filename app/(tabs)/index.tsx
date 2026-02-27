@@ -2,7 +2,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { Audio } from 'expo-av';
+import { useAudioPlayer } from 'expo-audio';
 
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -40,7 +40,6 @@ export default function HomeScreen() {
   const wobble = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
   const roadShift = useRef(new Animated.Value(0)).current;
-  const sirenRef = useRef<any>(null);
   const sirenOpRef = useRef(0);
   const rideValueRef = useRef(0);
   const rideListenerIdRef = useRef<string | null>(null);
@@ -98,64 +97,35 @@ export default function HomeScreen() {
     };
   }, [ride]);
 
+  const sirenPlayer = useAudioPlayer(require('../../assets/images/medical-ambulance-siren.mp3'));
+
   const stopSiren = useCallback(async () => {
-    // Cancel any in-flight play request.
     sirenOpRef.current += 1;
     try {
-      const s = sirenRef.current;
-      sirenRef.current = null;
-      if (s) {
-        try {
-          await s.setVolumeAsync(0);
-        } catch {
-          // ignore
-        }
-        await s.stopAsync();
-        await s.unloadAsync();
-      }
+      sirenPlayer.pause();
+      sirenPlayer.seekTo(0);
     } catch {
       // ignore
     }
-  }, []);
+  }, [sirenPlayer]);
 
   const playSiren = useCallback(async () => {
     const opId = (sirenOpRef.current += 1);
     try {
       if (isSirenMuted) return;
 
-      // Ensure there is never more than one siren instance alive.
-      const existing = sirenRef.current;
-      if (existing) {
-        try {
-          await existing.stopAsync();
-          await existing.unloadAsync();
-        } catch {
-          // ignore
-        }
-        sirenRef.current = null;
-      }
+      sirenPlayer.loop = true;
+      sirenPlayer.volume = 0.8;
 
-      const { sound } = await Audio.Sound.createAsync(
-        require('../../assets/images/medical-ambulance-siren.mp3'),
-        { shouldPlay: false, isLooping: true, volume: 0.8 }
-      );
-
-      // If something changed (mute toggled / screen unfocused / pause), cancel this instance.
       if (sirenOpRef.current !== opId || isSirenMuted) {
-        try {
-          await sound.unloadAsync();
-        } catch {
-          // ignore
-        }
         return;
       }
 
-      sirenRef.current = sound;
-      await sound.playAsync();
+      sirenPlayer.play();
     } catch {
       // ignore
     }
-  }, [isSirenMuted]);
+  }, [isSirenMuted, sirenPlayer]);
 
   const startMotion = useCallback((resume?: boolean) => {
     rideAnimRef.current?.stop();
@@ -689,10 +659,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#EEF2F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
+    boxShadow: '0px 14px 22px rgba(0, 0, 0, 0.14)',
     elevation: 6,
   },
   logo: {
@@ -710,10 +677,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
     paddingHorizontal: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.14,
-    shadowRadius: 22,
+    boxShadow: '0px 14px 22px rgba(0, 0, 0, 0.14)',
     elevation: 6,
   },
   road: {
@@ -969,9 +933,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     textAlign: 'center',
     letterSpacing: -0.5,
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
+    textShadow: '0px 2px 10px rgba(0,0,0,0.35)',
   },
   subtitle: {
     fontSize: 16,
@@ -997,10 +959,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#EEF2F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
+    boxShadow: '0px 14px 24px rgba(0, 0, 0, 0.1)',
     elevation: 6,
   },
   cardTitle: {
@@ -1048,17 +1007,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryCta: {
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 24,
+    boxShadow: '0px 12px 24px rgba(220, 38, 38, 0.4)',
     elevation: 12,
   },
   secondaryCta: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    boxShadow: '0px 6px 16px rgba(0, 0, 0, 0.15)',
     elevation: 8,
   },
   secondaryRow: {
