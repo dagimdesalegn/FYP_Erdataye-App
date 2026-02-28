@@ -208,7 +208,7 @@ export default function AdminScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <AppHeader title="ErdAtaye" onProfilePress={handleProfilePress} />
+      <AppHeader title="Erdataye" onProfilePress={handleProfilePress} />
 
       <View style={styles.container}>
         {/* Stats Row */}

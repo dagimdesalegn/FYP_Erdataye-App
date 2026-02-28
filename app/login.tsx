@@ -166,7 +166,7 @@ export default function LoginScreen() {
               <View style={styles.logoBadge}>
                 <MaterialIcons name="local-hospital" size={28} color="#fff" />
               </View>
-              <ThemedText style={[styles.brand, { color: textPrimary }]}>ErdAtaye</ThemedText>
+              <ThemedText style={[styles.brand, { color: textPrimary }]}>Erdataye</ThemedText>
               <ThemedText style={[styles.tagline, { color: textSecondary }]}>
                 Emergency Ambulance Service
               </ThemedText>
