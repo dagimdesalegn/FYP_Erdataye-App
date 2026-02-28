@@ -38,8 +38,8 @@ function ThemedRoot() {
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>
       <ThemeProvider value={resolved === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false, title: 'ErdAtaye' }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'ErdAtaye Ambulance' }} />
+          <Stack.Screen name="index" options={{ headerShown: false, title: 'Erdataye' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Erdataye Ambulance' }} />
           <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
           <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
           <Stack.Screen name="help" options={{ headerShown: false, title: 'Help' }} />
@@ -54,6 +54,10 @@ function ThemedRoot() {
           <Stack.Screen name="driver-emergency-tracking" options={{ headerShown: false, title: 'Emergency Tracking' }} />
           {/* Admin Route */}
           <Stack.Screen name="admin" options={{ headerShown: false, title: 'Admin Panel' }} />
+          {/* Hospital & Map Routes */}
+          <Stack.Screen name="hospital" options={{ headerShown: false, title: 'Hospital Dashboard' }} />
+          <Stack.Screen name="map" options={{ headerShown: false, title: 'Live Map' }} />
+          <Stack.Screen name="emergency" options={{ headerShown: false, title: 'Emergency' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
         <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />

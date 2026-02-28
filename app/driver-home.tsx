@@ -190,7 +190,7 @@ export default function DriverHomeScreen() {
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Loading..." />
 
       {/* App Header – project name top-left, theme toggle + profile icon top-right */}
-      <AppHeader title="ErdAtaye" onProfilePress={handleProfilePress} />
+      <AppHeader title="Erdataye" onProfilePress={handleProfilePress} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Welcome Card */}

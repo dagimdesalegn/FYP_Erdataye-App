@@ -1,19 +1,37 @@
+import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Ambulance, createEmergencyRequest, findNearestAmbulances } from '@/utils/emergency';
+import { Colors, Fonts } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  Ambulance,
+  createEmergencyRequest,
+  findNearestAmbulance,
+  getAvailableAmbulances,
+  parsePostGISPoint,
+} from '@/utils/emergency';
+import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 export default function EmergencyScreen() {
   const { user } = useAppState();
+  const router = useRouter();
+  const colorScheme = useColorScheme();
+  const theme = colorScheme ?? 'light';
+  const isDark = theme === 'dark';
+  const textColor = Colors[theme].text;
+  const subText = isDark ? '#B7BDC3' : '#475569';
+
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [nearbyAmbulances, setNearbyAmbulances] = useState<Ambulance[]>([]);
+  const [nearbyAmbulances, setNearbyAmbulances] = useState<Array<Ambulance & { lat: number; lng: number }>>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Get user's current location
+  // Get user's current location with high accuracy
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -22,7 +40,9 @@ export default function EmergencyScreen() {
         return null;
       }
 
-      const currentLocation = await Location.getCurrentPositionAsync({});
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.BestForNavigation,
+      });
       setLocation(currentLocation);
       return currentLocation;
     } catch (error) {
@@ -40,7 +60,6 @@ export default function EmergencyScreen() {
 
     setLoading(true);
     try {
-      // Get current location
       const currentLocation = await getUserLocation();
       if (!currentLocation) {
         Alert.alert('Error', 'Could not get your location. Please enable location services.');
@@ -50,13 +69,13 @@ export default function EmergencyScreen() {
 
       const { latitude, longitude } = currentLocation.coords;
 
-      // Create emergency request in database
+      // Create emergency request
       const { request, error } = await createEmergencyRequest(
         user.id,
         latitude,
         longitude,
         'Emergency ambulance request',
-        'critical'
+        'medical'
       );
 
       if (error) {
@@ -65,19 +84,27 @@ export default function EmergencyScreen() {
         return;
       }
 
-      // Find nearest ambulances
-      const { ambulances, error: ambulanceError } = await findNearestAmbulances(latitude, longitude);
-
+      // Try to find nearest ambulance
+      const { ambulanceId, error: ambulanceError } = await findNearestAmbulance(latitude, longitude);
       if (ambulanceError) {
-        console.warn('Warning getting ambulances:', ambulanceError.message);
-        // Still show success even if we can't find ambulances nearby
-      } else if (ambulances && ambulances.length > 0) {
-        setNearbyAmbulances(ambulances);
+        console.warn('Warning finding nearest ambulance:', ambulanceError.message);
+      }
+
+      // Fetch available ambulances for display
+      const { ambulances } = await getAvailableAmbulances();
+      if (ambulances && ambulances.length > 0) {
+        const parsed = ambulances
+          .map((a) => {
+            const loc = parsePostGISPoint(a.last_known_location);
+            return loc ? { ...a, lat: loc.latitude, lng: loc.longitude } : null;
+          })
+          .filter(Boolean) as Array<Ambulance & { lat: number; lng: number }>;
+        setNearbyAmbulances(parsed);
       }
 
       Alert.alert(
         'Emergency Request Sent',
-        `Your location (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) has been sent to nearby ambulances. Help is on the way!`,
+        `Your location (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) has been sent. Help is on the way!`,
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -88,59 +115,86 @@ export default function EmergencyScreen() {
   };
 
   useEffect(() => {
-    // Get location on component mount
     getUserLocation();
   }, []);
 
   return (
     <ThemedView style={styles.container}>
+      <AppHeader title="Erdataye" />
+
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText type="title" style={[styles.title, { color: textColor }]}>
           🚑 Emergency Ambulance Service
         </ThemedText>
 
         {errorMsg && <ThemedText style={styles.error}>{errorMsg}</ThemedText>}
 
         {location && (
-          <ThemedText style={styles.locationText}>
-            Your Location: {location.coords.latitude.toFixed(4)}, {location.coords.longitude.toFixed(4)}
-          </ThemedText>
+          <View style={[styles.locationCard, { backgroundColor: isDark ? '#0B1220' : '#F0F9FF', borderColor: isDark ? '#2E3236' : '#BAE6FD' }]}>
+            <MaterialIcons name="my-location" size={18} color="#3B82F6" />
+            <ThemedText style={[styles.locationText, { color: subText }]}>
+              {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
+              {'  '}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
+            </ThemedText>
+          </View>
         )}
 
         <View style={styles.buttonContainer}>
-          <View
-            style={[
-              styles.callButton,
-              loading && styles.callButtonDisabled,
-            ]}
+          <Pressable
+            style={[styles.callButton, loading && styles.callButtonDisabled]}
+            onPress={handleEmergencyCall}
+            disabled={loading}
           >
             {loading ? (
               <ActivityIndicator size="large" color="#fff" />
             ) : (
-              <View>
-                <ThemedText style={styles.callButtonText} onPress={handleEmergencyCall}>
-                  CALL AMBULANCE
-                </ThemedText>
-              </View>
+              <>
+                <MaterialIcons name="phone-in-talk" size={48} color="#fff" />
+                <ThemedText style={styles.callButtonText}>CALL{'\n'}AMBULANCE</ThemedText>
+              </>
             )}
-          </View>
+          </Pressable>
         </View>
 
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: '#3B82F6' }]}
+            onPress={() => router.push('/map')}
+          >
+            <MaterialIcons name="map" size={22} color="#fff" />
+            <ThemedText style={styles.actionBtnText}>Live Map</ThemedText>
+          </Pressable>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: '#10B981' }]}
+            onPress={() => router.push('/hospital')}
+          >
+            <MaterialIcons name="local-hospital" size={22} color="#fff" />
+            <ThemedText style={styles.actionBtnText}>Hospital</ThemedText>
+          </Pressable>
+        </View>
+
+        {/* Nearby Ambulances */}
         {nearbyAmbulances.length > 0 && (
           <View style={styles.ambulancesSection}>
-            <ThemedText type="subtitle" style={styles.ambulancesTitle}>
-              Nearby Ambulances ({nearbyAmbulances.length})
+            <ThemedText type="subtitle" style={[styles.ambulancesTitle, { color: textColor }]}>
+              Available Ambulances ({nearbyAmbulances.length})
             </ThemedText>
             {nearbyAmbulances.map((ambulance) => (
-              <View key={ambulance.id} style={styles.ambulanceCard}>
-                <ThemedText style={styles.ambulanceText}>
-                  🚐 {ambulance.vehicle_number}
-                </ThemedText>
-                <ThemedText style={styles.ambulanceStatus}>
-                  Status: {ambulance.status}
-                </ThemedText>
-                <ThemedText style={styles.ambulanceLocation}>
-                  Location: {ambulance.latitude.toFixed(4)}, {ambulance.longitude.toFixed(4)}
+              <View
+                key={ambulance.id}
+                style={[styles.ambulanceCard, { backgroundColor: isDark ? '#0B1220' : '#F8FAFC', borderColor: isDark ? '#2E3236' : '#EEF2F6' }]}
+              >
+                <View style={styles.ambulanceRow}>
+                  <ThemedText style={[styles.ambulanceText, { color: textColor }]}>
+                    🚑 {ambulance.vehicle_number}
+                  </ThemedText>
+                  <ThemedText style={[styles.ambulanceType, { color: subText }]}>
+                    {ambulance.type || 'Standard'}
+                  </ThemedText>
+                </View>
+                <ThemedText style={[styles.ambulanceLocation, { color: subText }]}>
+                  📍 {ambulance.lat.toFixed(4)}, {ambulance.lng.toFixed(4)}
                 </ThemedText>
               </View>
             ))}
@@ -157,76 +211,124 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    justifyContent: 'center',
     alignItems: 'center',
-    minHeight: '100%',
+    paddingBottom: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
+    fontFamily: Fonts.sans,
   },
   error: {
-    color: 'red',
+    color: '#DC2626',
     marginBottom: 15,
     textAlign: 'center',
+    fontFamily: Fonts.sans,
+  },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 24,
+    width: '100%',
   },
   locationText: {
-    marginBottom: 30,
-    textAlign: 'center',
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
   },
   buttonContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 24,
   },
   callButton: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: '#ff3b30',
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: '#DC2626',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+    gap: 4,
   },
   callButtonDisabled: {
     opacity: 0.6,
   },
   callButtonText: {
     color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '800',
     textAlign: 'center',
+    fontFamily: Fonts.sans,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginBottom: 24,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  actionBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
   },
   ambulancesSection: {
     width: '100%',
-    marginTop: 20,
+    marginTop: 8,
   },
   ambulancesTitle: {
-    marginBottom: 10,
+    marginBottom: 12,
+    fontFamily: Fonts.sans,
   },
   ambulanceCard: {
-    padding: 12,
+    padding: 14,
     marginBottom: 10,
-    borderRadius: 8,
-    backgroundColor: '#f0f0f0',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  ambulanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
   ambulanceText: {
     fontWeight: '600',
-    marginBottom: 5,
+    fontSize: 15,
+    fontFamily: Fonts.sans,
   },
-  ambulanceStatus: {
+  ambulanceType: {
     fontSize: 12,
-    marginBottom: 3,
+    fontWeight: '500',
+    fontFamily: Fonts.sans,
   },
   ambulanceLocation: {
     fontSize: 12,
-    marginTop: 5,
+    fontFamily: Fonts.sans,
   },
 });

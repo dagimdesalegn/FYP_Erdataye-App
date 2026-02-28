@@ -28,7 +28,7 @@
     "ios": {
       "supportsTablet": true
     },
-    "name": "ErdAtaye Ambulance",
+    "name": "Erdataye Ambulance",
     "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
@@ -55,7 +55,7 @@
     "web": {
       "favicon": "./assets/images/ambulance-favicon.png",
       "output": "static",
-      "title": "ErdAtaye Ambulance",
+      "title": "Erdataye Ambulance",
       "bundler": "metro"
     }
   }
