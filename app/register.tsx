@@ -104,8 +104,8 @@ export default function RegisterScreen() {
       errors.password = 'Password must be at least 6 characters';
     }
 
-    // Emergency contact validation (optional but must be valid if provided)
-    if (form.contact && !validatePhone(form.contact)) {
+    // Emergency contact validation (optional but must be valid if provided, only for patients)
+    if (userRole === 'patient' && form.contact && !validatePhone(form.contact)) {
       errors.contact = 'Invalid phone number (e.g. 0912345678)';
     }
 
@@ -135,7 +135,7 @@ export default function RegisterScreen() {
     try {
       const authEmail = phoneToAuthEmail(form.phone);
       const dbPhone = formatPhoneForDB(form.phone);
-      const emergencyContactPhone = form.contact ? formatPhoneForDB(form.contact) : '';
+      const emergencyContactPhone = userRole === 'patient' && form.contact ? formatPhoneForDB(form.contact) : '';
 
       console.log('Starting signup with:', { 
         authEmail, 
@@ -368,7 +368,7 @@ export default function RegisterScreen() {
               <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.fullName ? '#DC2626' : inputBorder }]}>
+                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.fullName ? '#DC2626' : inputBorder }]}> 
                     <MaterialIcons name="person-outline" size={16} color={fieldErrors.fullName ? '#DC2626' : textSecondary} style={styles.inputIcon} />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
@@ -382,23 +382,26 @@ export default function RegisterScreen() {
                   </View>
                   {fieldErrors.fullName ? <ThemedText style={styles.fieldError}>{fieldErrors.fullName}</ThemedText> : null}
                 </View>
-                <View style={styles.fieldHalf}>
-                  <ThemedText style={[styles.label, { color: textPrimary }]}>Emergency Contact</ThemedText>
-                  <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.contact ? '#DC2626' : inputBorder }]}>
-                    <MaterialIcons name="contact-phone" size={16} color={fieldErrors.contact ? '#DC2626' : textSecondary} style={styles.inputIcon} />
-                    <TextInput
-                      style={[styles.input, { color: textPrimary }]}
-                      placeholder="09XXXXXXXX"
-                      placeholderTextColor={placeholderColor}
-                      keyboardType="phone-pad"
-                      maxLength={10}
-                      value={form.contact}
-                      onChangeText={(t) => handleChange('contact', t)}
-                      editable={!loading}
-                    />
+                {/* Emergency Contact input only for patients */}
+                {userRole === 'patient' && (
+                  <View style={styles.fieldHalf}>
+                    <ThemedText style={[styles.label, { color: textPrimary }]}>Emergency Contact</ThemedText>
+                    <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.contact ? '#DC2626' : inputBorder }]}> 
+                      <MaterialIcons name="contact-phone" size={16} color={fieldErrors.contact ? '#DC2626' : textSecondary} style={styles.inputIcon} />
+                      <TextInput
+                        style={[styles.input, { color: textPrimary }]}
+                        placeholder="09XXXXXXXX"
+                        placeholderTextColor={placeholderColor}
+                        keyboardType="phone-pad"
+                        maxLength={10}
+                        value={form.contact}
+                        onChangeText={(t) => handleChange('contact', t)}
+                        editable={!loading}
+                      />
+                    </View>
+                    {fieldErrors.contact ? <ThemedText style={styles.fieldError}>{fieldErrors.contact}</ThemedText> : null}
                   </View>
-                  {fieldErrors.contact ? <ThemedText style={styles.fieldError}>{fieldErrors.contact}</ThemedText> : null}
-                </View>
+                )}
               </View>
 
               {/* Patient-specific fields */}
