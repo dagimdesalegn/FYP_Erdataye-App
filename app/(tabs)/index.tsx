@@ -3,25 +3,21 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Dimensions, ImageBackground, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+
+const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isRegistered, user } = useAppState();
   const colorScheme = useColorScheme();
-  const theme = colorScheme ?? 'light';
-  const isDark = theme === 'dark';
+  const isDark = (colorScheme ?? 'light') === 'dark';
   const redirected = useRef(false);
-
-  const pageBg = Colors[theme].background;
-  const titleColor = Colors[theme].text;
-  const subText = isDark ? '#94A3B8' : '#64748B';
-  const cardBorder = isDark ? '#1F2937' : '#E2E8F0';
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -39,37 +35,76 @@ export default function HomeScreen() {
   }, [isRegistered, user, router]);
 
   return (
-    <View style={[styles.bg, { backgroundColor: pageBg }]}>
-      <AppHeader title="ErdAtaye" announcementHref="/modal" />
+    <ImageBackground
+      source={require('@/assets/images/ambulance-hero.jpg')}
+      style={styles.bg}
+      resizeMode="cover">
+      {/* Dark overlay for readability */}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.85)']}
+        style={StyleSheet.absoluteFillObject}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+      />
 
+      {/* Top brand bar */}
+      <View style={styles.topBar}>
+        <View style={styles.brandRow}>
+          <View style={styles.brandIcon}>
+            <MaterialIcons name="local-hospital" size={20} color="#fff" />
+          </View>
+          <ThemedText style={styles.brandText}>ErdAtaye</ThemedText>
+        </View>
+      </View>
+
+      {/* Content */}
       <View style={styles.container}>
         <View style={styles.content}>
 
-          {/* Hero */}
-          <View style={styles.hero}>
-            <View style={[styles.logoBadge, { backgroundColor: isDark ? 'rgba(220,38,38,0.12)' : 'rgba(220,38,38,0.08)' }]}>
-              <MaterialIcons name="local-hospital" size={28} color="#DC2626" />
+          {/* Badge */}
+          <View style={styles.badge}>
+            <MaterialIcons name="verified" size={14} color="#22C55E" />
+            <ThemedText style={styles.badgeText}>Ethiopia's Emergency Service</ThemedText>
+          </View>
+
+          {/* Hero text */}
+          <ThemedText
+            style={[
+              styles.title,
+              { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
+            ]}>
+            እርዳታዬ
+          </ThemedText>
+          <ThemedText style={styles.subtitle}>
+            Emergency Ambulance{'\n'}at Your Fingertips
+          </ThemedText>
+          <ThemedText style={styles.description}>
+            Request an ambulance in seconds. Track in real-time. Get first-aid guidance while you wait.
+          </ThemedText>
+
+          {/* Stats row */}
+          <View style={styles.statsRow}>
+            <View style={styles.stat}>
+              <ThemedText style={styles.statNumber}>24/7</ThemedText>
+              <ThemedText style={styles.statLabel}>Available</ThemedText>
             </View>
-            <ThemedText
-              style={[
-                styles.title,
-                { color: titleColor, fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
-              ]}>
-              እርዳታዬ
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: titleColor }]}>
-              Ambulance Service for Ethiopia
-            </ThemedText>
-            <ThemedText style={[styles.description, { color: subText }]}>
-              Quick ambulance request, verified access, and first-aid support designed for Ethiopia.
-            </ThemedText>
+            <View style={[styles.statDivider]} />
+            <View style={styles.stat}>
+              <ThemedText style={styles.statNumber}>&lt;3min</ThemedText>
+              <ThemedText style={styles.statLabel}>Response</ThemedText>
+            </View>
+            <View style={[styles.statDivider]} />
+            <View style={styles.stat}>
+              <ThemedText style={styles.statNumber}>GPS</ThemedText>
+              <ThemedText style={styles.statLabel}>Tracking</ThemedText>
+            </View>
           </View>
 
           {/* CTA Buttons */}
           <View style={styles.ctaSection}>
             <Pressable
               onPress={() => router.push('/login')}
-              style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.92 }]}>
+              style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
               <MaterialIcons name="login" size={20} color="#FFF" />
               <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
             </Pressable>
@@ -78,77 +113,156 @@ export default function HomeScreen() {
               style={({ pressed }) => [
                 styles.ctaButton,
                 styles.ctaSecondary,
-                { borderColor: cardBorder, backgroundColor: isDark ? '#1F2937' : '#F8FAFC' },
-                pressed && { opacity: 0.92 },
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
               ]}>
-              <MaterialIcons name="person-add" size={20} color="#DC2626" />
-              <ThemedText style={[styles.ctaSecondaryText, { color: titleColor }]}>Create Account</ThemedText>
+              <MaterialIcons name="person-add" size={20} color="#fff" />
+              <ThemedText style={styles.ctaSecondaryText}>Create Account</ThemedText>
             </Pressable>
           </View>
 
+          {/* Footer */}
+          <ThemedText style={styles.footerText}>
+            Designed for Ethiopian emergency response
+          </ThemedText>
         </View>
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
   bg: {
     flex: 1,
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
+
+  /* Top brand bar */
+  topBar: {
+    paddingTop: Platform.OS === 'web' ? 20 : 54,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: Fonts.sans,
+    letterSpacing: -0.5,
+  },
+
+  /* Container */
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: 24,
-    ...(Platform.OS === 'web' ? { minHeight: '85vh' as any } : {}),
+    paddingBottom: Platform.OS === 'web' ? 40 : 44,
   },
   content: {
     width: '100%',
-    maxWidth: 440,
-    alignItems: 'center',
-    gap: 28,
+    maxWidth: 480,
+    alignSelf: 'center',
+    gap: 16,
   },
 
-  /* Hero */
-  hero: {
+  /* Badge */
+  badge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
-  logoBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E2E8F0',
+    fontFamily: Fonts.sans,
   },
+
+  /* Hero text */
   title: {
-    fontSize: 38,
+    fontSize: 48,
     fontWeight: '900',
-    textAlign: 'center',
-    letterSpacing: -1.5,
+    color: '#FFFFFF',
+    letterSpacing: -2,
+    lineHeight: 52,
   } as any,
   subtitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    textAlign: 'center',
-    letterSpacing: -0.2,
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
     fontFamily: Fonts.sans,
+    lineHeight: 30,
   },
   description: {
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 21,
-    maxWidth: 340,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 22,
     fontFamily: Fonts.sans,
     fontWeight: '500',
+    maxWidth: 380,
+  },
+
+  /* Stats */
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: Fonts.sans,
+  },
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: Fonts.sans,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
 
   /* CTA */
   ctaSection: {
     width: '100%',
     gap: 10,
+    marginTop: 4,
   },
   ctaButton: {
     flexDirection: 'row',
@@ -161,9 +275,12 @@ const styles = StyleSheet.create({
   },
   ctaPrimary: {
     backgroundColor: '#DC2626',
-    boxShadow: '0px 8px 20px rgba(220, 38, 38, 0.35)',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
     elevation: 8,
-  } as any,
+  },
   ctaPrimaryText: {
     color: '#FFFFFF',
     fontSize: 16,
@@ -173,11 +290,24 @@ const styles = StyleSheet.create({
   },
   ctaSecondary: {
     borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   ctaSecondaryText: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: -0.1,
+    color: '#FFFFFF',
+  },
+
+  /* Footer */
+  footerText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+    marginTop: 4,
   },
 });
