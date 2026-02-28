@@ -300,16 +300,15 @@ export default function RegisterScreen() {
             isSmallScreen && styles.cardMobile,
           ]}>
 
-            {/* Back button */}
+            {/* Close button (top-right) */}
             <Pressable
               onPress={() => !loading && router.replace('/login')}
               style={({ pressed }) => [
-                styles.backBtn,
-                { borderColor: cardBorder, backgroundColor: inputBg },
-                pressed && { opacity: 0.8 },
+                styles.closeBtn,
+                { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
+                pressed && { opacity: 0.7 },
               ]}>
-              <MaterialIcons name="arrow-back" size={16} color={textPrimary} />
-              <ThemedText style={[styles.backText, { color: textPrimary }]}>Back</ThemedText>
+              <MaterialIcons name="close" size={18} color={textSecondary} />
             </Pressable>
 
             {/* Header */}
@@ -535,7 +534,7 @@ export default function RegisterScreen() {
             </View>
 
             {/* Already have account */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: isSmallScreen ? 24 : 0 }]}>
               <ThemedText style={[styles.footerText, { color: textSecondary }]}>Already have an account?</ThemedText>
               <Pressable onPress={() => !loading && router.replace('/login')} hitSlop={8}>
                 <ThemedText style={styles.footerLink}>Sign In</ThemedText>
@@ -596,23 +595,19 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     paddingHorizontal: 16,
     paddingVertical: 16,
+    paddingBottom: 32,
     flex: 1,
   },
-  backBtn: {
-    flexDirection: 'row',
+  closeBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 4,
-    marginBottom: 10,
-  },
-  backText: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
+    justifyContent: 'center',
+    zIndex: 10,
   },
   title: {
     fontSize: 20,
