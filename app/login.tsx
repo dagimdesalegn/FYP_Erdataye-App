@@ -65,7 +65,7 @@ export default function LoginScreen() {
     if (digits.length === 9 && digits.startsWith('9')) {
       digits = '251' + digits;
     }
-    return digits + '@phone.erdataye.app';
+    return digits + '@phone.erdataya.app';
   };
 
   const validatePhone = (phone: string): boolean => {
@@ -166,7 +166,7 @@ export default function LoginScreen() {
               <View style={styles.logoBadge}>
                 <MaterialIcons name="local-hospital" size={28} color="#fff" />
               </View>
-              <ThemedText style={[styles.brand, { color: textPrimary }]}>Erdataye</ThemedText>
+              <ThemedText style={[styles.brand, { color: textPrimary }]}>Erdataya</ThemedText>
               <ThemedText style={[styles.tagline, { color: textSecondary }]}>
                 Emergency Ambulance Service
               </ThemedText>

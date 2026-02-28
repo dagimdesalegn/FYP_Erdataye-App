@@ -102,7 +102,7 @@ export const testDatabaseConnection = async () => {
  * Comprehensive diagnostics
  */
 export const runFullDiagnostics = async () => {
-  console.log('=== 🏥 Erdataye Database Diagnostics ===\n');
+  console.log('=== 🏥 Erdataya Database Diagnostics ===\n');
   
   console.log('1️⃣ Testing database connection...');
   await testDatabaseConnection();
