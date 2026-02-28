@@ -534,9 +534,10 @@ export default function RegisterScreen() {
             </View>
 
             {/* Already have account */}
-            <View style={[styles.footer, { paddingBottom: isSmallScreen ? 24 : 0 }]}>
+            <View style={[styles.footerDivider, { borderTopColor: cardBorder }]} />
+            <View style={[styles.footer, { paddingBottom: isSmallScreen ? 28 : 0 }]}>
               <ThemedText style={[styles.footerText, { color: textSecondary }]}>Already have an account?</ThemedText>
-              <Pressable onPress={() => !loading && router.replace('/login')} hitSlop={8}>
+              <Pressable onPress={() => !loading && router.replace('/login')} hitSlop={12}>
                 <ThemedText style={styles.footerLink}>Sign In</ThemedText>
               </Pressable>
             </View>
@@ -595,8 +596,8 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     paddingHorizontal: 16,
     paddingVertical: 16,
-    paddingBottom: 32,
-    flex: 1,
+    paddingBottom: 40,
+    flexGrow: 1,
   },
   closeBtn: {
     position: 'absolute',
@@ -743,21 +744,26 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     letterSpacing: 0.3,
   },
+  footerDivider: {
+    borderTopWidth: 1,
+    marginTop: 16,
+    marginBottom: 4,
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 12,
+    marginTop: 8,
   },
   footerText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: Fonts.sans,
     fontWeight: '500',
   },
   footerLink: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     fontFamily: Fonts.sans,
     color: '#DC2626',
   },
