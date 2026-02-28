@@ -25,12 +25,6 @@ export default function HomeScreen() {
     }
   }, [isRegistered, user, router]);
 
-  const features = [
-    { icon: 'access-time' as const, title: '24/7 Service', desc: 'Round-the-clock emergency response' },
-    { icon: 'gps-fixed' as const, title: 'GPS Tracking', desc: 'Real-time ambulance tracking' },
-    { icon: 'medical-services' as const, title: 'First Aid', desc: 'Guided first-aid while you wait' },
-  ];
-
   return (
     <View style={styles.root}>
       <View style={styles.center}>
@@ -52,19 +46,6 @@ export default function HomeScreen() {
           Saving lives across Ethiopia with fast, reliable{'\n'}ambulance dispatch powered by real-time GPS.
         </ThemedText>
 
-        {/* Features */}
-        <View style={styles.featuresRow}>
-          {features.map((f) => (
-            <View key={f.title} style={styles.featureChip}>
-              <View style={styles.featureIconCircle}>
-                <MaterialIcons name={f.icon} size={18} color="#DC2626" />
-              </View>
-              <ThemedText style={styles.featureTitle}>{f.title}</ThemedText>
-              <ThemedText style={styles.featureDesc}>{f.desc}</ThemedText>
-            </View>
-          ))}
-        </View>
-
         {/* CTA */}
         <View style={styles.ctaGroup}>
           <Pressable
@@ -76,7 +57,7 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push('/register')}
             style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.btnPressed]}>
-            <MaterialIcons name="person-add" size={20} color="#DC2626" />
+            <MaterialIcons name="person-add" size={20} color="#0EA5E9" />
             <ThemedText style={styles.btnOutlineText}>Create Account</ThemedText>
           </Pressable>
         </View>
@@ -114,14 +95,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#DC2626',
+    backgroundColor: '#0EA5E9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1E293B',
+    color: '#0C4A6E',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
   },
@@ -130,14 +111,14 @@ const styles = StyleSheet.create({
   titleAmharic: {
     fontSize: 48,
     fontWeight: '900',
-    color: '#0F172A',
+    color: '#0C4A6E',
     letterSpacing: -1.5,
     textAlign: 'center',
   } as any,
   subtitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#475569',
+    color: '#0284C7',
     fontFamily: Fonts.sans,
     textAlign: 'center',
     marginTop: -4,
@@ -151,51 +132,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* Features */
-  featuresRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 8,
-    width: '100%',
-  },
-  featureChip: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FECACA',
-  },
-  featureIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
-    fontFamily: Fonts.sans,
-    textAlign: 'center',
-  },
-  featureDesc: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#64748B',
-    fontFamily: Fonts.sans,
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-
   /* CTA */
   ctaGroup: {
     gap: 10,
-    marginTop: 12,
+    marginTop: 16,
     width: '100%',
   },
   btn: {
@@ -207,8 +147,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   btnPrimary: {
-    backgroundColor: '#DC2626',
-    shadowColor: '#DC2626',
+    backgroundColor: '#0EA5E9',
+    shadowColor: '#0EA5E9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -222,11 +162,11 @@ const styles = StyleSheet.create({
   },
   btnOutline: {
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#BAE6FD',
+    backgroundColor: '#F0F9FF',
   },
   btnOutlineText: {
-    color: '#DC2626',
+    color: '#0EA5E9',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
