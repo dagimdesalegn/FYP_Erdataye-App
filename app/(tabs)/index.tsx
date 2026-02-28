@@ -3,14 +3,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Dimensions, ImageBackground, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ImageBackground, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppState } from '@/components/app-state';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const { width: SCREEN_W } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -18,6 +16,8 @@ export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const isDark = (colorScheme ?? 'light') === 'dark';
   const redirected = useRef(false);
+  const { width: winW } = useWindowDimensions();
+  const isWide = winW >= 768;
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -34,118 +34,235 @@ export default function HomeScreen() {
     }
   }, [isRegistered, user, router]);
 
-  return (
-    <ImageBackground
-      source={require('@/assets/images/ambulance-hero.jpg')}
-      style={styles.bg}
-      resizeMode="cover">
-      {/* Dark overlay for readability */}
+  /* ---- Colours ---- */
+  const cardBg = isDark ? '#0F172A' : '#FFFFFF';
+  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
+  const textSecondary = isDark ? '#94A3B8' : '#64748B';
+  const featureBg = isDark ? '#1E293B' : '#F8FAFC';
+  const featureBorder = isDark ? '#334155' : '#E2E8F0';
+
+  /* ---- Feature cards data ---- */
+  const features = [
+    { icon: 'access-time' as const, title: '24/7 Service', desc: 'Round-the-clock emergency response' },
+    { icon: 'gps-fixed' as const, title: 'GPS Tracking', desc: 'Real-time ambulance tracking' },
+    { icon: 'medical-services' as const, title: 'First Aid', desc: 'Guided first-aid while you wait' },
+  ];
+
+  const heroContent = (
+    <View style={styles.heroOverlay}>
       <LinearGradient
-        colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.85)']}
+        colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.8)']}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
       />
-
-      {/* Top brand bar */}
-      <View style={styles.topBar}>
-        <View style={styles.brandRow}>
+      <View style={styles.heroContent}>
+        <View style={styles.heroTopRow}>
           <View style={styles.brandIcon}>
-            <MaterialIcons name="local-hospital" size={20} color="#fff" />
+            <MaterialIcons name="local-hospital" size={18} color="#fff" />
           </View>
           <ThemedText style={styles.brandText}>ErdAtaye</ThemedText>
         </View>
-      </View>
-
-      {/* Content */}
-      <View style={styles.container}>
-        <View style={styles.content}>
-
-          {/* Badge */}
-          <View style={styles.badge}>
-            <MaterialIcons name="verified" size={14} color="#22C55E" />
-            <ThemedText style={styles.badgeText}>Ethiopia's Emergency Service</ThemedText>
-          </View>
-
-          {/* Hero text */}
-          <ThemedText
-            style={[
-              styles.title,
-              { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
-            ]}>
-            እርዳታዬ
+        <View style={styles.heroBottom}>
+          <ThemedText style={styles.heroTitle}>
+            Saving Lives{'\n'}Across Ethiopia
           </ThemedText>
-          <ThemedText style={styles.subtitle}>
-            Emergency Ambulance{'\n'}at Your Fingertips
-          </ThemedText>
-          <ThemedText style={styles.description}>
-            Request an ambulance in seconds. Track in real-time. Get first-aid guidance while you wait.
-          </ThemedText>
-
-          {/* Stats row */}
-          <View style={styles.statsRow}>
-            <View style={styles.stat}>
-              <ThemedText style={styles.statNumber}>24/7</ThemedText>
-              <ThemedText style={styles.statLabel}>Available</ThemedText>
-            </View>
-            <View style={[styles.statDivider]} />
-            <View style={styles.stat}>
-              <ThemedText style={styles.statNumber}>&lt;3min</ThemedText>
-              <ThemedText style={styles.statLabel}>Response</ThemedText>
-            </View>
-            <View style={[styles.statDivider]} />
-            <View style={styles.stat}>
-              <ThemedText style={styles.statNumber}>GPS</ThemedText>
-              <ThemedText style={styles.statLabel}>Tracking</ThemedText>
-            </View>
-          </View>
-
-          {/* CTA Buttons */}
-          <View style={styles.ctaSection}>
-            <Pressable
-              onPress={() => router.push('/login')}
-              style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
-              <MaterialIcons name="login" size={20} color="#FFF" />
-              <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push('/register')}
-              style={({ pressed }) => [
-                styles.ctaButton,
-                styles.ctaSecondary,
-                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-              ]}>
-              <MaterialIcons name="person-add" size={20} color="#fff" />
-              <ThemedText style={styles.ctaSecondaryText}>Create Account</ThemedText>
-            </Pressable>
-          </View>
-
-          {/* Footer */}
-          <ThemedText style={styles.footerText}>
-            Designed for Ethiopian emergency response
+          <ThemedText style={styles.heroSub}>
+            Fast, reliable ambulance dispatch powered by real-time GPS technology.
           </ThemedText>
         </View>
       </View>
-    </ImageBackground>
+    </View>
+  );
+
+  return (
+    <View style={[styles.root, { backgroundColor: isDark ? '#020617' : '#F0F4FA' }]}>
+      {isWide ? (
+        /* ===== DESKTOP: side-by-side ===== */
+        <View style={styles.splitRow}>
+          {/* Left: Hero image */}
+          <ImageBackground
+            source={require('@/assets/images/ambulance-hero.jpg')}
+            style={styles.splitImage}
+            resizeMode="cover">
+            {heroContent}
+          </ImageBackground>
+
+          {/* Right: Content card */}
+          <ScrollView
+            style={styles.splitRight}
+            contentContainerStyle={styles.splitRightContent}
+            showsVerticalScrollIndicator={false}>
+            <View style={[styles.card, { backgroundColor: cardBg }]}>
+              {/* Header */}
+              <View style={styles.cardHeader}>
+                <ThemedText
+                  style={[
+                    styles.amharicTitle,
+                    { color: textPrimary, fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
+                  ]}>
+                  እርዳታዬ
+                </ThemedText>
+                <ThemedText style={[styles.cardSubtitle, { color: textSecondary }]}>
+                  Emergency Ambulance Service
+                </ThemedText>
+              </View>
+
+              {/* Features */}
+              <View style={styles.featuresRow}>
+                {features.map((f) => (
+                  <View key={f.title} style={[styles.featureCard, { backgroundColor: featureBg, borderColor: featureBorder }]}>
+                    <MaterialIcons name={f.icon} size={22} color="#DC2626" />
+                    <ThemedText style={[styles.featureTitle, { color: textPrimary }]}>{f.title}</ThemedText>
+                    <ThemedText style={[styles.featureDesc, { color: textSecondary }]}>{f.desc}</ThemedText>
+                  </View>
+                ))}
+              </View>
+
+              {/* CTA */}
+              <View style={styles.ctaSection}>
+                <Pressable
+                  onPress={() => router.push('/login')}
+                  style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
+                  <MaterialIcons name="login" size={20} color="#FFF" />
+                  <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push('/register')}
+                  style={({ pressed }) => [
+                    styles.ctaButton,
+                    styles.ctaOutline,
+                    { borderColor: featureBorder, backgroundColor: featureBg },
+                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  ]}>
+                  <MaterialIcons name="person-add" size={20} color="#DC2626" />
+                  <ThemedText style={[styles.ctaOutlineText, { color: textPrimary }]}>Create Account</ThemedText>
+                </Pressable>
+              </View>
+
+              <ThemedText style={[styles.footerText, { color: textSecondary }]}>
+                Designed for Ethiopian emergency response
+              </ThemedText>
+            </View>
+          </ScrollView>
+        </View>
+      ) : (
+        /* ===== MOBILE: stacked ===== */
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+          showsVerticalScrollIndicator={false}>
+          {/* Hero image section */}
+          <ImageBackground
+            source={require('@/assets/images/ambulance-hero.jpg')}
+            style={styles.mobileHero}
+            resizeMode="cover">
+            {heroContent}
+          </ImageBackground>
+
+          {/* Content below */}
+          <View style={[styles.mobileContent, { backgroundColor: cardBg }]}>
+            {/* Header */}
+            <View style={styles.mobileHeader}>
+              <ThemedText
+                style={[
+                  styles.amharicTitle,
+                  { color: textPrimary, fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
+                ]}>
+                እርዳታዬ
+              </ThemedText>
+              <ThemedText style={[styles.cardSubtitle, { color: textSecondary }]}>
+                Emergency Ambulance Service
+              </ThemedText>
+            </View>
+
+            {/* Features */}
+            <View style={styles.featuresCol}>
+              {features.map((f) => (
+                <View key={f.title} style={[styles.featureRow, { backgroundColor: featureBg, borderColor: featureBorder }]}>
+                  <View style={styles.featureIconWrap}>
+                    <MaterialIcons name={f.icon} size={20} color="#DC2626" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={[styles.featureTitle, { color: textPrimary }]}>{f.title}</ThemedText>
+                    <ThemedText style={[styles.featureDesc, { color: textSecondary }]}>{f.desc}</ThemedText>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            {/* CTA */}
+            <View style={styles.ctaSection}>
+              <Pressable
+                onPress={() => router.push('/login')}
+                style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
+                <MaterialIcons name="login" size={20} color="#FFF" />
+                <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => router.push('/register')}
+                style={({ pressed }) => [
+                  styles.ctaButton,
+                  styles.ctaOutline,
+                  { borderColor: featureBorder, backgroundColor: featureBg },
+                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                ]}>
+                <MaterialIcons name="person-add" size={20} color="#DC2626" />
+                <ThemedText style={[styles.ctaOutlineText, { color: textPrimary }]}>Create Account</ThemedText>
+              </Pressable>
+            </View>
+
+            <ThemedText style={[styles.footerText, { color: textSecondary }]}>
+              Designed for Ethiopian emergency response
+            </ThemedText>
+          </View>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  bg: {
+  root: {
     flex: 1,
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
 
-  /* Top brand bar */
-  topBar: {
-    paddingTop: Platform.OS === 'web' ? 20 : 54,
-    paddingHorizontal: 20,
-    paddingBottom: 10,
+  /* ===== SPLIT (desktop) ===== */
+  splitRow: {
+    flex: 1,
+    flexDirection: 'row',
   },
-  brandRow: {
+  splitImage: {
+    flex: 1,
+    minHeight: '100%' as any,
+  },
+  splitRight: {
+    flex: 1,
+    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
+  },
+  splitRightContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+
+  /* ===== HERO OVERLAY (shared) ===== */
+  heroOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: 24,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    paddingTop: Platform.OS === 'web' ? 8 : 40,
   },
   brandIcon: {
     width: 32,
@@ -162,107 +279,131 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
   },
-
-  /* Container */
-  container: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === 'web' ? 40 : 44,
+  heroBottom: {
+    gap: 8,
+    paddingBottom: 8,
   },
-  content: {
-    width: '100%',
-    maxWidth: 480,
-    alignSelf: 'center',
-    gap: 16,
-  },
-
-  /* Badge */
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#E2E8F0',
-    fontFamily: Fonts.sans,
-  },
-
-  /* Hero text */
-  title: {
-    fontSize: 48,
+  heroTitle: {
+    fontSize: 28,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -2,
-    lineHeight: 52,
-  } as any,
-  subtitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
     fontFamily: Fonts.sans,
-    lineHeight: 30,
+    letterSpacing: -1,
+    lineHeight: 34,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  description: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 22,
-    fontFamily: Fonts.sans,
+  heroSub: {
+    fontSize: 14,
     fontWeight: '500',
-    maxWidth: 380,
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: Fonts.sans,
+    lineHeight: 20,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
 
-  /* Stats */
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+  /* ===== MOBILE ===== */
+  mobileHero: {
+    height: 280,
   },
-  stat: {
+  mobileContent: {
+    flex: 1,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -20,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 32,
+    gap: 20,
+  },
+  mobileHeader: {
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  /* ===== CARD (desktop) ===== */
+  card: {
+    width: '100%',
+    maxWidth: 440,
+    borderRadius: 24,
+    padding: 32,
+    gap: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+  cardHeader: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  amharicTitle: {
+    fontSize: 40,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+    textAlign: 'center',
+  } as any,
+  cardSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+  },
+
+  /* ===== FEATURES ===== */
+  featuresRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  featureCard: {
     flex: 1,
     alignItems: 'center',
-    gap: 2,
+    gap: 6,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
   },
-  statNumber: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
+  featureTitle: {
+    fontSize: 12,
+    fontWeight: '700',
     fontFamily: Fonts.sans,
+    textAlign: 'center',
   },
-  statLabel: {
+  featureDesc: {
     fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '500',
     fontFamily: Fonts.sans,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    textAlign: 'center',
+    lineHeight: 15,
   },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  featuresCol: {
+    gap: 10,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  featureIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: 'rgba(220,38,38,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  /* CTA */
+  /* ===== CTA ===== */
   ctaSection: {
     width: '100%',
     gap: 10,
-    marginTop: 4,
   },
   ctaButton: {
     flexDirection: 'row',
@@ -270,44 +411,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     width: '100%',
-    height: 52,
+    height: 50,
     borderRadius: 14,
   },
   ctaPrimary: {
     backgroundColor: '#DC2626',
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
   },
   ctaPrimaryText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
-    letterSpacing: -0.1,
   },
-  ctaSecondary: {
+  ctaOutline: {
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  ctaSecondaryText: {
+  ctaOutlineText: {
     fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
-    letterSpacing: -0.1,
-    color: '#FFFFFF',
   },
 
   /* Footer */
   footerText: {
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.4)',
     fontFamily: Fonts.sans,
     textAlign: 'center',
-    marginTop: 4,
   },
 });
