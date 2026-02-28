@@ -28,7 +28,7 @@ export default function EmergencyScreen() {
 
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [nearbyAmbulances, setNearbyAmbulances] = useState<Array<Ambulance & { lat: number; lng: number }>>([]);
+  const [nearbyAmbulances, setNearbyAmbulances] = useState<(Ambulance & { lat: number; lng: number })[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Get user's current location with high accuracy
@@ -70,7 +70,7 @@ export default function EmergencyScreen() {
       const { latitude, longitude } = currentLocation.coords;
 
       // Create emergency request
-      const { request, error } = await createEmergencyRequest(
+      const { error } = await createEmergencyRequest(
         user.id,
         latitude,
         longitude,
@@ -85,7 +85,7 @@ export default function EmergencyScreen() {
       }
 
       // Try to find nearest ambulance
-      const { ambulanceId, error: ambulanceError } = await findNearestAmbulance(latitude, longitude);
+      const { error: ambulanceError } = await findNearestAmbulance(latitude, longitude);
       if (ambulanceError) {
         console.warn('Warning finding nearest ambulance:', ambulanceError.message);
       }
@@ -98,7 +98,7 @@ export default function EmergencyScreen() {
             const loc = parsePostGISPoint(a.last_known_location);
             return loc ? { ...a, lat: loc.latitude, lng: loc.longitude } : null;
           })
-          .filter(Boolean) as Array<Ambulance & { lat: number; lng: number }>;
+          .filter(Boolean) as (Ambulance & { lat: number; lng: number })[];
         setNearbyAmbulances(parsed);
       }
 

@@ -29,8 +29,7 @@ interface PatientInfo {
  */
 export default function DriverEmergencyScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  useColorScheme();
   const { user } = useAppState();
 
   const [assignment, setAssignment] = useState<any>(null);
@@ -73,6 +72,7 @@ export default function DriverEmergencyScreen() {
     };
 
     loadAssignment();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleAccept = async () => {

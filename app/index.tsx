@@ -24,6 +24,7 @@ export default function IndexScreen() {
     if (isLoading) return;
     // Always go to (tabs) - the home screen handles both logged-in and guest states
     router.replace('/(tabs)');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 
   return (

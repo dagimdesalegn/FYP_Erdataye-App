@@ -2,7 +2,6 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Dimensions,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -22,7 +21,6 @@ export default function PatientEmergencyTrackingScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { emergencyId } = useLocalSearchParams();
-  const screenWidth = Dimensions.get('window').width;
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,6 +31,7 @@ export default function PatientEmergencyTrackingScreen() {
 
   useEffect(() => {
     loadEmergencyDetails();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emergencyId]);
 
   const loadEmergencyDetails = async () => {

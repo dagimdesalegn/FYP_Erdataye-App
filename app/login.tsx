@@ -18,7 +18,7 @@ import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { signIn } from '@/utils/auth';
+import { signIn, signOut } from '@/utils/auth';
 import { useRouter } from 'expo-router';
 
 const CARD_MAX_W = 440;
@@ -33,7 +33,7 @@ export default function LoginScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ phone: '', password: '' });
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
 
   const handleChange = (key: string, value: string) => {
@@ -101,9 +101,19 @@ export default function LoginScreen() {
         Alert.alert('Login Failed', error?.message || 'Failed to sign in');
         return;
       }
+      // Normal app login flow only supports patient and driver roles.
+      if (user.role !== 'patient' && user.role !== 'driver') {
+        await signOut();
+        setLoading(false);
+        Alert.alert(
+          'App Login Restricted',
+          'This login is only for patient and driver accounts. Please use the dedicated web dashboard for admin/hospital access.'
+        );
+        return;
+      }
       setUser(user);
       setRegistered(true);
-      const route = user.role === 'admin' ? '/admin' : user.role === 'driver' ? '/driver-home' : '/help';
+      const route = user.role === 'driver' ? '/driver-home' : '/help';
       setTimeout(() => {
         setLoading(false);
         router.replace(route as any);
