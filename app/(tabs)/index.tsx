@@ -22,7 +22,7 @@ export default function HomeScreen() {
           <View style={styles.logoIcon}>
             <MaterialIcons name="local-hospital" size={16} color="#fff" />
           </View>
-          <ThemedText style={[styles.logoText, { color: '#111' }]}>Erdataya</ThemedText>
+          <ThemedText style={[styles.logoText, { color: '#111' }]}>Erdataya Ambulance</ThemedText>
         </View>
         <View style={styles.topBarRight}>
           <Pressable style={styles.iconBtn}>

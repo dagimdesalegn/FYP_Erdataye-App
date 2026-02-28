@@ -120,7 +120,7 @@ export default function EmergencyScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="Erdataya" />
+      <AppHeader title="Erdataya Ambulance" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title" style={[styles.title, { color: textColor }]}>
