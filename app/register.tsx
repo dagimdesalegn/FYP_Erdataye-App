@@ -42,7 +42,7 @@ export default function RegisterScreen() {
     let digits = phone.replace(/[^0-9]/g, '');
     if (digits.startsWith('0') && digits.length === 10) digits = '251' + digits.substring(1);
     if (digits.length === 9 && digits.startsWith('9')) digits = '251' + digits;
-    return digits + '@phone.erdataye.app';
+    return digits + '@phone.erdataya.app';
   };
 
   const validatePhone = (phone: string): boolean => {

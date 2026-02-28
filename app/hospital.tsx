@@ -232,7 +232,7 @@ export default function HospitalDashboard() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="Erdataye" />
+      <AppHeader title="Erdataya" />
 
       <View style={styles.headerSection}>
         <ThemedText type="title" style={[styles.pageTitle, { color: textColor }]}>
