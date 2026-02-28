@@ -1,20 +1,15 @@
 import { ThemedText } from '@/components/themed-text';
 import { MaterialIcons } from '@expo/vector-icons';
-
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { ImageBackground, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
 import { useAppState } from '@/components/app-state';
 import { Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isRegistered, user } = useAppState();
-  const colorScheme = useColorScheme();
-  const isDark = (colorScheme ?? 'light') === 'dark';
   const redirected = useRef(false);
   const { width: winW } = useWindowDimensions();
   const isWide = winW >= 768;
@@ -25,7 +20,6 @@ export default function HomeScreen() {
     }
   }, []);
 
-  // Auto-redirect logged-in users to their role-specific page
   useEffect(() => {
     if (isRegistered && user && !redirected.current) {
       redirected.current = true;
@@ -34,414 +28,450 @@ export default function HomeScreen() {
     }
   }, [isRegistered, user, router]);
 
-  /* ---- Colours ---- */
-  const cardBg = isDark ? '#0F172A' : '#FFFFFF';
-  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
-  const textSecondary = isDark ? '#94A3B8' : '#64748B';
-  const featureBg = isDark ? '#1E293B' : '#F8FAFC';
-  const featureBorder = isDark ? '#334155' : '#E2E8F0';
-
-  /* ---- Feature cards data ---- */
   const features = [
     { icon: 'access-time' as const, title: '24/7 Service', desc: 'Round-the-clock emergency response' },
     { icon: 'gps-fixed' as const, title: 'GPS Tracking', desc: 'Real-time ambulance tracking' },
     { icon: 'medical-services' as const, title: 'First Aid', desc: 'Guided first-aid while you wait' },
   ];
 
-  const heroContent = (
-    <View style={styles.heroOverlay}>
-      <LinearGradient
-        colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.8)']}
-        style={StyleSheet.absoluteFillObject}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-      />
-      <View style={styles.heroContent}>
-        <View style={styles.heroTopRow}>
-          <View style={styles.brandIcon}>
-            <MaterialIcons name="local-hospital" size={18} color="#fff" />
-          </View>
-          <ThemedText style={styles.brandText}>ErdAtaye</ThemedText>
-        </View>
-        <View style={styles.heroBottom}>
-          <ThemedText style={styles.heroTitle}>
-            Saving Lives{'\n'}Across Ethiopia
-          </ThemedText>
-          <ThemedText style={styles.heroSub}>
-            Fast, reliable ambulance dispatch powered by real-time GPS technology.
-          </ThemedText>
-        </View>
-      </View>
-    </View>
-  );
-
   return (
-    <View style={[styles.root, { backgroundColor: isDark ? '#020617' : '#F0F4FA' }]}>
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={styles.rootContent}
+      showsVerticalScrollIndicator={false}>
       {isWide ? (
         /* ===== DESKTOP: side-by-side ===== */
-        <View style={styles.splitRow}>
+        <View style={styles.desktopRow}>
           {/* Left: Hero image */}
-          <ImageBackground
-            source={require('@/assets/images/ambulance-hero.jpg')}
-            style={styles.splitImage}
-            resizeMode="cover">
-            {heroContent}
-          </ImageBackground>
+          <View style={styles.desktopImageWrap}>
+            <Image
+              source={require('@/assets/images/ambulance-hero.jpg')}
+              style={StyleSheet.absoluteFillObject}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(255,255,255,0.12)']}
+              style={StyleSheet.absoluteFillObject}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            />
+          </View>
 
-          {/* Right: Content card */}
-          <ScrollView
-            style={styles.splitRight}
-            contentContainerStyle={styles.splitRightContent}
-            showsVerticalScrollIndicator={false}>
-            <View style={[styles.card, { backgroundColor: cardBg }]}>
-              {/* Header */}
-              <View style={styles.cardHeader}>
-                <ThemedText
-                  style={[
-                    styles.amharicTitle,
-                    { color: textPrimary, fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
-                  ]}>
-                  እርዳታዬ
-                </ThemedText>
-                <ThemedText style={[styles.cardSubtitle, { color: textSecondary }]}>
-                  Emergency Ambulance Service
-                </ThemedText>
+          {/* Right: Content */}
+          <View style={styles.desktopContent}>
+            <View style={styles.desktopInner}>
+              {/* Logo */}
+              <View style={styles.logoRow}>
+                <View style={styles.logoIcon}>
+                  <MaterialIcons name="local-hospital" size={18} color="#fff" />
+                </View>
+                <ThemedText style={styles.logoText}>ErdAtaye</ThemedText>
               </View>
 
+              {/* Title */}
+              <ThemedText
+                style={[styles.titleAmharic, { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded }]}>
+                እርዳታዬ
+              </ThemedText>
+              <ThemedText style={styles.subtitle}>Emergency Ambulance Service</ThemedText>
+              <ThemedText style={styles.desc}>
+                Saving lives across Ethiopia with fast, reliable{'\n'}ambulance dispatch powered by real-time GPS.
+              </ThemedText>
+
               {/* Features */}
-              <View style={styles.featuresRow}>
+              <View style={styles.featuresGridDesktop}>
                 {features.map((f) => (
-                  <View key={f.title} style={[styles.featureCard, { backgroundColor: featureBg, borderColor: featureBorder }]}>
-                    <MaterialIcons name={f.icon} size={22} color="#DC2626" />
-                    <ThemedText style={[styles.featureTitle, { color: textPrimary }]}>{f.title}</ThemedText>
-                    <ThemedText style={[styles.featureDesc, { color: textSecondary }]}>{f.desc}</ThemedText>
+                  <View key={f.title} style={styles.featureCardDesktop}>
+                    <View style={styles.featureIconCircle}>
+                      <MaterialIcons name={f.icon} size={20} color="#DC2626" />
+                    </View>
+                    <ThemedText style={styles.featureCardTitle}>{f.title}</ThemedText>
+                    <ThemedText style={styles.featureCardDesc}>{f.desc}</ThemedText>
                   </View>
                 ))}
               </View>
 
               {/* CTA */}
-              <View style={styles.ctaSection}>
+              <View style={styles.ctaGroup}>
                 <Pressable
                   onPress={() => router.push('/login')}
-                  style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
+                  style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && styles.btnPressed]}>
                   <MaterialIcons name="login" size={20} color="#FFF" />
-                  <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
+                  <ThemedText style={styles.btnPrimaryText}>Sign In</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={() => router.push('/register')}
-                  style={({ pressed }) => [
-                    styles.ctaButton,
-                    styles.ctaOutline,
-                    { borderColor: featureBorder, backgroundColor: featureBg },
-                    pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                  ]}>
+                  style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.btnPressed]}>
                   <MaterialIcons name="person-add" size={20} color="#DC2626" />
-                  <ThemedText style={[styles.ctaOutlineText, { color: textPrimary }]}>Create Account</ThemedText>
+                  <ThemedText style={styles.btnOutlineText}>Create Account</ThemedText>
                 </Pressable>
               </View>
 
-              <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-                Designed for Ethiopian emergency response
-              </ThemedText>
+              <ThemedText style={styles.footerNote}>Designed for Ethiopian emergency response</ThemedText>
             </View>
-          </ScrollView>
+          </View>
         </View>
       ) : (
         /* ===== MOBILE: stacked ===== */
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}>
-          {/* Hero image section */}
-          <ImageBackground
-            source={require('@/assets/images/ambulance-hero.jpg')}
-            style={styles.mobileHero}
-            resizeMode="cover">
-            {heroContent}
-          </ImageBackground>
-
-          {/* Content below */}
-          <View style={[styles.mobileContent, { backgroundColor: cardBg }]}>
-            {/* Header */}
-            <View style={styles.mobileHeader}>
-              <ThemedText
-                style={[
-                  styles.amharicTitle,
-                  { color: textPrimary, fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded },
-                ]}>
-                እርዳታዬ
-              </ThemedText>
-              <ThemedText style={[styles.cardSubtitle, { color: textSecondary }]}>
-                Emergency Ambulance Service
-              </ThemedText>
+        <>
+          {/* Hero image with gradient fade to white */}
+          <View style={styles.mobileImageWrap}>
+            <Image
+              source={require('@/assets/images/ambulance-hero.jpg')}
+              style={styles.mobileImage}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(255,255,255,0.7)', '#FFFFFF']}
+              style={styles.mobileGradient}
+              start={{ x: 0.5, y: 0.15 }}
+              end={{ x: 0.5, y: 1 }}
+            />
+            <View style={styles.mobileBrandOverlay}>
+              <View style={styles.logoIconSmall}>
+                <MaterialIcons name="local-hospital" size={14} color="#fff" />
+              </View>
+              <ThemedText style={styles.mobileBrandText}>ErdAtaye</ThemedText>
             </View>
+          </View>
+
+          {/* Content */}
+          <View style={styles.mobileContent}>
+            <ThemedText
+              style={[styles.titleAmharicMobile, { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded }]}>
+              እርዳታዬ
+            </ThemedText>
+            <ThemedText style={styles.subtitleMobile}>Emergency Ambulance Service</ThemedText>
+            <ThemedText style={styles.descMobile}>
+              Fast, reliable ambulance dispatch powered by real-time GPS technology.
+            </ThemedText>
 
             {/* Features */}
-            <View style={styles.featuresCol}>
+            <View style={styles.featuresList}>
               {features.map((f) => (
-                <View key={f.title} style={[styles.featureRow, { backgroundColor: featureBg, borderColor: featureBorder }]}>
-                  <View style={styles.featureIconWrap}>
-                    <MaterialIcons name={f.icon} size={20} color="#DC2626" />
+                <View key={f.title} style={styles.featureRowMobile}>
+                  <View style={styles.featureIconCircleMobile}>
+                    <MaterialIcons name={f.icon} size={18} color="#DC2626" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <ThemedText style={[styles.featureTitle, { color: textPrimary }]}>{f.title}</ThemedText>
-                    <ThemedText style={[styles.featureDesc, { color: textSecondary }]}>{f.desc}</ThemedText>
+                    <ThemedText style={styles.featureRowTitle}>{f.title}</ThemedText>
+                    <ThemedText style={styles.featureRowDesc}>{f.desc}</ThemedText>
                   </View>
                 </View>
               ))}
             </View>
 
             {/* CTA */}
-            <View style={styles.ctaSection}>
+            <View style={styles.ctaGroup}>
               <Pressable
                 onPress={() => router.push('/login')}
-                style={({ pressed }) => [styles.ctaButton, styles.ctaPrimary, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}>
+                style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && styles.btnPressed]}>
                 <MaterialIcons name="login" size={20} color="#FFF" />
-                <ThemedText style={styles.ctaPrimaryText}>Sign In</ThemedText>
+                <ThemedText style={styles.btnPrimaryText}>Sign In</ThemedText>
               </Pressable>
               <Pressable
                 onPress={() => router.push('/register')}
-                style={({ pressed }) => [
-                  styles.ctaButton,
-                  styles.ctaOutline,
-                  { borderColor: featureBorder, backgroundColor: featureBg },
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                ]}>
+                style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.btnPressed]}>
                 <MaterialIcons name="person-add" size={20} color="#DC2626" />
-                <ThemedText style={[styles.ctaOutlineText, { color: textPrimary }]}>Create Account</ThemedText>
+                <ThemedText style={styles.btnOutlineText}>Create Account</ThemedText>
               </Pressable>
             </View>
 
-            <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-              Designed for Ethiopian emergency response
-            </ThemedText>
+            <ThemedText style={styles.footerNoteMobile}>Designed for Ethiopian emergency response</ThemedText>
           </View>
-        </ScrollView>
+        </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
+  rootContent: {
+    flexGrow: 1,
+  },
 
-  /* ===== SPLIT (desktop) ===== */
-  splitRow: {
+  /* ===== DESKTOP ===== */
+  desktopRow: {
     flex: 1,
     flexDirection: 'row',
+    minHeight: Platform.OS === 'web' ? ('100vh' as any) : undefined,
   },
-  splitImage: {
+  desktopImageWrap: {
     flex: 1,
-    minHeight: '100%' as any,
+    overflow: 'hidden',
   },
-  splitRight: {
+  desktopContent: {
     flex: 1,
-    ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
-  },
-  splitRightContent: {
-    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: 40,
+    backgroundColor: '#FFFFFF',
+  },
+  desktopInner: {
+    width: '100%',
+    maxWidth: 420,
+    gap: 14,
   },
 
-  /* ===== HERO OVERLAY (shared) ===== */
-  heroOverlay: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  heroContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    padding: 24,
-  },
-  heroTopRow: {
+  /* Logo */
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingTop: Platform.OS === 'web' ? 8 : 40,
+    marginBottom: 4,
   },
-  brandIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+  logoIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandText: {
-    fontSize: 18,
+  logoText: {
+    fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#1E293B',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
   },
-  heroBottom: {
-    gap: 8,
-    paddingBottom: 8,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    fontFamily: Fonts.sans,
-    letterSpacing: -1,
-    lineHeight: 34,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-  },
-  heroSub: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.85)',
-    fontFamily: Fonts.sans,
-    lineHeight: 20,
-    textShadowColor: 'rgba(0,0,0,0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
 
-  /* ===== MOBILE ===== */
-  mobileHero: {
-    height: 280,
-  },
-  mobileContent: {
-    flex: 1,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    marginTop: -20,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 32,
-    gap: 20,
-  },
-  mobileHeader: {
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  /* ===== CARD (desktop) ===== */
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    borderRadius: 24,
-    padding: 32,
-    gap: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 6,
-  },
-  cardHeader: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  amharicTitle: {
-    fontSize: 40,
+  /* Titles */
+  titleAmharic: {
+    fontSize: 46,
     fontWeight: '900',
+    color: '#0F172A',
     letterSpacing: -1.5,
-    textAlign: 'center',
   } as any,
-  cardSubtitle: {
-    fontSize: 15,
+  subtitle: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#475569',
     fontFamily: Fonts.sans,
-    textAlign: 'center',
+    marginTop: -6,
+  },
+  desc: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: '#64748B',
+    fontFamily: Fonts.sans,
+    lineHeight: 22,
   },
 
-  /* ===== FEATURES ===== */
-  featuresRow: {
+  /* Features desktop */
+  featuresGridDesktop: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    marginTop: 4,
   },
-  featureCard: {
+  featureCardDesktop: {
     flex: 1,
     alignItems: 'center',
     gap: 6,
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  featureTitle: {
-    fontSize: 12,
+  featureIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  featureCardTitle: {
+    fontSize: 13,
     fontWeight: '700',
+    color: '#0F172A',
     fontFamily: Fonts.sans,
     textAlign: 'center',
   },
-  featureDesc: {
+  featureCardDesc: {
     fontSize: 11,
     fontWeight: '500',
+    color: '#64748B',
     fontFamily: Fonts.sans,
     textAlign: 'center',
     lineHeight: 15,
   },
-  featuresCol: {
+
+  /* CTA */
+  ctaGroup: {
     gap: 10,
+    marginTop: 8,
   },
-  featureRow: {
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 50,
+    borderRadius: 14,
+  },
+  btnPrimary: {
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  btnPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  btnOutline: {
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  btnOutlineText: {
+    color: '#DC2626',
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  btnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.98 }],
+  },
+
+  /* Footer */
+  footerNote: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  /* ===== MOBILE ===== */
+  mobileImageWrap: {
+    height: 260,
+    position: 'relative',
+  },
+  mobileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mobileGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 140,
+  },
+  mobileBrandOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 16 : 48,
+    left: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  logoIconSmall: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobileBrandText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    fontFamily: Fonts.sans,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  mobileContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    gap: 12,
+    marginTop: -16,
+    backgroundColor: '#FFFFFF',
+  },
+  titleAmharicMobile: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -1,
+    textAlign: 'center',
+  } as any,
+  subtitleMobile: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#475569',
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+    marginTop: -4,
+  },
+  descMobile: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#64748B',
+    fontFamily: Fonts.sans,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  featuresList: {
+    gap: 10,
+    marginTop: 4,
+  },
+  featureRowMobile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 14,
     borderRadius: 14,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
+    borderColor: '#FECACA',
   },
-  featureIconWrap: {
+  featureIconCircleMobile: {
     width: 40,
     height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(220,38,38,0.08)',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  /* ===== CTA ===== */
-  ctaSection: {
-    width: '100%',
-    gap: 10,
-  },
-  ctaButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    width: '100%',
-    height: 50,
-    borderRadius: 14,
-  },
-  ctaPrimary: {
-    backgroundColor: '#DC2626',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  ctaPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  featureRowTitle: {
+    fontSize: 14,
     fontWeight: '700',
+    color: '#0F172A',
     fontFamily: Fonts.sans,
   },
-  ctaOutline: {
-    borderWidth: 1.5,
-  },
-  ctaOutlineText: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-  },
-
-  /* Footer */
-  footerText: {
+  featureRowDesc: {
     fontSize: 12,
     fontWeight: '500',
+    color: '#64748B',
+    fontFamily: Fonts.sans,
+  },
+  footerNoteMobile: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#94A3B8',
     fontFamily: Fonts.sans,
     textAlign: 'center',
+    marginTop: 4,
   },
 });
