@@ -15,7 +15,7 @@ export interface UserProfile {
   id: string;
   full_name: string;
   phone: string;
-  role: 'patient' | 'driver' | 'hospital_staff' | 'admin';
+  role: 'patient' | 'driver' | 'hospital' | 'admin';
   hospital_id: string | null;
   created_at: string;
   updated_at: string;

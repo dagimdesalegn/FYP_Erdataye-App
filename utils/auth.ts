@@ -1,7 +1,7 @@
 import { AuthChangeEvent, AuthError, Session } from '@supabase/supabase-js';
 import { supabase, supabaseAdmin } from './supabase';
 
-export type UserRole = 'patient' | 'driver' | 'admin';
+export type UserRole = 'patient' | 'driver' | 'admin' | 'hospital';
 
 export interface AuthUser {
   id: string;
@@ -11,7 +11,7 @@ export interface AuthUser {
 }
 
 const isUserRole = (value: unknown): value is UserRole =>
-  value === 'patient' || value === 'driver' || value === 'admin';
+  value === 'patient' || value === 'driver' || value === 'admin' || value === 'hospital';
 
 const getRoleFromMetadata = (value: unknown): UserRole | null =>
   isUserRole(value) ? value : null;
@@ -78,11 +78,12 @@ export const signUp = async (
   phone: string = ''
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    // Validate role
-    if (!['patient', 'driver', 'admin'].includes(role)) {
+    // Validate role – only patient and driver can register through the app
+    // Admin and hospital accounts are created via the Supabase dashboard
+    if (!['patient', 'driver'].includes(role)) {
       return { 
         user: null, 
-        error: new Error('Invalid role. Must be patient, driver, or admin') as AuthError 
+        error: new Error('Invalid role. Only patient and driver accounts can be registered through the app.') as AuthError 
       };
     }
 

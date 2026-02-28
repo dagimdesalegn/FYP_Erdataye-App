@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Animated,
-    Dimensions,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -37,12 +36,12 @@ export default function PatientEmergencyScreen() {
   const [patientCondition, setPatientCondition] = useState('');
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(null);
 
-  const screenHeight = Dimensions.get('window').height;
   const scaleAnim = new Animated.Value(1);
 
   useEffect(() => {
     checkActiveEmergency();
     requestLocationPermission();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const checkActiveEmergency = async () => {

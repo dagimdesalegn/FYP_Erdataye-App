@@ -18,11 +18,7 @@ import {
     updateEmergencyStatus
 } from '@/utils/driver';
 
-interface EmergencyUpdate {
-  id: string;
-  status: string;
-  updated_at: string;
-}
+// EmergencyUpdate interface reserved for future use
 
 interface StatusTimeline {
   status: string;
@@ -35,16 +31,15 @@ interface StatusTimeline {
  */
 export default function DriverEmergencyTrackingScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  useColorScheme();
   const { emergencyId } = useLocalSearchParams();
   const { user } = useAppState();
 
   const [currentStatus, setCurrentStatus] = useState('pending');
   const [loading, setLoading] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [patientInfo, setPatientInfo] = useState<any>(null);
-  const [hospitalInfo, setHospitalInfo] = useState<any>(null);
+  const [, /* patientInfo */] = useState<any>(null);
+  const [, /* hospitalInfo */] = useState<any>(null);
   const [locationTracking, setLocationTracking] = useState(true);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
 

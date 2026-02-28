@@ -9,10 +9,9 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { isRegistered, user } = useAppState();
-  const colorScheme = useColorScheme();
+  useAppState();
+  useColorScheme();
   // Theme is always light for landing page
-  const isDark = false;
 
   // Set browser tab title on web
   useEffect(() => {

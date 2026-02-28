@@ -8,12 +8,13 @@ import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { signUp, UserRole } from '@/utils/auth';
+import { signUp } from '@/utils/auth';
 import { upsertDriverAmbulance } from '@/utils/driver';
 import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
 const CARD_MAX_W = 440;
+type AppRegistrationRole = 'patient' | 'driver';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function RegisterScreen() {
   const isDark = colorScheme === 'dark';
   const { setRegistered, setUser } = useAppState();
   const [loading, setLoading] = useState(false);
-  const [userRole, setUserRole] = useState<UserRole>('patient');
+  const [userRole, setUserRole] = useState<AppRegistrationRole>('patient');
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -217,7 +218,7 @@ export default function RegisterScreen() {
         console.log('Redirecting based on role:', user.role);
         setLoading(false);
 
-        const route = user.role === 'admin' ? '/admin' : user.role === 'driver' ? '/driver-home' : '/help';
+        const route = user.role === 'driver' ? '/driver-home' : '/help';
         console.log('Navigating to route:', route);
         router.replace(route as any);
       }, 600);
@@ -228,7 +229,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const RoleButton = ({ role, label, icon }: { role: UserRole; label: string; icon: string }) => {
+  const RoleButton = ({ role, label, icon }: { role: AppRegistrationRole; label: string; icon: string }) => {
     const isSelected = userRole === role;
     return (
       <Pressable

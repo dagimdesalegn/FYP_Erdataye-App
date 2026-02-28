@@ -31,9 +31,9 @@ export default function MapScreen() {
   const isDark = theme === 'dark';
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [ambulances, setAmbulances] = useState<Array<Ambulance & { lat: number; lng: number }>>([]);
+  const [ambulances, setAmbulances] = useState<(Ambulance & { lat: number; lng: number })[]>([]);
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
-  const [hospitals, setHospitals] = useState<Array<Hospital & { lat: number; lng: number }>>([]);
+  const [hospitals, setHospitals] = useState<(Hospital & { lat: number; lng: number })[]>([]);
   const [loading, setLoading] = useState(true);
 
   const textColor = Colors[theme].text;
@@ -65,7 +65,7 @@ export default function MapScreen() {
           const loc = parsePostGISPoint(a.last_known_location);
           return loc ? { ...a, lat: loc.latitude, lng: loc.longitude } : null;
         })
-        .filter(Boolean) as Array<Ambulance & { lat: number; lng: number }>;
+        .filter(Boolean) as (Ambulance & { lat: number; lng: number })[];
       setAmbulances(parsed);
     } catch (error) {
       console.error('Error fetching ambulances:', error);
@@ -94,7 +94,7 @@ export default function MapScreen() {
           const loc = parsePostGISPoint(h.location);
           return loc ? { ...h, lat: loc.latitude, lng: loc.longitude } : null;
         })
-        .filter(Boolean) as Array<Hospital & { lat: number; lng: number }>;
+        .filter(Boolean) as (Hospital & { lat: number; lng: number })[];
       setHospitals(parsed);
     } catch (error) {
       console.error('Error fetching hospitals:', error);
@@ -123,6 +123,7 @@ export default function MapScreen() {
       emergencySub.unsubscribe();
       clearInterval(locationInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {

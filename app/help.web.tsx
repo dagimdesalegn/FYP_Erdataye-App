@@ -48,6 +48,7 @@ export default function HelpScreen() {
     };
     void loadProfile();
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.fullName]);
 
   React.useEffect(() => {
@@ -99,7 +100,7 @@ export default function HelpScreen() {
           });
           setLocationError(null);
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setLocationError('Unable to read current location from this browser session.');
           setCurrentLocation(null);

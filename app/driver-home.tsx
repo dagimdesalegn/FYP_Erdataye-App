@@ -33,7 +33,7 @@ export default function DriverHomeScreen() {
   const { user, setUser } = useAppState();
 
   const [isAvailable, setIsAvailable] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
