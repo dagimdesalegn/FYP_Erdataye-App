@@ -27,15 +27,26 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.center}>
-        {/* Logo */}
-        <View style={styles.logoRow}>
+      {/* Top bar */}
+      <View style={styles.topBar}>
+        <View style={styles.topBarLeft}>
           <View style={styles.logoIcon}>
-            <MaterialIcons name="local-hospital" size={22} color="#fff" />
+            <MaterialIcons name="local-hospital" size={16} color="#fff" />
           </View>
           <ThemedText style={styles.logoText}>ErdAtaye</ThemedText>
         </View>
+        <View style={styles.topBarRight}>
+          <Pressable style={styles.iconBtn}>
+            <MaterialIcons name="campaign" size={22} color="#64748B" />
+          </Pressable>
+          <Pressable style={styles.iconBtn}>
+            <MaterialIcons name="notifications-none" size={22} color="#64748B" />
+          </Pressable>
+        </View>
+      </View>
 
+      {/* Center content */}
+      <View style={styles.center}>
         {/* Title */}
         <ThemedText
           style={[styles.titleAmharic, { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded }]}>
@@ -57,7 +68,7 @@ export default function HomeScreen() {
           <Pressable
             onPress={() => router.push('/register')}
             style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.btnPressed]}>
-            <MaterialIcons name="person-add" size={20} color="#0EA5E9" />
+            <MaterialIcons name="person-add" size={20} color="#DC2626" />
             <ThemedText style={styles.btnOutlineText}>Create Account</ThemedText>
           </Pressable>
         </View>
@@ -71,54 +82,73 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#F0F4FA',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
-  center: {
-    width: '100%',
-    maxWidth: 400,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    gap: 12,
-  },
 
-  /* Logo */
-  logoRow: {
+  /* Top bar */
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'web' ? 16 : 48,
+    paddingBottom: 8,
+  },
+  topBarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+    gap: 8,
   },
   logoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#0EA5E9',
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '800',
-    color: '#0C4A6E',
+    color: '#0F172A',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* Center content */
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
   },
 
   /* Titles */
   titleAmharic: {
     fontSize: 48,
     fontWeight: '900',
-    color: '#0C4A6E',
+    color: '#0F172A',
     letterSpacing: -1.5,
     textAlign: 'center',
   } as any,
   subtitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0284C7',
+    color: '#475569',
     fontFamily: Fonts.sans,
     textAlign: 'center',
     marginTop: -4,
@@ -137,6 +167,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 16,
     width: '100%',
+    maxWidth: 400,
   },
   btn: {
     flexDirection: 'row',
@@ -147,8 +178,8 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   btnPrimary: {
-    backgroundColor: '#0EA5E9',
-    shadowColor: '#0EA5E9',
+    backgroundColor: '#DC2626',
+    shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -162,11 +193,11 @@ const styles = StyleSheet.create({
   },
   btnOutline: {
     borderWidth: 1.5,
-    borderColor: '#BAE6FD',
-    backgroundColor: '#F0F9FF',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   btnOutlineText: {
-    color: '#0EA5E9',
+    color: '#DC2626',
     fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
