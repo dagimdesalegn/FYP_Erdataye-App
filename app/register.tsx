@@ -287,9 +287,8 @@ export default function RegisterScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
         <ScrollView
           contentContainerStyle={[
-            styles.scroll,
-            Platform.OS === 'web' && { minHeight: '100vh' as any },
-            isSmallScreen && { paddingHorizontal: 8, paddingVertical: 8 },
+            isSmallScreen ? styles.scrollMobile : styles.scroll,
+            !isSmallScreen && Platform.OS === 'web' && { minHeight: '100vh' as any },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
@@ -298,7 +297,7 @@ export default function RegisterScreen() {
           <View style={[
             styles.card,
             { backgroundColor: cardBg, borderColor: cardBorder },
-            isSmallScreen && { paddingHorizontal: 16, paddingVertical: 16 },
+            isSmallScreen && styles.cardMobile,
           ]}>
 
             {/* Back button */}
@@ -328,9 +327,9 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            {/* Form - two columns for wider screens */}
+            {/* Form - single column on mobile, two columns on desktop */}
             <View style={styles.form}>
-              <View style={styles.row}>
+              <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : inputBorder }]}>
@@ -367,7 +366,7 @@ export default function RegisterScreen() {
                 </View>
               </View>
 
-              <View style={styles.row}>
+              <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.fullName ? '#DC2626' : inputBorder }]}>
@@ -405,7 +404,7 @@ export default function RegisterScreen() {
 
               {/* Patient-specific fields */}
               {userRole === 'patient' && (
-                <View style={styles.row}>
+                <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Blood Type</ThemedText>
                     <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
@@ -476,7 +475,7 @@ export default function RegisterScreen() {
                     </View>
                   </View>
                 </View>
-                <View style={styles.row}>
+                <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Plate Number *</ThemedText>
                     <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.plateNumber ? '#DC2626' : inputBorder }]}>
@@ -572,6 +571,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
+  scrollMobile: {
+    flexGrow: 1,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+  },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_W,
@@ -585,6 +589,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 24,
     elevation: 8,
+  },
+  cardMobile: {
+    maxWidth: '100%' as any,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flex: 1,
   },
   backBtn: {
     flexDirection: 'row',
@@ -676,6 +688,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     gap: 10,
+  },
+  rowMobile: {
+    flexDirection: 'column',
+    gap: 8,
   },
   fieldHalf: {
     flex: 1,
