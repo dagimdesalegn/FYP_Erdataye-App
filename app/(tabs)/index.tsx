@@ -4,7 +4,7 @@ import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 export default function HomeScreen() {
@@ -14,8 +14,15 @@ export default function HomeScreen() {
   // Theme is always light for landing page
   const isDark = false;
 
+  // Set browser tab title on web
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Erdataya Ambulance';
+    }
+  }, []);
+
   return (
-    <View style={[styles.root, { backgroundColor: '#fff' }]}> 
+    <View style={[styles.root, { backgroundColor: '#fff' }]}>
       {/* Top bar */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>

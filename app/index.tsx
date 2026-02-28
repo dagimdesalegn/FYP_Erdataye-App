@@ -3,7 +3,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
 /**
  * Root index - shows the main app page directly.
@@ -13,6 +13,12 @@ export default function IndexScreen() {
   const router = useRouter();
   const { isLoading } = useAppState();
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Erdataya Ambulance';
+    }
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
