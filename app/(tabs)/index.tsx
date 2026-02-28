@@ -112,42 +112,51 @@ export default function HomeScreen() {
           </View>
         </View>
       ) : (
-        /* ===== MOBILE: full-screen image ===== */
-        <View style={styles.mobileFullScreen}>
-          <Image
-            source={require('@/assets/images/ambulance-hero.jpg')}
-            style={StyleSheet.absoluteFillObject}
-            resizeMode="cover"
-          />
-          <LinearGradient
-            colors={['transparent', 'rgba(249,250,251,0.5)', 'rgba(249,250,251,0.92)', '#F9FAFB']}
-            style={styles.mobileFullGradient}
-            start={{ x: 0.5, y: 0 }}
-            end={{ x: 0.5, y: 1 }}
-          />
-
-          {/* Brand top-left */}
-          <View style={styles.mobileBrandOverlay}>
-            <View style={styles.logoIconSmall}>
-              <MaterialIcons name="local-hospital" size={14} color="#fff" />
+        /* ===== MOBILE: stacked ===== */
+        <>
+          {/* Hero image with gradient fade to white */}
+          <View style={styles.mobileImageWrap}>
+            <Image
+              source={require('@/assets/images/ambulance-hero.jpg')}
+              style={styles.mobileImage}
+              resizeMode="cover"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(255,255,255,0.7)', '#FFFFFF']}
+              style={styles.mobileGradient}
+              start={{ x: 0.5, y: 0.15 }}
+              end={{ x: 0.5, y: 1 }}
+            />
+            <View style={styles.mobileBrandOverlay}>
+              <View style={styles.logoIconSmall}>
+                <MaterialIcons name="local-hospital" size={14} color="#fff" />
+              </View>
+              <ThemedText style={styles.mobileBrandText}>ErdAtaye</ThemedText>
             </View>
-            <ThemedText style={styles.mobileBrandText}>ErdAtaye</ThemedText>
           </View>
 
-          {/* Bottom content over gradient */}
-          <View style={styles.mobileBottomContent}>
+          {/* Content */}
+          <View style={styles.mobileContent}>
             <ThemedText
               style={[styles.titleAmharicMobile, { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded }]}>
               እርዳታዬ
             </ThemedText>
             <ThemedText style={styles.subtitleMobile}>Emergency Ambulance Service</ThemedText>
+            <ThemedText style={styles.descMobile}>
+              Fast, reliable ambulance dispatch powered by real-time GPS technology.
+            </ThemedText>
 
-            {/* Features inline */}
-            <View style={styles.featuresInline}>
+            {/* Features */}
+            <View style={styles.featuresList}>
               {features.map((f) => (
-                <View key={f.title} style={styles.featureChip}>
-                  <MaterialIcons name={f.icon} size={16} color="#DC2626" />
-                  <ThemedText style={styles.featureChipText}>{f.title}</ThemedText>
+                <View key={f.title} style={styles.featureRowMobile}>
+                  <View style={styles.featureIconCircleMobile}>
+                    <MaterialIcons name={f.icon} size={18} color="#DC2626" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <ThemedText style={styles.featureRowTitle}>{f.title}</ThemedText>
+                    <ThemedText style={styles.featureRowDesc}>{f.desc}</ThemedText>
+                  </View>
                 </View>
               ))}
             </View>
@@ -170,7 +179,7 @@ export default function HomeScreen() {
 
             <ThemedText style={styles.footerNoteMobile}>Designed for Ethiopian emergency response</ThemedText>
           </View>
-        </View>
+        </>
       )}
     </ScrollView>
   );
@@ -179,7 +188,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
   },
   rootContent: {
@@ -201,7 +210,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
   },
   desktopInner: {
     width: '100%',
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#DC2626',
@@ -353,17 +362,20 @@ const styles = StyleSheet.create({
   },
 
   /* ===== MOBILE ===== */
-  mobileFullScreen: {
-    flex: 1,
-    minHeight: Platform.OS === 'web' ? ('100vh' as any) : undefined,
+  mobileImageWrap: {
+    height: 260,
     position: 'relative',
   },
-  mobileFullGradient: {
+  mobileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  mobileGradient: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    height: '65%' as any,
+    height: 140,
   },
   mobileBrandOverlay: {
     position: 'absolute',
@@ -372,7 +384,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    zIndex: 10,
   },
   logoIconSmall: {
     width: 26,
@@ -391,14 +402,12 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  mobileBottomContent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  mobileContent: {
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'web' ? 32 : 48,
+    paddingBottom: 40,
     gap: 12,
+    marginTop: -16,
+    backgroundColor: '#FFFFFF',
   },
   titleAmharicMobile: {
     fontSize: 36,
@@ -423,28 +432,38 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
   },
-  featuresInline: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginTop: 2,
+  featuresList: {
+    gap: 10,
+    marginTop: 4,
   },
-  featureChip: {
+  featureRowMobile: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: 'rgba(254,242,242,0.9)',
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECACA',
   },
-  featureChipText: {
-    fontSize: 12,
+  featureIconCircleMobile: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureRowTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#0F172A',
+    fontFamily: Fonts.sans,
+  },
+  featureRowDesc: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#64748B',
     fontFamily: Fonts.sans,
   },
   footerNoteMobile: {
