@@ -2,14 +2,22 @@ import { ThemedText } from '@/components/themed-text';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Appearance, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAppState } from '@/components/app-state';
 import { Fonts } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function HomeScreen() {
   const router = useRouter();
   const { isRegistered, user } = useAppState();
+  const colorScheme = useColorScheme();
+  const isDark = (colorScheme ?? 'light') === 'dark';
   const redirected = useRef(false);
+
+  const toggleTheme = () => {
+    Appearance.setColorScheme(isDark ? 'light' : 'dark');
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -26,7 +34,15 @@ export default function HomeScreen() {
   }, [isRegistered, user, router]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: isDark ? '#0B0F1A' : '#F0F4FA' }]}>
+      {/* Top red gradient like login page */}
+      <LinearGradient
+        colors={['#DC2626', '#EF4444', isDark ? '#0B0F1A' : '#F0F4FA']}
+        style={styles.topGradient}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      />
+
       {/* Top bar */}
       <View style={styles.topBar}>
         <View style={styles.topBarLeft}>
@@ -37,10 +53,10 @@ export default function HomeScreen() {
         </View>
         <View style={styles.topBarRight}>
           <Pressable style={styles.iconBtn}>
-            <MaterialIcons name="campaign" size={22} color="#64748B" />
+            <MaterialIcons name="campaign" size={22} color="#FFFFFF" />
           </Pressable>
-          <Pressable style={styles.iconBtn}>
-            <MaterialIcons name="notifications-none" size={22} color="#64748B" />
+          <Pressable style={styles.iconBtn} onPress={toggleTheme}>
+            <MaterialIcons name={isDark ? 'light-mode' : 'dark-mode'} size={22} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>
@@ -52,8 +68,8 @@ export default function HomeScreen() {
           style={[styles.titleAmharic, { fontFamily: Platform.OS === 'android' ? 'sans-serif' : Fonts.rounded }]}>
           እርዳታዬ
         </ThemedText>
-        <ThemedText style={styles.subtitle}>Emergency Ambulance Service</ThemedText>
-        <ThemedText style={styles.desc}>
+        <ThemedText style={[styles.subtitle, { color: isDark ? '#94A3B8' : '#475569' }]}>Emergency Ambulance Service</ThemedText>
+        <ThemedText style={[styles.desc, { color: isDark ? '#64748B' : '#64748B' }]}>
           Saving lives across Ethiopia with fast, reliable{'\n'}ambulance dispatch powered by real-time GPS.
         </ThemedText>
 
@@ -73,7 +89,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ThemedText style={styles.footerNote}>Designed for Ethiopian emergency response</ThemedText>
+        <ThemedText style={[styles.footerNote, { color: isDark ? '#64748B' : '#94A3B8' }]}>Designed for Ethiopian emergency response</ThemedText>
       </View>
     </View>
   );
@@ -82,8 +98,14 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#F0F4FA',
     ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}),
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 260,
   },
 
   /* Top bar */
@@ -104,14 +126,14 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 8,
-    backgroundColor: '#DC2626',
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
   },
@@ -195,6 +217,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   btnOutlineText: {
     color: '#DC2626',
