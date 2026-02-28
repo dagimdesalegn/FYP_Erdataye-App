@@ -38,7 +38,7 @@ function ThemedRoot() {
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>
       <ThemeProvider value={resolved === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false, title: 'Erdataya' }} />
+          <Stack.Screen name="index" options={{ headerShown: false, title: 'Erdataya Ambulance' }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Erdataya Ambulance' }} />
           <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
           <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />

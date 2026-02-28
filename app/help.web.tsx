@@ -203,7 +203,7 @@ export default function HelpScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <AppHeader title="Erdataya" announcementHref="/modal" onProfilePress={() => setProfileOpen(!profileOpen)} />
+      <AppHeader title="Erdataya Ambulance" announcementHref="/modal" onProfilePress={() => setProfileOpen(!profileOpen)} />
 
       {/* Profile Dropdown Backdrop - click anywhere to close */}
       {profileOpen && (
