@@ -34,6 +34,7 @@ export default function RegisterScreen() {
     allergies: '',
     plateNumber: '',
     registrationNumber: '',
+    ambulanceType: 'standard' as 'standard' | 'advanced' | 'icu',
   });
 
   /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
@@ -193,7 +194,8 @@ export default function RegisterScreen() {
           const { ambulanceId, error: ambError } = await upsertDriverAmbulance(
             user.id,
             form.plateNumber,
-            form.registrationNumber
+            form.registrationNumber,
+            form.ambulanceType
           );
 
           if (ambError) {
@@ -437,6 +439,43 @@ export default function RegisterScreen() {
 
               {/* Driver-specific fields */}
               {userRole === 'driver' && (
+                <>
+                <View style={styles.row}>
+                  <View style={styles.fieldHalf}>
+                    <ThemedText style={[styles.label, { color: textPrimary }]}>Ambulance Type *</ThemedText>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {(['standard', 'advanced', 'icu'] as const).map((t) => {
+                        const selected = form.ambulanceType === t;
+                        return (
+                          <Pressable
+                            key={t}
+                            onPress={() => handleChange('ambulanceType', t)}
+                            disabled={loading}
+                            style={[{
+                              flex: 1,
+                              height: 34,
+                              borderRadius: 8,
+                              borderWidth: 1.5,
+                              borderColor: selected ? '#DC2626' : inputBorder,
+                              backgroundColor: selected ? '#DC262610' : inputBg,
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }]}>
+                            <ThemedText style={{
+                              fontSize: 11,
+                              fontWeight: selected ? '800' : '600',
+                              color: selected ? '#DC2626' : textSecondary,
+                              textTransform: 'uppercase',
+                              letterSpacing: 0.5,
+                            }}>
+                              {t === 'icu' ? 'ICU' : t.charAt(0).toUpperCase() + t.slice(1)}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
                 <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Plate Number *</ThemedText>
@@ -471,6 +510,7 @@ export default function RegisterScreen() {
                     {fieldErrors.registrationNumber ? <ThemedText style={styles.fieldError}>{fieldErrors.registrationNumber}</ThemedText> : null}
                   </View>
                 </View>
+                </>
               )}
 
               {/* Submit */}

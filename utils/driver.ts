@@ -134,7 +134,8 @@ export const getDriverAmbulanceDetails = async (
 export const upsertDriverAmbulance = async (
   driverId: string,
   vehicleNumber: string,
-  registrationNumber: string = ''
+  registrationNumber: string = '',
+  ambulanceType: string = 'standard'
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
@@ -151,7 +152,7 @@ export const upsertDriverAmbulance = async (
 
     if (existing) {
       // Link the driver to the existing ambulance
-      const updatePayload: any = { current_driver_id: driverId, updated_at: now };
+      const updatePayload: any = { current_driver_id: driverId, type: ambulanceType, updated_at: now };
       if (registrationNumber) updatePayload.registration_number = registrationNumber;
       const { error: updateErr } = await db
         .from('ambulances')
@@ -172,7 +173,7 @@ export const upsertDriverAmbulance = async (
     const insertPayload: any = {
       vehicle_number: vehicleNumber,
       current_driver_id: driverId,
-      type: 'standard',
+      type: ambulanceType,
       is_available: true,
       created_at: now,
       updated_at: now,
