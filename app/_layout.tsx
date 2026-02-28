@@ -1,5 +1,8 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -11,11 +14,30 @@ import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+// Prevent the splash screen from auto-hiding before fonts load
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export const unstable_settings = {
   initialRouteName: 'index',
 };
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    ...MaterialIcons.font,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      // Hide splash screen once fonts are loaded or failed (don't block the app)
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError]);
+
+  // Don't render until font loading is resolved (loaded or errored)
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <SafeAreaProvider>
       <AppStateProvider>
