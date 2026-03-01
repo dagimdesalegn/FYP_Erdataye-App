@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import {
     Alert,
     Animated,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -65,7 +66,8 @@ export default function PatientEmergencyScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required to request emergency services');
+        const msg = 'Location permission is required to request emergency services';
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Permission Denied', msg);
         return;
       }
 
@@ -79,33 +81,52 @@ export default function PatientEmergencyScreen() {
       });
     } catch (error) {
       console.error('Error getting location:', error);
-      Alert.alert('Error', 'Could not get your location. Please enable location services.');
+      const msg = 'Could not get your location. Please enable location services.';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
     }
   };
 
   const handleSOS = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'User not authenticated');
+      if (Platform.OS === 'web') {
+        window.alert('You must be logged in to call an ambulance');
+      } else {
+        Alert.alert('Error', 'User not authenticated');
+      }
       return;
     }
 
     if (!location) {
-      Alert.alert('Error', 'Location not available. Please enable location services.');
+      if (Platform.OS === 'web') {
+        window.alert('Location not available. Please enable location services.');
+      } else {
+        Alert.alert('Error', 'Location not available. Please enable location services.');
+      }
       return;
     }
 
-    Alert.alert(
-      'Confirm Emergency Call',
-      `Severity: ${severity}${isForOther && otherPersonName ? `\nFor: ${otherPersonName}` : ''}\n\nAre you sure you want to request emergency ambulance service?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Call Ambulance',
-          style: 'destructive',
-          onPress: () => createEmergencyRequest(),
-        },
-      ]
-    );
+    const confirmMsg = `Severity: ${severity}${isForOther && otherPersonName ? `\nFor: ${otherPersonName}` : ''}\n\nAre you sure you want to request emergency ambulance service?`;
+
+    if (Platform.OS === 'web') {
+      // window.confirm works reliably on web
+      const confirmed = window.confirm(confirmMsg);
+      if (confirmed) {
+        await createEmergencyRequest();
+      }
+    } else {
+      Alert.alert(
+        'Confirm Emergency Call',
+        confirmMsg,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Call Ambulance',
+            style: 'destructive',
+            onPress: () => createEmergencyRequest(),
+          },
+        ]
+      );
+    }
   };
 
   const createEmergencyRequest = async () => {
@@ -131,7 +152,8 @@ export default function PatientEmergencyScreen() {
       );
 
       if (error || !emergency) {
-        Alert.alert('Error', `Failed to create emergency: ${error?.message}`);
+        const msg = `Failed to create emergency: ${error?.message}`;
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
         return;
       }
 
@@ -144,10 +166,8 @@ export default function PatientEmergencyScreen() {
       setOtherPersonName('');
       setOtherPersonContact('');
 
-      Alert.alert(
-        'Emergency Request Sent',
-        'Your emergency request has been sent. Ambulance dispatch is in progress.\n\nStay calm and follow dispatcher instructions.'
-      );
+      const successMsg = 'Your emergency request has been sent. Ambulance dispatch is in progress.\n\nStay calm and follow dispatcher instructions.';
+      Platform.OS === 'web' ? window.alert(successMsg) : Alert.alert('Emergency Request Sent', successMsg);
 
       // Navigate to tracking screen
       setTimeout(() => {
@@ -155,7 +175,8 @@ export default function PatientEmergencyScreen() {
       }, 1000);
     } catch (error) {
       console.error('Error creating emergency:', error);
-      Alert.alert('Error', `Failed to request emergency services: ${error}`);
+      const errMsg = `Failed to request emergency services: ${error}`;
+      Platform.OS === 'web' ? window.alert(errMsg) : Alert.alert('Error', errMsg);
     } finally {
       setLoading(false);
     }
