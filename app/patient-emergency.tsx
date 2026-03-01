@@ -19,8 +19,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { createEmergency, getActiveEmergency } from '@/utils/patient';
 import { formatCoords } from '@/utils/emergency';
+import { createEmergency, getActiveEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function PatientEmergencyScreen() {

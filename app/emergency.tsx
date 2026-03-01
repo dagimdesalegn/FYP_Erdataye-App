@@ -5,12 +5,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  Ambulance,
-  createEmergencyRequest,
-  findNearestAmbulance,
-  formatCoords,
-  getAvailableAmbulances,
-  parsePostGISPoint,
+    Ambulance,
+    createEmergencyRequest,
+    findNearestAmbulance,
+    formatCoords,
+    getAvailableAmbulances,
+    parsePostGISPoint,
 } from '@/utils/emergency';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
