@@ -52,6 +52,9 @@ function ThemedRoot() {
   const theme = resolved ?? 'light';
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      document.title = 'Erdataya Ambulance';
+    }
     if (Platform.OS !== 'android') return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);
   }, [theme]);
