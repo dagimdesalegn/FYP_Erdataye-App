@@ -85,8 +85,8 @@ export default function EmergencyScreen() {
         return;
       }
 
-      // Try to find nearest ambulance
-      const { error: ambulanceError } = await findNearestAmbulance(latitude, longitude);
+      // Try to find nearest ambulance (expanded 50km range)
+      const { ambulanceId, distanceKm, error: ambulanceError } = await findNearestAmbulance(latitude, longitude, 50);
       if (ambulanceError) {
         console.warn('Warning finding nearest ambulance:', ambulanceError.message);
       }
@@ -105,7 +105,7 @@ export default function EmergencyScreen() {
 
       Alert.alert(
         'Emergency Request Sent',
-        `Your location (${formatCoords(latitude, longitude)}) has been sent. Help is on the way!`,
+        `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ''}. Help is on the way!` : '\n\nSearching for available ambulances...'}`,
         [{ text: 'OK' }]
       );
     } catch (error) {

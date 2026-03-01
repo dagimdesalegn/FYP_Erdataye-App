@@ -145,10 +145,8 @@ export default function MapScreen() {
   const userLng = location?.coords.longitude ?? 38.75;
   const accuracy = location?.coords.accuracy ?? null;
 
-  // Build OpenStreetMap embed with tight zoom on user location
-  const delta = 0.005;
-  const bbox = `${userLng - delta}%2C${userLat - delta}%2C${userLng + delta}%2C${userLat + delta}`;
-  const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${userLat}%2C${userLng}`;
+  // Google Maps embed — shows buildings, roads, landmarks
+  const mapUrl = `https://maps.google.com/maps?q=${userLat},${userLng}&z=17&output=embed`;
 
   return (
     <ThemedView style={styles.container}>
@@ -158,7 +156,11 @@ export default function MapScreen() {
       <View style={styles.mapContainer}>
         {Platform.OS === 'web' ? (
           // @ts-ignore – iframe is valid on web
-          <iframe src={mapUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="Map" />
+          <iframe
+            src={mapUrl}
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            title="Map"
+          />
         ) : (
           <View style={[styles.nativeFallback, { backgroundColor: isDark ? '#0F1A2E' : '#EBF0F7' }]}>
             <MaterialIcons name="map" size={64} color={accentColor} />

@@ -144,17 +144,7 @@ export default function HelpScreen() {
 
   const mapEmbedUrl = React.useMemo(() => {
     if (!mapLocation) return null;
-
-    const lat = mapLocation.latitude;
-    const lon = mapLocation.longitude;
-    const delta = 0.005;
-
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta}%2C${lat - delta}%2C${lon + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lon}`;
-  }, [mapLocation]);
-
-  const mapExternalUrl = React.useMemo(() => {
-    if (!mapLocation) return null;
-    return `https://www.openstreetmap.org/?mlat=${mapLocation.latitude}&mlon=${mapLocation.longitude}#map=16/${mapLocation.latitude}/${mapLocation.longitude}`;
+    return `https://maps.google.com/maps?q=${mapLocation.latitude},${mapLocation.longitude}&z=17&output=embed`;
   }, [mapLocation]);
 
   const mapSummaryText = React.useMemo(() => {
@@ -250,8 +240,6 @@ export default function HelpScreen() {
             </View>
             <View style={styles.heroTextCol}>
               <ThemedText style={styles.heroTitle}>Live location</ThemedText>
-              <ThemedText style={[styles.heroSubtitle, { color: isDark ? '#A3AAB3' : '#64748B' }]}
-              >Showing patient location from active emergency data or current device coordinates.</ThemedText>
             </View>
           </View>
 
@@ -283,8 +271,6 @@ export default function HelpScreen() {
                   {React.createElement('iframe', {
                     title: 'Patient location map',
                     src: mapEmbedUrl,
-                    loading: 'lazy',
-                    referrerPolicy: 'no-referrer-when-downgrade',
                     style: {
                       border: 0,
                       width: '100%',

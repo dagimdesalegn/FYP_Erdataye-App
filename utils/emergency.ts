@@ -12,6 +12,28 @@ export function formatCoords(lat: number, lng: number, decimals: number = 4): st
   return `${Math.abs(lat).toFixed(decimals)}° ${ns}, ${Math.abs(lng).toFixed(decimals)}° ${ew}`;
 }
 
+/**
+ * Build a self-contained Leaflet HTML map as a data URI.
+ * - No external buttons / "View Larger Map"
+ * - One-finger drag, two-finger pinch zoom
+ * - Roadmap only: buildings, roads, landmarks (OpenStreetMap tiles)
+ * - Red marker on the given coordinates
+ */
+export function buildMapHtml(lat: number, lng: number, zoom: number = 17): string {
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%}
+.leaflet-control-attribution{font-size:9px!important;opacity:0.7}</style></head>
+<body><div id="map"></div><script>
+var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,boxZoom:true}).setView([${lat},${lng}],${zoom});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}).addTo(map);
+L.marker([${lat},${lng}]).addTo(map).bindPopup('📍 Your location').openPopup();
+<\/script></body></html>`;
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+}
+
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */
 export function toPostGISPoint(latitude: number, longitude: number): string {
   return `SRID=4326;POINT(${longitude} ${latitude})`;
@@ -173,25 +195,57 @@ export const getPatientEmergencies = async (
 };
 
 /**
- * Find nearest available ambulance (uses PostGIS DB function).
- * Returns a single ambulance UUID or null.
+ * Find nearest available ambulance.
+ * 1) Tries the PostGIS DB function first (server-side, most accurate).
+ * 2) Falls back to client-side Haversine calculation over all available ambulances.
+ *
+ * @param latitude      Patient latitude
+ * @param longitude     Patient longitude
+ * @param maxRadiusKm   Maximum search radius in km (default 50 km)
  */
 export const findNearestAmbulance = async (
   latitude: number,
   longitude: number,
-  maxRadiusKm: number = 10
-): Promise<{ ambulanceId: string | null; error: Error | null }> => {
+  maxRadiusKm: number = 50
+): Promise<{ ambulanceId: string | null; distanceKm: number | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase.rpc('find_nearest_available_ambulance', {
+    // Attempt server-side PostGIS lookup first
+    const { data, error: rpcError } = await supabase.rpc('find_nearest_available_ambulance', {
       patient_location: toPostGISPoint(latitude, longitude),
       max_radius_km: maxRadiusKm,
     });
 
-    if (error) throw error;
+    if (!rpcError && data) {
+      return { ambulanceId: data as string, distanceKm: null, error: null };
+    }
 
-    return { ambulanceId: data as string | null, error: null };
+    // Fallback: client-side distance calculation
+    const { ambulances } = await getAvailableAmbulances();
+    if (!ambulances || ambulances.length === 0) {
+      return { ambulanceId: null, distanceKm: null, error: new Error('No available ambulances') };
+    }
+
+    let closestId: string | null = null;
+    let closestDistance = Infinity;
+
+    for (const amb of ambulances) {
+      const loc = parsePostGISPoint(amb.last_known_location);
+      if (!loc) continue;
+
+      const dist = calculateDistance(latitude, longitude, loc.latitude, loc.longitude);
+      if (dist < closestDistance && dist <= maxRadiusKm) {
+        closestDistance = dist;
+        closestId = amb.id;
+      }
+    }
+
+    if (!closestId) {
+      return { ambulanceId: null, distanceKm: null, error: new Error(`No ambulances within ${maxRadiusKm}km`) };
+    }
+
+    return { ambulanceId: closestId, distanceKm: Math.round(closestDistance * 10) / 10, error: null };
   } catch (error) {
-    return { ambulanceId: null, error: error as Error };
+    return { ambulanceId: null, distanceKm: null, error: error as Error };
   }
 };
 
@@ -335,3 +389,25 @@ export const updateAmbulanceLocation = async (
     return { success: false, error: error as Error };
   }
 };
+
+/**
+ * Calculate distance between two coordinates using Haversine formula (in km)
+ */
+export function calculateDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
