@@ -2,6 +2,16 @@ import { supabase } from './supabase';
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
+/**
+ * Format coordinates as human-readable directional text.
+ * e.g. 9.02, 38.75 → "9.0200° N, 38.7500° E"
+ */
+export function formatCoords(lat: number, lng: number, decimals: number = 4): string {
+  const ns = lat >= 0 ? 'N' : 'S';
+  const ew = lng >= 0 ? 'E' : 'W';
+  return `${Math.abs(lat).toFixed(decimals)}° ${ns}, ${Math.abs(lng).toFixed(decimals)}° ${ew}`;
+}
+
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */
 export function toPostGISPoint(latitude: number, longitude: number): string {
   return `SRID=4326;POINT(${longitude} ${latitude})`;

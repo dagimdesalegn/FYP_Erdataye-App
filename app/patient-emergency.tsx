@@ -20,6 +20,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createEmergency, getActiveEmergency } from '@/utils/patient';
+import { formatCoords } from '@/utils/emergency';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function PatientEmergencyScreen() {
@@ -301,7 +302,7 @@ export default function PatientEmergencyScreen() {
                 {isForOther ? 'Request Help for Someone Else' : 'Request Emergency Service'}
               </ThemedText>
               <ThemedText style={styles.subtitle}>
-                Your location: {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Loading...'}
+                Your location: {location ? formatCoords(location.latitude, location.longitude) : 'Loading...'}
               </ThemedText>
 
               {/* Other person details */}

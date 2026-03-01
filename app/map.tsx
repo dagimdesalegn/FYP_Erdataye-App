@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     Ambulance,
     EmergencyRequest,
+    formatCoords,
     getAvailableAmbulances,
     getHospitals,
     Hospital,
@@ -162,7 +163,7 @@ export default function MapScreen() {
           <View style={[styles.nativeFallback, { backgroundColor: isDark ? '#0F1A2E' : '#EBF0F7' }]}>
             <MaterialIcons name="map" size={64} color={accentColor} />
             <ThemedText style={[styles.fallbackText, { color: textColor }]}>
-              📍 {userLat.toFixed(5)}, {userLng.toFixed(5)}
+              📍 {formatCoords(userLat, userLng)}
             </ThemedText>
             {accuracy != null && (
               <ThemedText style={[styles.fallbackSub, { color: subText }]}>
@@ -184,7 +185,7 @@ export default function MapScreen() {
       <ScrollView style={[styles.dataPanel, { backgroundColor: cardBg }]}>
         {location && (
           <ThemedText style={[styles.locationText, { color: subText }]}>
-            📍 Your location: {userLat.toFixed(5)}, {userLng.toFixed(5)}
+            📍 Your location: {formatCoords(userLat, userLng)}
             {accuracy != null && ` • Accuracy: ${accuracy.toFixed(0)}m`}
           </ThemedText>
         )}
@@ -202,7 +203,7 @@ export default function MapScreen() {
               Ambulance {amb.vehicle_number}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              Type: {amb.type || 'Standard'} • {amb.lat.toFixed(5)}, {amb.lng.toFixed(5)}
+              Type: {amb.type || 'Standard'} • {formatCoords(amb.lat, amb.lng)}
             </ThemedText>
           </View>
         ))}

@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { formatCoords } from '@/utils/emergency';
 import { getEmergencyDetails } from '@/utils/patient';
 
 export default function PatientEmergencyTrackingScreen() {
@@ -241,7 +242,7 @@ export default function PatientEmergencyTrackingScreen() {
               <View style={styles.detailContent}>
                 <ThemedText style={styles.detailLabel}>Location</ThemedText>
                 <ThemedText style={styles.detailValue}>
-                  {Number(emergency.latitude || 0).toFixed(4)}, {Number(emergency.longitude || 0).toFixed(4)}
+                  {formatCoords(Number(emergency.latitude || 0), Number(emergency.longitude || 0))}
                 </ThemedText>
               </View>
             </View>
