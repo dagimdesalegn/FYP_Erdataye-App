@@ -6,6 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
+import { formatCoords } from '@/utils/emergency';
 import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -158,7 +159,7 @@ export default function HelpScreen() {
 
   const mapSummaryText = React.useMemo(() => {
     if (mapLocation) {
-      return `${mapLocation.latitude.toFixed(6)}, ${mapLocation.longitude.toFixed(6)}`;
+      return formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
     }
     if (locationLoading) return 'Getting your current location...';
     if (locationError) return locationError;

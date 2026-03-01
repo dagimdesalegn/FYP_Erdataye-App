@@ -15,7 +15,7 @@ import {
     getDriverAssignment,
     getPatientInfo,
 } from '@/utils/driver';
-import { parsePostGISPoint } from '@/utils/emergency';
+import { formatCoords, parsePostGISPoint } from '@/utils/emergency';
 import { useRouter } from 'expo-router';
 
 interface PatientInfo {
@@ -217,7 +217,7 @@ export default function DriverEmergencyScreen() {
             <View style={{ marginLeft: 12, flex: 1 }}>
               <ThemedText style={styles.detailLabel}>Location</ThemedText>
               <ThemedText style={styles.detailValue}>
-                {Number(emergencyCoords?.latitude ?? 0).toFixed(4)}, {Number(emergencyCoords?.longitude ?? 0).toFixed(4)}
+                {formatCoords(Number(emergencyCoords?.latitude ?? 0), Number(emergencyCoords?.longitude ?? 0))}
               </ThemedText>
             </View>
           </View>

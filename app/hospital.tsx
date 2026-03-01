@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { EmergencyRequest, normalizeEmergency } from '@/utils/emergency';
+import { EmergencyRequest, formatCoords, normalizeEmergency } from '@/utils/emergency';
 import { getMedicalProfile, MedicalProfile, UserProfile } from '@/utils/profile';
 import { supabase } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -250,7 +250,7 @@ export default function HospitalDashboard() {
           {item.latitude !== 0 && (
             <View style={styles.footerItem}>
               <MaterialIcons name="location-on" size={14} color={subText} />
-              <ThemedText style={[styles.footerText, { color: subText }]}>{item.latitude.toFixed(4)}, {item.longitude.toFixed(4)}</ThemedText>
+              <ThemedText style={[styles.footerText, { color: subText }]}>{formatCoords(item.latitude, item.longitude)}</ThemedText>
             </View>
           )}
           <View style={styles.footerItem}>
@@ -400,7 +400,7 @@ export default function HospitalDashboard() {
                     </View>
                     <InfoRow label="Type" value={selectedEmergency.emergency_type} c={colors.text} s={subText} />
                     <InfoRow label="Description" value={selectedEmergency.description} c={colors.text} s={subText} />
-                    <InfoRow label="Location" value={selectedEmergency.latitude !== 0 ? `${selectedEmergency.latitude.toFixed(6)}, ${selectedEmergency.longitude.toFixed(6)}` : 'Unknown'} c={colors.text} s={subText} />
+                    <InfoRow label="Location" value={selectedEmergency.latitude !== 0 ? formatCoords(selectedEmergency.latitude, selectedEmergency.longitude, 6) : 'Unknown'} c={colors.text} s={subText} />
                     <InfoRow label="Status" value={selectedEmergency.status.replace('_', ' ')} c={colors.text} s={subText} />
                     <InfoRow label="Created" value={formatDateTime(selectedEmergency.created_at)} c={colors.text} s={subText} />
                   </View>

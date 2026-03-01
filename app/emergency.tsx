@@ -8,6 +8,7 @@ import {
   Ambulance,
   createEmergencyRequest,
   findNearestAmbulance,
+  formatCoords,
   getAvailableAmbulances,
   parsePostGISPoint,
 } from '@/utils/emergency';
@@ -104,7 +105,7 @@ export default function EmergencyScreen() {
 
       Alert.alert(
         'Emergency Request Sent',
-        `Your location (${latitude.toFixed(4)}, ${longitude.toFixed(4)}) has been sent. Help is on the way!`,
+        `Your location (${formatCoords(latitude, longitude)}) has been sent. Help is on the way!`,
         [{ text: 'OK' }]
       );
     } catch (error) {
@@ -133,7 +134,7 @@ export default function EmergencyScreen() {
           <View style={[styles.locationCard, { backgroundColor: isDark ? '#0B1220' : '#F0F9FF', borderColor: isDark ? '#2E3236' : '#BAE6FD' }]}>
             <MaterialIcons name="my-location" size={18} color="#3B82F6" />
             <ThemedText style={[styles.locationText, { color: subText }]}>
-              {location.coords.latitude.toFixed(5)}, {location.coords.longitude.toFixed(5)}
+              {formatCoords(location.coords.latitude, location.coords.longitude)}
               {'  '}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
             </ThemedText>
           </View>
