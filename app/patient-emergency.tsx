@@ -20,10 +20,12 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createEmergency, getActiveEmergency } from '@/utils/patient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function PatientEmergencyScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ forOther?: string }>();
+  const isForOther = params.forOther === 'true';
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user } = useAppState();
@@ -34,6 +36,8 @@ export default function PatientEmergencyScreen() {
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>('medium');
   const [description, setDescription] = useState('');
   const [patientCondition, setPatientCondition] = useState('');
+  const [otherPersonName, setOtherPersonName] = useState('');
+  const [otherPersonContact, setOtherPersonContact] = useState('');
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(null);
 
   const scaleAnim = new Animated.Value(1);
@@ -91,7 +95,7 @@ export default function PatientEmergencyScreen() {
 
     Alert.alert(
       'Confirm Emergency Call',
-      `Severity: ${severity}\n\nAre you sure you want to request emergency ambulance service?`,
+      `Severity: ${severity}${isForOther && otherPersonName ? `\nFor: ${otherPersonName}` : ''}\n\nAre you sure you want to request emergency ambulance service?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -109,9 +113,13 @@ export default function PatientEmergencyScreen() {
     setLoading(true);
     try {
       // Combine description + condition into a single description field
-      const fullDescription = [description, patientCondition ? `Condition: ${patientCondition}` : '']
-        .filter(Boolean)
-        .join(' — ') || undefined;
+      const parts = [
+        isForOther && otherPersonName ? `Reported for: ${otherPersonName}` : null,
+        isForOther && otherPersonContact ? `Contact: ${otherPersonContact}` : null,
+        description || null,
+        patientCondition ? `Condition: ${patientCondition}` : null,
+      ].filter(Boolean);
+      const fullDescription = parts.length > 0 ? parts.join(' — ') : undefined;
 
       const { emergency, error } = await createEmergency(
         user.id,
@@ -132,6 +140,8 @@ export default function PatientEmergencyScreen() {
       // Clear form
       setDescription('');
       setPatientCondition('');
+      setOtherPersonName('');
+      setOtherPersonContact('');
 
       Alert.alert(
         'Emergency Request Sent',
@@ -287,10 +297,38 @@ export default function PatientEmergencyScreen() {
           ) : (
             // No Emergency View
             <>
-              <ThemedText style={styles.title}>Request Emergency Service</ThemedText>
+              <ThemedText style={styles.title}>
+                {isForOther ? 'Request Help for Someone Else' : 'Request Emergency Service'}
+              </ThemedText>
               <ThemedText style={styles.subtitle}>
                 Your location: {location ? `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}` : 'Loading...'}
               </ThemedText>
+
+              {/* Other person details */}
+              {isForOther && (
+                <View style={styles.section}>
+                  <ThemedText style={styles.sectionTitle}>Person in Need</ThemedText>
+
+                  <ThemedText style={styles.label}>Name</ThemedText>
+                  <TextInput
+                    style={[styles.input, isDark ? styles.inputDark : null]}
+                    placeholder="Name of the person who needs help"
+                    placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                    value={otherPersonName}
+                    onChangeText={setOtherPersonName}
+                  />
+
+                  <ThemedText style={styles.label}>Contact Number (optional)</ThemedText>
+                  <TextInput
+                    style={[styles.input, isDark ? styles.inputDark : null]}
+                    placeholder="Their phone number"
+                    placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                    value={otherPersonContact}
+                    onChangeText={setOtherPersonContact}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+              )}
 
               {/* Severity Selection */}
               <View style={styles.section}>
@@ -310,7 +348,7 @@ export default function PatientEmergencyScreen() {
                 <ThemedText style={styles.label}>Description (optional)</ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="Describe your emergency..."
+                  placeholder={isForOther ? "Describe what happened..." : "Describe your emergency..."}
                   placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                   value={description}
                   onChangeText={setDescription}
@@ -318,10 +356,10 @@ export default function PatientEmergencyScreen() {
                   numberOfLines={3}
                 />
 
-                <ThemedText style={styles.label}>Your Condition (optional)</ThemedText>
+                <ThemedText style={styles.label}>{isForOther ? 'Their Condition (optional)' : 'Your Condition (optional)'}</ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="Describe your current condition..."
+                  placeholder={isForOther ? "Describe their current condition..." : "Describe your current condition..."}
                   placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
                   value={patientCondition}
                   onChangeText={setPatientCondition}
@@ -343,7 +381,9 @@ export default function PatientEmergencyScreen() {
                     pressed && { opacity: 0.9 },
                   ]}>
                   <MaterialIcons name="phone" size={32} color="white" />
-                  <ThemedText style={styles.sosButtonText}>SOS - Call Ambulance</ThemedText>
+                  <ThemedText style={styles.sosButtonText}>
+                    {isForOther ? 'SOS - Call Ambulance for Them' : 'SOS - Call Ambulance'}
+                  </ThemedText>
                 </Pressable>
               </Animated.View>
 

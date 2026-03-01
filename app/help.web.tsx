@@ -146,7 +146,7 @@ export default function HelpScreen() {
 
     const lat = mapLocation.latitude;
     const lon = mapLocation.longitude;
-    const delta = 0.0125;
+    const delta = 0.005;
 
     return `https://www.openstreetmap.org/export/embed.html?bbox=${lon - delta}%2C${lat - delta}%2C${lon + delta}%2C${lat + delta}&layer=mapnik&marker=${lat}%2C${lon}`;
   }, [mapLocation]);
@@ -186,7 +186,7 @@ export default function HelpScreen() {
 
   const handleForOther = () => {
     setHelpOpen(false);
-    router.push('/patient-emergency');
+    router.push('/patient-emergency?forOther=true');
   };
 
   const handleCall = (number: string) => {
@@ -276,16 +276,7 @@ export default function HelpScreen() {
                       </ThemedText>
                     </View>
                   </View>
-                  {mapExternalUrl ? (
-                    <Pressable
-                      onPress={() => {
-                        void Linking.openURL(mapExternalUrl);
-                      }}
-                      style={({ pressed }) => [styles.openMapBtn, pressed ? { opacity: 0.75 } : null]}>
-                      <MaterialIcons name="open-in-new" size={16} color={isDark ? '#E6E9EC' : '#0F172A'} />
-                      <ThemedText style={styles.openMapText}>Open map</ThemedText>
-                    </Pressable>
-                  ) : null}
+
                 </View>
                 <View style={styles.mapFrameWrap}>
                   {React.createElement('iframe', {

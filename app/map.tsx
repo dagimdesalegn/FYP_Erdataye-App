@@ -4,25 +4,25 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  Ambulance,
-  EmergencyRequest,
-  Hospital,
-  normalizeEmergency,
-  parsePostGISPoint,
-  getAvailableAmbulances,
-  getHospitals,
+    Ambulance,
+    EmergencyRequest,
+    getAvailableAmbulances,
+    getHospitals,
+    Hospital,
+    normalizeEmergency,
+    parsePostGISPoint,
 } from '@/utils/emergency';
 import { supabase } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from 'react-native';
 
 export default function MapScreen() {
@@ -144,8 +144,9 @@ export default function MapScreen() {
   const userLng = location?.coords.longitude ?? 38.75;
   const accuracy = location?.coords.accuracy ?? null;
 
-  // Build OpenStreetMap embed with markers
-  const bbox = `${userLng - 0.05}%2C${userLat - 0.05}%2C${userLng + 0.05}%2C${userLat + 0.05}`;
+  // Build OpenStreetMap embed with tight zoom on user location
+  const delta = 0.005;
+  const bbox = `${userLng - delta}%2C${userLat - delta}%2C${userLng + delta}%2C${userLat + delta}`;
   const mapUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${userLat}%2C${userLng}`;
 
   return (
