@@ -18,7 +18,7 @@ import { supabase } from './supabase';
 export interface PatientEmergency {
   id: string;
   patient_id: string;
-  status: 'pending' | 'assigned' | 'en_route' | 'arrived' | 'at_hospital' | 'completed' | 'cancelled';
+  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled';
   emergency_type: string;
   description?: string;
   assigned_ambulance_id?: string;
@@ -148,7 +148,7 @@ export const getActiveEmergency = async (
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
-      .in('status', ['pending', 'assigned', 'en_route', 'arrived'])
+      .in('status', ['pending', 'assigned', 'en_route', 'at_scene', 'arrived', 'transporting'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -251,7 +251,7 @@ export const getEmergencyDetails = async (
  */
 export const updateEmergencyStatus = async (
   emergencyId: string,
-  status: 'pending' | 'cancelled' | 'completed'
+  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase

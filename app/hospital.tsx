@@ -164,7 +164,7 @@ export default function HospitalDashboard() {
 
   const counts = {
     all: emergencies.length,
-    active: emergencies.filter((e) => ['pending', 'assigned', 'en_route', 'arrived'].includes(e.status)).length,
+    active: emergencies.filter((e) => ['pending', 'assigned', 'en_route', 'at_scene', 'arrived', 'transporting'].includes(e.status)).length,
     at_hospital: emergencies.filter((e) => e.status === 'at_hospital').length,
     completed: emergencies.filter((e) => e.status === 'completed').length,
     cancelled: emergencies.filter((e) => e.status === 'cancelled').length,
@@ -172,7 +172,7 @@ export default function HospitalDashboard() {
   };
 
   const filtered = emergencies.filter((e) => {
-    if (statusFilter === 'active') return ['pending', 'assigned', 'en_route', 'arrived'].includes(e.status);
+    if (statusFilter === 'active') return ['pending', 'assigned', 'en_route', 'at_scene', 'arrived', 'transporting'].includes(e.status);
     if (statusFilter === 'at_hospital') return e.status === 'at_hospital';
     if (statusFilter === 'completed') return ['completed', 'cancelled'].includes(e.status);
     return true;

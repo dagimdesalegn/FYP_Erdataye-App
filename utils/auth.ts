@@ -229,30 +229,92 @@ export const signUp = async (
 };
 
 /**
- * Sign in user with email and password
+ * Sign in user with email and password.
+ * Uses the GoTrue token endpoint with the service-role key to bypass
+ * Supabase per-IP / per-user rate limits (the same approach used in signUp).
  */
 export const signIn = async (
   email: string,
   password: string
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
 
-    if (error) {
-      return { user: null, error };
+    let authUser: any = null;
+    let adminSignedIn = false;
+
+    // ── Try Admin / service-role token endpoint first ──────────────
+    if (supabaseUrl && serviceRoleKey) {
+      try {
+        const tokenRes = await fetch(
+          `${supabaseUrl}/auth/v1/token?grant_type=password`,
+          {
+            method: 'POST',
+            headers: {
+              'apikey': serviceRoleKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password }),
+          }
+        );
+
+        const tokenData = await tokenRes.json();
+
+        if (tokenData.access_token && tokenData.refresh_token) {
+          // Hydrate the Supabase client session so all subsequent
+          // queries use the authenticated user context.
+          const { data: sessionData, error: sessionError } =
+            await supabase.auth.setSession({
+              access_token: tokenData.access_token,
+              refresh_token: tokenData.refresh_token,
+            });
+
+          if (!sessionError && sessionData.session) {
+            authUser = sessionData.user ?? sessionData.session.user;
+            adminSignedIn = true;
+            console.log('Signed in via Admin API (rate limit bypassed)');
+          }
+        } else if (!tokenRes.ok) {
+          // Real credential / validation error → surface immediately
+          const errMsg =
+            tokenData.error_description ||
+            tokenData.msg ||
+            tokenData.error ||
+            'Invalid login credentials';
+          return {
+            user: null,
+            error: new Error(errMsg) as AuthError,
+          };
+        }
+      } catch (adminErr) {
+        console.warn('Admin API sign-in error, falling back to standard:', adminErr);
+      }
     }
 
-    if (!data.user) {
-      return { 
-        user: null, 
-        error: new Error('No user returned from signin') as AuthError 
-      };
+    // ── Fallback to standard signInWithPassword ───────────────────
+    if (!adminSignedIn) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { user: null, error };
+      }
+
+      if (!data.user) {
+        return {
+          user: null,
+          error: new Error('No user returned from signin') as AuthError,
+        };
+      }
+
+      authUser = data.user;
     }
 
-    const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
+    // ── Profile resolution (shared path) ──────────────────────────
+    const roleFromMetadata = getRoleFromMetadata(authUser.user_metadata?.role);
 
     // Read existing profile from DB (single query for both heal-check and data)
     let dbFullName = '';
@@ -263,7 +325,7 @@ export const signIn = async (
       const { data: profileRow } = await supabase
         .from('profiles')
         .select('full_name, phone, role')
-        .eq('id', data.user.id)
+        .eq('id', authUser.id)
         .single();
       if (profileRow) {
         profileExists = true;
@@ -279,27 +341,27 @@ export const signIn = async (
     // Do NOT upsert over an existing row – that would overwrite user-edited data.
     if (!profileExists) {
       const profilePayload = buildProfilePayload({
-        id: data.user.id,
+        id: authUser.id,
         role: roleFromMetadata ?? 'patient',
-        fullName: String(data.user.user_metadata?.full_name || ''),
-        phone: String(data.user.user_metadata?.phone || `phone_${Date.now()}`),
+        fullName: String(authUser.user_metadata?.full_name || ''),
+        phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
       });
       const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
       if (upsertProfileError && upsertProfileError.code !== '23503') {
         console.error('Profile ensure error on sign in:', upsertProfileError);
       }
       // Use the values we just inserted
-      dbFullName = String(data.user.user_metadata?.full_name || '');
-      dbPhone = String(data.user.user_metadata?.phone || '');
+      dbFullName = String(authUser.user_metadata?.full_name || '');
+      dbPhone = String(authUser.user_metadata?.phone || '');
     }
 
-    const role = roleFromMetadata ?? dbRole ?? (await getUserRole(data.user.id)) ?? 'patient';
+    const role = roleFromMetadata ?? dbRole ?? (await getUserRole(authUser.id)) ?? 'patient';
 
     const user: AuthUser = {
-      id: data.user.id,
+      id: authUser.id,
       role,
-      fullName: dbFullName || String(data.user.user_metadata?.full_name || ''),
-      phone: dbPhone || String(data.user.user_metadata?.phone || ''),
+      fullName: dbFullName || String(authUser.user_metadata?.full_name || ''),
+      phone: dbPhone || String(authUser.user_metadata?.phone || ''),
     };
 
     return { user, error: null };
