@@ -29,7 +29,7 @@ interface PatientData {
  * Driver Patient Information Screen - View Patient Medical Data
  */
 export default function DriverPatientInfoScreen() {
-  useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
   const { patientId } = useLocalSearchParams();
 
   const [patientData, setPatientData] = useState<PatientData | null>(null);

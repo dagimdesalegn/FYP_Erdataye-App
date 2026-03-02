@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
@@ -31,7 +31,7 @@ interface StatusTimeline {
  */
 export default function DriverEmergencyTrackingScreen() {
   const router = useRouter();
-  useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
   const { emergencyId } = useLocalSearchParams();
   const { user } = useAppState();
 

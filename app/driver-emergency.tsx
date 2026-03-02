@@ -29,7 +29,7 @@ interface PatientInfo {
  */
 export default function DriverEmergencyScreen() {
   const router = useRouter();
-  useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
   const { user } = useAppState();
 
   const [assignment, setAssignment] = useState<any>(null);

@@ -13,7 +13,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HelpScreen() {
@@ -156,6 +156,12 @@ export default function HelpScreen() {
     return 'No active location is available yet.';
   }, [locationError, locationLoading, mapLocation]);
 
+  const openInGoogleMaps = () => {
+    if (!mapLocation) return;
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${mapLocation.latitude},${mapLocation.longitude}`;
+    Linking.openURL(url);
+  };
+
   const openPatientEmergency = React.useCallback(() => {
     if (!user?.id) {
       router.push('/login');
@@ -265,7 +271,10 @@ export default function HelpScreen() {
                       </ThemedText>
                     </View>
                   </View>
-
+                  <Pressable onPress={openInGoogleMaps} style={({ pressed }) => [styles.openMapBtn, pressed && { opacity: 0.7 }]}>
+                    <MaterialIcons name="directions" size={16} color={isDark ? '#E6E9EC' : '#0F172A'} />
+                    <ThemedText style={[styles.openMapText, { color: isDark ? '#E6E9EC' : '#0F172A' }]}>Directions</ThemedText>
+                  </Pressable>
                 </View>
                 <View style={styles.mapFrameWrap}>
                   {React.createElement('iframe', {

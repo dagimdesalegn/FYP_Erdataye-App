@@ -83,7 +83,7 @@ export function parsePostGISPoint(
 export interface EmergencyRequest {
   id: string;
   patient_id: string;
-  status: 'pending' | 'assigned' | 'en_route' | 'arrived' | 'at_hospital' | 'completed' | 'cancelled';
+  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled';
   emergency_type: string;
   description: string;
   assigned_ambulance_id?: string;

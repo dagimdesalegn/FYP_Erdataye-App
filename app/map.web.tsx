@@ -19,13 +19,11 @@ import * as Location from 'expo-location';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Linking,
     Pressable,
     ScrollView,
     StyleSheet,
     View,
 } from 'react-native';
-import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
@@ -146,72 +144,25 @@ export default function MapScreen() {
   const userLng = location?.coords.longitude ?? 38.75;
   const accuracy = location?.coords.accuracy ?? null;
 
-  const openInGoogleMaps = () => {
-    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${userLat},${userLng}`);
-  };
+  const mapUrl = `https://maps.google.com/maps?q=${userLat},${userLng}&z=17&output=embed`;
 
   return (
     <ThemedView style={styles.container}>
       <AppHeader title="Erdataya Ambulance" />
 
-      {/* Native MapView */}
       <View style={styles.mapContainer}>
-        <MapView
-          provider={PROVIDER_GOOGLE}
-          style={{ flex: 1 }}
-          initialRegion={{
-            latitude: userLat,
-            longitude: userLng,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
-          }}
-          showsUserLocation
-          showsMyLocationButton
-        >
-          <Marker
-            coordinate={{ latitude: userLat, longitude: userLng }}
-            title="Your Location"
-            pinColor="#DC2626"
-          />
-          {ambulances.map((amb) => (
-            <Marker
-              key={amb.id}
-              coordinate={{ latitude: amb.lat, longitude: amb.lng }}
-              title={`Ambulance ${amb.vehicle_number}`}
-              description={amb.type || 'Standard'}
-              pinColor="#0EA5E9"
-            />
-          ))}
-          {emergencies
-            .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-            .map((e) => (
-              <Marker
-                key={e.id}
-                coordinate={{ latitude: e.latitude, longitude: e.longitude }}
-                title={e.emergency_type}
-                description={e.status}
-                pinColor="#EF4444"
-              />
-            ))}
-          {hospitals.map((h) => (
-            <Marker
-              key={h.id}
-              coordinate={{ latitude: h.lat, longitude: h.lng }}
-              title={h.name}
-              description={h.address}
-              pinColor="#10B981"
-            />
-          ))}
-        </MapView>
+        {/* @ts-ignore – iframe is valid on web */}
+        <iframe
+          src={mapUrl}
+          style={{ width: '100%', height: '100%', border: 'none' }}
+          title="Map"
+        />
       </View>
 
-      {/* Controls: Refresh + Open in Google Maps */}
+      {/* Refresh button */}
       <View style={styles.controls}>
         <Pressable style={[styles.controlBtn, { backgroundColor: accentColor }]} onPress={fetchAllData}>
           <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
-        </Pressable>
-        <Pressable style={[styles.controlBtn, { backgroundColor: '#10B981', marginTop: 10 }]} onPress={openInGoogleMaps}>
-          <MaterialIcons name="directions" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -286,9 +237,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1 },
   loadingContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
   mapContainer: { width: '100%', height: '45%' },
-
   controls: { position: 'absolute', right: 16, top: 80, zIndex: 10 },
   controlBtn: {
     width: 44,
@@ -298,7 +247,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 5,
   },
-
   dataPanel: {
     flex: 1,
     padding: 16,

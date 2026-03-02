@@ -2,6 +2,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    Linking,
+    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -245,6 +247,20 @@ export default function PatientEmergencyTrackingScreen() {
                   {formatCoords(Number(emergency.latitude || 0), Number(emergency.longitude || 0))}
                 </ThemedText>
               </View>
+              <Pressable
+                onPress={() => {
+                  const lat = Number(emergency.latitude || 0);
+                  const lng = Number(emergency.longitude || 0);
+                  const url = Platform.select({
+                    ios: `maps://app?daddr=${lat},${lng}`,
+                    default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+                  });
+                  Linking.openURL(url);
+                }}
+                style={({ pressed }) => [styles.directionsBtn, pressed && { opacity: 0.7 }]}>
+                <MaterialIcons name="directions" size={18} color="#FFFFFF" />
+                <ThemedText style={styles.directionsBtnText}>Directions</ThemedText>
+              </Pressable>
             </View>
 
             {emergency.description && (
@@ -561,5 +577,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: Fonts.sans,
     color: '#0EA5E9',
+  },
+  directionsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  directionsBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    color: '#FFFFFF',
   },
 });
