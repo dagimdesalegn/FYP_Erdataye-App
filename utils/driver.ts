@@ -2,14 +2,6 @@ import { supabase, supabaseAdmin } from './supabase';
 
 import { toPostGISPoint } from './emergency';
 
-export interface DriverStatus {
-  id: string;
-  user_id: string;
-  ambulance_id: string;
-  status: 'available' | 'offline' | 'responding' | 'at_scene' | 'transporting' | 'at_hospital';
-  updated_at: string;
-}
-
 export interface AmbulanceAssignment {
   id: string;
   ambulance_id: string;
