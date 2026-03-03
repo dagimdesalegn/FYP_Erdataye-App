@@ -182,20 +182,6 @@ export default function AdminScreen() {
     return h.name.toLowerCase().includes(q) || h.address?.toLowerCase().includes(q);
   });
 
-  /* ─── web-only guard ──────────────────────────────────────── */
-
-  if (Platform.OS !== 'web') {
-    return (
-      <View style={[styles.bg, { backgroundColor: colors.background }]}>
-        <View style={styles.webOnlyWrap}>
-          <MaterialIcons name="desktop-windows" size={52} color="#DC2626" />
-          <ThemedText style={[styles.webOnlyTitle, { color: colors.text }]}>Admin dashboard is available on web only.</ThemedText>
-          <ThemedText style={[styles.webOnlySub, { color: subText }]}>Open this app in a browser to manage users.</ThemedText>
-        </View>
-      </View>
-    );
-  }
-
   /* ─── stat cards ──────────────────────────────────────────── */
 
   const statCards = [
@@ -509,7 +495,7 @@ const styles = StyleSheet.create({
   bg: { flex: 1 },
   scrollOuter: { flex: 1 },
   scrollContent: { paddingBottom: 60 },
-  container: { paddingHorizontal: 16, ...(Platform.OS === 'web' ? { maxWidth: 1100, alignSelf: 'center' as any, width: '100%' } : {}) },
+  container: { paddingHorizontal: 16, maxWidth: 1100, alignSelf: 'center' as any, width: '100%' as any },
 
   webOnlyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   webOnlyTitle: { fontSize: 16, fontWeight: '700', fontFamily: Fonts.sans, textAlign: 'center' },
@@ -520,7 +506,7 @@ const styles = StyleSheet.create({
   pageSub: { fontSize: 14, fontFamily: Fonts.sans, marginTop: 2 },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
-  statCard: { flexBasis: '23%' as any, minWidth: 140, flexGrow: 1, alignItems: 'center', paddingVertical: 16, borderRadius: 14, borderWidth: 1, gap: 4 },
+  statCard: { flexBasis: '22%' as any, minWidth: 100, flexGrow: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 14, borderWidth: 1, gap: 4 },
   statIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   statCount: { fontSize: 24, fontWeight: '800', fontFamily: Fonts.sans },
   statLabel: { fontSize: 11, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },

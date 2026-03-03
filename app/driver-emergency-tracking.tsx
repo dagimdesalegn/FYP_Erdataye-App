@@ -4,14 +4,15 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
-    Dimensions,
     Linking,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
@@ -33,6 +34,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
+import { HtmlMapView } from '@/components/html-map-view';
 import { supabaseAdmin } from '@/utils/supabase';
 
 type Tab = 'map' | 'status';
@@ -53,6 +55,9 @@ export default function DriverEmergencyTrackingScreen() {
   const isDark = colorScheme === 'dark';
   const { emergencyId } = useLocalSearchParams();
   const { user } = useAppState();
+  const { width: windowWidth } = useWindowDimensions();
+  const isWide = windowWidth > 600;
+  const insets = useSafeAreaInsets();
 
   const [currentStatus, setCurrentStatus] = useState('assigned');
   const [loading, setLoading] = useState(true);
@@ -232,7 +237,7 @@ export default function DriverEmergencyTrackingScreen() {
       <LoadingModal visible={updating} colorScheme={colorScheme} message="Updating..." />
 
       {/* ── Header ───────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: cardBorder }]}>
+      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: cardBorder, paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.headerBtn, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }, pressed && { opacity: 0.6 }]}
@@ -285,15 +290,12 @@ export default function DriverEmergencyTrackingScreen() {
       {activeTab === 'map' ? (
         /* ═══════════ MAP TAB ═══════════ */
         <View style={styles.mapTabWrap}>
-          {mapHtml && Platform.OS === 'web' ? (
-            <View style={styles.mapFull}>
-              <iframe
-                src={mapHtml}
-                style={{ width: '100%', height: '100%', border: 'none', display: 'block' } as any}
-                title="Driver Tracking Map"
-                allow="geolocation"
-              />
-            </View>
+          {mapHtml ? (
+            <HtmlMapView
+              html={mapHtml}
+              style={styles.mapFull}
+              title="Driver Tracking Map"
+            />
           ) : (
             <View style={styles.noMapWrap}>
               <MaterialIcons name="map" size={48} color={subtleText} />
@@ -498,9 +500,6 @@ export default function DriverEmergencyTrackingScreen() {
   );
 }
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const isWide = SCREEN_W > 600;
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
 
@@ -509,7 +508,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'web' ? 12 : 50,
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
@@ -539,7 +537,7 @@ const styles = StyleSheet.create({
 
   // Map tab
   mapTabWrap: { flex: 1, position: 'relative', overflow: 'hidden' as any },
-  mapFull: { flex: 1, width: '100%' as any, minHeight: isWide ? 450 : 350 },
+  mapFull: { flex: 1, width: '100%' as any, minHeight: 350 },
   noMapWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 },
   noMapText: { fontSize: 14, fontFamily: Fonts.sans },
 
@@ -551,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     padding: 12,
-    maxWidth: isWide ? 360 : undefined,
+    maxWidth: 360,
   },
   overlayRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   overlayText: { flex: 1, fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans },
