@@ -108,7 +108,7 @@ export default function HospitalDashboard() {
             .from('profiles')
             .select('*')
             .eq('id', emergency.patient_id)
-            .single();
+            .maybeSingle();
           const { profile: medical } = await getMedicalProfile(emergency.patient_id);
 
           return {

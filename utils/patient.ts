@@ -208,9 +208,12 @@ export const getEmergencyDetails = async (
       .from('emergency_requests')
       .select('*')
       .eq('id', emergencyId)
-      .single();
+      .maybeSingle();
 
     if (emergencyError) throw emergencyError;
+    if (!emergencyData) {
+      return { emergency: null, assignment: null, ambulance: null, error: new Error('Emergency not found') };
+    }
 
     // Get assignment (with fallback if emergency_assignments table is missing)
     let assignmentData: any = null;
@@ -223,7 +226,7 @@ export const getEmergencyDetails = async (
         .eq('emergency_id', emergencyId)
         .order('assigned_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       assignmentData = data;
     } catch {
       // Table may not exist — ignore
@@ -236,7 +239,7 @@ export const getEmergencyDetails = async (
         .from('ambulances')
         .select('*')
         .eq('id', ambulanceId)
-        .single();
+        .maybeSingle();
 
       ambulance = ambulanceData as AmbulanceInfo | null;
     }
