@@ -223,7 +223,7 @@ export const getHospitalStaff = async (): Promise<{
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('role', 'hospital_staff');
+      .eq('role', 'hospital');
 
     if (error) {
       throw error;
