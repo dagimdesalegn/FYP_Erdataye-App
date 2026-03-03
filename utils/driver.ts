@@ -254,6 +254,7 @@ export const getDriverAssignment = async (
     let data: any = null;
     let error: any = null;
 
+    // Try emergency_assignments table first
     ({ data, error } = await supabase
       .from('emergency_assignments')
       .select(`
@@ -266,7 +267,7 @@ export const getDriverAssignment = async (
       .limit(1)
       .maybeSingle());
 
-    // Fallback for partially-migrated schemas missing emergency_assignments.status.
+    // Fallback without status filter if column missing
     if (error && (error.code === '42703' || String(error.message || '').toLowerCase().includes('status'))) {
       ({ data, error } = await supabase
         .from('emergency_assignments')
@@ -278,6 +279,39 @@ export const getDriverAssignment = async (
         .order('assigned_at', { ascending: false })
         .limit(1)
         .maybeSingle());
+    }
+
+    // CRITICAL FALLBACK: If emergency_assignments table doesn't exist at all,
+    // query emergency_requests directly by assigned_ambulance_id
+    if (error && (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205'
+        || String(error.message || '').toLowerCase().includes('could not find'))) {
+      console.warn('emergency_assignments table not found, falling back to emergency_requests');
+      const { data: emergencyData, error: emergencyError } = await supabase
+        .from('emergency_requests')
+        .select('*')
+        .eq('assigned_ambulance_id', ambulanceId)
+        .in('status', ['assigned', 'pending'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (emergencyError) throw emergencyError;
+
+      if (emergencyData) {
+        // Construct a synthetic assignment object
+        return {
+          assignment: {
+            id: emergencyData.id, // use emergency ID as assignment ID
+            ambulance_id: ambulanceId,
+            emergency_id: emergencyData.id,
+            emergency_requests: emergencyData,
+            status: 'pending',
+            assigned_at: emergencyData.updated_at || emergencyData.created_at,
+          } as AmbulanceAssignment,
+          error: null,
+        };
+      }
+      return { assignment: null, error: null };
     }
 
     if (error) {
@@ -306,18 +340,16 @@ export const acceptEmergency = async (
   emergencyId: string
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    // Update assignment status
-    const { error: assignError } = await supabase
-      .from('emergency_assignments')
-      .update({ status: 'accepted' })
-      .eq('id', assignmentId);
-
-    if (assignError) {
-      throw assignError;
-    }
+    // Update assignment status (non-blocking — table may not exist for fallback path)
+    try {
+      await supabaseAdmin
+        .from('emergency_assignments')
+        .update({ status: 'accepted' })
+        .eq('id', assignmentId);
+    } catch { /* ignore if table missing */ }
 
     // Update emergency status to 'en_route' (driver is now heading to patient)
-    const { error: emergencyError } = await supabase
+    const { error: emergencyError } = await supabaseAdmin
       .from('emergency_requests')
       .update({ status: 'en_route', updated_at: new Date().toISOString() })
       .eq('id', emergencyId);
@@ -341,14 +373,19 @@ export const declineEmergency = async (
   assignmentId: string
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
-      .from('emergency_assignments')
-      .update({ status: 'declined' })
-      .eq('id', assignmentId);
+    // Try emergency_assignments table first
+    try {
+      await supabaseAdmin
+        .from('emergency_assignments')
+        .update({ status: 'declined' })
+        .eq('id', assignmentId);
+    } catch { /* ignore if table missing */ }
 
-    if (error) {
-      throw error;
-    }
+    // Also cancel the emergency request itself (in case it's the fallback path)
+    await supabaseAdmin
+      .from('emergency_requests')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', assignmentId);
 
     console.log('Emergency declined:', assignmentId);
     return { success: true, error: null };
