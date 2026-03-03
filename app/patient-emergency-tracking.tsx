@@ -524,9 +524,9 @@ const isWide = SCREEN_W > 600;
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: {
-    padding: isWide ? 24 : 16,
+    padding: isWide ? 32 : 16,
     paddingBottom: 40,
-    maxWidth: 640,
+    maxWidth: isWide ? 720 : 640,
     alignSelf: 'center' as any,
     width: '100%' as any,
   },
@@ -584,9 +584,9 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: isWide ? 20 : 16,
     borderRadius: 16,
-    marginBottom: 12,
+    marginBottom: isWide ? 16 : 12,
   },
   statusLabel: { fontSize: 17, fontWeight: '800', fontFamily: Fonts.sans },
   statusSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
@@ -597,9 +597,9 @@ const styles = StyleSheet.create({
   stepsCard: {
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    marginBottom: 12,
+    paddingVertical: isWide ? 18 : 14,
+    paddingHorizontal: isWide ? 16 : 8,
+    marginBottom: isWide ? 16 : 12,
   },
   stepsRow: {
     flexDirection: 'row',
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  stepLabel: { fontSize: 9, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
+  stepLabel: { fontSize: isWide ? 11 : 9, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
   stepLine: {
     position: 'absolute',
     top: 11,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
   mapFrame: {
     width: '100%' as any,
-    height: isWide ? 400 : 300,
+    height: isWide ? 450 : 300,
     marginTop: 10,
     paddingHorizontal: 12,
   },
@@ -674,8 +674,8 @@ const styles = StyleSheet.create({
   infoCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
+    padding: isWide ? 20 : 16,
+    marginBottom: isWide ? 16 : 12,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -733,13 +733,14 @@ const styles = StyleSheet.create({
   // Actions
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 16,
+    gap: isWide ? 14 : 10,
+    marginBottom: 20,
+    marginTop: 4,
   },
   actionBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: isWide ? 18 : 14,
     borderRadius: 14,
     borderWidth: 1,
   },
