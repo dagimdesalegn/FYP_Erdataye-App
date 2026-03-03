@@ -6,7 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { buildMapHtml, formatCoords } from '@/utils/emergency';
+import { buildMapHtml, formatCoords, mapHtmlToBlobUrl } from '@/utils/emergency';
 import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -279,7 +279,7 @@ export default function HelpScreen() {
                 <View style={styles.mapFrameWrap}>
                   {React.createElement('iframe', {
                     title: 'Patient location map',
-                    src: mapEmbedUrl,
+                    src: mapHtmlToBlobUrl(mapEmbedUrl!),
                     style: {
                       border: 0,
                       width: '100%',
