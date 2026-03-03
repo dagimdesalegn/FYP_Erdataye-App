@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
@@ -262,8 +262,8 @@ export const assignAmbulance = async (
   try {
     const now = new Date().toISOString();
 
-    // 1. Update emergency request
-    const { error } = await supabase
+    // 1. Update emergency request (use admin to bypass RLS)
+    const { error } = await supabaseAdmin
       .from('emergency_requests')
       .update({
         assigned_ambulance_id: ambulanceId,
@@ -275,7 +275,7 @@ export const assignAmbulance = async (
     if (error) throw error;
 
     // 2. Insert into emergency_assignments (triggers driver realtime subscription)
-    const { error: assignError } = await supabase
+    const { error: assignError } = await supabaseAdmin
       .from('emergency_assignments')
       .insert({
         emergency_id: emergencyId,
@@ -289,7 +289,7 @@ export const assignAmbulance = async (
     }
 
     // 3. Mark ambulance as unavailable
-    await supabase
+    await supabaseAdmin
       .from('ambulances')
       .update({ is_available: false, updated_at: now })
       .eq('id', ambulanceId);
