@@ -5,7 +5,7 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
 import { Ambulance, EmergencyRequest, Hospital, normalizeEmergency } from '@/utils/emergency';
-import { supabase } from '@/utils/supabase';
+import { supabaseAdmin } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -91,10 +91,10 @@ export default function AdminScreen() {
   const fetchAll = useCallback(async () => {
     try {
       const [profileRes, emergencyRes, ambulanceRes, hospitalRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('emergency_requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('ambulances').select('*').order('created_at', { ascending: false }),
-        supabase.from('hospitals').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('emergency_requests').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('ambulances').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('hospitals').select('*').order('created_at', { ascending: false }),
       ]);
       if (profileRes.data) setUsers(profileRes.data as Profile[]);
       if (emergencyRes.data) setEmergencies(emergencyRes.data.map(normalizeEmergency));
@@ -110,7 +110,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     fetchAll();
-    const channel = supabase
+    const channel = supabaseAdmin
       .channel('admin_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => fetchAll())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_requests' }, () => fetchAll())

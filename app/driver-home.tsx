@@ -16,6 +16,7 @@ import {
   getDriverAmbulanceDetails,
   getDriverAmbulanceId,
   getDriverAssignment,
+  getDriverHistory,
   getDriverStats,
   sendLocationUpdate,
   subscribeToAssignments,
@@ -42,6 +43,10 @@ export default function DriverHomeScreen() {
   const [ambulanceDetails, setAmbulanceDetails] = useState<AmbulanceDetails | null>(null);
   const [activeCount, setActiveCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
+
+  // Completed history
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
@@ -74,6 +79,13 @@ export default function DriverHomeScreen() {
       setCompletedCount(completed);
     };
     loadStats();
+
+    // Load completed history
+    const loadHistory = async () => {
+      const { history: items } = await getDriverHistory(user.id);
+      setHistory(items);
+    };
+    loadHistory();
   }, [user]);
 
   // Check for existing assignment
@@ -302,6 +314,91 @@ export default function DriverHomeScreen() {
           </ThemedView>
         </View>
 
+        {/* Completed History */}
+        <ThemedView style={styles.card}>
+          <Pressable
+            onPress={() => setHistoryExpanded(!historyExpanded)}
+            style={styles.historyHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <MaterialIcons name="history" size={22} color={isDark ? '#10B981' : '#059669'} />
+              <ThemedText style={[styles.cardTitle, { marginBottom: 0, marginLeft: 8 }]}>
+                Completed History
+              </ThemedText>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={[styles.historyBadge, { backgroundColor: isDark ? '#064E3B' : '#D1FAE5' }]}>
+                <ThemedText style={[styles.historyBadgeText, { color: isDark ? '#6EE7B7' : '#059669' }]}>
+                  {history.length}
+                </ThemedText>
+              </View>
+              <MaterialIcons
+                name={historyExpanded ? 'expand-less' : 'expand-more'}
+                size={24}
+                color={isDark ? '#9CA3AF' : '#6B7280'}
+              />
+            </View>
+          </Pressable>
+
+          {historyExpanded && (
+            <View style={{ marginTop: 12 }}>
+              {history.length === 0 ? (
+                <ThemedText style={styles.historyEmpty}>No completed emergencies yet</ThemedText>
+              ) : (
+                history.map((item) => (
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.historyItem,
+                      { borderLeftColor: isDark ? '#10B981' : '#059669' },
+                    ]}>
+                    <View style={styles.historyItemTop}>
+                      <View style={[styles.historyTypeBadge, { backgroundColor: isDark ? '#1E3A5F' : '#DBEAFE' }]}>
+                        <ThemedText style={[styles.historyTypeText, { color: isDark ? '#60A5FA' : '#2563EB' }]}>
+                          {item.emergency_type || 'Emergency'}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={styles.historyDate}>
+                        {item.updated_at
+                          ? new Date(item.updated_at).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })
+                          : '—'}
+                      </ThemedText>
+                    </View>
+                    {item.description ? (
+                      <ThemedText style={styles.historyDesc} numberOfLines={2}>
+                        {item.description}
+                      </ThemedText>
+                    ) : null}
+                    <View style={styles.historyMeta}>
+                      <MaterialIcons name="access-time" size={14} color={isDark ? '#9CA3AF' : '#6B7280'} />
+                      <ThemedText style={styles.historyMetaText}>
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '—'}
+                      </ThemedText>
+                      <MaterialIcons
+                        name="check-circle"
+                        size={14}
+                        color="#10B981"
+                        style={{ marginLeft: 12 }}
+                      />
+                      <ThemedText style={[styles.historyMetaText, { color: '#10B981' }]}>
+                        Completed
+                      </ThemedText>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
+          )}
+        </ThemedView>
+
         {/* Sign Out */}
         <AppButton
           label="Sign Out"
@@ -522,6 +619,74 @@ const styles = StyleSheet.create({
     fontSize: 11,
     opacity: 0.6,
     marginTop: 4,
+    fontFamily: Fonts.sans,
+  },
+  /* ---- Completed History ---- */
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginRight: 4,
+  },
+  historyBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  historyEmpty: {
+    fontSize: 13,
+    opacity: 0.5,
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontFamily: Fonts.sans,
+  },
+  historyItem: {
+    borderLeftWidth: 3,
+    paddingLeft: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  historyItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  historyTypeBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  historyTypeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+    textTransform: 'capitalize',
+  },
+  historyDate: {
+    fontSize: 11,
+    opacity: 0.5,
+    fontFamily: Fonts.sans,
+  },
+  historyDesc: {
+    fontSize: 13,
+    opacity: 0.7,
+    marginBottom: 6,
+    fontFamily: Fonts.sans,
+  },
+  historyMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyMetaText: {
+    fontSize: 11,
+    opacity: 0.5,
+    marginLeft: 4,
     fontFamily: Fonts.sans,
   },
   /* ---- Profile Modal ---- */

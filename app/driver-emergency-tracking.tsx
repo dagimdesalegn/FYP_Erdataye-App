@@ -33,7 +33,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
-import { supabase } from '@/utils/supabase';
+import { supabaseAdmin } from '@/utils/supabase';
 
 type Tab = 'map' | 'status';
 
@@ -79,7 +79,7 @@ export default function DriverEmergencyTrackingScreen() {
         if (ambId) {
           setAmbulanceId(ambId);
           // Get ambulance location
-          const { data: ambData } = await supabase
+          const { data: ambData } = await supabaseAdmin
             .from('ambulances')
             .select('last_known_location')
             .eq('id', ambId)
@@ -91,7 +91,7 @@ export default function DriverEmergencyTrackingScreen() {
         }
 
         // Get emergency request for patient location + status
-        const { data: emergData } = await supabase
+        const { data: emergData } = await supabaseAdmin
           .from('emergency_requests')
           .select('*')
           .eq('id', emergencyId as string)

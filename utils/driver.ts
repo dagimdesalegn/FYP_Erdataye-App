@@ -243,46 +243,62 @@ export const getDriverAssignment = async (
 ): Promise<{ assignment: AmbulanceAssignment | null; error: Error | null }> => {
   try {
     const { ambulanceId, error: ambulanceError } = await getDriverAmbulanceId(driverId);
-    if (ambulanceError) {
-      throw ambulanceError;
-    }
+    if (ambulanceError) throw ambulanceError;
+    if (!ambulanceId) return { assignment: null, error: null };
 
-    if (!ambulanceId) {
-      return { assignment: null, error: null };
-    }
+    // Use supabaseAdmin to bypass RLS so emergency_requests join works
+    const db = supabaseAdmin;
 
     let data: any = null;
     let error: any = null;
 
-    // Try emergency_assignments table first
-    ({ data, error } = await supabase
+    // Get the latest non-completed assignment with its emergency request
+    ({ data, error } = await db
       .from('emergency_assignments')
-      .select(`
-        *,
-        emergency_requests(*)
-      `)
+      .select('*, emergency_requests(*)')
       .eq('ambulance_id', ambulanceId)
       .in('status', ['pending', 'accepted'])
       .order('assigned_at', { ascending: false })
       .limit(1)
       .maybeSingle());
 
-    // Filter out completed/cancelled emergency requests
+    // Filter out assignments whose emergency is completed/cancelled
     if (!error && data && data.emergency_requests) {
       const erStatus = data.emergency_requests.status;
       if (erStatus === 'completed' || erStatus === 'cancelled') {
+        // Also mark this assignment as completed in the DB
+        await db
+          .from('emergency_assignments')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', data.id);
         return { assignment: null, error: null };
+      }
+    }
+
+    // If join returned null emergency_requests but assignment exists, fetch emergency separately
+    if (!error && data && !data.emergency_requests) {
+      const { data: erData } = await db
+        .from('emergency_requests')
+        .select('*')
+        .eq('id', data.emergency_id)
+        .maybeSingle();
+      if (erData) {
+        if (erData.status === 'completed' || erData.status === 'cancelled') {
+          await db
+            .from('emergency_assignments')
+            .update({ status: 'completed', completed_at: new Date().toISOString() })
+            .eq('id', data.id);
+          return { assignment: null, error: null };
+        }
+        data.emergency_requests = erData;
       }
     }
 
     // Fallback without status filter if column missing
     if (error && (error.code === '42703' || String(error.message || '').toLowerCase().includes('status'))) {
-      ({ data, error } = await supabase
+      ({ data, error } = await db
         .from('emergency_assignments')
-        .select(`
-          *,
-          emergency_requests(*)
-        `)
+        .select('*, emergency_requests(*)')
         .eq('ambulance_id', ambulanceId)
         .order('assigned_at', { ascending: false })
         .limit(1)
@@ -294,7 +310,7 @@ export const getDriverAssignment = async (
     if (error && (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205'
         || String(error.message || '').toLowerCase().includes('could not find'))) {
       console.warn('emergency_assignments table not found, falling back to emergency_requests');
-      const { data: emergencyData, error: emergencyError } = await supabase
+      const { data: emergencyData, error: emergencyError } = await db
         .from('emergency_requests')
         .select('*')
         .eq('assigned_ambulance_id', ambulanceId)
@@ -306,10 +322,9 @@ export const getDriverAssignment = async (
       if (emergencyError) throw emergencyError;
 
       if (emergencyData) {
-        // Construct a synthetic assignment object
         return {
           assignment: {
-            id: emergencyData.id, // use emergency ID as assignment ID
+            id: emergencyData.id,
             ambulance_id: ambulanceId,
             emergency_id: emergencyData.id,
             emergency_requests: emergencyData,
@@ -322,15 +337,10 @@ export const getDriverAssignment = async (
       return { assignment: null, error: null };
     }
 
-    if (error) {
-      throw error;
-    }
+    if (error) throw error;
 
     const assignment = data
-      ? ({
-          ...data,
-          status: data.status ?? 'pending',
-        } as AmbulanceAssignment)
+      ? ({ ...data, status: data.status ?? 'pending' } as AmbulanceAssignment)
       : null;
 
     return { assignment, error: null };
@@ -416,15 +426,17 @@ export const getDriverStats = async (
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
     if (ambErr || !ambulanceId) return { active: 0, completed: 0, error: ambErr };
 
+    const db = supabaseAdmin;
+
     // Active = assigned + en_route + at_scene + transporting + at_hospital
-    const { count: active } = await supabase
+    const { count: active } = await db
       .from('emergency_requests')
       .select('id', { count: 'exact', head: true })
       .eq('assigned_ambulance_id', ambulanceId)
       .not('status', 'in', '(completed,cancelled,pending)');
 
     // Completed
-    const { count: completed } = await supabase
+    const { count: completed } = await db
       .from('emergency_requests')
       .select('id', { count: 'exact', head: true })
       .eq('assigned_ambulance_id', ambulanceId)
@@ -445,16 +457,36 @@ export const updateEmergencyStatus = async (
   status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
+    const db = supabaseAdmin;
+    const now = new Date().toISOString();
+
+    const { error } = await db
       .from('emergency_requests')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status, updated_at: now })
       .eq('id', emergencyId);
 
-    if (error) {
-      throw error;
+    if (error) throw error;
+
+    // When completing/cancelling, also mark associated assignment as completed
+    if (status === 'completed' || status === 'cancelled') {
+      await db
+        .from('emergency_assignments')
+        .update({ status: 'completed', completed_at: now })
+        .eq('emergency_id', emergencyId)
+        .in('status', ['pending', 'accepted']);
+
+      // Also re-enable ambulance availability
+      const { data: er } = await db
+        .from('emergency_requests')
+        .select('assigned_ambulance_id')
+        .eq('id', emergencyId)
+        .maybeSingle();
+      if (er?.assigned_ambulance_id) {
+        await db
+          .from('ambulances')
+          .update({ is_available: true, updated_at: now })
+          .eq('id', er.assigned_ambulance_id);
+      }
     }
 
     console.log(`Emergency status updated to ${status}:`, emergencyId);
@@ -496,6 +528,34 @@ export const sendLocationUpdate = async (
 /**
  * Get patient info for assigned emergency
  */
+/**
+ * Get driver's completed emergency history
+ */
+export const getDriverHistory = async (
+  driverId: string,
+  limit: number = 20
+): Promise<{ history: any[]; error: Error | null }> => {
+  try {
+    const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
+    if (ambErr || !ambulanceId) return { history: [], error: ambErr };
+
+    const db = supabaseAdmin;
+    const { data, error } = await db
+      .from('emergency_requests')
+      .select('*')
+      .eq('assigned_ambulance_id', ambulanceId)
+      .eq('status', 'completed')
+      .order('updated_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return { history: data || [], error: null };
+  } catch (error) {
+    console.error('Error fetching driver history:', error);
+    return { history: [], error: error as Error };
+  }
+};
+
 export const getPatientInfo = async (
   patientId: string
 ): Promise<{
@@ -507,8 +567,8 @@ export const getPatientInfo = async (
       return { info: null, error: new Error('Patient ID required') };
     }
 
-    // Get profile with medical profile
-    const { data: profileData, error: profileError } = await supabase
+    // Use supabaseAdmin to bypass RLS for profile reads
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select(`
         *,
@@ -547,7 +607,7 @@ export const getPatientInfoLegacy = async (
 }> => {
   try {
     // Get profile
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', patientId)
@@ -558,7 +618,7 @@ export const getPatientInfoLegacy = async (
     }
 
     // Get medical profile
-    const { data: medicalData, error: medicalError } = await supabase
+    const { data: medicalData, error: medicalError } = await supabaseAdmin
       .from('medical_profiles')
       .select('*')
       .eq('user_id', patientId)
@@ -627,7 +687,7 @@ export const subscribeToAssignments = (
       return;
     }
 
-    subscription = supabase
+    subscription = supabaseAdmin
       .channel(`assignments:${ambulanceId}`)
       .on(
         'postgres_changes',
@@ -661,7 +721,7 @@ export const subscribeToEmergencyStatus = (
   emergencyId: string,
   onUpdate: (status: string) => void
 ) => {
-  const subscription = supabase
+  const subscription = supabaseAdmin
     .channel(`emergency:${emergencyId}`)
     .on(
       'postgres_changes',

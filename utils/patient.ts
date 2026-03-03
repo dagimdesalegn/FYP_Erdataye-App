@@ -11,7 +11,7 @@
  */
 
 import { assignAmbulance, findNearestAmbulance, parsePostGISPoint, toPostGISPoint } from './emergency';
-import { supabase } from './supabase';
+import { supabase, supabaseAdmin } from './supabase';
 
 // ─── Interfaces aligned with actual DB schema ────────────────────────
 
@@ -144,7 +144,7 @@ export const getActiveEmergency = async (
   patientId: string
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -172,7 +172,7 @@ export const getPatientEmergencies = async (
   limit: number = 50
 ): Promise<{ emergencies: PatientEmergency[]; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -204,7 +204,7 @@ export const getEmergencyDetails = async (
 }> => {
   try {
     // Get emergency
-    const { data: emergencyData, error: emergencyError } = await supabase
+    const { data: emergencyData, error: emergencyError } = await supabaseAdmin
       .from('emergency_requests')
       .select('*')
       .eq('id', emergencyId)
@@ -220,7 +220,7 @@ export const getEmergencyDetails = async (
     let ambulance: AmbulanceInfo | null = null;
 
     try {
-      const { data } = await supabase
+      const { data } = await supabaseAdmin
         .from('emergency_assignments')
         .select('*')
         .eq('emergency_id', emergencyId)
@@ -235,7 +235,7 @@ export const getEmergencyDetails = async (
     // Get ambulance from assignment or directly from emergency_requests
     const ambulanceId = assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
     if (ambulanceId) {
-      const { data: ambulanceData } = await supabase
+      const { data: ambulanceData } = await supabaseAdmin
         .from('ambulances')
         .select('*')
         .eq('id', ambulanceId)
@@ -266,7 +266,7 @@ export const updateEmergencyStatus = async (
   status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('emergency_requests')
       .update({
         status,
@@ -275,6 +275,28 @@ export const updateEmergencyStatus = async (
       .eq('id', emergencyId);
 
     if (error) throw error;
+
+    // When cancelled, also mark assignments and free ambulance
+    if (status === 'cancelled' || status === 'completed') {
+      await supabaseAdmin
+        .from('emergency_assignments')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('emergency_request_id', emergencyId)
+        .in('status', ['pending', 'accepted']);
+
+      const { data: assignments } = await supabaseAdmin
+        .from('emergency_assignments')
+        .select('ambulance_id')
+        .eq('emergency_request_id', emergencyId);
+      if (assignments) {
+        for (const a of assignments) {
+          await supabaseAdmin
+            .from('ambulances')
+            .update({ is_available: true })
+            .eq('id', a.ambulance_id);
+        }
+      }
+    }
 
     return { success: true, error: null };
   } catch (error) {
@@ -336,7 +358,7 @@ export const subscribeToEmergency = (
   emergencyId: string,
   onUpdate: (emergency: PatientEmergency) => void
 ) => {
-  const subscription = supabase
+  const subscription = supabaseAdmin
     .channel(`emergency_requests:${emergencyId}`)
     .on(
       'postgres_changes',
