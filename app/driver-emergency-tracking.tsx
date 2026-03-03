@@ -99,12 +99,10 @@ export default function DriverEmergencyTrackingScreen() {
 
         if (emergData) {
           setCurrentStatus(emergData.status || 'assigned');
-          // Parse patient location
+          // Parse patient location from PostGIS geometry
           const patLoc = parsePostGISPoint(emergData.patient_location);
           if (patLoc) {
             setPatientCoords(patLoc);
-          } else if (emergData.latitude && emergData.longitude) {
-            setPatientCoords({ latitude: Number(emergData.latitude), longitude: Number(emergData.longitude) });
           }
 
           // Get patient info
