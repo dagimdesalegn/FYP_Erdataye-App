@@ -216,7 +216,7 @@ export const getPatientEmergencies = async (
   patientId: string
 ): Promise<{ requests: EmergencyRequest[] | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -344,7 +344,7 @@ export const updateEmergencyStatus = async (
   status: EmergencyRequest['status']
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('emergency_requests')
       .update({
         status,
@@ -353,6 +353,30 @@ export const updateEmergencyStatus = async (
       .eq('id', emergencyId);
 
     if (error) throw error;
+
+    // When completed/cancelled, also mark assignments and free ambulance
+    if (status === 'completed' || status === 'cancelled') {
+      // Mark assignments as completed
+      await supabaseAdmin
+        .from('emergency_assignments')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('emergency_request_id', emergencyId)
+        .in('status', ['pending', 'accepted']);
+
+      // Re-enable ambulance availability
+      const { data: assignments } = await supabaseAdmin
+        .from('emergency_assignments')
+        .select('ambulance_id')
+        .eq('emergency_request_id', emergencyId);
+      if (assignments) {
+        for (const a of assignments) {
+          await supabaseAdmin
+            .from('ambulances')
+            .update({ is_available: true })
+            .eq('id', a.ambulance_id);
+        }
+      }
+    }
 
     return { success: true, error: null };
   } catch (error) {

@@ -6,7 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
 import { EmergencyRequest, formatCoords, normalizeEmergency } from '@/utils/emergency';
 import { getMedicalProfile, MedicalProfile, UserProfile } from '@/utils/profile';
-import { supabase } from '@/utils/supabase';
+import { supabaseAdmin } from '@/utils/supabase';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -82,7 +82,7 @@ export default function HospitalDashboard() {
   const fetchEmergencies = useCallback(async () => {
     try {
       // Build query - scope to hospital if linked
-      let query = supabase
+      let query = supabaseAdmin
         .from('emergency_requests')
         .select('*')
         .order('created_at', { ascending: false });
@@ -104,7 +104,7 @@ export default function HospitalDashboard() {
       const enriched = await Promise.all(
         emergencyData.map(async (raw) => {
           const emergency = normalizeEmergency(raw);
-          const { data: profile } = await supabase
+          const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('*')
             .eq('id', emergency.patient_id)
@@ -131,7 +131,7 @@ export default function HospitalDashboard() {
 
   const updateStatus = async (emergencyId: string, newStatus: EmergencyRequest['status']) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('emergency_requests')
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', emergencyId);
@@ -147,7 +147,7 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     fetchEmergencies();
-    const channel = supabase
+    const channel = supabaseAdmin
       .channel('hospital_emergency_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_requests' }, () => fetchEmergencies())
       .subscribe();
