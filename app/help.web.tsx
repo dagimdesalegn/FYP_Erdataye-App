@@ -13,7 +13,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Pressable, Platform, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HelpScreen() {

@@ -32,7 +32,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [form, setForm] = useState({ phone: '', password: '' });
+  const [loginMode, setLoginMode] = useState<'phone' | 'email'>('phone');
+  const [form, setForm] = useState({ phone: '', email: '', password: '' });
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
 
@@ -52,6 +53,11 @@ export default function LoginScreen() {
       return;
     }
     setForm({ ...form, [key]: value });
+  };
+
+  const toggleLoginMode = () => {
+    setFieldErrors({});
+    setLoginMode((prev) => (prev === 'phone' ? 'email' : 'phone'));
   };
 
   /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
@@ -79,10 +85,18 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     const errors: Record<string, string> = {};
-    if (!form.phone) {
-      errors.phone = 'Please enter your phone number';
-    } else if (!validatePhone(form.phone)) {
-      errors.phone = 'Invalid phone number (e.g. 0912345678)';
+    if (loginMode === 'phone') {
+      if (!form.phone) {
+        errors.phone = 'Please enter your phone number';
+      } else if (!validatePhone(form.phone)) {
+        errors.phone = 'Invalid phone number (e.g. 0912345678)';
+      }
+    } else {
+      if (!form.email) {
+        errors.email = 'Please enter your email';
+      } else if (!form.email.includes('@')) {
+        errors.email = 'Invalid email address';
+      }
     }
     if (!form.password) {
       errors.password = 'Please enter your password';
@@ -94,33 +108,45 @@ export default function LoginScreen() {
     setFieldErrors({});
     setLoading(true);
     try {
-      const authEmail = phoneToAuthEmail(form.phone);
+      const authEmail = loginMode === 'phone' ? phoneToAuthEmail(form.phone) : form.email;
       const { user, error } = await signIn(authEmail, form.password);
       if (error || !user) {
         setLoading(false);
-        Alert.alert('Login Failed', error?.message || 'Failed to sign in');
-        return;
-      }
-      // Normal app login flow only supports patient and driver roles.
-      if (user.role !== 'patient' && user.role !== 'driver') {
-        await signOut();
-        setLoading(false);
-        Alert.alert(
-          'App Login Restricted',
-          'This login is only for patient and driver accounts. Please use the dedicated web dashboard for admin/hospital access.'
-        );
+        if (Platform.OS === 'web') {
+          window.alert(error?.message || 'Failed to sign in');
+        } else {
+          Alert.alert('Login Failed', error?.message || 'Failed to sign in');
+        }
         return;
       }
       setUser(user);
       setRegistered(true);
-      const route = user.role === 'driver' ? '/driver-home' : '/help';
+      let route: string;
+      switch (user.role) {
+        case 'driver':
+          route = '/driver-home';
+          break;
+        case 'admin':
+          route = '/admin';
+          break;
+        case 'hospital':
+          route = '/hospital';
+          break;
+        default:
+          route = '/help';
+          break;
+      }
       setTimeout(() => {
         setLoading(false);
         router.replace(route as any);
       }, 500);
     } catch (err) {
       setLoading(false);
-      Alert.alert('Error', `Login failed: ${String(err)}`);
+      if (Platform.OS === 'web') {
+        window.alert(`Login failed: ${String(err)}`);
+      } else {
+        Alert.alert('Error', `Login failed: ${String(err)}`);
+      }
     }
   };
 
@@ -188,32 +214,75 @@ export default function LoginScreen() {
               Sign in to access emergency services.
             </ThemedText>
 
+            {/* Login Mode Toggle */}
+            <View style={styles.modeToggle}>
+              <Pressable
+                onPress={() => { setLoginMode('phone'); setFieldErrors({}); }}
+                style={[styles.modeBtn, loginMode === 'phone' && styles.modeBtnActive]}
+              >
+                <MaterialIcons name="phone" size={16} color={loginMode === 'phone' ? '#FFFFFF' : textSecondary} />
+                <ThemedText style={[styles.modeBtnText, loginMode === 'phone' ? styles.modeBtnTextActive : { color: textSecondary }]}>Phone</ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => { setLoginMode('email'); setFieldErrors({}); }}
+                style={[styles.modeBtn, loginMode === 'email' && styles.modeBtnActive]}
+              >
+                <MaterialIcons name="email" size={16} color={loginMode === 'email' ? '#FFFFFF' : textSecondary} />
+                <ThemedText style={[styles.modeBtnText, loginMode === 'email' ? styles.modeBtnTextActive : { color: textSecondary }]}>Email</ThemedText>
+              </Pressable>
+            </View>
+
             {/* Form */}
             <View style={styles.form}>
-              {/* Phone Number */}
-              <View style={styles.fieldGroup}>
-                <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
-                <View style={[
-                  styles.inputWrap,
-                  { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? inputFocusBorder : inputBorder) },
-                ]}>
-                  <MaterialIcons name="phone" size={18} color={fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? '#DC2626' : textSecondary)} style={styles.inputIcon} />
-                  <TextInput
-                    style={[styles.input, { color: textPrimary }]}
-                    placeholder="09XXXXXXXX"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="phone-pad"
-                    autoCapitalize="none"
-                    maxLength={10}
-                    value={form.phone}
-                    onChangeText={(t) => handleChange('phone', t)}
-                    onFocus={() => setFocusedField('phone')}
-                    onBlur={() => setFocusedField(null)}
-                    editable={!loading}
-                  />
+              {/* Phone Number or Email */}
+              {loginMode === 'phone' ? (
+                <View style={styles.fieldGroup}>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
+                  <View style={[
+                    styles.inputWrap,
+                    { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? inputFocusBorder : inputBorder) },
+                  ]}>
+                    <MaterialIcons name="phone" size={18} color={fieldErrors.phone ? '#DC2626' : (focusedField === 'phone' ? '#DC2626' : textSecondary)} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: textPrimary }]}
+                      placeholder="09XXXXXXXX"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="phone-pad"
+                      autoCapitalize="none"
+                      maxLength={10}
+                      value={form.phone}
+                      onChangeText={(t) => handleChange('phone', t)}
+                      onFocus={() => setFocusedField('phone')}
+                      onBlur={() => setFocusedField(null)}
+                      editable={!loading}
+                    />
+                  </View>
+                  {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
                 </View>
-                {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
-              </View>
+              ) : (
+                <View style={styles.fieldGroup}>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>Email Address</ThemedText>
+                  <View style={[
+                    styles.inputWrap,
+                    { backgroundColor: inputBg, borderColor: fieldErrors.email ? '#DC2626' : (focusedField === 'email' ? inputFocusBorder : inputBorder) },
+                  ]}>
+                    <MaterialIcons name="email" size={18} color={fieldErrors.email ? '#DC2626' : (focusedField === 'email' ? '#DC2626' : textSecondary)} style={styles.inputIcon} />
+                    <TextInput
+                      style={[styles.input, { color: textPrimary }]}
+                      placeholder="admin@erdataye.com"
+                      placeholderTextColor={placeholderColor}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={form.email}
+                      onChangeText={(t) => handleChange('email', t)}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                      editable={!loading}
+                    />
+                  </View>
+                  {fieldErrors.email ? <ThemedText style={styles.fieldError}>{fieldErrors.email}</ThemedText> : null}
+                </View>
+              )}
 
               {/* Password */}
               <View style={styles.fieldGroup}>
@@ -382,6 +451,35 @@ const styles = StyleSheet.create({
   /* ---- Form ---- */
   form: { gap: 12 },
   fieldGroup: { gap: 6 },
+  modeToggle: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 14,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: 3,
+    gap: 4,
+  },
+  modeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  modeBtnActive: {
+    backgroundColor: '#DC2626',
+  },
+  modeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+  },
+  modeBtnTextActive: {
+    color: '#FFFFFF',
+  },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: {
     fontSize: 13,

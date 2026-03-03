@@ -247,20 +247,7 @@ export default function PatientEmergencyScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
         <ThemedView style={styles.card}>
-          {/* Close / Back button inside card */}
-          <Pressable
-            onPress={() => router.back()}
-            style={[
-              styles.closeBtn,
-              {
-                backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
-                borderColor: isDark ? '#2E3236' : '#E6ECF2',
-              },
-            ]}
-          >
-            <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
-          </Pressable>
-          {/* Status Badge */}
+          {/* Status Badge with X close button inside */}
           <View style={styles.statusContainer}>
             <View
               style={[
@@ -276,9 +263,22 @@ export default function PatientEmergencyScreen() {
                 style={[
                   styles.statusText,
                   hasActiveEmergency && { color: '#10B981', fontWeight: '700' },
+                  { flex: 1 },
                 ]}>
                 {hasActiveEmergency ? 'Emergency Active' : 'No Active Emergency'}
               </ThemedText>
+              {/* X close button inside status box at the right end */}
+              <Pressable
+                onPress={() => router.back()}
+                style={[
+                  styles.statusCloseBtn,
+                  {
+                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
+                  },
+                ]}
+              >
+                <MaterialIcons name="close" size={16} color={isDark ? '#E6E9EC' : '#11181C'} />
+              </Pressable>
             </View>
           </View>
 
@@ -424,22 +424,13 @@ const styles = StyleSheet.create({
   bg: {
     flex: 1,
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    zIndex: 100,
-    width: 36,
-    height: 36,
+  statusCloseBtn: {
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    marginLeft: 4,
   },
   scroll: {
     flexGrow: 1,
@@ -460,12 +451,12 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     marginBottom: 20,
-    alignItems: 'center',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingLeft: 14,
+    paddingRight: 8,
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
