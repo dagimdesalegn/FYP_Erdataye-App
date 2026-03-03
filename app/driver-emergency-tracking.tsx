@@ -291,8 +291,9 @@ export default function DriverEmergencyTrackingScreen() {
             <View style={styles.mapFull}>
               <iframe
                 src={mapHtml}
-                style={{ width: '100%', height: '100%', border: 'none' } as any}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' } as any}
                 title="Driver Tracking Map"
+                allow="geolocation"
               />
             </View>
           ) : (
@@ -539,9 +540,9 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 13, fontWeight: '600', fontFamily: Fonts.sans },
 
   // Map tab
-  mapTabWrap: { flex: 1, position: 'relative' },
-  mapFull: { flex: 1, width: '100%' as any, height: '100%' as any },
-  noMapWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  mapTabWrap: { flex: 1, position: 'relative', overflow: 'hidden' as any },
+  mapFull: { flex: 1, width: '100%' as any, minHeight: 300 },
+  noMapWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 },
   noMapText: { fontSize: 14, fontFamily: Fonts.sans },
 
   mapOverlay: {
