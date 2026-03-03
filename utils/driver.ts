@@ -262,10 +262,18 @@ export const getDriverAssignment = async (
         emergency_requests(*)
       `)
       .eq('ambulance_id', ambulanceId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'accepted'])
       .order('assigned_at', { ascending: false })
       .limit(1)
       .maybeSingle());
+
+    // Filter out completed/cancelled emergency requests
+    if (!error && data && data.emergency_requests) {
+      const erStatus = data.emergency_requests.status;
+      if (erStatus === 'completed' || erStatus === 'cancelled') {
+        return { assignment: null, error: null };
+      }
+    }
 
     // Fallback without status filter if column missing
     if (error && (error.code === '42703' || String(error.message || '').toLowerCase().includes('status'))) {
@@ -290,7 +298,7 @@ export const getDriverAssignment = async (
         .from('emergency_requests')
         .select('*')
         .eq('assigned_ambulance_id', ambulanceId)
-        .in('status', ['assigned', 'pending'])
+        .not('status', 'in', '(completed,cancelled)')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -392,6 +400,37 @@ export const declineEmergency = async (
   } catch (error) {
     console.error('Error declining emergency:', error);
     return { success: false, error: error as Error };
+  }
+};
+
+/**
+ * Get driver stats (active / completed counts) for the driver home screen.
+ */
+export const getDriverStats = async (
+  driverId: string
+): Promise<{ active: number; completed: number; error: Error | null }> => {
+  try {
+    const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
+    if (ambErr || !ambulanceId) return { active: 0, completed: 0, error: ambErr };
+
+    // Active = assigned + en_route + at_scene + transporting + at_hospital
+    const { count: active } = await supabase
+      .from('emergency_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_ambulance_id', ambulanceId)
+      .not('status', 'in', '(completed,cancelled,pending)');
+
+    // Completed
+    const { count: completed } = await supabase
+      .from('emergency_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('assigned_ambulance_id', ambulanceId)
+      .eq('status', 'completed');
+
+    return { active: active ?? 0, completed: completed ?? 0, error: null };
+  } catch (error) {
+    console.error('Error fetching driver stats:', error);
+    return { active: 0, completed: 0, error: error as Error };
   }
 };
 
