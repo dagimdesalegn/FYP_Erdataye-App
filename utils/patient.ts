@@ -280,14 +280,14 @@ export const updateEmergencyStatus = async (
     if (status === 'cancelled' || status === 'completed') {
       await supabaseAdmin
         .from('emergency_assignments')
-        .update({ status: 'completed', updated_at: new Date().toISOString() })
-        .eq('emergency_request_id', emergencyId)
+        .update({ status: 'completed' })
+        .eq('emergency_id', emergencyId)
         .in('status', ['pending', 'accepted']);
 
       const { data: assignments } = await supabaseAdmin
         .from('emergency_assignments')
         .select('ambulance_id')
-        .eq('emergency_request_id', emergencyId);
+        .eq('emergency_id', emergencyId);
       if (assignments) {
         for (const a of assignments) {
           await supabaseAdmin

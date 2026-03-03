@@ -2,10 +2,10 @@ import { supabase } from './supabase';
 
 export interface ChatMessage {
   id: string;
-  emergency_id: string;
+  emergency_request_id: string;
   user_id: string;
-  message: string;
-  is_ai: boolean;
+  user_message: string;
+  ai_response: string;
   created_at: string;
 }
 
@@ -15,15 +15,15 @@ export interface ChatMessage {
 export const addChatMessage = async (
   emergencyId: string,
   userId: string,
-  message: string,
-  isAi = false
+  userMessage: string,
+  aiResponse: string = ''
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase.from('chat_history').insert({
-      emergency_id: emergencyId,
+      emergency_request_id: emergencyId,
       user_id: userId,
-      message,
-      is_ai: isAi,
+      user_message: userMessage,
+      ai_response: aiResponse,
     });
 
     if (error) {
@@ -47,7 +47,7 @@ export const getChatHistory = async (emergencyId: string): Promise<{
     const { data, error } = await supabase
       .from('chat_history')
       .select('*')
-      .eq('emergency_id', emergencyId)
+      .eq('emergency_request_id', emergencyId)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -65,14 +65,14 @@ export const getChatHistory = async (emergencyId: string): Promise<{
  */
 export const subscribeToChatMessages = (emergencyId: string, callback: (message: ChatMessage) => void) => {
   const subscription = supabase
-    .channel(`chat_history:emergency_id=eq.${emergencyId}`)
+    .channel(`chat_history:emergency_request_id=eq.${emergencyId}`)
     .on(
       'postgres_changes',
       {
         event: 'INSERT',
         schema: 'public',
         table: 'chat_history',
-        filter: `emergency_id=eq.${emergencyId}`,
+        filter: `emergency_request_id=eq.${emergencyId}`,
       },
       (payload: any) => {
         callback(payload.new as ChatMessage);
