@@ -13,7 +13,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HelpScreen() {
@@ -233,7 +233,7 @@ export default function HelpScreen() {
           </Pressable>
         </View>
       )}
-      <View style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]}>
+      <ScrollView style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]} contentContainerStyle={styles.contentInner}>
         <ThemedView style={[styles.hero, { borderColor: isDark ? '#2E3236' : '#EEF2F6' }]}>
           <View style={styles.heroTopRow}>
             <View
@@ -444,7 +444,7 @@ export default function HelpScreen() {
             </View>
           </View>
         ) : null}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -457,10 +457,13 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: 14,
-    justifyContent: 'space-between',
+  },
+  contentInner: {
+    flexGrow: 1,
+    gap: 14,
+    paddingBottom: 20,
   },
   hero: {
-    flex: 1,
     borderRadius: 22,
     borderWidth: 1,
     padding: 14,
@@ -500,8 +503,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
-    flex: 1,
-    minHeight: 420,
+    height: 400,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
@@ -572,7 +574,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionsRow: {
-    marginTop: 12,
     flexDirection: 'row',
     gap: 12,
   },
