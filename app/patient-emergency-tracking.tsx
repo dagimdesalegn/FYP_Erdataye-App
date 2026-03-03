@@ -3,15 +3,16 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Animated,
-    Dimensions,
     Linking,
     Platform,
     Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -24,6 +25,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
+import { HtmlMapView } from '@/components/html-map-view';
 import {
     getEmergencyDetails,
     subscribeToAmbulanceLocation,
@@ -48,6 +50,9 @@ export default function PatientEmergencyTrackingScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const { emergencyId } = useLocalSearchParams();
+  const { width: windowWidth } = useWindowDimensions();
+  const isWide = windowWidth > 600;
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -254,7 +259,7 @@ export default function PatientEmergencyTrackingScreen() {
       )}
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top, 16) }]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
@@ -334,7 +339,7 @@ export default function PatientEmergencyTrackingScreen() {
         </View>
 
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && Platform.OS === 'web' && (
+        {mapHtml && (
           <View style={[styles.mapCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <View style={styles.mapHeader}>
               <MaterialIcons name="map" size={18} color="#0EA5E9" />
@@ -348,13 +353,11 @@ export default function PatientEmergencyTrackingScreen() {
                 </View>
               ) : null}
             </View>
-            <View style={styles.mapFrame}>
-              <iframe
-                src={mapHtml}
-                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
-                title="Emergency Map"
-              />
-            </View>
+            <HtmlMapView
+              html={mapHtml}
+              style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
+              title="Emergency Map"
+            />
             {/* Legend */}
             <View style={styles.mapLegend}>
               <View style={styles.legendItem}>
@@ -518,15 +521,12 @@ export default function PatientEmergencyTrackingScreen() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const { width: SCREEN_W } = Dimensions.get('window');
-const isWide = SCREEN_W > 600;
-
 const styles = StyleSheet.create({
   root: { flex: 1 },
   scrollContent: {
-    padding: isWide ? 32 : 16,
+    padding: 16,
     paddingBottom: 40,
-    maxWidth: isWide ? 720 : 640,
+    maxWidth: 640,
     alignSelf: 'center' as any,
     width: '100%' as any,
   },
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   // Notification toast
   notifToast: {
     position: 'absolute',
-    top: Platform.OS === 'web' ? 12 : 50,
+    top: 50,
     left: 16,
     right: 16,
     zIndex: 100,
@@ -584,9 +584,9 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: isWide ? 20 : 16,
+    padding: 16,
     borderRadius: 16,
-    marginBottom: isWide ? 16 : 12,
+    marginBottom: 12,
   },
   statusLabel: { fontSize: 17, fontWeight: '800', fontFamily: Fonts.sans },
   statusSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
@@ -597,9 +597,9 @@ const styles = StyleSheet.create({
   stepsCard: {
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: isWide ? 18 : 14,
-    paddingHorizontal: isWide ? 16 : 8,
-    marginBottom: isWide ? 16 : 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginBottom: 12,
   },
   stepsRow: {
     flexDirection: 'row',
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  stepLabel: { fontSize: isWide ? 11 : 9, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
+  stepLabel: { fontSize: 9, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
   stepLine: {
     position: 'absolute',
     top: 11,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
   distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
   mapFrame: {
     width: '100%' as any,
-    height: isWide ? 450 : 300,
+    height: 300,
     marginTop: 10,
     paddingHorizontal: 12,
   },
@@ -674,8 +674,8 @@ const styles = StyleSheet.create({
   infoCard: {
     borderRadius: 16,
     borderWidth: 1,
-    padding: isWide ? 20 : 16,
-    marginBottom: isWide ? 16 : 12,
+    padding: 16,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -733,14 +733,14 @@ const styles = StyleSheet.create({
   // Actions
   actionsRow: {
     flexDirection: 'row',
-    gap: isWide ? 14 : 10,
+    gap: 10,
     marginBottom: 20,
     marginTop: 4,
   },
   actionBtn: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: isWide ? 18 : 14,
+    paddingVertical: 14,
     borderRadius: 14,
     borderWidth: 1,
   },

@@ -3,14 +3,15 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
-    Dimensions,
     Linking,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
+    useWindowDimensions,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
@@ -31,6 +32,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
+import { HtmlMapView } from '@/components/html-map-view';
 import { supabaseAdmin } from '@/utils/supabase';
 
 interface MedicalProfile {
@@ -53,6 +55,9 @@ export default function DriverEmergencyScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const { user } = useAppState();
+  const { width: windowWidth } = useWindowDimensions();
+  const isWide = windowWidth > 600;
+  const insets = useSafeAreaInsets();
 
   const [assignment, setAssignment] = useState<any>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
@@ -229,7 +234,7 @@ export default function DriverEmergencyScreen() {
       <LoadingModal visible={processing} colorScheme={colorScheme} message="Processing..." />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: Math.max(insets.top, 16) }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── X Close Button ───────────────────────────── */}
@@ -259,7 +264,7 @@ export default function DriverEmergencyScreen() {
         </View>
 
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && Platform.OS === 'web' && (
+        {mapHtml && (
           <View style={[styles.mapCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <View style={styles.mapHeader}>
               <MaterialIcons name="map" size={18} color="#0EA5E9" />
@@ -272,13 +277,11 @@ export default function DriverEmergencyScreen() {
                 </View>
               ) : null}
             </View>
-            <View style={styles.mapFrame}>
-              <iframe
-                src={mapHtml}
-                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
-                title="Emergency Map"
-              />
-            </View>
+            <HtmlMapView
+              html={mapHtml}
+              style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
+              title="Emergency Map"
+            />
 
             {/* Navigate button inside map card */}
             {patientCoords && (
@@ -409,7 +412,7 @@ export default function DriverEmergencyScreen() {
       </ScrollView>
 
       {/* ── Bottom Action Bar ────────────────────────────── */}
-      <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF', borderTopColor: cardBorder }]}>
+      <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF', borderTopColor: cardBorder, paddingBottom: Math.max(insets.bottom, 20) }]}>
         <Pressable
           onPress={handleDecline}
           disabled={processing}
@@ -441,17 +444,14 @@ export default function DriverEmergencyScreen() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const { width: SCREEN_W } = Dimensions.get('window');
-const isWide = SCREEN_W > 600;
-
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
   scrollContent: {
-    padding: isWide ? 32 : 16,
+    padding: 16,
     paddingBottom: 140,
-    maxWidth: isWide ? 720 : 640,
+    maxWidth: 640,
     alignSelf: 'center' as any,
     width: '100%' as any,
   },
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
   mapFrame: {
     width: '100%' as any,
-    height: isWide ? 450 : 300,
+    height: 300,
     marginTop: 10,
     paddingHorizontal: 14,
   },
@@ -586,25 +586,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: isWide ? 32 : 16,
+    paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: Platform.OS === 'web' ? 20 : 28,
     borderTopWidth: 1,
     gap: 12,
-    ...(isWide ? { maxWidth: 720, alignSelf: 'center' as any, left: 'auto' as any, right: 'auto' as any, width: '100%' as any } : {}),
+    maxWidth: 720,
+    alignSelf: 'center' as any,
+    width: '100%' as any,
   },
   declineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: isWide ? 16 : 14,
-    paddingHorizontal: isWide ? 28 : 20,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
     gap: 8,
-    minWidth: isWide ? 140 : undefined,
   },
   declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
   acceptBtn: {
@@ -612,7 +613,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: isWide ? 16 : 14,
+    paddingVertical: 14,
     borderRadius: 14,
     backgroundColor: '#059669',
     gap: 8,

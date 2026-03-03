@@ -27,6 +27,7 @@ import {
     getAvailableAmbulances,
     parsePostGISPoint,
 } from '@/utils/emergency';
+import { HtmlMapView } from '@/components/html-map-view';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -396,22 +397,20 @@ export default function PatientEmergencyScreen() {
               </ThemedText>
 
               {/* ── Map Box: Your location + nearby ambulances ─── */}
-              {location && Platform.OS === 'web' && (
+              {location && (
                 <View style={[styles.mapSection, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}>
-                  <View style={styles.mapBox}>
-                    {(() => {
-                      const mapHtml = nearbyAmbulances.length > 0
-                        ? buildPatientRequestMapHtml(location.latitude, location.longitude, nearbyAmbulances)
-                        : buildMapHtml(location.latitude, location.longitude, 16);
-                      return (
-                        <iframe
-                          src={mapHtml}
-                          style={{ width: '100%', height: '100%', border: 'none', borderRadius: 14 } as any}
-                          title="Your Location"
-                        />
-                      );
-                    })()}
-                  </View>
+                  {(() => {
+                    const mapHtml = nearbyAmbulances.length > 0
+                      ? buildPatientRequestMapHtml(location.latitude, location.longitude, nearbyAmbulances)
+                      : buildMapHtml(location.latitude, location.longitude, 16);
+                    return (
+                      <HtmlMapView
+                        html={mapHtml}
+                        style={styles.mapBox}
+                        title="Your Location"
+                      />
+                    );
+                  })()}
 
                   {/* Nearby ambulances list */}
                   <View style={styles.nearbyList}>
