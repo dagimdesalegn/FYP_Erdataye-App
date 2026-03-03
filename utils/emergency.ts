@@ -28,7 +28,7 @@ export function buildMapHtml(lat: number, lng: number, zoom: number = 17): strin
 .leaflet-control-attribution{font-size:9px!important;opacity:0.7}</style></head>
 <body><div id="map"></div><script>
 var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,boxZoom:true}).setView([${lat},${lng}],${zoom});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'© <a href="https://carto.com/">CARTO</a> © <a href="https://osm.org/">OSM</a>'}).addTo(map);
 L.marker([${lat},${lng}]).addTo(map).bindPopup('📍 Your location').openPopup();
 <\/script></body></html>`;
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
@@ -60,7 +60,7 @@ html,body,#map{width:100%;height:100%}
 </style></head>
 <body><div id="map"></div><script>
 var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,attribution:'© <a href="https://carto.com/">CARTO</a> © <a href="https://osm.org/">OSM</a>'}).addTo(map);
 var driverIcon=L.divIcon({className:'',html:'<div style="background:#0EA5E9;width:32px;height:32px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M18.9 6c-.2-.6-.8-1-1.4-1h-2l.7-1.4C16.5 3 16.1 2.3 15.5 2H8.5c-.6.3-1 1-1 1.6L8.5 5h-2c-.7 0-1.2.4-1.4 1L4 10v8c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-1h10v1c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-8l-1.1-4zM6.5 15c-.8 0-1.5-.7-1.5-1.5S5.7 12 6.5 12s1.5.7 1.5 1.5S7.3 15 6.5 15zm11 0c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z\\"/></svg></div>',iconSize:[32,32],iconAnchor:[16,16]});
 var patientIcon=L.divIcon({className:'',html:'<div style="background:#DC2626;width:36px;height:36px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);animation:pulse 1.5s infinite"><svg width=\\"18\\" height=\\"18\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z\\"/></svg></div><style>@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}</style>',iconSize:[36,36],iconAnchor:[18,18]});
 L.marker([${driverLat},${driverLng}],{icon:driverIcon}).addTo(map).bindPopup('<b>${bluePopup}</b>');
