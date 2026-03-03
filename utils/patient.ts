@@ -212,21 +212,30 @@ export const getEmergencyDetails = async (
 
     if (emergencyError) throw emergencyError;
 
-    // Get assignment
-    const { data: assignmentData } = await supabase
-      .from('emergency_assignments')
-      .select('*')
-      .eq('emergency_id', emergencyId)
-      .order('assigned_at', { ascending: false })
-      .limit(1)
-      .single();
-
+    // Get assignment (with fallback if emergency_assignments table is missing)
+    let assignmentData: any = null;
     let ambulance: AmbulanceInfo | null = null;
-    if (assignmentData) {
+
+    try {
+      const { data } = await supabase
+        .from('emergency_assignments')
+        .select('*')
+        .eq('emergency_id', emergencyId)
+        .order('assigned_at', { ascending: false })
+        .limit(1)
+        .single();
+      assignmentData = data;
+    } catch {
+      // Table may not exist — ignore
+    }
+
+    // Get ambulance from assignment or directly from emergency_requests
+    const ambulanceId = assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
+    if (ambulanceId) {
       const { data: ambulanceData } = await supabase
         .from('ambulances')
         .select('*')
-        .eq('id', assignmentData.ambulance_id)
+        .eq('id', ambulanceId)
         .single();
 
       ambulance = ambulanceData as AmbulanceInfo | null;
