@@ -383,14 +383,16 @@ export default function AdminScreen() {
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader title="Erdataya Admin" onProfilePress={() => setProfileVisible(true)} />
 
+      {/* X close / back button */}
+      <Pressable
+        onPress={() => { signOut().then(() => { setUser(null); router.replace('/'); }); }}
+        style={[styles.closeBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
+      >
+        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+      </Pressable>
+
       <ScrollView style={styles.scrollOuter} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-
-          {/* Page title */}
-          <View style={styles.pageHeader}>
-            <ThemedText style={[styles.pageTitle, { color: colors.text }]}>Admin Dashboard</ThemedText>
-            <ThemedText style={[styles.pageSub, { color: subText }]}>Manage users, emergencies, ambulances & hospitals</ThemedText>
-          </View>
 
           {/* Stat cards */}
           <View style={styles.statsGrid}>

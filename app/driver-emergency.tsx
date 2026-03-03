@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
@@ -15,13 +15,22 @@ import {
     getDriverAssignment,
     getPatientInfo,
 } from '@/utils/driver';
-import { formatCoords, parsePostGISPoint } from '@/utils/emergency';
+import { buildMapHtml, formatCoords, parsePostGISPoint } from '@/utils/emergency';
 import { useRouter } from 'expo-router';
+
+interface MedicalProfile {
+  blood_type?: string;
+  allergies?: string;
+  medical_conditions?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+}
 
 interface PatientInfo {
   id: string;
   full_name: string;
   phone: string;
+  medical_profiles?: MedicalProfile[];
 }
 
 /**
@@ -258,22 +267,112 @@ export default function DriverEmergencyScreen() {
               <MaterialIcons name="phone" size={20} color="#10B981" />
               <View style={{ marginLeft: 12, flex: 1 }}>
                 <ThemedText style={styles.detailLabel}>Contact</ThemedText>
-                <ThemedText style={styles.detailValue}>{patientInfo.phone}</ThemedText>
+                <Pressable onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}>
+                  <ThemedText style={[styles.detailValue, { color: '#0EA5E9', textDecorationLine: 'underline' }]}>{patientInfo.phone}</ThemedText>
+                </Pressable>
+              </View>
+            </View>
+          </ThemedView>
+        )}
+
+        {/* Patient Medical Profile - Inline */}
+        {patientInfo?.medical_profiles && patientInfo.medical_profiles.length > 0 && (() => {
+          const med = patientInfo.medical_profiles![0];
+          return (
+            <ThemedView style={styles.card}>
+              <ThemedText style={styles.cardTitle}>Medical Profile</ThemedText>
+
+              {med.blood_type ? (
+                <View style={styles.detailRow}>
+                  <MaterialIcons name="bloodtype" size={20} color="#DC2626" />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <ThemedText style={styles.detailLabel}>Blood Type</ThemedText>
+                    <ThemedText style={[styles.detailValue, { fontWeight: '700', color: '#DC2626' }]}>{med.blood_type}</ThemedText>
+                  </View>
+                </View>
+              ) : null}
+
+              {med.allergies ? (
+                <View style={styles.detailRow}>
+                  <MaterialIcons name="warning" size={20} color="#F59E0B" />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <ThemedText style={styles.detailLabel}>Allergies</ThemedText>
+                    <ThemedText style={[styles.detailValue, { color: '#F59E0B' }]}>{med.allergies}</ThemedText>
+                  </View>
+                </View>
+              ) : null}
+
+              {med.medical_conditions ? (
+                <View style={styles.detailRow}>
+                  <MaterialIcons name="local-hospital" size={20} color="#0EA5E9" />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <ThemedText style={styles.detailLabel}>Medical Conditions</ThemedText>
+                    <ThemedText style={styles.detailValue}>{med.medical_conditions}</ThemedText>
+                  </View>
+                </View>
+              ) : null}
+
+              {med.emergency_contact_name ? (
+                <View style={styles.detailRow}>
+                  <MaterialIcons name="contacts" size={20} color="#10B981" />
+                  <View style={{ marginLeft: 12, flex: 1 }}>
+                    <ThemedText style={styles.detailLabel}>Emergency Contact</ThemedText>
+                    <ThemedText style={styles.detailValue}>{med.emergency_contact_name}</ThemedText>
+                    {med.emergency_contact_phone ? (
+                      <Pressable onPress={() => Linking.openURL(`tel:${med.emergency_contact_phone}`)}>
+                        <ThemedText style={[styles.detailValue, { color: '#0EA5E9', textDecorationLine: 'underline', marginTop: 2 }]}>{med.emergency_contact_phone}</ThemedText>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+            </ThemedView>
+          );
+        })()}
+
+        {/* Real Location - Live Map + Navigate */}
+        {emergencyCoords && (
+          <ThemedView style={styles.card}>
+            <ThemedText style={styles.cardTitle}>Patient Location</ThemedText>
+            <View style={styles.detailRow}>
+              <MaterialIcons name="my-location" size={20} color="#DC2626" />
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <ThemedText style={styles.detailLabel}>Coordinates</ThemedText>
+                <ThemedText style={styles.detailValue}>
+                  {formatCoords(emergencyCoords.latitude, emergencyCoords.longitude)}
+                </ThemedText>
               </View>
             </View>
 
-            <AppButton
-              label="View Medical Profile"
-              onPress={() =>
-                router.push({
-                  pathname: '/driver-patient-info' as any,
-                  params: { patientId: emergency.patient_id },
-                })
-              }
-              variant="secondary"
-              fullWidth
-              style={{ marginTop: 12 }}
-            />
+            {/* Embedded Map */}
+            {Platform.OS === 'web' ? (
+              <View style={styles.mapContainer}>
+                <iframe
+                  src={buildMapHtml(emergencyCoords.latitude, emergencyCoords.longitude, 15)}
+                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
+                  title="Patient Location Map"
+                />
+              </View>
+            ) : (
+              <View style={styles.mapContainer}>
+                <ThemedText style={[styles.detailLabel, { textAlign: 'center', marginTop: 60 }]}>Map preview available on web</ThemedText>
+              </View>
+            )}
+
+            <Pressable
+              onPress={() => {
+                const url = Platform.select({
+                  ios: `maps:0,0?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
+                  android: `geo:${emergencyCoords.latitude},${emergencyCoords.longitude}?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
+                  default: `https://www.google.com/maps?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
+                });
+                Linking.openURL(url);
+              }}
+              style={styles.navigateBtn}
+            >
+              <MaterialIcons name="navigation" size={20} color="#FFFFFF" />
+              <ThemedText style={styles.navigateBtnText}>Navigate to Patient</ThemedText>
+            </Pressable>
           </ThemedView>
         )}
 
@@ -375,6 +474,23 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 14,
     fontWeight: '500',
+    fontFamily: 'Monospace',
+  },
+  navigateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0EA5E9',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 8,
+    gap: 8,
+  },
+  navigateBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 14,
     fontFamily: 'Monospace',
   },
   infoBox: {
