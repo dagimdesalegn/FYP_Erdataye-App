@@ -3,35 +3,35 @@ import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Dimensions,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Dimensions,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, Fonts } from '@/constants/theme';
+import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  getDriverAmbulanceId,
-  getPatientInfo,
-  sendLocationUpdate,
-  subscribeToEmergencyStatus,
-  updateEmergencyStatus,
+    getDriverAmbulanceId,
+    getPatientInfo,
+    sendLocationUpdate,
+    subscribeToEmergencyStatus,
+    updateEmergencyStatus,
 } from '@/utils/driver';
 import {
-  buildDriverPatientMapHtml,
-  buildMapHtml,
-  calculateDistance,
-  formatCoords,
-  parsePostGISPoint,
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    calculateDistance,
+    formatCoords,
+    parsePostGISPoint,
 } from '@/utils/emergency';
 import { supabase } from '@/utils/supabase';
 
