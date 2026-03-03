@@ -13,116 +13,42 @@ export function formatCoords(lat: number, lng: number, decimals: number = 4): st
 }
 
 /**
- * Build a self-contained Leaflet HTML map as a data URI.
- * - No external buttons / "View Larger Map"
- * - One-finger drag, two-finger pinch zoom
- * - Roadmap only: buildings, roads, landmarks (OpenStreetMap tiles)
- * - Red marker on the given coordinates
+ * Build a Google Maps embed URL for a single location marker.
+ * Returns a direct URL suitable for iframe src – no CORS issues.
  */
 export function buildMapHtml(lat: number, lng: number, zoom: number = 17): string {
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>*{margin:0;padding:0}html,body,#map{width:100%;height:100%}
-.leaflet-control-attribution{font-size:9px!important;opacity:0.7}</style></head>
-<body><div id="map"></div><script>
-var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,boxZoom:true}).setView([${lat},${lng}],${zoom});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
-L.marker([${lat},${lng}]).addTo(map).bindPopup('📍 Your location').openPopup();
-<\/script></body></html>`;
-  return html;
+  return `https://maps.google.com/maps?q=${lat},${lng}&z=${zoom}&output=embed`;
 }
 
 /**
- * Build a Leaflet HTML map showing two markers (driver + patient) with a
- * dashed route line between them and auto-fit bounds. Uses road-style tiles.
+ * Build a Google Maps embed URL showing directions between driver and patient.
+ * Returns a direct URL suitable for iframe src – no CORS issues.
  */
 export function buildDriverPatientMapHtml(
   driverLat: number, driverLng: number,
   patientLat: number, patientLng: number,
-  options?: { blueLabel?: string; redLabel?: string; bluePopup?: string; redPopup?: string },
+  _options?: { blueLabel?: string; redLabel?: string; bluePopup?: string; redPopup?: string },
 ): string {
-  const blueLabel = options?.blueLabel ?? 'You';
-  const redLabel = options?.redLabel ?? 'Patient';
-  const bluePopup = options?.bluePopup ?? '🚑 You';
-  const redPopup = options?.redPopup ?? '🆘 Patient';
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body,#map{width:100%;height:100%}
-.leaflet-control-attribution{font-size:8px!important;opacity:0.6}
-.custom-label{background:none;border:none;font-weight:700;font-size:12px;white-space:nowrap;text-shadow:0 1px 3px #fff,0 -1px 3px #fff,1px 0 3px #fff,-1px 0 3px #fff}
-</style></head>
-<body><div id="map"></div><script>
-var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
-var driverIcon=L.divIcon({className:'',html:'<div style="background:#0EA5E9;width:32px;height:32px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M18.9 6c-.2-.6-.8-1-1.4-1h-2l.7-1.4C16.5 3 16.1 2.3 15.5 2H8.5c-.6.3-1 1-1 1.6L8.5 5h-2c-.7 0-1.2.4-1.4 1L4 10v8c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-1h10v1c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-8l-1.1-4zM6.5 15c-.8 0-1.5-.7-1.5-1.5S5.7 12 6.5 12s1.5.7 1.5 1.5S7.3 15 6.5 15zm11 0c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z\\"/></svg></div>',iconSize:[32,32],iconAnchor:[16,16]});
-var patientIcon=L.divIcon({className:'',html:'<div style="background:#DC2626;width:36px;height:36px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);animation:pulse 1.5s infinite"><svg width=\\"18\\" height=\\"18\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z\\"/></svg></div><style>@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}</style>',iconSize:[36,36],iconAnchor:[18,18]});
-L.marker([${driverLat},${driverLng}],{icon:driverIcon}).addTo(map).bindPopup('<b>${bluePopup}</b>');
-L.marker([${patientLat},${patientLng}],{icon:patientIcon}).addTo(map).bindPopup('<b>${redPopup}</b>').openPopup();
-L.marker([${driverLat},${driverLng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#0EA5E9">${blueLabel}</span>',iconAnchor:[-8,-8]})}).addTo(map);
-L.marker([${patientLat},${patientLng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#DC2626">${redLabel}</span>',iconAnchor:[-8,-8]})}).addTo(map);
-L.polyline([[${driverLat},${driverLng}],[${patientLat},${patientLng}]],{color:'#0EA5E9',weight:3,dashArray:'8,8',opacity:0.7}).addTo(map);
-map.fitBounds([[${driverLat},${driverLng}],[${patientLat},${patientLng}]],{padding:[50,50],maxZoom:15});
-<\/script></body></html>`;
-  return html;
+  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&output=embed`;
 }
 
 /**
- * Build a Leaflet HTML map showing the patient location + multiple nearby
- * ambulance markers. Google Maps road tiles. Auto-fits bounds.
+ * Build a Google Maps embed URL centered on the patient location.
+ * Returns a direct URL suitable for iframe src – no CORS issues.
  */
 export function buildPatientRequestMapHtml(
   patientLat: number, patientLng: number,
-  ambulances: { lat: number; lng: number; label?: string }[],
+  _ambulances: { lat: number; lng: number; label?: string }[],
 ): string {
-  const ambMarkersJs = ambulances.map((a, i) => {
-    const lbl = a.label || `Ambulance ${i + 1}`;
-    return `
-L.marker([${a.lat},${a.lng}],{icon:ambIcon}).addTo(map).bindPopup('<b>\u{1F691} ${lbl}</b>');
-L.marker([${a.lat},${a.lng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#0EA5E9">${lbl}</span>',iconAnchor:[-8,-8]})}).addTo(map);
-bounds.push([${a.lat},${a.lng}]);`;
-  }).join('\n');
-
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-html,body,#map{width:100%;height:100%}
-.leaflet-control-attribution{font-size:8px!important;opacity:0.6}
-.custom-label{background:none;border:none;font-weight:700;font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #fff,0 -1px 3px #fff,1px 0 3px #fff,-1px 0 3px #fff}
-</style></head>
-<body><div id="map"></div><script>
-var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
-var ambIcon=L.divIcon({className:'',html:'<div style="background:#0EA5E9;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width=\\"14\\" height=\\"14\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M18.9 6c-.2-.6-.8-1-1.4-1h-2l.7-1.4C16.5 3 16.1 2.3 15.5 2H8.5c-.6.3-1 1-1 1.6L8.5 5h-2c-.7 0-1.2.4-1.4 1L4 10v8c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-1h10v1c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-8l-1.1-4zM6.5 15c-.8 0-1.5-.7-1.5-1.5S5.7 12 6.5 12s1.5.7 1.5 1.5S7.3 15 6.5 15zm11 0c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z\\"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]});
-var patIcon=L.divIcon({className:'',html:'<div style="background:#DC2626;width:34px;height:34px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);animation:pulse 1.5s infinite"><svg width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z\\"/></svg></div><style>@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}</style>',iconSize:[34,34],iconAnchor:[17,17]});
-var bounds=[[${patientLat},${patientLng}]];
-L.marker([${patientLat},${patientLng}],{icon:patIcon}).addTo(map).bindPopup('<b>\u{1F4CD} Your Location</b>').openPopup();
-L.marker([${patientLat},${patientLng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#DC2626">You</span>',iconAnchor:[-8,-8]})}).addTo(map);
-${ambMarkersJs}
-if(bounds.length>1){map.fitBounds(bounds,{padding:[40,40],maxZoom:14})}else{map.setView([${patientLat},${patientLng}],14)}
-<\/script></body></html>`;
-  return html;
+  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=14&output=embed`;
 }
 
 /**
- * Convert raw map HTML into a blob: URL suitable for iframe src.
- * Using blob: URLs instead of data: URIs gives a proper origin,
- * which allows Google Maps tiles to load (they block null-origin requests).
+ * @deprecated No longer needed – map functions now return direct Google Maps embed URLs.
+ * Kept for backward compatibility; simply returns the input unchanged.
  */
-export function mapHtmlToBlobUrl(html: string): string {
-  if (typeof window === 'undefined') return '';
-  const blob = new Blob([html], { type: 'text/html' });
-  return URL.createObjectURL(blob);
+export function mapHtmlToBlobUrl(url: string): string {
+  return url;
 }
 
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */

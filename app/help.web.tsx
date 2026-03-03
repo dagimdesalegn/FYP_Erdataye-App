@@ -6,14 +6,14 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { buildMapHtml, formatCoords, mapHtmlToBlobUrl } from '@/utils/emergency';
+import { buildMapHtml, formatCoords } from '@/utils/emergency';
 import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HelpScreen() {
@@ -233,7 +233,7 @@ export default function HelpScreen() {
           </Pressable>
         </View>
       )}
-      <ScrollView style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]} contentContainerStyle={styles.contentInner}>
+      <View style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]}>
         <ThemedView style={[styles.hero, { borderColor: isDark ? '#2E3236' : '#EEF2F6' }]}>
           <View style={styles.heroTopRow}>
             <View
@@ -279,7 +279,7 @@ export default function HelpScreen() {
                 <View style={styles.mapFrameWrap}>
                   {React.createElement('iframe', {
                     title: 'Patient location map',
-                    src: mapHtmlToBlobUrl(mapEmbedUrl!),
+                    src: mapEmbedUrl!,
                     style: {
                       border: 0,
                       width: '100%',
@@ -444,7 +444,7 @@ export default function HelpScreen() {
             </View>
           </View>
         ) : null}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -458,12 +458,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 14,
   },
-  contentInner: {
-    flexGrow: 1,
-    gap: 14,
-    paddingBottom: 20,
-  },
   hero: {
+    flex: 1,
     borderRadius: 22,
     borderWidth: 1,
     padding: 14,
@@ -503,7 +499,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: 'hidden',
-    height: 400,
+    flex: 1,
+    minHeight: 200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.12,
@@ -576,6 +573,8 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
+    marginTop: 14,
+    paddingBottom: 4,
   },
   quickRow: {
     marginTop: 10,

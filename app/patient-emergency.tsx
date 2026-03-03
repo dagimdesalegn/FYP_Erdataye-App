@@ -25,7 +25,6 @@ import {
     buildPatientRequestMapHtml,
     calculateDistance,
     getAvailableAmbulances,
-    mapHtmlToBlobUrl,
     parsePostGISPoint,
 } from '@/utils/emergency';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
@@ -406,7 +405,7 @@ export default function PatientEmergencyScreen() {
                         : buildMapHtml(location.latitude, location.longitude, 14);
                       return (
                         <iframe
-                          src={mapHtmlToBlobUrl(mapHtml)}
+                          src={mapHtml}
                           style={{ width: '100%', height: '100%', border: 'none', borderRadius: 14 } as any}
                           title="Your Location"
                         />

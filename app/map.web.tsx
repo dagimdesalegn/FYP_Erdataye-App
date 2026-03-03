@@ -8,7 +8,6 @@ import {
     buildMapHtml,
     EmergencyRequest,
     formatCoords,
-    mapHtmlToBlobUrl,
     getAvailableAmbulances,
     getHospitals,
     Hospital,
@@ -155,7 +154,7 @@ export default function MapScreen() {
       <View style={styles.mapContainer}>
         {/* @ts-ignore – iframe is valid on web */}
         <iframe
-          src={mapHtmlToBlobUrl(mapUrl)}
+          src={mapUrl}
           style={{ width: '100%', height: '100%', border: 'none' }}
           title="Map"
         />
