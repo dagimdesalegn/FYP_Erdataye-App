@@ -2,17 +2,18 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated,
-    Linking,
-    Platform,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    useWindowDimensions,
-    View,
+  Animated,
+  Linking,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -222,6 +223,9 @@ export default function PatientEmergencyTrackingScreen() {
   const cardBorder = isDark ? '#334155' : '#E2E8F0';
   const subtleText = isDark ? '#94A3B8' : '#64748B';
   const isCompleted = emergency.status === 'completed' || emergency.status === 'cancelled';
+  const statusGradientColors: [string, string] = isDark
+    ? [st.color + '40', '#020617']
+    : [st.color + '30', '#F8FAFC'];
 
   // Status flow steps
   const statusSteps = [
@@ -238,6 +242,11 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Render ───────────────────────────────────────────
   return (
     <View style={[styles.root, { backgroundColor: isDark ? '#0F172A' : '#F1F5F9' }]}>
+      <LinearGradient
+        colors={isDark ? ['rgba(14,165,233,0.15)', '#020617', 'transparent'] : ['rgba(14,165,233,0.2)', '#F8FAFC', 'transparent']}
+        style={styles.heroGlow}
+        pointerEvents="none"
+      />
       {/* Floating notification toast */}
       {statusNotification && (
         <Animated.View
@@ -290,8 +299,18 @@ export default function PatientEmergencyTrackingScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.tagRow}>
+          <MaterialIcons name="auto-awesome" size={18} color="#0EA5E9" />
+          <ThemedText style={[styles.tagText, { color: isDark ? '#E2E8F0' : '#0F172A' }]}>Help is on the way—drivers see your request in real time.</ThemedText>
+        </View>
+
         {/* ── Status Banner ─────────────────────────────── */}
-        <View style={[styles.statusBanner, { backgroundColor: st.bg }]}>
+        <LinearGradient
+          colors={statusGradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.statusBanner, styles.statusBannerElevated, { borderColor: st.color + '60' }]}
+        >
           <MaterialIcons name={st.icon} size={32} color={st.color} />
           <View style={{ marginLeft: 14, flex: 1 }}>
             <ThemedText style={[styles.statusLabel, { color: st.color }]}>
@@ -305,10 +324,10 @@ export default function PatientEmergencyTrackingScreen() {
           <View style={[styles.sevChip, { borderColor: sev.color + '60' }]}>
             <ThemedText style={[styles.sevChipText, { color: sev.color }]}>{sev.label}</ThemedText>
           </View>
-        </View>
+        </LinearGradient>
 
         {/* ── Progress Steps ────────────────────────────── */}
-        <View style={[styles.stepsCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+        <View style={[styles.stepsCard, styles.cardElevated, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
           <View style={styles.stepsRow}>
             {statusSteps.map((step, i) => {
               const done = resolvedIndex >= i;
@@ -340,7 +359,7 @@ export default function PatientEmergencyTrackingScreen() {
 
         {/* ── MAP ───────────────────────────────────────── */}
         {mapHtml && (
-          <View style={[styles.mapCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={[styles.mapCard, styles.cardElevated, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
             <View style={styles.mapHeader}>
               <MaterialIcons name="map" size={18} color="#0EA5E9" />
               <ThemedText style={[styles.mapTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
@@ -376,7 +395,7 @@ export default function PatientEmergencyTrackingScreen() {
 
         {/* ── Ambulance Info ────────────────────────────── */}
         {ambulance && (
-          <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={[styles.infoCard, styles.cardElevated, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
             <View style={styles.cardHeader}>
               <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
                 <MaterialIcons name="local-shipping" size={20} color="#0EA5E9" />
@@ -423,7 +442,7 @@ export default function PatientEmergencyTrackingScreen() {
         )}
 
         {/* ── Emergency Details ─────────────────────────── */}
-        <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+        <View style={[styles.infoCard, styles.cardElevated, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
           <View style={styles.cardHeader}>
             <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
               <MaterialIcons name="emergency" size={20} color="#DC2626" />
@@ -456,7 +475,8 @@ export default function PatientEmergencyTrackingScreen() {
         </View>
 
         {/* ── Quick Actions ──────────────────────────────── */}
-        <View style={styles.actionsRow}>
+        <View style={[styles.actionsContainer, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
+          <View style={styles.actionsRow}>
           <Pressable
             onPress={() => Linking.openURL('tel:911')}
             style={({ pressed }) => [
@@ -503,6 +523,7 @@ export default function PatientEmergencyTrackingScreen() {
             </View>
             <ThemedText style={[styles.actionLabel, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>Help</ThemedText>
           </Pressable>
+          </View>
         </View>
 
         {/* Go Home if completed */}
@@ -522,7 +543,15 @@ export default function PatientEmergencyTrackingScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, overflow: 'hidden' },
+  heroGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 260,
+    zIndex: 0,
+  },
   scrollContent: {
     padding: 16,
     paddingBottom: 40,
@@ -573,6 +602,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: Fonts.sans,
   },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  tagText: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+  },
 
   // Error
   errWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, padding: 32 },
@@ -584,9 +624,18 @@ const styles = StyleSheet.create({
   statusBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  statusBannerElevated: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 17,
+    elevation: 10,
   },
   statusLabel: { fontSize: 17, fontWeight: '800', fontFamily: Fonts.sans },
   statusSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
@@ -628,6 +677,13 @@ const styles = StyleSheet.create({
     right: '-38%' as any,
     height: 2,
     zIndex: -1,
+  },
+  cardElevated: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 10,
   },
 
   // Map card
@@ -731,11 +787,23 @@ const styles = StyleSheet.create({
   descText: { fontSize: 13, fontFamily: Fonts.sans, marginLeft: 8, flex: 1, lineHeight: 20 },
 
   // Actions
+  actionsContainer: {
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 8,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 10,
+  },
   actionsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-    marginTop: 4,
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
   },
   actionBtn: {
     flex: 1,
