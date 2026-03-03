@@ -31,6 +31,7 @@ import {
     buildMapHtml,
     calculateDistance,
     formatCoords,
+    mapHtmlToBlobUrl,
     parsePostGISPoint,
 } from '@/utils/emergency';
 import { supabase } from '@/utils/supabase';
@@ -290,7 +291,7 @@ export default function DriverEmergencyTrackingScreen() {
           {mapHtml && Platform.OS === 'web' ? (
             <View style={styles.mapFull}>
               <iframe
-                src={mapHtml}
+                src={mapHtmlToBlobUrl(mapHtml)}
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block' } as any}
                 title="Driver Tracking Map"
                 allow="geolocation"

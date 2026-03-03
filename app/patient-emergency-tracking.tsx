@@ -22,6 +22,7 @@ import {
     buildMapHtml,
     calculateDistance,
     formatCoords,
+    mapHtmlToBlobUrl,
     parsePostGISPoint,
 } from '@/utils/emergency';
 import {
@@ -350,7 +351,7 @@ export default function PatientEmergencyTrackingScreen() {
             </View>
             <View style={styles.mapFrame}>
               <iframe
-                src={mapHtml}
+                src={mapHtmlToBlobUrl(mapHtml)}
                 style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
                 title="Emergency Map"
               />
@@ -635,7 +636,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   mapHeader: {
     flexDirection: 'row',
@@ -655,7 +656,7 @@ const styles = StyleSheet.create({
   distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
   mapFrame: {
     width: '100%' as any,
-    height: isWide ? 350 : 260,
+    height: isWide ? 400 : 300,
     marginTop: 10,
     paddingHorizontal: 12,
   },
