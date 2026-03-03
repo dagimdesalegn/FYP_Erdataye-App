@@ -135,7 +135,7 @@ export default function DriverEmergencyScreen() {
     const doDecline = async () => {
       try {
         setProcessing(true);
-        const { error } = await declineEmergency(assignment.id);
+        const { error } = await declineEmergency(assignment.id, assignment.emergency_id);
         if (error) {
           const msg = error.message || 'Failed to decline';
           Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);

@@ -148,7 +148,7 @@ export const getActiveEmergency = async (
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
-      .in('status', ['pending', 'assigned', 'en_route', 'at_scene', 'arrived', 'transporting'])
+      .not('status', 'in', '(completed,cancelled)')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -21,7 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { formatCoords } from '@/utils/emergency';
-import { createEmergency, getActiveEmergency } from '@/utils/patient';
+import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function PatientEmergencyScreen() {
@@ -49,6 +49,34 @@ export default function PatientEmergencyScreen() {
     requestLocationPermission();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Subscribe to emergency status changes → notify patient & auto-navigate
+  useEffect(() => {
+    if (!activeEmergencyId) return;
+    const unsub = subscribeToEmergency(activeEmergencyId, (updated) => {
+      const status = updated?.status;
+      if (status === 'en_route' || status === 'assigned') {
+        // Ambulance accepted → show notification and go to tracking
+        const msg = status === 'en_route'
+          ? 'An ambulance is now on its way to your location!'
+          : 'An ambulance has been assigned to your emergency.';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Ambulance Update', msg);
+        router.push(`/patient-emergency-tracking?emergencyId=${activeEmergencyId}`);
+      } else if (status === 'cancelled') {
+        // Ambulance declined / emergency cancelled
+        const msg = 'Your emergency request was declined. Please try again.';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Emergency Update', msg);
+        setHasActiveEmergency(false);
+        setActiveEmergencyId(null);
+      } else if (status === 'completed') {
+        setHasActiveEmergency(false);
+        setActiveEmergencyId(null);
+      }
+    });
+    return unsub;
+  }, [activeEmergencyId]);
 
   const checkActiveEmergency = async () => {
     if (!user?.id) return;

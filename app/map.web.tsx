@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     Ambulance,
     EmergencyRequest,
+    buildMapHtml,
     formatCoords,
     getAvailableAmbulances,
     getHospitals,
@@ -144,7 +145,7 @@ export default function MapScreen() {
   const userLng = location?.coords.longitude ?? 38.75;
   const accuracy = location?.coords.accuracy ?? null;
 
-  const mapUrl = `https://maps.google.com/maps?q=${userLat},${userLng}&z=17&output=embed`;
+  const mapUrl = buildMapHtml(userLat, userLng, 17);
 
   return (
     <ThemedView style={styles.container}>

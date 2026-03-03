@@ -2,7 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
@@ -135,12 +135,17 @@ export default function DriverEmergencyTrackingScreen() {
       setCurrentStatus(newStatus);
 
       if (newStatus === 'completed') {
-        Alert.alert('Success', 'Emergency marked as completed', [
-          {
-            text: 'Return Home',
-            onPress: () => router.replace('/driver-home' as any),
-          },
-        ]);
+        if (Platform.OS === 'web') {
+          window.alert('Emergency marked as completed');
+          router.replace('/driver-home' as any);
+        } else {
+          Alert.alert('Success', 'Emergency marked as completed', [
+            {
+              text: 'Return Home',
+              onPress: () => router.replace('/driver-home' as any),
+            },
+          ]);
+        }
       }
     } catch (error) {
       console.error('Error updating status:', error);
