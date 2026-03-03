@@ -18,7 +18,7 @@ import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { signIn, signOut } from '@/utils/auth';
+import { signIn } from '@/utils/auth';
 import { useRouter } from 'expo-router';
 
 const CARD_MAX_W = 440;
