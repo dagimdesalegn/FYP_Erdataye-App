@@ -16,6 +16,7 @@ import {
     getDriverAmbulanceDetails,
     getDriverAmbulanceId,
     getDriverAssignment,
+    getDriverStats,
     sendLocationUpdate,
     subscribeToAssignments,
     toggleAmbulanceAvailability,
@@ -39,6 +40,8 @@ export default function DriverHomeScreen() {
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
   const [ambulanceDetails, setAmbulanceDetails] = useState<AmbulanceDetails | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const [completedCount, setCompletedCount] = useState(0);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
@@ -63,6 +66,14 @@ export default function DriverHomeScreen() {
     };
 
     loadAmbulance();
+
+    // Load stats
+    const loadStats = async () => {
+      const { active, completed } = await getDriverStats(user.id);
+      setActiveCount(active);
+      setCompletedCount(completed);
+    };
+    loadStats();
   }, [user]);
 
   // Check for existing assignment
@@ -274,20 +285,20 @@ export default function DriverHomeScreen() {
         <View style={styles.statsGrid}>
           <ThemedView style={styles.statCard}>
             <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
-            <ThemedText style={styles.statNumber}>0</ThemedText>
+            <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
             <ThemedText style={styles.statLabel}>Active</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.statCard}>
             <MaterialIcons name="check-circle" size={28} color="#10B981" />
-            <ThemedText style={styles.statNumber}>0</ThemedText>
+            <ThemedText style={styles.statNumber}>{completedCount}</ThemedText>
             <ThemedText style={styles.statLabel}>Completed</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.statCard}>
             <MaterialIcons name="schedule" size={28} color="#F59E0B" />
-            <ThemedText style={styles.statNumber}>0</ThemedText>
-            <ThemedText style={styles.statLabel}>Avg Response</ThemedText>
+            <ThemedText style={styles.statNumber}>{activeCount + completedCount}</ThemedText>
+            <ThemedText style={styles.statLabel}>Total</ThemedText>
           </ThemedView>
         </View>
 
