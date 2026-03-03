@@ -2,13 +2,13 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
+    Alert,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
 } from 'react-native';
 
 import { useAppState } from '@/components/app-state';
@@ -17,18 +17,18 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  acceptEmergency,
-  declineEmergency,
-  getDriverAssignment,
-  getDriverAmbulanceId,
-  getPatientInfo,
+    acceptEmergency,
+    declineEmergency,
+    getDriverAmbulanceId,
+    getDriverAssignment,
+    getPatientInfo,
 } from '@/utils/driver';
 import {
-  buildDriverPatientMapHtml,
-  buildMapHtml,
-  calculateDistance,
-  formatCoords,
-  parsePostGISPoint,
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    calculateDistance,
+    formatCoords,
+    parsePostGISPoint,
 } from '@/utils/emergency';
 import { supabase } from '@/utils/supabase';
 
