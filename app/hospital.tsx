@@ -81,10 +81,18 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      const { data: emergencyData, error: emergencyError } = await supabase
+      // Build query - scope to hospital if linked
+      let query = supabase
         .from('emergency_requests')
         .select('*')
         .order('created_at', { ascending: false });
+
+      // If user has a hospital_id, only show emergencies assigned to their hospital
+      if (user && (user as any).hospital_id) {
+        query = query.eq('hospital_id', (user as any).hospital_id);
+      }
+
+      const { data: emergencyData, error: emergencyError } = await query;
 
       if (emergencyError) throw emergencyError;
 

@@ -18,6 +18,7 @@ import {
     getDriverAssignment,
     sendLocationUpdate,
     subscribeToAssignments,
+    toggleAmbulanceAvailability,
     type AmbulanceDetails,
 } from '@/utils/driver';
 import { getUserProfile, type UserProfile } from '@/utils/profile';
@@ -134,6 +135,7 @@ export default function DriverHomeScreen() {
 
   const handleLogout = async () => {
     setIsAvailable(false);
+    if (ambulanceId) await toggleAmbulanceAvailability(ambulanceId, false);
     const { error } = await signOut();
     if (!error) {
       setUser(null);
@@ -217,7 +219,14 @@ export default function DriverHomeScreen() {
           <ThemedText style={styles.cardTitle}>Driver Status</ThemedText>
 
           <Pressable
-            onPress={() => setIsAvailable(!isAvailable)}
+            onPress={async () => {
+              const newVal = !isAvailable;
+              setIsAvailable(newVal);
+              if (ambulanceId) {
+                const { error } = await toggleAmbulanceAvailability(ambulanceId, newVal);
+                if (error) console.warn('Failed to sync availability:', error);
+              }
+            }}
             style={[
               styles.statusToggle,
               {

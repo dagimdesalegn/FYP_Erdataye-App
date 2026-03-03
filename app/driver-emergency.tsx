@@ -7,7 +7,7 @@ import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     acceptEmergency,
@@ -206,7 +206,7 @@ export default function DriverEmergencyScreen() {
         <ThemedView
           style={[
             styles.severityHeader,
-            { backgroundColor: severityColor, opacity: 0.1 },
+            { backgroundColor: `${severityColor}18` },
           ]}>
           <MaterialIcons name={severityIcon} size={48} color={severityColor} />
           <View style={{ marginLeft: 12, flex: 1 }}>
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 12,
     textAlign: 'center',
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   severityHeader: {
     flexDirection: 'row',
@@ -441,13 +441,13 @@ const styles = StyleSheet.create({
   severity: {
     fontSize: 14,
     fontWeight: '700',
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   emergencyType: {
     fontSize: 12,
     opacity: 0.6,
     marginTop: 2,
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   card: {
     borderRadius: 16,
@@ -458,7 +458,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 16,
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   detailRow: {
     flexDirection: 'row',
@@ -468,13 +468,13 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 12,
     opacity: 0.6,
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
     marginBottom: 2,
   },
   detailValue: {
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   navigateBtn: {
     flexDirection: 'row',
@@ -487,11 +487,20 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 8,
   },
+  mapContainer: {
+    width: '100%' as any,
+    height: 220,
+    borderRadius: 12,
+    overflow: 'hidden' as const,
+    marginTop: 10,
+    marginBottom: 4,
+    backgroundColor: '#F1F5F9',
+  },
   navigateBtnText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   infoBox: {
     flexDirection: 'row',
@@ -503,7 +512,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Monospace',
+    fontFamily: Fonts.sans,
   },
   buttonContainer: {
     position: 'absolute',

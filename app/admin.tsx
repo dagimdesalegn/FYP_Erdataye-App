@@ -400,7 +400,7 @@ export default function AdminScreen() {
           </View>
 
           {/* Tabs */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabBar, { borderColor: cardBorder }]} contentContainerStyle={styles.tabBarContent}>
+          <View style={[styles.tabBar, { borderColor: cardBorder }]}>
             {([
               { key: 'users', label: 'Users', icon: 'people' },
               { key: 'emergencies', label: 'Emergencies', icon: 'warning' },
@@ -418,7 +418,7 @@ export default function AdminScreen() {
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
 
           {/* Search */}
           <View style={[styles.searchWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
@@ -525,9 +525,9 @@ const styles = StyleSheet.create({
   statCount: { fontSize: 24, fontWeight: '800', fontFamily: Fonts.sans },
   statLabel: { fontSize: 11, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
 
-  tabBar: { borderBottomWidth: 1, marginBottom: 14, flexGrow: 0 },
+  tabBar: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: 1, marginBottom: 14, gap: 2 },
   tabBarContent: { flexDirection: 'row', gap: 2 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: '#DC2626' },
   tabLabel: { fontSize: 13, fontWeight: '600', fontFamily: Fonts.sans },
   tabLabelActive: { fontWeight: '800' },
