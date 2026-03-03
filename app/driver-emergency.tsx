@@ -1,22 +1,36 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
-import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    acceptEmergency,
-    declineEmergency,
-    getDriverAssignment,
-    getPatientInfo,
+  acceptEmergency,
+  declineEmergency,
+  getDriverAssignment,
+  getDriverAmbulanceId,
+  getPatientInfo,
 } from '@/utils/driver';
-import { buildMapHtml, formatCoords, parsePostGISPoint } from '@/utils/emergency';
-import { useRouter } from 'expo-router';
+import {
+  buildDriverPatientMapHtml,
+  buildMapHtml,
+  calculateDistance,
+  formatCoords,
+  parsePostGISPoint,
+} from '@/utils/emergency';
+import { supabase } from '@/utils/supabase';
 
 interface MedicalProfile {
   blood_type?: string;
@@ -33,496 +47,544 @@ interface PatientInfo {
   medical_profiles?: MedicalProfile[];
 }
 
-/**
- * Driver Emergency Assignment Screen - Accept/Decline Emergency
- */
 export default function DriverEmergencyScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
+  const isDark = colorScheme === 'dark';
   const { user } = useAppState();
 
   const [assignment, setAssignment] = useState<any>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [driverCoords, setDriverCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  // Load assignment details
+  // Load assignment + driver location
   useEffect(() => {
     if (!user) return;
 
-    const loadAssignment = async () => {
+    const load = async () => {
       try {
         setLoading(true);
-        const { assignment, error } = await getDriverAssignment(user.id);
+        const { assignment: asgn, error } = await getDriverAssignment(user.id);
 
-        if (error) {
-          Alert.alert('Error', 'Failed to load assignment');
+        if (error || !asgn) {
+          if (Platform.OS === 'web') window.alert('No active assignment found');
+          else Alert.alert('Info', 'No active assignment found');
           router.back();
           return;
         }
 
-        if (assignment) {
-          setAssignment(assignment);
+        setAssignment(asgn);
 
-          // Load patient info
-          const { info, error: patientError } = await getPatientInfo(
-            assignment.emergency_requests?.patient_id || ''
-          );
-          if (!patientError && info) {
-            setPatientInfo(info);
+        // Load patient info
+        const pid = asgn.emergency_requests?.patient_id || '';
+        if (pid) {
+          const { info } = await getPatientInfo(pid);
+          if (info) setPatientInfo(info);
+        }
+
+        // Load driver's ambulance location
+        const { ambulanceId } = await getDriverAmbulanceId(user.id);
+        if (ambulanceId) {
+          const { data } = await supabase
+            .from('ambulances')
+            .select('last_known_location')
+            .eq('id', ambulanceId)
+            .maybeSingle();
+          if (data?.last_known_location) {
+            const parsed = parsePostGISPoint(data.last_known_location);
+            if (parsed) setDriverCoords(parsed);
           }
         }
-      } catch (error) {
-        console.error('Error loading assignment:', error);
-        Alert.alert('Error', 'Failed to load assignment details');
+      } catch (err) {
+        console.error('Error loading assignment:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadAssignment();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const handleAccept = async () => {
     if (!assignment || !user) return;
-
     try {
       setProcessing(true);
       const { error } = await acceptEmergency(assignment.id, assignment.emergency_id);
-
       if (error) {
-        Alert.alert('Error', error.message || 'Failed to accept emergency');
+        const msg = error.message || 'Failed to accept emergency';
+        Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
         return;
       }
-
-      // Navigate to emergency tracking
       router.replace({
         pathname: '/driver-emergency-tracking' as any,
         params: { emergencyId: assignment.emergency_id },
       });
-    } catch (error) {
-      console.error('Error accepting emergency:', error);
-      Alert.alert('Error', 'Failed to accept emergency');
+    } catch (err) {
+      console.error(err);
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleDecline = async () => {
+  const handleDecline = () => {
     if (!assignment || !user) return;
 
-    Alert.alert(
-      'Decline Emergency?',
-      'Are you sure you want to decline this assignment?',
-      [
-        {
-          text: 'Cancel',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'Decline',
-          onPress: async () => {
-            try {
-              setProcessing(true);
-              const { error } = await declineEmergency(assignment.id);
+    const doDecline = async () => {
+      try {
+        setProcessing(true);
+        const { error } = await declineEmergency(assignment.id);
+        if (error) {
+          const msg = error.message || 'Failed to decline';
+          Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
+          return;
+        }
+        router.replace('/driver-home' as any);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setProcessing(false);
+      }
+    };
 
-              if (error) {
-                Alert.alert('Error', error.message || 'Failed to decline assignment');
-                return;
-              }
-
-              // Go back to home
-              router.replace('/driver-home' as any);
-              Alert.alert('Success', 'Assignment declined');
-            } catch (error) {
-              console.error('Error declining emergency:', error);
-              Alert.alert('Error', 'Failed to decline assignment');
-            } finally {
-              setProcessing(false);
-            }
-          },
-          style: 'destructive',
-        },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      if (window.confirm('Are you sure you want to decline this emergency?')) doDecline();
+    } else {
+      Alert.alert('Decline Emergency?', 'Are you sure?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Decline', style: 'destructive', onPress: doDecline },
+      ]);
+    }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity?.toLowerCase()) {
+  // ─── Helpers ──────────────────────────────────────────────
+  const severityMeta = (type: string) => {
+    switch (type?.toLowerCase()) {
       case 'critical':
-        return '#DC2626';
+        return { color: '#DC2626', bg: '#FEE2E2', icon: 'priority-high' as const, label: 'CRITICAL' };
       case 'high':
-        return '#F59E0B';
+        return { color: '#EA580C', bg: '#FFF7ED', icon: 'warning' as const, label: 'HIGH' };
       case 'medium':
-        return '#0EA5E9';
+        return { color: '#0284C7', bg: '#E0F2FE', icon: 'info' as const, label: 'MEDIUM' };
       case 'low':
-        return '#10B981';
+        return { color: '#059669', bg: '#ECFDF5', icon: 'check-circle' as const, label: 'LOW' };
       default:
-        return '#6B7280';
+        return { color: '#6B7280', bg: '#F3F4F6', icon: 'help' as const, label: type?.toUpperCase() || 'UNKNOWN' };
     }
   };
 
-  const getSeverityIcon = (severity: string) => {
-    switch (severity?.toLowerCase()) {
-      case 'critical':
-        return 'priority-high';
-      case 'high':
-        return 'warning';
-      case 'medium':
-        return 'info';
-      default:
-        return 'check-circle';
-    }
-  };
-
+  // ─── Loading / empty ─────────────────────────────────────
   if (loading) {
-    return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading assignment..." />;
+    return <LoadingModal visible colorScheme={colorScheme} message="Loading assignment..." />;
   }
 
   if (!assignment) {
     return (
-      <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="assignment-late" size={48} color="#9CA3AF" />
-          <ThemedText style={styles.emptyText}>No assignments available</ThemedText>
+      <View style={[styles.root, { backgroundColor: Colors[colorScheme].background }]}>
+        <View style={styles.emptyWrap}>
+          <MaterialIcons name="assignment-late" size={56} color="#94A3B8" />
+          <ThemedText style={styles.emptyLabel}>No active assignment</ThemedText>
         </View>
       </View>
     );
   }
 
   const emergency = assignment.emergency_requests;
-  const emergencyCoords = parsePostGISPoint(emergency.patient_location);
-  const severityColor = getSeverityColor(emergency.emergency_type);
-  const severityIcon = getSeverityIcon(emergency.emergency_type);
+  const patientCoords = parsePostGISPoint(emergency?.patient_location);
+  const sev = severityMeta(emergency?.emergency_type);
+
+  // Distance between driver and patient
+  let distanceText = '';
+  if (driverCoords && patientCoords) {
+    const km = calculateDistance(
+      driverCoords.latitude, driverCoords.longitude,
+      patientCoords.latitude, patientCoords.longitude,
+    );
+    distanceText = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  }
+
+  // Map HTML
+  const mapHtml =
+    driverCoords && patientCoords
+      ? buildDriverPatientMapHtml(
+          driverCoords.latitude, driverCoords.longitude,
+          patientCoords.latitude, patientCoords.longitude,
+        )
+      : patientCoords
+        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
+        : null;
+
+  const med = patientInfo?.medical_profiles?.[0];
+
+  // ─── UI ───────────────────────────────────────────────────
+  const cardBg = isDark ? '#1E293B' : '#FFFFFF';
+  const cardBorder = isDark ? '#334155' : '#E2E8F0';
+  const subtleText = isDark ? '#94A3B8' : '#64748B';
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.root, { backgroundColor: isDark ? '#0F172A' : '#F1F5F9' }]}>
       <LoadingModal visible={processing} colorScheme={colorScheme} message="Processing..." />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Severity Header */}
-        <ThemedView
-          style={[
-            styles.severityHeader,
-            { backgroundColor: `${severityColor}18` },
-          ]}>
-          <MaterialIcons name={severityIcon} size={48} color={severityColor} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Severity Banner ───────────────────────────── */}
+        <View style={[styles.severityBanner, { backgroundColor: sev.bg }]}>
+          <MaterialIcons name={sev.icon} size={28} color={sev.color} />
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <ThemedText style={[styles.severity, { color: severityColor }]}>
-              {emergency.emergency_type?.toUpperCase() || 'UNKNOWN'} SEVERITY
+            <ThemedText style={[styles.sevLabel, { color: sev.color }]}>
+              {sev.label} EMERGENCY
             </ThemedText>
-            <ThemedText style={styles.emergencyType}>Emergency Request</ThemedText>
+            <ThemedText style={[styles.sevSub, { color: sev.color + 'AA' }]}>
+              {new Date(emergency?.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {distanceText ? `  •  ${distanceText} away` : ''}
+            </ThemedText>
           </View>
-        </ThemedView>
+        </View>
 
-        {/* Emergency Details */}
-        <ThemedView style={styles.card}>
-          <ThemedText style={styles.cardTitle}>Emergency Details</ThemedText>
-
-          <View style={styles.detailRow}>
-            <MaterialIcons name="location-on" size={20} color="#0EA5E9" />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <ThemedText style={styles.detailLabel}>Location</ThemedText>
-              <ThemedText style={styles.detailValue}>
-                {formatCoords(Number(emergencyCoords?.latitude ?? 0), Number(emergencyCoords?.longitude ?? 0))}
+        {/* ── MAP ───────────────────────────────────────── */}
+        {mapHtml && Platform.OS === 'web' && (
+          <View style={[styles.mapCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.mapHeader}>
+              <MaterialIcons name="map" size={18} color="#0EA5E9" />
+              <ThemedText style={[styles.mapTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                Live Map
               </ThemedText>
+              {distanceText ? (
+                <View style={styles.distBadge}>
+                  <ThemedText style={styles.distText}>{distanceText}</ThemedText>
+                </View>
+              ) : null}
             </View>
+            <View style={styles.mapFrame}>
+              <iframe
+                src={mapHtml}
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
+                title="Emergency Map"
+              />
+            </View>
+
+            {/* Navigate button inside map card */}
+            {patientCoords && (
+              <Pressable
+                onPress={() => {
+                  const url = `https://www.google.com/maps/dir/?api=1&destination=${patientCoords.latitude},${patientCoords.longitude}`;
+                  Linking.openURL(url);
+                }}
+                style={styles.navBtn}
+              >
+                <MaterialIcons name="navigation" size={18} color="#FFF" />
+                <ThemedText style={styles.navBtnText}>Open in Google Maps</ThemedText>
+              </Pressable>
+            )}
           </View>
-
-          <View style={styles.detailRow}>
-            <MaterialIcons name="description" size={20} color="#0EA5E9" />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <ThemedText style={styles.detailLabel}>Description</ThemedText>
-              <ThemedText style={styles.detailValue}>{emergency.description}</ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <MaterialIcons name="access-time" size={20} color="#0EA5E9" />
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <ThemedText style={styles.detailLabel}>Status</ThemedText>
-              <ThemedText style={styles.detailValue}>
-                {emergency.status?.replace(/_/g, ' ').toUpperCase()}
-              </ThemedText>
-            </View>
-          </View>
-        </ThemedView>
-
-        {/* Patient Information */}
-        {patientInfo && (
-          <ThemedView style={styles.card}>
-            <ThemedText style={styles.cardTitle}>Patient Information</ThemedText>
-
-            <View style={styles.detailRow}>
-              <MaterialIcons name="person" size={20} color="#10B981" />
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <ThemedText style={styles.detailLabel}>Name</ThemedText>
-                <ThemedText style={styles.detailValue}>{patientInfo.full_name}</ThemedText>
-              </View>
-            </View>
-
-            <View style={styles.detailRow}>
-              <MaterialIcons name="phone" size={20} color="#10B981" />
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <ThemedText style={styles.detailLabel}>Contact</ThemedText>
-                <Pressable onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}>
-                  <ThemedText style={[styles.detailValue, { color: '#0EA5E9', textDecorationLine: 'underline' }]}>{patientInfo.phone}</ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          </ThemedView>
         )}
 
-        {/* Patient Medical Profile - Inline */}
-        {patientInfo?.medical_profiles && patientInfo.medical_profiles.length > 0 && (() => {
-          const med = patientInfo.medical_profiles![0];
-          return (
-            <ThemedView style={styles.card}>
-              <ThemedText style={styles.cardTitle}>Medical Profile</ThemedText>
-
-              {med.blood_type ? (
-                <View style={styles.detailRow}>
-                  <MaterialIcons name="bloodtype" size={20} color="#DC2626" />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <ThemedText style={styles.detailLabel}>Blood Type</ThemedText>
-                    <ThemedText style={[styles.detailValue, { fontWeight: '700', color: '#DC2626' }]}>{med.blood_type}</ThemedText>
-                  </View>
-                </View>
-              ) : null}
-
-              {med.allergies ? (
-                <View style={styles.detailRow}>
-                  <MaterialIcons name="warning" size={20} color="#F59E0B" />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <ThemedText style={styles.detailLabel}>Allergies</ThemedText>
-                    <ThemedText style={[styles.detailValue, { color: '#F59E0B' }]}>{med.allergies}</ThemedText>
-                  </View>
-                </View>
-              ) : null}
-
-              {med.medical_conditions ? (
-                <View style={styles.detailRow}>
-                  <MaterialIcons name="local-hospital" size={20} color="#0EA5E9" />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <ThemedText style={styles.detailLabel}>Medical Conditions</ThemedText>
-                    <ThemedText style={styles.detailValue}>{med.medical_conditions}</ThemedText>
-                  </View>
-                </View>
-              ) : null}
-
-              {med.emergency_contact_name ? (
-                <View style={styles.detailRow}>
-                  <MaterialIcons name="contacts" size={20} color="#10B981" />
-                  <View style={{ marginLeft: 12, flex: 1 }}>
-                    <ThemedText style={styles.detailLabel}>Emergency Contact</ThemedText>
-                    <ThemedText style={styles.detailValue}>{med.emergency_contact_name}</ThemedText>
-                    {med.emergency_contact_phone ? (
-                      <Pressable onPress={() => Linking.openURL(`tel:${med.emergency_contact_phone}`)}>
-                        <ThemedText style={[styles.detailValue, { color: '#0EA5E9', textDecorationLine: 'underline', marginTop: 2 }]}>{med.emergency_contact_phone}</ThemedText>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-            </ThemedView>
-          );
-        })()}
-
-        {/* Real Location - Live Map + Navigate */}
-        {emergencyCoords && (
-          <ThemedView style={styles.card}>
-            <ThemedText style={styles.cardTitle}>Patient Location</ThemedText>
-            <View style={styles.detailRow}>
-              <MaterialIcons name="my-location" size={20} color="#DC2626" />
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <ThemedText style={styles.detailLabel}>Coordinates</ThemedText>
-                <ThemedText style={styles.detailValue}>
-                  {formatCoords(emergencyCoords.latitude, emergencyCoords.longitude)}
-                </ThemedText>
+        {/* ── Patient Info Card ─────────────────────────── */}
+        {patientInfo && (
+          <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
+                <MaterialIcons name="person" size={20} color="#059669" />
               </View>
+              <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                Patient
+              </ThemedText>
             </View>
 
-            {/* Embedded Map */}
-            {Platform.OS === 'web' ? (
-              <View style={styles.mapContainer}>
-                <iframe
-                  src={buildMapHtml(emergencyCoords.latitude, emergencyCoords.longitude, 15)}
-                  style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
-                  title="Patient Location Map"
-                />
+            <View style={styles.infoRow}>
+              <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Name</ThemedText>
+              <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                {patientInfo.full_name}
+              </ThemedText>
+            </View>
+
+            {patientInfo.phone ? (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Phone</ThemedText>
+                <Pressable onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}>
+                  <ThemedText style={styles.phoneLink}>{patientInfo.phone}</ThemedText>
+                </Pressable>
               </View>
-            ) : (
-              <View style={styles.mapContainer}>
-                <ThemedText style={[styles.detailLabel, { textAlign: 'center', marginTop: 60 }]}>Map preview available on web</ThemedText>
+            ) : null}
+
+            {patientCoords && (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Location</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A', fontSize: 13 }]}>
+                  {formatCoords(patientCoords.latitude, patientCoords.longitude)}
+                </ThemedText>
               </View>
             )}
 
-            <Pressable
-              onPress={() => {
-                const url = Platform.select({
-                  ios: `maps:0,0?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
-                  android: `geo:${emergencyCoords.latitude},${emergencyCoords.longitude}?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
-                  default: `https://www.google.com/maps?q=${emergencyCoords.latitude},${emergencyCoords.longitude}`,
-                });
-                Linking.openURL(url);
-              }}
-              style={styles.navigateBtn}
-            >
-              <MaterialIcons name="navigation" size={20} color="#FFFFFF" />
-              <ThemedText style={styles.navigateBtnText}>Navigate to Patient</ThemedText>
-            </Pressable>
-          </ThemedView>
+            {emergency?.description ? (
+              <View style={[styles.descBox, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderColor: cardBorder }]}>
+                <MaterialIcons name="description" size={16} color={subtleText} />
+                <ThemedText style={[styles.descText, { color: isDark ? '#CBD5E1' : '#475569' }]}>
+                  {emergency.description}
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
         )}
 
-        {/* Additional Info */}
-        <ThemedView style={styles.card}>
-          <ThemedText style={styles.cardTitle}>Important</ThemedText>
-          <View style={styles.infoBox}>
-            <MaterialIcons name="info" size={20} color="#0EA5E9" />
-            <ThemedText style={styles.infoText}>
-              By accepting this emergency, you acknowledge that you will provide assistance to the patient
-              and will be tracked in real-time.
-            </ThemedText>
+        {/* ── Medical Profile Card ──────────────────────── */}
+        {med && (
+          <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+                <MaterialIcons name="medical-services" size={20} color="#DC2626" />
+              </View>
+              <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                Medical Info
+              </ThemedText>
+            </View>
+
+            {/* Blood type badge */}
+            {med.blood_type ? (
+              <View style={styles.bloodRow}>
+                <View style={styles.bloodBadge}>
+                  <ThemedText style={styles.bloodText}>{med.blood_type}</ThemedText>
+                </View>
+                <ThemedText style={[styles.infoLabel, { color: subtleText, marginLeft: 8 }]}>
+                  Blood Type
+                </ThemedText>
+              </View>
+            ) : null}
+
+            {med.allergies ? (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Allergies</ThemedText>
+                <View style={[styles.alertChip, { backgroundColor: '#FEF3C7' }]}>
+                  <MaterialIcons name="warning" size={14} color="#D97706" />
+                  <ThemedText style={{ color: '#92400E', fontSize: 13, fontFamily: Fonts.sans, marginLeft: 4 }}>
+                    {med.allergies}
+                  </ThemedText>
+                </View>
+              </View>
+            ) : null}
+
+            {med.medical_conditions ? (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Conditions</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                  {med.medical_conditions}
+                </ThemedText>
+              </View>
+            ) : null}
+
+            {med.emergency_contact_name ? (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Emergency Contact</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                  {med.emergency_contact_name}
+                </ThemedText>
+                {med.emergency_contact_phone ? (
+                  <Pressable onPress={() => Linking.openURL(`tel:${med.emergency_contact_phone}`)}>
+                    <ThemedText style={[styles.phoneLink, { marginTop: 2 }]}>
+                      {med.emergency_contact_phone}
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
           </View>
-        </ThemedView>
+        )}
       </ScrollView>
 
-      {/* Action Buttons */}
-      <View style={[styles.buttonContainer, { backgroundColor: Colors[colorScheme].background }]}>
-        <AppButton
-          label="Decline"
+      {/* ── Bottom Action Bar ────────────────────────────── */}
+      <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF', borderTopColor: cardBorder }]}>
+        <Pressable
           onPress={handleDecline}
-          variant="secondary"
-          fullWidth
           disabled={processing}
-          style={{ marginRight: 12 }}
-        />
-        <AppButton
-          label="Accept"
+          style={({ pressed }) => [
+            styles.declineBtn,
+            pressed && { opacity: 0.8 },
+            processing && { opacity: 0.5 },
+          ]}
+        >
+          <MaterialIcons name="close" size={22} color="#DC2626" />
+          <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+        </Pressable>
+
+        <Pressable
           onPress={handleAccept}
-          variant="primary"
-          fullWidth
           disabled={processing}
-        />
+          style={({ pressed }) => [
+            styles.acceptBtn,
+            pressed && { opacity: 0.85 },
+            processing && { opacity: 0.5 },
+          ]}
+        >
+          <MaterialIcons name="check" size={22} color="#FFF" />
+          <ThemedText style={styles.acceptBtnText}>Accept Emergency</ThemedText>
+        </Pressable>
       </View>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
   },
-  scroll: {
+  scrollContent: {
     padding: 16,
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginTop: 12,
-    textAlign: 'center',
-    fontFamily: Fonts.sans,
-  },
-  severityHeader: {
+
+  // Empty
+  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+  emptyLabel: { fontSize: 16, marginTop: 12, fontFamily: Fonts.sans, color: '#94A3B8' },
+
+  // Severity banner
+  severityBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  severity: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-  },
-  emergencyType: {
-    fontSize: 12,
-    opacity: 0.6,
-    marginTop: 2,
-    fontFamily: Fonts.sans,
-  },
-  card: {
-    borderRadius: 16,
-    padding: 16,
+    padding: 14,
+    borderRadius: 14,
     marginBottom: 16,
   },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+  sevLabel: { fontSize: 16, fontWeight: '800', fontFamily: Fonts.sans, letterSpacing: 0.5 },
+  sevSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
+
+  // Map card
+  mapCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
     marginBottom: 16,
-    fontFamily: Fonts.sans,
   },
-  detailRow: {
+  mapHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    padding: 14,
+    paddingBottom: 0,
   },
-  detailLabel: {
-    fontSize: 12,
-    opacity: 0.6,
-    fontFamily: Fonts.sans,
-    marginBottom: 2,
+  mapTitle: { fontSize: 15, fontWeight: '600', fontFamily: Fonts.sans, marginLeft: 8, flex: 1 },
+  distBadge: {
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '500',
-    fontFamily: Fonts.sans,
+  distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
+  mapFrame: {
+    width: '100%' as any,
+    height: 300,
+    marginTop: 10,
+    paddingHorizontal: 14,
   },
-  navigateBtn: {
+  navBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#0EA5E9',
+    margin: 14,
+    marginTop: 10,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     borderRadius: 12,
-    marginTop: 8,
     gap: 8,
   },
-  mapContainer: {
-    width: '100%' as any,
-    height: 220,
-    borderRadius: 12,
-    overflow: 'hidden' as const,
-    marginTop: 10,
-    marginBottom: 4,
-    backgroundColor: '#F1F5F9',
+  navBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans },
+
+  // Info card
+  infoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
   },
-  navigateBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
-    fontFamily: Fonts.sans,
-  },
-  infoBox: {
+  cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeading: { fontSize: 16, fontWeight: '700', fontFamily: Fonts.sans, marginLeft: 10 },
+
+  infoRow: { marginBottom: 14 },
+  infoLabel: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { fontSize: 15, fontWeight: '600', fontFamily: Fonts.sans },
+
+  phoneLink: { fontSize: 15, fontWeight: '600', fontFamily: Fonts.sans, color: '#0EA5E9', textDecorationLine: 'underline' },
+
+  descBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     padding: 12,
-    backgroundColor: 'rgba(6, 165, 225, 0.1)',
-    borderRadius: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 4,
   },
-  infoText: {
-    fontSize: 13,
-    marginLeft: 12,
-    flex: 1,
-    fontFamily: Fonts.sans,
+  descText: { fontSize: 13, fontFamily: Fonts.sans, marginLeft: 8, flex: 1, lineHeight: 20 },
+
+  // Medical
+  bloodRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  bloodBadge: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  buttonContainer: {
+  bloodText: { color: '#FFF', fontWeight: '800', fontSize: 16, fontFamily: Fonts.sans },
+
+  alertChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+
+  // Bottom bar
+  bottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
-    padding: 16,
-    paddingBottom: 24,
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 28,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
+    gap: 12,
   },
+  declineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    gap: 6,
+  },
+  declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
+  acceptBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#059669',
+    gap: 6,
+  },
+  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16, fontFamily: Fonts.sans },
 });
