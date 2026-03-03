@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     Linking,
@@ -12,6 +12,7 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
@@ -19,11 +20,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-    acceptEmergency,
-    declineEmergency,
-    getDriverAmbulanceId,
-    getDriverAssignment,
-    getPatientInfo,
+  acceptEmergency,
+  declineEmergency,
+  getDriverAmbulanceId,
+  getDriverAssignment,
+  getPatientInfo,
+  subscribeToAssignments,
 } from '@/utils/driver';
 import {
     buildDriverPatientMapHtml,
@@ -65,54 +67,67 @@ export default function DriverEmergencyScreen() {
   const [processing, setProcessing] = useState(false);
   const [driverCoords, setDriverCoords] = useState<{ latitude: number; longitude: number } | null>(null);
 
-  // Load assignment + driver location
-  useEffect(() => {
+  const loadAssignment = useCallback(async (options?: { silent?: boolean }) => {
     if (!user) return;
+    if (!options?.silent) {
+      setLoading(true);
+    }
 
-    const load = async () => {
-      try {
-        setLoading(true);
-        const { assignment: asgn, error } = await getDriverAssignment(user.id);
+    try {
+      const { assignment: asgn, error } = await getDriverAssignment(user.id);
 
-        if (error || !asgn) {
-          if (Platform.OS === 'web') window.alert('No active assignment found');
-          else Alert.alert('Info', 'No active assignment found');
+      if (error || !asgn) {
+        if (!options?.silent) {
+          const message = 'No active assignment found';
+          if (Platform.OS === 'web') window.alert(message);
+          else Alert.alert('Info', message);
           router.back();
-          return;
         }
+        return;
+      }
 
-        setAssignment(asgn);
+      setAssignment(asgn);
 
-        // Load patient info
-        const pid = asgn.emergency_requests?.patient_id || '';
-        if (pid) {
-          const { info } = await getPatientInfo(pid);
-          if (info) setPatientInfo(info);
+      // Load patient info
+      const pid = asgn.emergency_requests?.patient_id || '';
+      if (pid) {
+        const { info } = await getPatientInfo(pid);
+        if (info) setPatientInfo(info);
+      }
+
+      // Load driver's ambulance location
+      const { ambulanceId } = await getDriverAmbulanceId(user.id);
+      if (ambulanceId) {
+        const { data } = await supabaseAdmin
+          .from('ambulances')
+          .select('last_known_location')
+          .eq('id', ambulanceId)
+          .maybeSingle();
+        if (data?.last_known_location) {
+          const parsed = parsePostGISPoint(data.last_known_location);
+          if (parsed) setDriverCoords(parsed);
         }
-
-        // Load driver's ambulance location
-        const { ambulanceId } = await getDriverAmbulanceId(user.id);
-        if (ambulanceId) {
-          const { data } = await supabaseAdmin
-            .from('ambulances')
-            .select('last_known_location')
-            .eq('id', ambulanceId)
-            .maybeSingle();
-          if (data?.last_known_location) {
-            const parsed = parsePostGISPoint(data.last_known_location);
-            if (parsed) setDriverCoords(parsed);
-          }
-        }
-      } catch (err) {
-        console.error('Error loading assignment:', err);
-      } finally {
+      }
+    } catch (err) {
+      console.error('Error loading assignment:', err);
+    } finally {
+      if (!options?.silent) {
         setLoading(false);
       }
-    };
+    }
+  }, [router, user]);
 
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  useEffect(() => {
+    loadAssignment();
+  }, [loadAssignment]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = subscribeToAssignments(user.id, () => {
+      loadAssignment({ silent: true });
+    });
+    return unsubscribe;
+  }, [user, loadAssignment]);
 
   const handleAccept = async () => {
     if (!assignment || !user) return;
@@ -412,32 +427,64 @@ export default function DriverEmergencyScreen() {
       </ScrollView>
 
       {/* ── Bottom Action Bar ────────────────────────────── */}
-      <View style={[styles.bottomBar, { backgroundColor: isDark ? '#1E293B' : '#FFFFFF', borderTopColor: cardBorder, paddingBottom: Math.max(insets.bottom, 20) }]}>
-        <Pressable
-          onPress={handleDecline}
-          disabled={processing}
-          style={({ pressed }) => [
-            styles.declineBtn,
-            pressed && { opacity: 0.8 },
-            processing && { opacity: 0.5 },
-          ]}
-        >
-          <MaterialIcons name="close" size={22} color="#DC2626" />
-          <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
-        </Pressable>
+      <View
+        style={[
+          styles.bottomBar,
+          {
+            backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+            borderColor: cardBorder,
+            paddingBottom: Math.max(insets.bottom, 24),
+          },
+        ]}
+      >
+        <View style={styles.bottomInfo}>
+          <View style={styles.bottomTag}>
+            <MaterialIcons name="flash-on" size={18} color="#0EA5E9" />
+            <ThemedText style={[styles.bottomTitle, { color: isDark ? '#E2E8F0' : '#0F172A' }]}>Incoming emergency</ThemedText>
+          </View>
+          <ThemedText style={[styles.bottomSubtitle, { color: subtleText }]}>
+            {patientInfo?.full_name
+              ? `${patientInfo.full_name} needs help${distanceText ? ` • ${distanceText}` : ''}`
+              : distanceText
+                ? `Emergency is ${distanceText} away` 
+                : 'Routing the ambulance closest to you'}
+          </ThemedText>
+        </View>
 
-        <Pressable
-          onPress={handleAccept}
-          disabled={processing}
-          style={({ pressed }) => [
-            styles.acceptBtn,
-            pressed && { opacity: 0.85 },
-            processing && { opacity: 0.5 },
-          ]}
-        >
-          <MaterialIcons name="check" size={22} color="#FFF" />
-          <ThemedText style={styles.acceptBtnText}>Accept Emergency</ThemedText>
-        </Pressable>
+        <View style={styles.buttonRow}>
+          <Pressable
+            onPress={handleDecline}
+            disabled={processing}
+            style={({ pressed }) => [
+              styles.declineBtn,
+              pressed && { opacity: 0.85 },
+              processing && { opacity: 0.6 },
+            ]}
+          >
+            <MaterialIcons name="close" size={20} color="#DC2626" />
+            <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+          </Pressable>
+
+          <Pressable
+            onPress={handleAccept}
+            disabled={processing}
+            style={({ pressed }) => [
+              styles.acceptWrapper,
+              pressed && { opacity: 0.95 },
+              processing && { opacity: 0.6 },
+            ]}
+          >
+            <LinearGradient
+              colors={['#0EA5E9', '#0B1120']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.acceptGradient}
+            >
+              <MaterialIcons name="check" size={20} color="#FFF" />
+              <ThemedText style={styles.acceptBtnText}>Accept & Navigate</ThemedText>
+            </LinearGradient>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -450,7 +497,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 140,
+    paddingBottom: 240,
     maxWidth: 640,
     alignSelf: 'center' as any,
     width: '100%' as any,
@@ -580,43 +627,72 @@ const styles = StyleSheet.create({
   // Bottom bar
   bottomBar: {
     position: 'absolute' as any,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 12,
+    left: 12,
+    right: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    padding: 18,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 20,
+    elevation: 14,
+  },
+  bottomInfo: {
+    flex: 1,
+    paddingRight: 6,
+  },
+  bottomTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: Platform.OS === 'web' ? 20 : 28,
-    borderTopWidth: 1,
-    gap: 12,
-    maxWidth: 720,
-    alignSelf: 'center' as any,
-    width: '100%' as any,
+    gap: 6,
+    marginBottom: 4,
   },
-  declineBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 14,
-    borderWidth: 2,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-    gap: 8,
+  bottomTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
   },
-  declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
-  acceptBtn: {
+  bottomSubtitle: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    lineHeight: 18,
+  },
+  buttonRow: {
     flex: 1,
     flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'flex-end',
+  },
+  declineBtn: {
+    flex: 0.95,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans },
+  acceptWrapper: {
+    flex: 1,
+  },
+  acceptGradient: {
+    flex: 1,
+    borderRadius: 16,
     paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
-  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16, fontFamily: Fonts.sans },
+  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
 });
