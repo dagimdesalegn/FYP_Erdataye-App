@@ -383,14 +383,6 @@ export default function AdminScreen() {
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader title="Erdataya Admin" onProfilePress={() => setProfileVisible(true)} />
 
-      {/* X close / back button */}
-      <Pressable
-        onPress={() => { signOut().then(() => { setUser(null); router.replace('/'); }); }}
-        style={[styles.closeBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' }]}
-      >
-        <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
-      </Pressable>
-
       <ScrollView style={styles.scrollOuter} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
 
@@ -408,7 +400,7 @@ export default function AdminScreen() {
           </View>
 
           {/* Tabs */}
-          <View style={[styles.tabBar, { borderColor: cardBorder }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.tabBar, { borderColor: cardBorder }]} contentContainerStyle={styles.tabBarContent}>
             {([
               { key: 'users', label: 'Users', icon: 'people' },
               { key: 'emergencies', label: 'Emergencies', icon: 'warning' },
@@ -426,7 +418,7 @@ export default function AdminScreen() {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
 
           {/* Search */}
           <View style={[styles.searchWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
@@ -533,8 +525,9 @@ const styles = StyleSheet.create({
   statCount: { fontSize: 24, fontWeight: '800', fontFamily: Fonts.sans },
   statLabel: { fontSize: 11, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
 
-  tabBar: { flexDirection: 'row', borderBottomWidth: 1, marginBottom: 14, gap: 4 },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabBar: { borderBottomWidth: 1, marginBottom: 14, flexGrow: 0 },
+  tabBarContent: { flexDirection: 'row', gap: 2 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: '#DC2626' },
   tabLabel: { fontSize: 13, fontWeight: '600', fontFamily: Fonts.sans },
   tabLabelActive: { fontWeight: '800' },
