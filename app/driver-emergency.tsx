@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
+    Dimensions,
     Linking,
     Platform,
     Pressable,
@@ -213,7 +214,7 @@ export default function DriverEmergencyScreen() {
           patientCoords.latitude, patientCoords.longitude,
         )
       : patientCoords
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
+        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
         : null;
 
   const med = patientInfo?.medical_profiles?.[0];
@@ -440,13 +441,19 @@ export default function DriverEmergencyScreen() {
 }
 
 // ─── Styles ──────────────────────────────────────────────────
+const { width: SCREEN_W } = Dimensions.get('window');
+const isWide = SCREEN_W > 600;
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: isWide ? 32 : 16,
     paddingBottom: 140,
+    maxWidth: isWide ? 720 : 640,
+    alignSelf: 'center' as any,
+    width: '100%' as any,
   },
   closeBtn: {
     alignSelf: 'flex-end',
@@ -496,7 +503,7 @@ const styles = StyleSheet.create({
   distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
   mapFrame: {
     width: '100%' as any,
-    height: 300,
+    height: isWide ? 450 : 300,
     marginTop: 10,
     paddingHorizontal: 14,
   },
@@ -572,29 +579,32 @@ const styles = StyleSheet.create({
 
   // Bottom bar
   bottomBar: {
-    position: 'absolute',
+    position: 'absolute' as any,
     bottom: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    paddingHorizontal: isWide ? 32 : 16,
     paddingTop: 14,
-    paddingBottom: 28,
+    paddingBottom: Platform.OS === 'web' ? 20 : 28,
     borderTopWidth: 1,
     gap: 12,
+    ...(isWide ? { maxWidth: 720, alignSelf: 'center' as any, left: 'auto' as any, right: 'auto' as any, width: '100%' as any } : {}),
   },
   declineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: isWide ? 16 : 14,
+    paddingHorizontal: isWide ? 28 : 20,
     borderRadius: 14,
     borderWidth: 2,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
-    gap: 6,
+    gap: 8,
+    minWidth: isWide ? 140 : undefined,
   },
   declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
   acceptBtn: {
@@ -602,10 +612,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: isWide ? 16 : 14,
     borderRadius: 14,
     backgroundColor: '#059669',
-    gap: 6,
+    gap: 8,
   },
   acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16, fontFamily: Fonts.sans },
 });

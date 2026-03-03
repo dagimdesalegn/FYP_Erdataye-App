@@ -21,15 +21,34 @@ export function buildMapHtml(lat: number, lng: number, zoom: number = 17): strin
 }
 
 /**
- * Build a Google Maps embed URL showing directions between driver and patient.
- * Returns a direct URL suitable for iframe src – no CORS issues.
+ * Build a Google Maps embed URL showing the driver → patient area.
+ * Calculates the midpoint and an appropriate zoom level based on the
+ * distance between the two locations so the iframe actually zooms in
+ * instead of showing the entire world.
  */
 export function buildDriverPatientMapHtml(
   driverLat: number, driverLng: number,
   patientLat: number, patientLng: number,
   _options?: { blueLabel?: string; redLabel?: string; bluePopup?: string; redPopup?: string },
 ): string {
-  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&output=embed`;
+  // Calculate midpoint
+  const midLat = (driverLat + patientLat) / 2;
+  const midLng = (driverLng + patientLng) / 2;
+
+  // Calculate distance between points (km) to pick zoom
+  const dist = calculateDistance(driverLat, driverLng, patientLat, patientLng);
+
+  let zoom: number;
+  if (dist < 0.5) zoom = 16;       // < 500 m  – street level
+  else if (dist < 2) zoom = 15;    // < 2 km   – neighbourhood
+  else if (dist < 5) zoom = 14;    // < 5 km   – city area
+  else if (dist < 10) zoom = 13;   // < 10 km  – city wide
+  else if (dist < 20) zoom = 12;   // < 20 km  – metro area
+  else if (dist < 50) zoom = 11;   // < 50 km  – region
+  else zoom = 10;                  // far apart
+
+  // Use the patient location as the query pin, centered on the midpoint
+  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&ll=${midLat},${midLng}&z=${zoom}&output=embed`;
 }
 
 /**
@@ -40,7 +59,7 @@ export function buildPatientRequestMapHtml(
   patientLat: number, patientLng: number,
   _ambulances: { lat: number; lng: number; label?: string }[],
 ): string {
-  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=14&output=embed`;
+  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&output=embed`;
 }
 
 /**

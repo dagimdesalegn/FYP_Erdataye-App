@@ -402,7 +402,7 @@ export default function PatientEmergencyScreen() {
                     {(() => {
                       const mapHtml = nearbyAmbulances.length > 0
                         ? buildPatientRequestMapHtml(location.latitude, location.longitude, nearbyAmbulances)
-                        : buildMapHtml(location.latitude, location.longitude, 14);
+                        : buildMapHtml(location.latitude, location.longitude, 16);
                       return (
                         <iframe
                           src={mapHtml}

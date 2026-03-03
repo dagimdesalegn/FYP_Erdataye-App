@@ -220,9 +220,9 @@ export default function DriverEmergencyTrackingScreen() {
           { blueLabel: 'You', redLabel: 'Patient', bluePopup: '🚑 You', redPopup: '🆘 Patient' },
         )
       : patientCoords
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
+        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
         : driverCoords
-          ? buildMapHtml(driverCoords.latitude, driverCoords.longitude, 15)
+          ? buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16)
           : null;
 
   const cardBg = isDark ? '#1E293B' : '#FFFFFF';
@@ -541,7 +541,7 @@ const styles = StyleSheet.create({
 
   // Map tab
   mapTabWrap: { flex: 1, position: 'relative', overflow: 'hidden' as any },
-  mapFull: { flex: 1, width: '100%' as any, minHeight: 300 },
+  mapFull: { flex: 1, width: '100%' as any, minHeight: isWide ? 450 : 350 },
   noMapWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 },
   noMapText: { fontSize: 14, fontFamily: Fonts.sans },
 
