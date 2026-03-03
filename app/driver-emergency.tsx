@@ -28,7 +28,6 @@ import {
     buildMapHtml,
     calculateDistance,
     formatCoords,
-    mapHtmlToBlobUrl,
     parsePostGISPoint,
 } from '@/utils/emergency';
 import { supabase } from '@/utils/supabase';
@@ -274,7 +273,7 @@ export default function DriverEmergencyScreen() {
             </View>
             <View style={styles.mapFrame}>
               <iframe
-                src={mapHtmlToBlobUrl(mapHtml)}
+                src={mapHtml}
                 style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
                 title="Emergency Map"
               />
