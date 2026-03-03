@@ -6,7 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { formatCoords } from '@/utils/emergency';
+import { buildMapHtml, formatCoords } from '@/utils/emergency';
 import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -144,7 +144,7 @@ export default function HelpScreen() {
 
   const mapEmbedUrl = React.useMemo(() => {
     if (!mapLocation) return null;
-    return `https://maps.google.com/maps?q=${mapLocation.latitude},${mapLocation.longitude}&z=17&output=embed`;
+    return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
   }, [mapLocation]);
 
   const mapSummaryText = React.useMemo(() => {

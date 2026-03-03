@@ -378,7 +378,8 @@ export const acceptEmergency = async (
  * Decline emergency assignment
  */
 export const declineEmergency = async (
-  assignmentId: string
+  assignmentId: string,
+  emergencyId?: string
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     // Try emergency_assignments table first
@@ -389,11 +390,13 @@ export const declineEmergency = async (
         .eq('id', assignmentId);
     } catch { /* ignore if table missing */ }
 
-    // Also cancel the emergency request itself (in case it's the fallback path)
+    // Cancel the emergency request
+    // Use emergencyId if provided (normal path), otherwise assignmentId (fallback path where they're the same)
+    const erId = emergencyId || assignmentId;
     await supabaseAdmin
       .from('emergency_requests')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', assignmentId);
+      .eq('id', erId);
 
     console.log('Emergency declined:', assignmentId);
     return { success: true, error: null };
