@@ -73,6 +73,47 @@ map.fitBounds([[${driverLat},${driverLng}],[${patientLat},${patientLng}]],{paddi
   return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
 }
 
+/**
+ * Build a Leaflet HTML map showing the patient location + multiple nearby
+ * ambulance markers. Google Maps road tiles. Auto-fits bounds.
+ */
+export function buildPatientRequestMapHtml(
+  patientLat: number, patientLng: number,
+  ambulances: { lat: number; lng: number; label?: string }[],
+): string {
+  const ambMarkersJs = ambulances.map((a, i) => {
+    const lbl = a.label || `Ambulance ${i + 1}`;
+    return `
+L.marker([${a.lat},${a.lng}],{icon:ambIcon}).addTo(map).bindPopup('<b>\u{1F691} ${lbl}</b>');
+L.marker([${a.lat},${a.lng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#0EA5E9">${lbl}</span>',iconAnchor:[-8,-8]})}).addTo(map);
+bounds.push([${a.lat},${a.lng}]);`;
+  }).join('\n');
+
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body,#map{width:100%;height:100%}
+.leaflet-control-attribution{font-size:8px!important;opacity:0.6}
+.custom-label{background:none;border:none;font-weight:700;font-size:11px;white-space:nowrap;text-shadow:0 1px 3px #fff,0 -1px 3px #fff,1px 0 3px #fff,-1px 0 3px #fff}
+</style></head>
+<body><div id="map"></div><script>
+var map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true});
+L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{maxZoom:22,attribution:'\u00a9 Google Maps'}).addTo(map);
+var ambIcon=L.divIcon({className:'',html:'<div style="background:#0EA5E9;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)"><svg width=\\"14\\" height=\\"14\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M18.9 6c-.2-.6-.8-1-1.4-1h-2l.7-1.4C16.5 3 16.1 2.3 15.5 2H8.5c-.6.3-1 1-1 1.6L8.5 5h-2c-.7 0-1.2.4-1.4 1L4 10v8c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-1h10v1c0 .6.4 1 1 1h1c.6 0 1-.4 1-1v-8l-1.1-4zM6.5 15c-.8 0-1.5-.7-1.5-1.5S5.7 12 6.5 12s1.5.7 1.5 1.5S7.3 15 6.5 15zm11 0c-.8 0-1.5-.7-1.5-1.5s.7-1.5 1.5-1.5 1.5.7 1.5 1.5-.7 1.5-1.5 1.5zM5 10l1.5-4.5h11L19 10H5z\\"/></svg></div>',iconSize:[30,30],iconAnchor:[15,15]});
+var patIcon=L.divIcon({className:'',html:'<div style="background:#DC2626;width:34px;height:34px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3);animation:pulse 1.5s infinite"><svg width=\\"16\\" height=\\"16\\" viewBox=\\"0 0 24 24\\" fill=\\"#fff\\"><path d=\\"M12 2C8.1 2 5 5.1 5 9c0 5.3 7 13 7 13s7-7.7 7-13c0-3.9-3.1-7-7-7zm0 9.5c-1.4 0-2.5-1.1-2.5-2.5s1.1-2.5 2.5-2.5 2.5 1.1 2.5 2.5-1.1 2.5-2.5 2.5z\\"/></svg></div><style>@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}</style>',iconSize:[34,34],iconAnchor:[17,17]});
+var bounds=[[${patientLat},${patientLng}]];
+L.marker([${patientLat},${patientLng}],{icon:patIcon}).addTo(map).bindPopup('<b>\u{1F4CD} Your Location</b>').openPopup();
+L.marker([${patientLat},${patientLng}],{icon:L.divIcon({className:'custom-label',html:'<span style="color:#DC2626">You</span>',iconAnchor:[-8,-8]})}).addTo(map);
+${ambMarkersJs}
+if(bounds.length>1){map.fitBounds(bounds,{padding:[40,40],maxZoom:14})}else{map.setView([${patientLat},${patientLng}],14)}
+<\/script></body></html>`;
+  return 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
+}
+
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */
 export function toPostGISPoint(latitude: number, longitude: number): string {
   return `SRID=4326;POINT(${longitude} ${latitude})`;

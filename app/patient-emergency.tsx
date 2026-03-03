@@ -20,7 +20,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCoords } from '@/utils/emergency';
+import {
+    buildMapHtml,
+    buildPatientRequestMapHtml,
+    calculateDistance,
+    getAvailableAmbulances,
+    parsePostGISPoint,
+} from '@/utils/emergency';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -41,14 +47,52 @@ export default function PatientEmergencyScreen() {
   const [otherPersonName, setOtherPersonName] = useState('');
   const [otherPersonContact, setOtherPersonContact] = useState('');
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(null);
+  const [nearbyAmbulances, setNearbyAmbulances] = useState<{ lat: number; lng: number; label: string; distance: string }[]>([]);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     checkActiveEmergency();
     requestLocationPermission();
+    loadNearbyAmbulances();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Reload ambulances when location changes
+  useEffect(() => {
+    if (location) loadNearbyAmbulances();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.latitude, location?.longitude]);
+
+  const loadNearbyAmbulances = async () => {
+    try {
+      const { ambulances: data } = await getAvailableAmbulances();
+      if (!data) return;
+      const parsed = data
+        .map((a: any) => {
+          const loc = parsePostGISPoint(a.last_known_location);
+          if (!loc) return null;
+          const dist = location
+            ? calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude)
+            : null;
+          return {
+            lat: loc.latitude,
+            lng: loc.longitude,
+            label: a.registration_number || 'Ambulance',
+            distance: dist !== null ? (dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`) : '',
+          };
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => {
+          const da = parseFloat(a.distance) || 999;
+          const db = parseFloat(b.distance) || 999;
+          return da - db;
+        });
+      setNearbyAmbulances(parsed as any[]);
+    } catch (err) {
+      console.error('Error loading ambulances:', err);
+    }
+  };
 
   // Subscribe to emergency status changes → notify patient & auto-navigate
   useEffect(() => {
@@ -350,9 +394,56 @@ export default function PatientEmergencyScreen() {
               <ThemedText style={styles.title}>
                 {isForOther ? 'Request Help for Someone Else' : 'Request Emergency Service'}
               </ThemedText>
-              <ThemedText style={styles.subtitle}>
-                Your location: {location ? formatCoords(location.latitude, location.longitude) : 'Loading...'}
-              </ThemedText>
+
+              {/* ── Map Box: Your location + nearby ambulances ─── */}
+              {location && Platform.OS === 'web' && (
+                <View style={[styles.mapSection, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}>
+                  <View style={styles.mapBox}>
+                    {(() => {
+                      const mapHtml = nearbyAmbulances.length > 0
+                        ? buildPatientRequestMapHtml(location.latitude, location.longitude, nearbyAmbulances)
+                        : buildMapHtml(location.latitude, location.longitude, 14);
+                      return (
+                        <iframe
+                          src={mapHtml}
+                          style={{ width: '100%', height: '100%', border: 'none', borderRadius: 14 } as any}
+                          title="Your Location"
+                        />
+                      );
+                    })()}
+                  </View>
+
+                  {/* Nearby ambulances list */}
+                  <View style={styles.nearbyList}>
+                    <View style={styles.nearbyHeader}>
+                      <MaterialIcons name="local-shipping" size={16} color="#0EA5E9" />
+                      <ThemedText style={[styles.nearbyTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                        {nearbyAmbulances.length > 0
+                          ? `${nearbyAmbulances.length} Ambulance${nearbyAmbulances.length > 1 ? 's' : ''} Available`
+                          : 'Searching for ambulances...'}
+                      </ThemedText>
+                    </View>
+                    {nearbyAmbulances.slice(0, 3).map((amb, idx) => (
+                      <View key={idx} style={[styles.nearbyItem, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' }]}>
+                        <View style={styles.nearbyDot} />
+                        <ThemedText style={[styles.nearbyLabel, { color: isDark ? '#F1F5F9' : '#0F172A' }]} numberOfLines={1}>
+                          {amb.label}
+                        </ThemedText>
+                        {amb.distance ? (
+                          <View style={styles.distBadge}>
+                            <ThemedText style={styles.distText}>{amb.distance}</ThemedText>
+                          </View>
+                        ) : null}
+                      </View>
+                    ))}
+                    {nearbyAmbulances.length === 0 && (
+                      <ThemedText style={[styles.nearbyEmpty, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                        No ambulances nearby — your request will still be dispatched
+                      </ThemedText>
+                    )}
+                  </View>
+                </View>
+              )}
 
               {/* Other person details */}
               {isForOther && (
@@ -623,5 +714,72 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     marginTop: 10,
+  },
+
+  // Map section
+  mapSection: {
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden' as any,
+    marginBottom: 20,
+  },
+  mapBox: {
+    width: '100%' as any,
+    height: 220,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    overflow: 'hidden' as any,
+  },
+  nearbyList: {
+    padding: 12,
+  },
+  nearbyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  nearbyTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+  },
+  nearbyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    marginBottom: 4,
+    gap: 8,
+  },
+  nearbyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#0EA5E9',
+  },
+  nearbyLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+  },
+  distBadge: {
+    backgroundColor: '#0EA5E910',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  distText: {
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    color: '#0EA5E9',
+  },
+  nearbyEmpty: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    fontStyle: 'italic',
   },
 });
