@@ -95,6 +95,26 @@ export const getDriverAmbulanceId = async (
 };
 
 /**
+ * Toggle ambulance availability in the DB (syncs driver's online/offline status)
+ */
+export const toggleAmbulanceAvailability = async (
+  ambulanceId: string,
+  isAvailable: boolean
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const { error } = await supabase
+      .from('ambulances')
+      .update({ is_available: isAvailable, updated_at: new Date().toISOString() })
+      .eq('id', ambulanceId);
+    if (error) throw error;
+    return { success: true, error: null };
+  } catch (error) {
+    console.error('Error toggling ambulance availability:', error);
+    return { success: false, error: error as Error };
+  }
+};
+
+/**
  * Get full ambulance details for a driver
  */
 export const getDriverAmbulanceDetails = async (
@@ -296,10 +316,10 @@ export const acceptEmergency = async (
       throw assignError;
     }
 
-    // Update emergency status to 'assigned'
+    // Update emergency status to 'en_route' (driver is now heading to patient)
     const { error: emergencyError } = await supabase
       .from('emergency_requests')
-      .update({ status: 'assigned' })
+      .update({ status: 'en_route', updated_at: new Date().toISOString() })
       .eq('id', emergencyId);
 
     if (emergencyError) {

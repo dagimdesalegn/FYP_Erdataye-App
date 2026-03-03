@@ -250,23 +250,49 @@ export const findNearestAmbulance = async (
 };
 
 /**
- * Assign ambulance to emergency request (DB column: assigned_ambulance_id)
+ * Assign ambulance to emergency request.
+ * - Updates emergency_requests.assigned_ambulance_id & status
+ * - Inserts a row into emergency_assignments so drivers are notified via realtime
+ * - Marks the ambulance as unavailable
  */
 export const assignAmbulance = async (
   emergencyId: string,
   ambulanceId: string
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
+    const now = new Date().toISOString();
+
+    // 1. Update emergency request
     const { error } = await supabase
       .from('emergency_requests')
       .update({
         assigned_ambulance_id: ambulanceId,
         status: 'assigned',
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq('id', emergencyId);
 
     if (error) throw error;
+
+    // 2. Insert into emergency_assignments (triggers driver realtime subscription)
+    const { error: assignError } = await supabase
+      .from('emergency_assignments')
+      .insert({
+        emergency_id: emergencyId,
+        ambulance_id: ambulanceId,
+        status: 'pending',
+        assigned_at: now,
+      });
+
+    if (assignError) {
+      console.warn('Failed to insert emergency_assignment (non-blocking):', assignError);
+    }
+
+    // 3. Mark ambulance as unavailable
+    await supabase
+      .from('ambulances')
+      .update({ is_available: false, updated_at: now })
+      .eq('id', ambulanceId);
 
     return { success: true, error: null };
   } catch (error) {

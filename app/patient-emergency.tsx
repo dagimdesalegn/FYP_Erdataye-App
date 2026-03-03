@@ -42,7 +42,7 @@ export default function PatientEmergencyScreen() {
   const [otherPersonContact, setOtherPersonContact] = useState('');
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(null);
 
-  const scaleAnim = new Animated.Value(1);
+  const scaleAnim = React.useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     checkActiveEmergency();

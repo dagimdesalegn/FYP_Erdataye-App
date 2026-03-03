@@ -124,13 +124,15 @@ export default function PatientEmergencyTrackingScreen() {
     return labels[status] || status;
   };
 
-  const StatusTimeline = () => (
+  const StatusTimeline = () => {
+    const steps = ['pending', 'assigned', 'en_route', 'arrived', 'at_hospital', 'completed'];
+    const currentIdx = steps.indexOf(emergency?.status ?? '');
+    return (
     <View style={styles.timeline}>
-      {['pending', 'assigned', 'en_route', 'arrived', 'at_hospital', 'completed'].map(
+      {steps.map(
         (step, index) => {
-          const isCompleted = emergency?.status === step || 
-            ['at_hospital', 'completed'].includes(emergency?.status);
           const isCurrent = emergency?.status === step;
+          const isCompleted = index < currentIdx;
           
           return (
             <View key={step} style={styles.timelineItem}>
@@ -165,6 +167,7 @@ export default function PatientEmergencyTrackingScreen() {
       )}
     </View>
   );
+  };
 
   if (loading) {
     return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading emergency..." />;
