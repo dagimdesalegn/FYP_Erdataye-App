@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useState } from 'react';
 import {
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -199,13 +200,13 @@ export default function LoginScreen() {
 
             {/* Logo / Header area */}
             <View style={styles.headerArea}>
-              <View style={styles.logoBadge}>
-                <MaterialIcons name="local-hospital" size={28} color="#fff" />
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('@/assets/images/ambulance-favicon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
               </View>
-              <ThemedText style={[styles.brand, { color: textPrimary }]}>Erdataya Ambulance</ThemedText>
-              <ThemedText style={[styles.tagline, { color: textSecondary }]}>
-                Emergency Ambulance Service
-              </ThemedText>
             </View>
 
             {/* Title */}
@@ -406,32 +407,24 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   /* ---- Header ---- */
-  headerArea: { alignItems: 'center', marginBottom: 14 },
-  logoBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#DC2626',
+  headerArea: { alignItems: 'center', marginBottom: 18 },
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 20,
+    backgroundColor: 'rgba(220, 38, 38, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    padding: 8,
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  brand: {
-    fontSize: 18,
-    fontWeight: '800',
-    fontFamily: Fonts.sans,
-    letterSpacing: -0.5,
-  },
-  tagline: {
-    fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: '500',
-    marginTop: 1,
+  logoImage: {
+    width: 60,
+    height: 60,
   },
   /* ---- Title / Subtitle ---- */
   title: {

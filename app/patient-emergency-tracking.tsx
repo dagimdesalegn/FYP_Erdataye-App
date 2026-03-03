@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     Linking,
@@ -21,6 +21,7 @@ import { formatCoords } from '@/utils/emergency';
 import { getEmergencyDetails } from '@/utils/patient';
 
 export default function PatientEmergencyTrackingScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { emergencyId } = useLocalSearchParams();
@@ -204,6 +205,18 @@ export default function PatientEmergencyTrackingScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}>
         <ThemedView style={styles.card}>
+          {/* X close / back button */}
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.cardCloseBtn,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' },
+              pressed && { opacity: 0.6, transform: [{ scale: 0.9 }] },
+            ]}
+          >
+            <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+          </Pressable>
+
           {/* Current Status */}
           <View style={styles.statusSection}>
             <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20`, borderColor: statusColor }]}>
@@ -352,6 +365,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 4,
+    position: 'relative' as const,
+  },
+  cardCloseBtn: {
+    position: 'absolute' as const,
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    zIndex: 10,
   },
   errorContainer: {
     flex: 1,
