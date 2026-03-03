@@ -288,12 +288,6 @@ export default function HospitalDashboard() {
 
       <ScrollView style={styles.scrollOuter} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.container}>
-          {/* Page header */}
-          <View style={styles.pageHeader}>
-            <ThemedText style={[styles.pageTitle, { color: colors.text }]}>Hospital Dashboard</ThemedText>
-            <ThemedText style={[styles.pageSub, { color: subText }]}>Monitor incoming emergencies and manage patient arrivals</ThemedText>
-          </View>
-
           {/* Stat cards */}
           <View style={styles.statsGrid}>
             {statCards.map((stat) => (
