@@ -231,6 +231,18 @@ export default function DriverEmergencyScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── X Close Button ───────────────────────────── */}
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.closeBtn,
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          <MaterialIcons name="close" size={20} color={isDark ? '#E2E8F0' : '#334155'} />
+        </Pressable>
+
         {/* ── Severity Banner ───────────────────────────── */}
         <View style={[styles.severityBanner, { backgroundColor: sev.bg }]}>
           <MaterialIcons name={sev.icon} size={28} color={sev.color} />
@@ -435,6 +447,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 140,
+  },
+  closeBtn: {
+    alignSelf: 'flex-end',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
 
   // Empty

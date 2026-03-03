@@ -2,27 +2,35 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    Linking,
-    Platform,
-    Pressable,
-    RefreshControl,
-    ScrollView,
-    StyleSheet,
-    View
+  Linking,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
 } from 'react-native';
 
-import { AppHeader } from '@/components/app-header';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { formatCoords } from '@/utils/emergency';
-import { getEmergencyDetails } from '@/utils/patient';
+import {
+  buildDriverPatientMapHtml,
+  buildMapHtml,
+  calculateDistance,
+  formatCoords,
+  parsePostGISPoint,
+} from '@/utils/emergency';
+import {
+  getEmergencyDetails,
+  subscribeToEmergency,
+  subscribeToAmbulanceLocation,
+} from '@/utils/patient';
 
 export default function PatientEmergencyTrackingScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
+  const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
   const { emergencyId } = useLocalSearchParams();
 
@@ -31,35 +39,64 @@ export default function PatientEmergencyTrackingScreen() {
   const [emergency, setEmergency] = useState<any>(null);
   const [assignment, setAssignment] = useState<any>(null);
   const [ambulance, setAmbulance] = useState<any>(null);
+  const [ambulanceCoords, setAmbulanceCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadEmergencyDetails();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [emergencyId]);
 
-  const loadEmergencyDetails = async () => {
+  // Realtime subscriptions
+  useEffect(() => {
+    if (!emergencyId || typeof emergencyId !== 'string') return;
+
+    const unsubs: (() => void)[] = [];
+
+    // Subscribe to emergency status changes
+    unsubs.push(
+      subscribeToEmergency(emergencyId, (updated) => {
+        setEmergency(updated);
+      })
+    );
+
+    return () => unsubs.forEach((fn) => fn());
+  }, [emergencyId]);
+
+  // Subscribe to ambulance location when we have an ambulance
+  useEffect(() => {
+    if (!ambulance?.id) return;
+    const unsub = subscribeToAmbulanceLocation(ambulance.id, (lat, lng) => {
+      setAmbulanceCoords({ latitude: lat, longitude: lng });
+    });
+    return unsub;
+  }, [ambulance?.id]);
+
+  const loadData = async () => {
     if (!emergencyId || typeof emergencyId !== 'string') {
       setError('Invalid emergency ID');
       setLoading(false);
       return;
     }
-
     try {
       setLoading(true);
       const { emergency: emerg, assignment: assign, ambulance: amb, error: err } =
         await getEmergencyDetails(emergencyId);
-
       if (err) {
         setError(err.message);
       } else {
         setEmergency(emerg);
         setAssignment(assign);
         setAmbulance(amb);
+        // Parse initial ambulance location
+        if (amb?.last_known_location) {
+          const parsed = parsePostGISPoint(amb.last_known_location);
+          if (parsed) setAmbulanceCoords(parsed);
+        }
       }
     } catch (err) {
       setError('Failed to load emergency details');
-      console.error('Error:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -67,529 +104,404 @@ export default function PatientEmergencyTrackingScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadEmergencyDetails();
+    await loadData();
     setRefreshing(false);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  // ─── Status helpers ────────────────────────────────────
+  const statusMeta = (s: string) => {
+    switch (s) {
       case 'pending':
-        return '#F59E0B';
+        return { color: '#F59E0B', bg: '#FEF3C7', icon: 'hourglass-top' as const, label: 'Finding Ambulance...' };
       case 'assigned':
-        return '#0EA5E9';
+        return { color: '#0EA5E9', bg: '#E0F2FE', icon: 'local-shipping' as const, label: 'Ambulance Dispatched' };
       case 'en_route':
-        return '#06B6D4';
+        return { color: '#06B6D4', bg: '#CFFAFE', icon: 'directions-car' as const, label: 'Ambulance En Route' };
       case 'arrived':
-        return '#10B981';
+      case 'at_scene':
+        return { color: '#10B981', bg: '#D1FAE5', icon: 'place' as const, label: 'Ambulance Arrived' };
+      case 'transporting':
+        return { color: '#8B5CF6', bg: '#EDE9FE', icon: 'local-hospital' as const, label: 'Transporting to Hospital' };
       case 'at_hospital':
-        return '#8B5CF6';
+        return { color: '#7C3AED', bg: '#EDE9FE', icon: 'local-hospital' as const, label: 'At Hospital' };
       case 'completed':
-        return '#10B981';
+        return { color: '#059669', bg: '#ECFDF5', icon: 'check-circle' as const, label: 'Completed' };
       case 'cancelled':
-        return '#EF4444';
+        return { color: '#EF4444', bg: '#FEE2E2', icon: 'cancel' as const, label: 'Cancelled' };
       default:
-        return '#64748B';
+        return { color: '#6B7280', bg: '#F3F4F6', icon: 'info' as const, label: s };
     }
   };
 
-  const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'low':
-        return '#3B82F6';
-      case 'medium':
-        return '#F59E0B';
-      case 'high':
-        return '#EF4444';
+  const sevMeta = (t: string) => {
+    switch (t?.toLowerCase()) {
       case 'critical':
-        return '#DC2626';
+        return { color: '#DC2626', label: 'Critical' };
+      case 'high':
+        return { color: '#EA580C', label: 'High' };
+      case 'medium':
+        return { color: '#0284C7', label: 'Medium' };
+      case 'low':
+        return { color: '#059669', label: 'Low' };
       default:
-        return '#64748B';
+        return { color: '#6B7280', label: t || 'Unknown' };
     }
   };
 
-  const getSeverityLabel = (severity: string) => {
-    return severity.charAt(0).toUpperCase() + severity.slice(1);
-  };
+  // ─── Loading / Error ──────────────────────────────────
+  if (loading) return <LoadingModal visible colorScheme={colorScheme} message="Loading emergency..." />;
 
-  const getStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      pending: 'Pending - Finding Ambulance',
-      assigned: 'Assigned - Ambulance Dispatched',
-      en_route: 'En Route - Ambulance Coming',
-      arrived: 'Arrived - Ambulance Here',
-      at_hospital: 'At Hospital - Treatment Started',
-      completed: 'Completed',
-      cancelled: 'Cancelled',
-    };
-    return labels[status] || status;
-  };
-
-  const StatusTimeline = () => {
-    const steps = ['pending', 'assigned', 'en_route', 'arrived', 'at_hospital', 'completed'];
-    const currentIdx = steps.indexOf(emergency?.status ?? '');
+  if (error || !emergency) {
     return (
-    <View style={styles.timeline}>
-      {steps.map(
-        (step, index) => {
-          const isCurrent = emergency?.status === step;
-          const isCompleted = index < currentIdx;
-          
-          return (
-            <View key={step} style={styles.timelineItem}>
-              <View
-                style={[
-                  styles.timelineCircle,
-                  isCurrent && styles.timelineCircleCurrent,
-                  isCompleted && styles.timelineCircleCompleted,
-                ]}>
-                {isCompleted && !isCurrent ? (
-                  <MaterialIcons name="check" size={16} color="white" />
-                ) : (
-                  <View
-                    style={[
-                      styles.timelineInner,
-                      isCurrent && styles.timelineInnerCurrent,
-                    ]}
-                  />
-                )}
-              </View>
-              {index < 5 && (
-                <View
-                  style={[
-                    styles.timelineLine,
-                    isCompleted && styles.timelineLineCompleted,
-                  ]}
-                />
-              )}
-            </View>
-          );
-        }
-      )}
-    </View>
-  );
-  };
-
-  if (loading) {
-    return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading emergency..." />;
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
-        <AppHeader title="Emergency Status" />
-        <View style={styles.errorContainer}>
+      <View style={[styles.root, { backgroundColor: Colors[colorScheme].background }]}>
+        <View style={styles.errWrap}>
           <MaterialIcons name="error-outline" size={48} color="#EF4444" />
-          <ThemedText style={styles.errorText}>{error}</ThemedText>
-        </View>
-      </View>
-    );
-  }
-
-  if (!emergency) {
-    return (
-      <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
-        <AppHeader title="Emergency Status" />
-        <View style={styles.errorContainer}>
-          <ThemedText style={styles.errorText}>Emergency not found</ThemedText>
-        </View>
-      </View>
-    );
-  }
-
-  const statusColor = getStatusColor(emergency.status);
-  const severityColor = getSeverityColor(emergency.emergency_type);
-
-  return (
-    <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
-      <AppHeader title="Emergency Status" />
-
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        showsVerticalScrollIndicator={false}>
-        <ThemedView style={styles.card}>
-          {/* X close / back button */}
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.cardCloseBtn,
-              { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' },
-              pressed && { opacity: 0.6, transform: [{ scale: 0.9 }] },
-            ]}
-          >
-            <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+          <ThemedText style={styles.errText}>{error || 'Emergency not found'}</ThemedText>
+          <Pressable onPress={() => router.back()} style={styles.errBtn}>
+            <ThemedText style={styles.errBtnText}>Go Back</ThemedText>
           </Pressable>
+        </View>
+      </View>
+    );
+  }
 
-          {/* Current Status */}
-          <View style={styles.statusSection}>
-            <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20`, borderColor: statusColor }]}>
-              <MaterialIcons name="radio-button-checked" size={20} color={statusColor} />
-              <ThemedText style={[styles.statusLabel, { color: statusColor }]}>
-                {getStatusLabel(emergency.status)}
-              </ThemedText>
-            </View>
+  // ─── Computed values ──────────────────────────────────
+  const st = statusMeta(emergency.status);
+  const sev = sevMeta(emergency.emergency_type);
+  const patientCoords = { latitude: Number(emergency.latitude || 0), longitude: Number(emergency.longitude || 0) };
 
-            <ThemedText style={styles.title}>Your Emergency</ThemedText>
-            <ThemedText style={styles.timestamp}>
-              Called at {new Date(emergency.created_at).toLocaleTimeString()}
+  let distanceText = '';
+  if (ambulanceCoords && patientCoords.latitude) {
+    const km = calculateDistance(
+      patientCoords.latitude, patientCoords.longitude,
+      ambulanceCoords.latitude, ambulanceCoords.longitude,
+    );
+    distanceText = km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
+  }
+
+  // Map: show both patient + ambulance if available, otherwise just patient
+  const mapHtml =
+    ambulanceCoords && patientCoords.latitude
+      ? buildDriverPatientMapHtml(
+          ambulanceCoords.latitude, ambulanceCoords.longitude,
+          patientCoords.latitude, patientCoords.longitude,
+        )
+      : patientCoords.latitude
+        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
+        : null;
+
+  const cardBg = isDark ? '#1E293B' : '#FFFFFF';
+  const cardBorder = isDark ? '#334155' : '#E2E8F0';
+  const subtleText = isDark ? '#94A3B8' : '#64748B';
+
+  // ─── Render ───────────────────────────────────────────
+  return (
+    <View style={[styles.root, { backgroundColor: isDark ? '#0F172A' : '#F1F5F9' }]}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* X close button */}
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.closeBtn,
+            { backgroundColor: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.06)' },
+            pressed && { opacity: 0.6 },
+          ]}
+        >
+          <MaterialIcons name="close" size={20} color={isDark ? '#E2E8F0' : '#334155'} />
+        </Pressable>
+
+        {/* ── Status Banner ─────────────────────────────── */}
+        <View style={[styles.statusBanner, { backgroundColor: st.bg }]}>
+          <MaterialIcons name={st.icon} size={28} color={st.color} />
+          <View style={{ marginLeft: 12, flex: 1 }}>
+            <ThemedText style={[styles.statusLabel, { color: st.color }]}>
+              {st.label}
+            </ThemedText>
+            <ThemedText style={[styles.statusSub, { color: st.color + 'AA' }]}>
+              {new Date(emergency.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {distanceText ? `  •  Ambulance ${distanceText} away` : ''}
             </ThemedText>
           </View>
+          {/* Severity chip */}
+          <View style={[styles.sevChip, { borderColor: sev.color + '60' }]}>
+            <ThemedText style={[styles.sevChipText, { color: sev.color }]}>
+              {sev.label}
+            </ThemedText>
+          </View>
+        </View>
 
-          {/* Severity Badge */}
-          <View style={styles.severityContainer}>
-            <View style={[styles.severityBadge, { backgroundColor: `${severityColor}20` }]}>
-              <MaterialIcons name="warning" size={18} color={severityColor} />
-              <ThemedText style={[styles.severityText, { color: severityColor }]}>
-                {getSeverityLabel(emergency.emergency_type)} Severity
+        {/* ── MAP ───────────────────────────────────────── */}
+        {mapHtml && Platform.OS === 'web' && (
+          <View style={[styles.mapCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.mapHeader}>
+              <MaterialIcons name="map" size={18} color="#0EA5E9" />
+              <ThemedText style={[styles.mapTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                {ambulanceCoords ? 'Ambulance & Your Location' : 'Your Location'}
+              </ThemedText>
+              {distanceText ? (
+                <View style={styles.distBadge}>
+                  <ThemedText style={styles.distText}>{distanceText}</ThemedText>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.mapFrame}>
+              <iframe
+                src={mapHtml}
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: 12 } as any}
+                title="Emergency Map"
+              />
+            </View>
+            {/* Legend */}
+            <View style={styles.mapLegend}>
+              {ambulanceCoords && (
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#0EA5E9' }]} />
+                  <ThemedText style={[styles.legendText, { color: subtleText }]}>Ambulance</ThemedText>
+                </View>
+              )}
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#DC2626' }]} />
+                <ThemedText style={[styles.legendText, { color: subtleText }]}>You</ThemedText>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* ── Ambulance Info ────────────────────────────── */}
+        {ambulance && (
+          <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconCircle, { backgroundColor: '#E0F2FE' }]}>
+                <MaterialIcons name="local-shipping" size={20} color="#0EA5E9" />
+              </View>
+              <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                Assigned Ambulance
+              </ThemedText>
+              <View style={styles.activeDot} />
+            </View>
+
+            <View style={styles.infoRow}>
+              <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Vehicle</ThemedText>
+              <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                {ambulance.vehicle_number}
               </ThemedText>
             </View>
-          </View>
 
-          {/* Timeline */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Progress</ThemedText>
-            <StatusTimeline />
-          </View>
-
-          {/* Emergency Details */}
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Details</ThemedText>
-
-            <View style={styles.detailRow}>
-              <MaterialIcons name="location-on" size={18} color="#0EA5E9" />
-              <View style={styles.detailContent}>
-                <ThemedText style={styles.detailLabel}>Location</ThemedText>
-                <ThemedText style={styles.detailValue}>
-                  {formatCoords(Number(emergency.latitude || 0), Number(emergency.longitude || 0))}
+            {ambulance.type && (
+              <View style={styles.infoRow}>
+                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Type</ThemedText>
+                <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
+                  {ambulance.type.charAt(0).toUpperCase() + ambulance.type.slice(1)}
                 </ThemedText>
-              </View>
-              <Pressable
-                onPress={() => {
-                  const lat = Number(emergency.latitude || 0);
-                  const lng = Number(emergency.longitude || 0);
-                  const url = Platform.select({
-                    ios: `maps://app?daddr=${lat},${lng}`,
-                    default: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-                  });
-                  Linking.openURL(url);
-                }}
-                style={({ pressed }) => [styles.directionsBtn, pressed && { opacity: 0.7 }]}>
-                <MaterialIcons name="directions" size={18} color="#FFFFFF" />
-                <ThemedText style={styles.directionsBtnText}>Directions</ThemedText>
-              </Pressable>
-            </View>
-
-            {emergency.description && (
-              <View style={styles.detailRow}>
-                <MaterialIcons name="description" size={18} color="#0EA5E9" />
-                <View style={styles.detailContent}>
-                  <ThemedText style={styles.detailLabel}>Description</ThemedText>
-                  <ThemedText style={styles.detailValue}>{emergency.description}</ThemedText>
-                </View>
               </View>
             )}
 
+            {assignment?.pickup_eta_minutes && (
+              <View style={[styles.etaBadge, { backgroundColor: '#E0F2FE' }]}>
+                <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
+                <ThemedText style={styles.etaText}>
+                  ETA: {assignment.pickup_eta_minutes} minutes
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ── Emergency Details ─────────────────────────── */}
+        <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+              <MaterialIcons name="emergency" size={20} color="#DC2626" />
+            </View>
+            <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              Emergency Details
+            </ThemedText>
           </View>
 
-          {/* Ambulance Information */}
-          {ambulance && (
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
-                <MaterialIcons name="local-shipping" size={16} /> Ambulance En Route
+          <View style={styles.infoRow}>
+            <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Location</ThemedText>
+            <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A', fontSize: 13 }]}>
+              {formatCoords(patientCoords.latitude, patientCoords.longitude)}
+            </ThemedText>
+          </View>
+
+          {emergency.description && (
+            <View style={[styles.descBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: cardBorder }]}>
+              <MaterialIcons name="description" size={16} color={subtleText} />
+              <ThemedText style={[styles.descText, { color: isDark ? '#CBD5E1' : '#475569' }]}>
+                {emergency.description}
               </ThemedText>
-
-              <View style={[styles.ambulanceCard, isDark && styles.ambulanceCardDark]}>
-                <View style={styles.ambulanceHeader}>
-                  <ThemedText style={styles.ambulanceNumber}>
-                    {ambulance.vehicle_number}
-                  </ThemedText>
-                  <View style={styles.statusDot} />
-                </View>
-
-                {assignment?.pickup_eta_minutes && (
-                  <View style={styles.etaContainer}>
-                    <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
-                    <ThemedText style={styles.etaText}>
-                      Arriving in {assignment.pickup_eta_minutes} minutes
-                    </ThemedText>
-                  </View>
-                )}
-
-                <View style={styles.driverInfo}>
-                  <View style={styles.driverIcon}>
-                    <MaterialIcons name="person" size={20} color="#0EA5E9" />
-                  </View>
-                  <ThemedText style={styles.driverText}>Driver En Route</ThemedText>
-                </View>
-              </View>
             </View>
           )}
+        </View>
 
-          {/* Support */}
-          <View style={[styles.section, styles.supportSection]}>
-            <ThemedText style={styles.sectionTitle}>
-              <MaterialIcons name="phone" size={16} /> Need Help?
+        {/* ── Help Section ──────────────────────────────── */}
+        <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.iconCircle, { backgroundColor: '#ECFDF5' }]}>
+              <MaterialIcons name="support-agent" size={20} color="#059669" />
+            </View>
+            <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+              Need Help?
             </ThemedText>
-
-            <Pressable style={styles.supportButton}>
-              <MaterialIcons name="phone" size={20} color="#0EA5E9" />
-              <ThemedText style={styles.supportButtonText}>Call Dispatcher</ThemedText>
-              <MaterialIcons name="chevron-right" size={20} color="#0EA5E9" />
-            </Pressable>
-
-            <Pressable style={styles.supportButton}>
-              <MaterialIcons name="message" size={20} color="#0EA5E9" />
-              <ThemedText style={styles.supportButtonText}>Message Support</ThemedText>
-              <MaterialIcons name="chevron-right" size={20} color="#0EA5E9" />
-            </Pressable>
           </View>
-        </ThemedView>
+
+          <Pressable
+            onPress={() => Linking.openURL('tel:911')}
+            style={({ pressed }) => [styles.helpBtn, pressed && { opacity: 0.7 }]}
+          >
+            <MaterialIcons name="phone" size={18} color="#0EA5E9" />
+            <ThemedText style={styles.helpBtnText}>Call Emergency Services</ThemedText>
+            <MaterialIcons name="chevron-right" size={18} color="#0EA5E9" />
+          </Pressable>
+
+          {patientCoords.latitude ? (
+            <Pressable
+              onPress={() => {
+                const url = `https://www.google.com/maps?q=${patientCoords.latitude},${patientCoords.longitude}`;
+                Linking.openURL(url);
+              }}
+              style={({ pressed }) => [styles.helpBtn, pressed && { opacity: 0.7 }]}
+            >
+              <MaterialIcons name="map" size={18} color="#0EA5E9" />
+              <ThemedText style={styles.helpBtnText}>Open in Google Maps</ThemedText>
+              <MaterialIcons name="chevron-right" size={18} color="#0EA5E9" />
+            </Pressable>
+          ) : null}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
+// ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  bg: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    padding: 16,
-    paddingBottom: 32,
-  },
-  card: {
+  root: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+
+  closeBtn: {
+    alignSelf: 'flex-end',
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#EEF2F6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-    position: 'relative' as const,
-  },
-  cardCloseBtn: {
-    position: 'absolute' as const,
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    zIndex: 10,
-  },
-  errorContainer: {
-    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
+    marginBottom: 4,
   },
-  errorText: {
-    fontSize: 16,
-    fontFamily: Fonts.sans,
-    color: '#EF4444',
-    textAlign: 'center',
-  },
-  statusSection: {
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF2F6',
-  },
-  statusBadge: {
+
+  errWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, padding: 32 },
+  errText: { fontSize: 16, fontFamily: Fonts.sans, color: '#EF4444', textAlign: 'center' },
+  errBtn: { paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#0EA5E9', borderRadius: 10 },
+  errBtnText: { color: '#FFF', fontWeight: '700', fontFamily: Fonts.sans },
+
+  // Status banner
+  statusBanner: {
     flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  statusLabel: { fontSize: 16, fontWeight: '800', fontFamily: Fonts.sans },
+  statusSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
+  sevChip: {
+    borderWidth: 1.5,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  sevChipText: { fontSize: 11, fontWeight: '700', fontFamily: Fonts.sans },
+
+  // Map card
+  mapCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  mapHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    paddingBottom: 0,
+  },
+  mapTitle: { fontSize: 15, fontWeight: '600', fontFamily: Fonts.sans, marginLeft: 8, flex: 1 },
+  distBadge: {
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  distText: { color: '#FFF', fontSize: 12, fontWeight: '700', fontFamily: Fonts.sans },
+  mapFrame: {
+    width: '100%' as any,
+    height: 300,
+    marginTop: 10,
+    paddingHorizontal: 14,
+  },
+  mapLegend: {
+    flexDirection: 'row',
+    gap: 16,
+    padding: 12,
+    paddingTop: 6,
+    justifyContent: 'center',
+  },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: 12, fontFamily: Fonts.sans },
+
+  // Info card
+  infoCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeading: { fontSize: 16, fontWeight: '700', fontFamily: Fonts.sans, marginLeft: 10, flex: 1 },
+  activeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#10B981' },
+
+  infoRow: { marginBottom: 14 },
+  infoLabel: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValue: { fontSize: 15, fontWeight: '600', fontFamily: Fonts.sans },
+
+  etaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    gap: 8,
-    marginBottom: 12,
-    alignSelf: 'center',
+    borderRadius: 10,
+    alignSelf: 'flex-start',
   },
-  statusLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    fontFamily: Fonts.sans,
-  },
-  timestamp: {
-    fontSize: 12,
-    color: '#64748B',
-    fontFamily: Fonts.sans,
+  etaText: { fontSize: 13, fontWeight: '700', fontFamily: Fonts.sans, color: '#0EA5E9' },
+
+  descBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     marginTop: 4,
   },
-  severityContainer: {
-    marginBottom: 20,
-  },
-  severityBadge: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    gap: 8,
-    alignItems: 'center',
-  },
-  severityText: {
-    fontSize: 13,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-  },
-  section: {
-    marginBottom: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF2F6',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-    marginBottom: 12,
-    color: '#0EA5E9',
-  },
-  timeline: {
-    flexDirection: 'row',
-    gap: 0,
-  },
-  timelineItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  timelineCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-  },
-  timelineCircleCurrent: {
-    borderColor: '#0EA5E9',
-    backgroundColor: '#E0F2FE',
-  },
-  timelineCircleCompleted: {
-    borderColor: '#10B981',
-    backgroundColor: '#D1FAE5',
-  },
-  timelineInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#CBD5E1',
-  },
-  timelineInnerCurrent: {
-    backgroundColor: '#0EA5E9',
-  },
-  timelineLine: {
-    position: 'absolute',
-    width: 2,
-    height: 40,
-    backgroundColor: '#E2E8F0',
-    top: 32,
-    left: '50%',
-    marginLeft: -1,
-  },
-  timelineLineCompleted: {
-    backgroundColor: '#10B981',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: '#94A3B8',
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
-  },
-  ambulanceCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E6ECF2',
-    gap: 10,
-  },
-  ambulanceCardDark: {
-    backgroundColor: '#0B1220',
-    borderColor: '#2E3236',
-  },
-  ambulanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  ambulanceNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-  },
-  etaContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(14, 165, 233, 0.1)',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  etaText: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
-    color: '#0EA5E9',
-  },
-  driverInfo: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
-  },
-  driverIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(14, 165, 233, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  driverText: {
-    fontSize: 13,
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
-  },
-  supportSection: {
-    borderBottomWidth: 0,
-  },
-  supportButton: {
+  descText: { fontSize: 13, fontFamily: Fonts.sans, marginLeft: 8, flex: 1, lineHeight: 20 },
+
+  helpBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
@@ -597,28 +509,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(14, 165, 233, 0.08)',
     borderRadius: 10,
     marginBottom: 10,
-    gap: 12,
+    gap: 10,
   },
-  supportButtonText: {
+  helpBtnText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     fontFamily: Fonts.sans,
     color: '#0EA5E9',
-  },
-  directionsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#0EA5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  directionsBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-    color: '#FFFFFF',
   },
 });
