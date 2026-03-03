@@ -433,22 +433,22 @@ export default function DriverEmergencyScreen() {
           {
             backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
             borderColor: cardBorder,
-            paddingBottom: Math.max(insets.bottom, 24),
+            paddingBottom: Math.max(insets.bottom, 16),
           },
         ]}
       >
         <View style={styles.bottomInfo}>
-          <View style={styles.bottomTag}>
-            <MaterialIcons name="flash-on" size={18} color="#0EA5E9" />
-            <ThemedText style={[styles.bottomTitle, { color: isDark ? '#E2E8F0' : '#0F172A' }]}>Incoming emergency</ThemedText>
-          </View>
-          <ThemedText style={[styles.bottomSubtitle, { color: subtleText }]}>
+          <MaterialIcons name="flash-on" size={16} color="#0EA5E9" />
+          <ThemedText style={[styles.bottomTitle, { color: isDark ? '#E2E8F0' : '#0F172A' }]} numberOfLines={1}>
             {patientInfo?.full_name
-              ? `${patientInfo.full_name} needs help${distanceText ? ` • ${distanceText}` : ''}`
-              : distanceText
-                ? `Emergency is ${distanceText} away` 
-                : 'Routing the ambulance closest to you'}
+              ? `${patientInfo.full_name} needs help`
+              : 'Incoming emergency'}
           </ThemedText>
+          {distanceText ? (
+            <View style={styles.distChip}>
+              <ThemedText style={styles.distChipText}>{distanceText}</ThemedText>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.buttonRow}>
@@ -461,7 +461,7 @@ export default function DriverEmergencyScreen() {
               processing && { opacity: 0.6 },
             ]}
           >
-            <MaterialIcons name="close" size={20} color="#DC2626" />
+            <MaterialIcons name="close" size={18} color="#DC2626" />
             <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
           </Pressable>
 
@@ -475,13 +475,13 @@ export default function DriverEmergencyScreen() {
             ]}
           >
             <LinearGradient
-              colors={['#0EA5E9', '#0B1120']}
+              colors={['#059669', '#047857']}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              end={{ x: 1, y: 0 }}
               style={styles.acceptGradient}
             >
-              <MaterialIcons name="check" size={20} color="#FFF" />
-              <ThemedText style={styles.acceptBtnText}>Accept & Navigate</ThemedText>
+              <MaterialIcons name="check" size={18} color="#FFF" />
+              <ThemedText style={styles.acceptBtnText}>Accept & Go</ThemedText>
             </LinearGradient>
           </Pressable>
         </View>
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 240,
+    paddingBottom: 160,
     maxWidth: 640,
     alignSelf: 'center' as any,
     width: '100%' as any,
@@ -627,72 +627,72 @@ const styles = StyleSheet.create({
   // Bottom bar
   bottomBar: {
     position: 'absolute' as any,
-    bottom: 12,
-    left: 12,
-    right: 12,
-    borderRadius: 24,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    padding: 18,
-    gap: 16,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopWidth: 1,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderBottomWidth: 0,
+    paddingTop: 12,
+    paddingHorizontal: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
     elevation: 14,
   },
   bottomInfo: {
-    flex: 1,
-    paddingRight: 6,
-  },
-  bottomTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginBottom: 10,
   },
   bottomTitle: {
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    flex: 1,
+  },
+  distChip: {
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  distChipText: {
+    color: '#FFF',
+    fontSize: 11,
     fontWeight: '700',
     fontFamily: Fonts.sans,
   },
-  bottomSubtitle: {
-    fontSize: 12,
-    fontFamily: Fonts.sans,
-    lineHeight: 18,
-  },
   buttonRow: {
-    flex: 1,
     flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'flex-end',
+    gap: 10,
   },
   declineBtn: {
-    flex: 0.95,
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#FCA5A5',
     backgroundColor: '#FEF2F2',
-    paddingVertical: 12,
+    paddingVertical: 13,
     gap: 6,
   },
   declineBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans },
   acceptWrapper: {
-    flex: 1,
+    flex: 2,
   },
   acceptGradient: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
+    borderRadius: 14,
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
-  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15, fontFamily: Fonts.sans },
+  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans },
 });
