@@ -15,6 +15,7 @@ import {
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
+import { HtmlMapView } from '@/components/html-map-view';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -27,7 +28,6 @@ import {
     getAvailableAmbulances,
     parsePostGISPoint,
 } from '@/utils/emergency';
-import { HtmlMapView } from '@/components/html-map-view';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 

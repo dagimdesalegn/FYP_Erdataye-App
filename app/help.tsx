@@ -1,6 +1,7 @@
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
+import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -14,7 +15,6 @@ import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Google Maps custom styles for clear road/building view
