@@ -17,6 +17,43 @@ import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+// Google Maps custom styles for clear road/building view
+const lightMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#4a4a4a' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#c0c0c0' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#e8e8e8' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#c8e6c9' }] },
+  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#ffcdd2' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bbdefb' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e5e5e5' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#c9c9c9' }] },
+];
+
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a4762' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8a93a6' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#516080' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#445570' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#2a3548' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#7a8598' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263238' }] },
+  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#3d2c2c' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#4b6584' }] },
+];
+
 export default function HelpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -246,6 +283,11 @@ export default function HelpScreen() {
                   <MapView
                     provider={PROVIDER_GOOGLE}
                     style={{ flex: 1 }}
+                    mapType="standard"
+                    showsBuildings={true}
+                    showsTraffic={false}
+                    showsIndoors={true}
+                    customMapStyle={isDark ? darkMapStyle : lightMapStyle}
                     initialRegion={{
                       latitude: mapLocation.latitude,
                       longitude: mapLocation.longitude,
@@ -411,15 +453,15 @@ const styles = StyleSheet.create({
   bg: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 14, justifyContent: 'space-between' },
   hero: {
-    flex: 1, borderRadius: 22, borderWidth: 1, padding: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 6,
+    flex: 1, borderRadius: 24, borderWidth: 1, padding: 16,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.1, shadowRadius: 24, elevation: 8,
   },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  heroIconWrap: { width: 44, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  heroIconWrap: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   heroTextCol: { flex: 1 },
-  heroTitle: { fontSize: 16, fontWeight: '900' },
+  heroTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3 },
   mapShell: {
-    borderRadius: 18, borderWidth: 1, overflow: 'hidden', flex: 1, minHeight: 420,
+    borderRadius: 20, borderWidth: 1, overflow: 'hidden', flex: 1, minHeight: 420,
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 18, elevation: 6,
   },
   mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18 },
@@ -439,25 +481,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 6,
   },
   openMapText: { fontSize: 12, fontWeight: '700' },
-  mapFrameWrap: { flex: 1, minHeight: 280 },
-  actionsRow: { marginTop: 12, flexDirection: 'row', gap: 12 },
-  modalActionsRow: { marginTop: 12, flexDirection: 'row', gap: 12 },
+  mapFrameWrap: { flex: 1, minHeight: 300 },
+  actionsRow: { marginTop: 14, flexDirection: 'row', gap: 14 },
+  modalActionsRow: { marginTop: 14, flexDirection: 'row', gap: 14 },
   actionCol: { flex: 1 },
   modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalRoot: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
   sheet: {
-    position: 'absolute', left: 14, right: 14, bottom: 14, borderRadius: 18, borderWidth: 1, padding: 14, gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 18 }, shadowOpacity: 0.2, shadowRadius: 26, elevation: 10,
+    position: 'absolute', left: 14, right: 14, bottom: 14, borderRadius: 24, borderWidth: 1, padding: 18, gap: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 14,
   },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  sheetTitle: { fontSize: 15, fontWeight: '900' },
+  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  sheetTitle: { fontSize: 17, fontWeight: '900' },
   sheetClose: {
     width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: 'rgba(148,163,184,0.35)',
   },
-  actionBtn: { minHeight: 50, borderRadius: 16, paddingVertical: 12 },
-  helpPrimary: { backgroundColor: '#DC2626', borderColor: '#DC2626', borderWidth: 1 },
-  directPrimary: { backgroundColor: '#10B981', borderColor: '#10B981', borderWidth: 1 },
+  actionBtn: { minHeight: 56, borderRadius: 18, paddingVertical: 14 },
+  helpPrimary: { backgroundColor: '#DC2626', borderColor: '#DC2626', borderWidth: 1, shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
+  directPrimary: { backgroundColor: '#10B981', borderColor: '#10B981', borderWidth: 1, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
   modalMeBtn: { backgroundColor: 'transparent', borderColor: '#DC2626', borderWidth: 1, shadowOpacity: 0, elevation: 0 },
   modalOtherBtn: { backgroundColor: 'transparent', borderColor: '#10B981', borderWidth: 1, shadowOpacity: 0, elevation: 0 },
   profileBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 150 },
@@ -474,9 +516,9 @@ const styles = StyleSheet.create({
   profileMenuText: { fontSize: 14, fontWeight: '600' },
   profileDivider: { height: 1, marginVertical: 4, marginHorizontal: 8 },
   contactSectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 8 },
-  contactIconWrap: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  contactInfo: { flex: 1, gap: 2 },
-  contactName: { fontSize: 14, fontWeight: '700' },
-  contactNumber: { fontSize: 13, fontWeight: '600' },
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10 },
+  contactIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  contactInfo: { flex: 1, gap: 3 },
+  contactName: { fontSize: 15, fontWeight: '700' },
+  contactNumber: { fontSize: 14, fontWeight: '600' },
 });

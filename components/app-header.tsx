@@ -47,7 +47,7 @@ export function AppHeader({
       <View style={styles.content}>
         <View style={styles.left}>
           <View style={styles.brandMark}>
-            <MaterialIcons name="local-hospital" size={18} color={colors.tint} />
+            <MaterialIcons name="local-hospital" size={20} color={colors.tint} />
           </View>
           <ThemedText
             style={[
@@ -74,7 +74,7 @@ export function AppHeader({
                 },
                 pressed ? { opacity: 0.85 } : null,
               ]}>
-              <MaterialIcons name="campaign" size={18} color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'} />
+              <MaterialIcons name="campaign" size={20} color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'} />
             </Pressable>
           ) : null}
           <Pressable
@@ -89,7 +89,7 @@ export function AppHeader({
             ]}>
             <MaterialIcons
               name={themeMode === 'dark' ? 'dark-mode' : themeMode === 'light' ? 'light-mode' : 'brightness-auto'}
-              size={18}
+              size={20}
               color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'}
             />
           </Pressable>
@@ -142,7 +142,7 @@ export function AppHeader({
                 },
                 pressed ? { opacity: 0.85 } : null,
               ]}>
-              <MaterialIcons name="person" size={18} color="#DC2626" />
+              <MaterialIcons name="person" size={20} color="#DC2626" />
             </Pressable>
           ) : null}
         </View>
@@ -154,10 +154,15 @@ export function AppHeader({
 const styles = StyleSheet.create({
   container: {
     borderBottomWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
   content: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -170,9 +175,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   brandMark: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(220,38,38,0.12)',
@@ -180,7 +185,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(220,38,38,0.18)',
   },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: Platform.select({ ios: '700', default: '800' }),
     letterSpacing: 0.2,
     fontFamily: Fonts.sans,
@@ -191,21 +196,21 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   toggleBase: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 999,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   actionBase: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderRadius: 999,
     borderWidth: 1,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     letterSpacing: 0.2,
     fontFamily: Fonts.sans,

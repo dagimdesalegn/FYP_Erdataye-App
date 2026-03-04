@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  headerBtn: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  headerBtn: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '800', fontFamily: Fonts.sans },
   headerSub: { fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 11, fontFamily: Fonts.sans },
+  legendText: { fontSize: 13, fontFamily: Fonts.sans },
 
   floatingBtn: {
     position: 'absolute',
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   iconCircle: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 
   infoRow: { marginBottom: 10 },
-  infoLabel: { fontSize: 11, fontFamily: Fonts.sans, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  infoLabel: { fontSize: 13, fontFamily: Fonts.sans, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   infoValue: { fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans },
   phoneLink: { fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans, color: '#0EA5E9', textDecorationLine: 'underline' },
 
@@ -665,7 +665,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   trackingLabel: { fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans },
-  trackingSub: { fontSize: 11, fontFamily: Fonts.sans, marginTop: 2 },
+  trackingSub: { fontSize: 13, fontFamily: Fonts.sans, marginTop: 2 },
   togglePill: { width: 44, height: 24, borderRadius: 12, padding: 2, justifyContent: 'center' },
   toggleKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF' },
 });

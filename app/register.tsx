@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { Alert, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
@@ -26,6 +26,18 @@ export default function RegisterScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Entrance animation
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [form, setForm] = useState({
     phone: '',
     password: '',
@@ -272,6 +284,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Creating your account..." />
 
       {/* Top accent gradient */}
@@ -295,9 +308,9 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}>
 
           {/* Card */}
-          <View style={[
+          <Animated.View style={[
             styles.card,
-            { backgroundColor: cardBg, borderColor: cardBorder },
+            { backgroundColor: cardBg, borderColor: cardBorder, opacity: fadeIn, transform: [{ translateY: slideUp }] },
             isSmallScreen && styles.cardMobile,
           ]}>
 
@@ -545,7 +558,7 @@ export default function RegisterScreen() {
                 <ThemedText style={styles.footerLink}>Sign In</ThemedText>
               </Pressable>
             </View>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -566,7 +579,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 260,
+    height: 300,
   },
   scroll: {
     flexGrow: 1,
@@ -578,29 +591,29 @@ const styles = StyleSheet.create({
   scrollMobile: {
     flexGrow: 1,
     paddingHorizontal: 0,
-    paddingVertical: 0,
+    paddingTop: Platform.OS === 'android' ? 48 : 56,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_W,
     alignSelf: 'center',
-    borderRadius: 20,
+    borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: 28,
+    paddingVertical: 28,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.1,
+    shadowRadius: 32,
+    elevation: 12,
   },
   cardMobile: {
     maxWidth: '100%' as any,
     borderRadius: 0,
     borderWidth: 0,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingBottom: 40,
+    paddingHorizontal: 20,
+    paddingTop: 28,
+    paddingBottom: 48,
     flexGrow: 1,
   },
   closeBtn: {
@@ -615,46 +628,46 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 16,
-    marginBottom: 10,
+    lineHeight: 18,
+    marginBottom: 14,
   },
   roleSection: {
-    marginBottom: 10,
-    paddingBottom: 10,
+    marginBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#E6ECF2',
   },
   roleLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   roleButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
     justifyContent: 'space-between',
   },
   roleButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
     borderWidth: 1.5,
-    gap: 4,
+    gap: 6,
   },
   roleButtonLight: {
     backgroundColor: '#F8FAFC',
@@ -683,22 +696,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   form: {
-    gap: 8,
+    gap: 12,
   },
   row: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   rowMobile: {
     flexDirection: 'column',
-    gap: 8,
+    gap: 10,
   },
   fieldHalf: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   label: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
@@ -707,9 +720,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 10,
-    height: 38,
-    paddingHorizontal: 10,
+    borderRadius: 12,
+    height: 46,
+    paddingHorizontal: 12,
   },
   inputIcon: { marginRight: 6 },
   input: {
@@ -729,21 +742,21 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   primaryBtn: {
-    marginTop: 4,
-    borderRadius: 10,
+    marginTop: 8,
+    borderRadius: 14,
     overflow: 'hidden',
   },
   primaryBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 40,
-    borderRadius: 10,
-    gap: 6,
+    height: 50,
+    borderRadius: 14,
+    gap: 8,
   },
   primaryBtnText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.3,

@@ -163,9 +163,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   label: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.2,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.3,
     textAlign: 'center',
     fontFamily: Fonts.sans,
   },
