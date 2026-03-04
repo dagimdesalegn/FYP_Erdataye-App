@@ -6,8 +6,8 @@ import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     Ambulance,
-    EmergencyRequest,
     buildMapHtml,
+    EmergencyRequest,
     formatCoords,
     getAvailableAmbulances,
     getHospitals,
