@@ -78,6 +78,21 @@ export default function PatientEmergencyTrackingScreen() {
     return unsub;
   }, [emergencyId]);
 
+  // Polling fallback: check status every 8s in case realtime misses updates
+  useEffect(() => {
+    if (!emergencyId || typeof emergencyId !== 'string') return;
+    const interval = setInterval(async () => {
+      try {
+        const { emergency: emerg } = await getEmergencyDetails(emergencyId);
+        if (emerg && emerg.status !== emergency?.status) {
+          setEmergency(emerg);
+        }
+      } catch {}
+    }, 8000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emergencyId, emergency?.status]);
+
   // Show notification toast when status changes
   useEffect(() => {
     if (!emergency?.status) return;
@@ -86,10 +101,12 @@ export default function PatientEmergencyTrackingScreen() {
       const notif = STATUS_NOTIFICATIONS[cur];
       if (notif) {
         setStatusNotification(cur);
+        // Vibrate on mobile for attention
+        try { const { Vibration } = require('react-native'); Vibration.vibrate([0, 300, 100, 300]); } catch {}
         Animated.sequence([
-          Animated.timing(notifAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.delay(4000),
-          Animated.timing(notifAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+          Animated.timing(notifAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+          Animated.delay(6000),
+          Animated.timing(notifAnim, { toValue: 0, duration: 400, useNativeDriver: true }),
         ]).start(() => setStatusNotification(null));
       }
     }
@@ -528,7 +545,7 @@ export default function PatientEmergencyTrackingScreen() {
         {/* Go Home if completed */}
         {isCompleted && (
           <Pressable
-            onPress={() => router.replace('/patient-emergency' as any)}
+            onPress={() => router.replace('/help' as any)}
             style={({ pressed }) => [styles.homeBtn, pressed && { opacity: 0.8 }]}
           >
             <MaterialIcons name="home" size={20} color="#FFF" />
@@ -565,21 +582,23 @@ const styles = StyleSheet.create({
     top: 50,
     left: 16,
     right: 16,
-    zIndex: 100,
+    zIndex: 9999,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
+    padding: 18,
+    borderRadius: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 12,
     maxWidth: 600,
     alignSelf: 'center' as any,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  notifTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', fontFamily: Fonts.sans },
-  notifMsg: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontFamily: Fonts.sans, marginTop: 1 },
+  notifTitle: { color: '#FFF', fontSize: 16, fontWeight: '800', fontFamily: Fonts.sans },
+  notifMsg: { color: 'rgba(255,255,255,0.95)', fontSize: 13, fontFamily: Fonts.sans, marginTop: 2 },
 
   // Header
   headerRow: {
