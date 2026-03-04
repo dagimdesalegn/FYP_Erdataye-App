@@ -96,21 +96,33 @@ export default function DriverHomeScreen() {
       const { assignment, error } = await getDriverAssignment(user.id);
       if (!error && assignment) {
         setHasAssignment(true);
-        setAssignmentCount((prev) => prev + 1);
+        setAssignmentCount(1);
+      } else {
+        // No active assignment — clear stale state
+        setHasAssignment(false);
+        setAssignmentCount(0);
       }
     };
 
     checkAssignment();
+
+    // Re-check every 10s to clear stale completed assignments
+    const interval = setInterval(checkAssignment, 10000);
+    return () => clearInterval(interval);
   }, [user]);
 
   // Subscribe to new assignments
   useEffect(() => {
     if (!user || !isAvailable) return;
 
-    const unsubscribe = subscribeToAssignments(user.id, (_assignment) => {
-      setHasAssignment(true);
-      setAssignmentCount((prev) => prev + 1);
-      Alert.alert('New Emergency', 'You have a new emergency assignment');
+    const unsubscribe = subscribeToAssignments(user.id, async (_assignment) => {
+      // Validate the assignment is truly active before showing
+      const { assignment: verified } = await getDriverAssignment(user.id);
+      if (verified) {
+        setHasAssignment(true);
+        setAssignmentCount(1);
+        Alert.alert('New Emergency', 'You have a new emergency assignment');
+      }
     });
 
     return unsubscribe;
@@ -168,7 +180,22 @@ export default function DriverHomeScreen() {
     }
   };
 
-  const handleViewAssignment = () => {
+  const handleViewAssignment = async () => {
+    // Verify the assignment is still active before navigating
+    if (!user) return;
+    const { assignment } = await getDriverAssignment(user.id);
+    if (!assignment) {
+      // Assignment was completed/cancelled — clear the UI
+      setHasAssignment(false);
+      setAssignmentCount(0);
+      // Also refresh stats
+      const { active, completed } = await getDriverStats(user.id);
+      setActiveCount(active);
+      setCompletedCount(completed);
+      const { history: items } = await getDriverHistory(user.id);
+      setHistory(items);
+      return;
+    }
     router.push('/driver-emergency' as any);
   };
 

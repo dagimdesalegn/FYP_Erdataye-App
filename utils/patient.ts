@@ -358,24 +358,26 @@ export const subscribeToEmergency = (
   emergencyId: string,
   onUpdate: (emergency: PatientEmergency) => void
 ) => {
-  const subscription = supabaseAdmin
-    .channel(`emergency_requests:${emergencyId}`)
+  const subscription = supabase
+    .channel(`emergency_status:${emergencyId}`)
     .on(
       'postgres_changes',
       {
-        event: '*',
+        event: 'UPDATE',
         schema: 'public',
         table: 'emergency_requests',
         filter: `id=eq.${emergencyId}`,
       },
       (payload: any) => {
-        onUpdate(normalizeEmergency(payload.new));
+        if (payload.new) {
+          onUpdate(normalizeEmergency(payload.new));
+        }
       }
     )
     .subscribe();
 
   return () => {
-    subscription.unsubscribe();
+    supabase.removeChannel(subscription);
   };
 };
 
@@ -388,7 +390,7 @@ export const subscribeToAmbulanceLocation = (
   onUpdate: (latitude: number, longitude: number) => void
 ) => {
   const subscription = supabase
-    .channel(`ambulance_location:${ambulanceId}`)
+    .channel(`ambulance_loc:${ambulanceId}`)
     .on(
       'postgres_changes',
       {
@@ -407,6 +409,6 @@ export const subscribeToAmbulanceLocation = (
     .subscribe();
 
   return () => {
-    subscription.unsubscribe();
+    supabase.removeChannel(subscription);
   };
 };
