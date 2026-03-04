@@ -1,13 +1,13 @@
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
-import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
+import { HtmlMapView } from '@/components/html-map-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signOut } from '@/utils/auth';
-import { formatCoords } from '@/utils/emergency';
+import { buildMapHtml, formatCoords } from '@/utils/emergency';
 import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
 import { getUserProfile } from '@/utils/profile';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -16,43 +16,6 @@ import { useRouter } from 'expo-router';
 import React from 'react';
 import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-// Google Maps custom styles for clear road/building view
-const lightMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#4a4a4a' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#c0c0c0' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#e8e8e8' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#c8e6c9' }] },
-  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#ffcdd2' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bbdefb' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e5e5e5' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#c9c9c9' }] },
-];
-
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a4762' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8a93a6' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#516080' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#445570' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#2a3548' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#7a8598' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263238' }] },
-  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#3d2c2c' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#4b6584' }] },
-];
 
 export default function HelpScreen() {
   const router = useRouter();
@@ -163,6 +126,11 @@ export default function HelpScreen() {
     }
     return null;
   }, [activeEmergency, currentLocation]);
+
+  const mapEmbedUrl = React.useMemo(() => {
+    if (!mapLocation) return null;
+    return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
+  }, [mapLocation]);
 
   const mapSummaryText = React.useMemo(() => {
     if (mapLocation) return formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
@@ -280,36 +248,13 @@ export default function HelpScreen() {
                   </Pressable>
                 </View>
                 <View style={styles.mapFrameWrap}>
-                  <MapView
-                    provider={PROVIDER_GOOGLE}
-                    style={{ flex: 1 }}
-                    mapType="standard"
-                    showsBuildings={true}
-                    showsTraffic={false}
-                    showsIndoors={true}
-                    customMapStyle={isDark ? darkMapStyle : lightMapStyle}
-                    initialRegion={{
-                      latitude: mapLocation.latitude,
-                      longitude: mapLocation.longitude,
-                      latitudeDelta: 0.005,
-                      longitudeDelta: 0.005,
-                    }}
-                    region={{
-                      latitude: mapLocation.latitude,
-                      longitude: mapLocation.longitude,
-                      latitudeDelta: 0.005,
-                      longitudeDelta: 0.005,
-                    }}
-                    showsUserLocation
-                    showsMyLocationButton
-                  >
-                    <Marker
-                      coordinate={{ latitude: mapLocation.latitude, longitude: mapLocation.longitude }}
-                      title={mapLocation.sourceLabel}
-                      description={mapSummaryText}
-                      pinColor="#DC2626"
+                  {mapEmbedUrl ? (
+                    <HtmlMapView
+                      html={mapEmbedUrl}
+                      style={{ flex: 1 }}
+                      title="Live location map"
                     />
-                  </MapView>
+                  ) : null}
                 </View>
               </View>
             ) : (
