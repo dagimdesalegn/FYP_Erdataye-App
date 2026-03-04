@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
 import { useAppState } from '@/components/app-state';
+import { HtmlMapView } from '@/components/html-map-view';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/theme';
@@ -34,7 +35,6 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
-import { HtmlMapView } from '@/components/html-map-view';
 import { supabaseAdmin } from '@/utils/supabase';
 
 type Tab = 'map' | 'status';

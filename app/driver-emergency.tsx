@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -12,20 +13,20 @@ import {
     View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import { useAppState } from '@/components/app-state';
+import { HtmlMapView } from '@/components/html-map-view';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
-  acceptEmergency,
-  declineEmergency,
-  getDriverAmbulanceId,
-  getDriverAssignment,
-  getPatientInfo,
-  subscribeToAssignments,
+    acceptEmergency,
+    declineEmergency,
+    getDriverAmbulanceId,
+    getDriverAssignment,
+    getPatientInfo,
+    subscribeToAssignments,
 } from '@/utils/driver';
 import {
     buildDriverPatientMapHtml,
@@ -34,7 +35,6 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from '@/utils/emergency';
-import { HtmlMapView } from '@/components/html-map-view';
 import { supabaseAdmin } from '@/utils/supabase';
 
 interface MedicalProfile {

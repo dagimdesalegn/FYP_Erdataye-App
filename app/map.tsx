@@ -1,4 +1,5 @@
 import { AppHeader } from '@/components/app-header';
+import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
@@ -25,7 +26,6 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 
 // Google Maps custom styles for road/building detail view
 const lightMapStyle = [
