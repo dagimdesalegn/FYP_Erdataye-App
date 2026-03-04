@@ -1,5 +1,5 @@
 import { AppHeader } from '@/components/app-header';
-import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
+import { HtmlMapView } from '@/components/html-map-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors, Fonts } from '@/constants/theme';
@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     Ambulance,
     EmergencyRequest,
+    buildMapHtml,
     formatCoords,
     getAvailableAmbulances,
     getHospitals,
@@ -26,42 +27,6 @@ import {
     StyleSheet,
     View,
 } from 'react-native';
-
-// Google Maps custom styles for road/building detail view
-const lightMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e0e0e0' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dadada' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#c0c0c0' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#e8f5e9' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#c8e6c9' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bbdefb' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
-  { featureType: 'poi.business', stylers: [{ visibility: 'on' }] },
-  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#ffcdd2' }] },
-];
-
-const darkMapStyle = [
-  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a4762' }] },
-  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8a93a6' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#516080' }] },
-  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
-  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#445570' }] },
-  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#2a3548' }] },
-  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#7a8598' }] },
-  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263238' }] },
-  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#3d2c2c' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
-  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
-  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
-  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#4b6584' }] },
-];
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
@@ -181,6 +146,7 @@ export default function MapScreen() {
   const userLat = location?.coords.latitude ?? 9.02;
   const userLng = location?.coords.longitude ?? 38.75;
   const accuracy = location?.coords.accuracy ?? null;
+  const mapEmbedUrl = buildMapHtml(userLat, userLng, 17);
 
   const openInGoogleMaps = () => {
     Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${userLat},${userLng}`);
@@ -190,60 +156,13 @@ export default function MapScreen() {
     <ThemedView style={styles.container}>
       <AppHeader title="Erdataya Ambulance" />
 
-      {/* Native MapView */}
+      {/* Map via HtmlMapView (works on both web & native) */}
       <View style={styles.mapContainer}>
-        <MapView
-          provider={PROVIDER_GOOGLE}
+        <HtmlMapView
+          html={mapEmbedUrl}
           style={{ flex: 1 }}
-          mapType="standard"
-          showsBuildings={true}
-          showsTraffic={false}
-          showsIndoors={true}
-          customMapStyle={isDark ? darkMapStyle : lightMapStyle}
-          initialRegion={{
-            latitude: userLat,
-            longitude: userLng,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
-          }}
-          showsUserLocation
-          showsMyLocationButton
-        >
-          <Marker
-            coordinate={{ latitude: userLat, longitude: userLng }}
-            title="Your Location"
-            pinColor="#DC2626"
-          />
-          {ambulances.map((amb) => (
-            <Marker
-              key={amb.id}
-              coordinate={{ latitude: amb.lat, longitude: amb.lng }}
-              title={`Ambulance ${amb.vehicle_number}`}
-              description={amb.type || 'Standard'}
-              pinColor="#0EA5E9"
-            />
-          ))}
-          {emergencies
-            .filter((e) => e.latitude !== 0 || e.longitude !== 0)
-            .map((e) => (
-              <Marker
-                key={e.id}
-                coordinate={{ latitude: e.latitude, longitude: e.longitude }}
-                title={e.emergency_type}
-                description={e.status}
-                pinColor="#EF4444"
-              />
-            ))}
-          {hospitals.map((h) => (
-            <Marker
-              key={h.id}
-              coordinate={{ latitude: h.lat, longitude: h.lng }}
-              title={h.name}
-              description={h.address}
-              pinColor="#10B981"
-            />
-          ))}
-        </MapView>
+          title="Live ambulance map"
+        />
       </View>
 
       {/* Controls: Refresh + Open in Google Maps */}
