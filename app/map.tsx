@@ -27,6 +27,42 @@ import {
 } from 'react-native';
 import { MapView, Marker, PROVIDER_GOOGLE } from '@/components/map-view';
 
+// Google Maps custom styles for road/building detail view
+const lightMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#e0e0e0' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#dadada' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#c0c0c0' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#e8f5e9' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#c8e6c9' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#bbdefb' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
+  { featureType: 'poi.business', stylers: [{ visibility: 'on' }] },
+  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#ffcdd2' }] },
+];
+
+const darkMapStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9ca5b3' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#1a1a2e' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#3a4762' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#8a93a6' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#516080' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1f2835' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#445570' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#2a3548' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#7a8598' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#263238' }] },
+  { featureType: 'poi.medical', elementType: 'geometry', stylers: [{ color: '#3d2c2c' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#17263c' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#515c6d' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2f3948' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#4b6584' }] },
+];
+
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
@@ -159,6 +195,11 @@ export default function MapScreen() {
         <MapView
           provider={PROVIDER_GOOGLE}
           style={{ flex: 1 }}
+          mapType="standard"
+          showsBuildings={true}
+          showsTraffic={false}
+          showsIndoors={true}
+          customMapStyle={isDark ? darkMapStyle : lightMapStyle}
           initialRegion={{
             latitude: userLat,
             longitude: userLng,
@@ -287,7 +328,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1 },
   loadingContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  mapContainer: { width: '100%', height: '45%' },
+  mapContainer: { width: '100%', height: '50%', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' },
 
   controls: { position: 'absolute', right: 16, top: 80, zIndex: 10 },
   controlBtn: {
@@ -301,10 +342,15 @@ const styles = StyleSheet.create({
 
   dataPanel: {
     flex: 1,
-    padding: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    marginTop: -16,
+    padding: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginTop: -24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 8,
   },
   locationText: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 12 },
   sectionTitle: {
@@ -315,7 +361,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyText: { fontSize: 13, fontFamily: Fonts.sans, marginBottom: 8, fontStyle: 'italic' },
-  card: { borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 8 },
-  cardTitle: { fontWeight: '600', fontSize: 14, fontFamily: Fonts.sans },
-  cardSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
+  card: { borderWidth: 1, borderRadius: 14, padding: 14, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
+  cardTitle: { fontWeight: '700', fontSize: 14, fontFamily: Fonts.sans },
+  cardSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 4, lineHeight: 18 },
 });

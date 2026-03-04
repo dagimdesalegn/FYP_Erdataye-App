@@ -1,13 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   TextInput,
   useWindowDimensions,
@@ -36,6 +38,18 @@ export default function LoginScreen() {
   const [form, setForm] = useState({ phone: '', password: '' });
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
+
+  // Entrance animation
+  const fadeIn = useRef(new Animated.Value(0)).current;
+  const slideUp = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideUp, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleChange = (key: string, value: string) => {
     // Clear error for this field when user types
@@ -154,6 +168,7 @@ export default function LoginScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: bg }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} translucent backgroundColor="transparent" />
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Signing in..." />
 
       {/* Top accent gradient */}
@@ -178,10 +193,10 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}>
 
           {/* Card */}
-          <View style={[
+          <Animated.View style={[
             styles.card,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-            isSmallScreen && { paddingHorizontal: 16, paddingVertical: 20, borderRadius: 14 },
+            { backgroundColor: cardBg, borderColor: cardBorder, opacity: fadeIn, transform: [{ translateY: slideUp }] },
+            isSmallScreen && { paddingHorizontal: 20, paddingVertical: 24, borderRadius: 18 },
           ]}>
 
             {/* Logo / Header area */}
@@ -198,7 +213,7 @@ export default function LoginScreen() {
             {/* Title */}
             <ThemedText style={[styles.title, { color: textPrimary }]}>Welcome Back</ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              Sign in to access emergency services.
+              Sign in to access emergency services
             </ThemedText>
 
             {/* Form */}
@@ -259,13 +274,12 @@ export default function LoginScreen() {
                 {fieldErrors.password ? <ThemedText style={styles.fieldError}>{fieldErrors.password}</ThemedText> : null}
               </View>
 
-              {/* Sign In button */}
               <Pressable
                 onPress={handleLogin}
                 disabled={loading}
                 style={({ pressed }) => [
                   styles.primaryBtn,
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                  pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
                   loading && { opacity: 0.7 },
                 ]}>
                 <LinearGradient
@@ -304,7 +318,7 @@ export default function LoginScreen() {
               <MaterialIcons name="person-add" size={20} color="#DC2626" />
               <ThemedText style={[styles.secondaryBtnText, { color: textPrimary }]}>Create Account</ThemedText>
             </Pressable>
-          </View>
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -325,7 +339,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 260,
+    height: 300,
   },
   scroll: {
     flexGrow: 1,
@@ -341,29 +355,31 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 24,
+    paddingHorizontal: 28,
+    paddingVertical: 32,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.1,
+    shadowRadius: 32,
+    elevation: 12,
   },
   /* ---- Header ---- */
-  headerArea: { alignItems: 'center', marginBottom: 18 },
+  headerArea: { alignItems: 'center', marginBottom: 24 },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
+    width: 88,
+    height: 88,
+    borderRadius: 24,
     backgroundColor: 'rgba(220, 38, 38, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: 10,
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.12)',
   },
   logoImage: {
     width: 60,
@@ -371,21 +387,23 @@ const styles = StyleSheet.create({
   },
   /* ---- Title / Subtitle ---- */
   title: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '800',
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
-    marginBottom: 2,
+    marginBottom: 4,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 18,
-    marginBottom: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   /* ---- Form ---- */
-  form: { gap: 12 },
+  form: { gap: 16 },
   fieldGroup: { gap: 6 },
   labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: {
@@ -398,9 +416,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 12,
-    height: 44,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    height: 52,
+    paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 10 },
   input: {
@@ -426,14 +444,18 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   /* ---- Primary button ---- */
-  primaryBtn: { marginTop: 2, borderRadius: 12, overflow: 'hidden' },
+  primaryBtn: { marginTop: 4, borderRadius: 14, overflow: 'hidden' },
   primaryBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     gap: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   primaryBtnText: {
     color: '#fff',
@@ -447,7 +469,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginVertical: 10,
+    marginVertical: 14,
   },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans },
@@ -456,8 +478,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 44,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     borderWidth: 1.5,
     gap: 8,
   },

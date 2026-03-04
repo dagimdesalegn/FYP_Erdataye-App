@@ -590,9 +590,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 4,
   },
-  stepLabel: { fontSize: 9, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
+  stepLabel: { fontSize: 12, fontWeight: '600', fontFamily: Fonts.sans, textAlign: 'center' },
   stepLine: {
     position: 'absolute',
     top: 11,
@@ -761,7 +761,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  detailLabel: { fontSize: 11, fontFamily: Fonts.sans, textTransform: 'uppercase', letterSpacing: 0.5 },
+  detailLabel: { fontSize: 13, fontFamily: Fonts.sans, textTransform: 'uppercase', letterSpacing: 0.5 },
   detailValue: { fontSize: 14, fontWeight: '600', fontFamily: Fonts.sans },
 
   etaBadge: {

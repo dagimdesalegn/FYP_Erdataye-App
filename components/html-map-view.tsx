@@ -32,11 +32,18 @@ export function HtmlMapView({ html, style, title = 'Map' }: HtmlMapViewProps) {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { WebView } = require('react-native-webview');
 
-  // The html prop from buildMapHtml is a data URI; WebView needs source.uri for data URIs
+  // Google Maps embed URLs require being inside an iframe.
+  // Wrap the embed URL in a minimal HTML document with a full-size iframe.
+  const iframeHtml = `<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}
+iframe{width:100%;height:100%;border:none}</style></head>
+<body><iframe src="${html}" allowfullscreen loading="eager"></iframe></body></html>`;
+
   return (
     <View style={style}>
       <WebView
-        source={{ uri: html }}
+        source={{ html: iframeHtml }}
         style={{ flex: 1, backgroundColor: 'transparent' }}
         originWhitelist={['*']}
         javaScriptEnabled
