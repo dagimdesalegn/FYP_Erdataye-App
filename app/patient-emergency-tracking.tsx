@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import { FirstAidFab } from '@/components/first-aid-fab';
 import {
     Animated,
     Linking,
@@ -553,6 +554,7 @@ export default function PatientEmergencyTrackingScreen() {
           </Pressable>
         )}
       </ScrollView>
+      <FirstAidFab />
     </View>
   );
 }

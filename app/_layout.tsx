@@ -72,6 +72,7 @@ function ThemedRoot() {
           <Stack.Screen name="patient-profile" options={{ headerShown: false, title: 'Patient Profile' }} />
           <Stack.Screen name="patient-emergency" options={{ headerShown: false, title: 'Emergency' }} />
           <Stack.Screen name="patient-emergency-tracking" options={{ headerShown: false, title: 'Emergency Tracking' }} />
+          <Stack.Screen name="first-aid-chat" options={{ headerShown: false, title: 'First Aid Assistant' }} />
           {/* Driver Routes */}
           <Stack.Screen name="driver-home" options={{ headerShown: false, title: 'Driver Home' }} />
           <Stack.Screen name="driver-emergency" options={{ headerShown: false, title: 'Emergency Assignment' }} />
