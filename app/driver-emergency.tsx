@@ -359,48 +359,65 @@ export default function DriverEmergencyScreen() {
                 </ThemedText>
               </View>
             ) : null}
+
+            {/* View Full Medical Profile Button */}
+            {patientInfo.id && (
+              <Pressable
+                onPress={() => router.push({ pathname: '/driver-patient-info' as any, params: { patientId: patientInfo.id } })}
+                style={({ pressed }) => [
+                  styles.viewProfileBtn,
+                  { backgroundColor: isDark ? '#0C4A6E' : '#E0F2FE', borderColor: isDark ? '#0369A1' : '#7DD3FC' },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <MaterialIcons name="medical-services" size={16} color="#0EA5E9" />
+                <ThemedText style={styles.viewProfileBtnText}>View Medical Profile</ThemedText>
+                <MaterialIcons name="chevron-right" size={18} color="#0EA5E9" />
+              </Pressable>
+            )}
           </View>
         )}
 
-        {/* ── Medical Profile Card ──────────────────────── */}
+        {/* ── Medical Profile Summary Card ──────────────── */}
         {med && (
-          <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          <View style={[styles.medicalCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             <View style={styles.cardHeader}>
               <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
                 <MaterialIcons name="medical-services" size={20} color="#DC2626" />
               </View>
               <ThemedText style={[styles.cardHeading, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
-                Medical Info
+                Medical Profile
               </ThemedText>
             </View>
 
-            {/* Blood type badge */}
-            {med.blood_type ? (
-              <View style={styles.bloodRow}>
-                <View style={styles.bloodBadge}>
-                  <ThemedText style={styles.bloodText}>{med.blood_type}</ThemedText>
+            {/* Quick stats row */}
+            <View style={styles.medicalGrid}>
+              {med.blood_type ? (
+                <View style={[styles.medicalGridItem, { backgroundColor: isDark ? '#450A0A' : '#FEF2F2' }]}>
+                  <View style={styles.bloodBadge}>
+                    <ThemedText style={styles.bloodText}>{med.blood_type}</ThemedText>
+                  </View>
+                  <ThemedText style={[styles.medicalGridLabel, { color: subtleText }]}>Blood Type</ThemedText>
                 </View>
-                <ThemedText style={[styles.infoLabel, { color: subtleText, marginLeft: 8 }]}>
-                  Blood Type
-                </ThemedText>
-              </View>
-            ) : null}
+              ) : null}
 
-            {med.allergies ? (
-              <View style={styles.infoRow}>
-                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Allergies</ThemedText>
-                <View style={[styles.alertChip, { backgroundColor: '#FEF3C7' }]}>
-                  <MaterialIcons name="warning" size={14} color="#D97706" />
-                  <ThemedText style={{ color: '#92400E', fontSize: 13, fontFamily: Fonts.sans, marginLeft: 4 }}>
+              {med.allergies ? (
+                <View style={[styles.medicalGridItem, { backgroundColor: isDark ? '#451A03' : '#FFFBEB' }]}>
+                  <MaterialIcons name="warning" size={22} color="#D97706" />
+                  <ThemedText style={[styles.medicalGridValue, { color: isDark ? '#FBBF24' : '#92400E' }]} numberOfLines={2}>
                     {med.allergies}
                   </ThemedText>
+                  <ThemedText style={[styles.medicalGridLabel, { color: subtleText }]}>Allergies</ThemedText>
                 </View>
-              </View>
-            ) : null}
+              ) : null}
+            </View>
 
             {med.medical_conditions ? (
-              <View style={styles.infoRow}>
-                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Conditions</ThemedText>
+              <View style={[styles.medicalConditionBox, { backgroundColor: isDark ? '#0F172A' : '#F0F9FF', borderColor: isDark ? '#1E3A5F' : '#BAE6FD' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                  <MaterialIcons name="healing" size={16} color="#0284C7" />
+                  <ThemedText style={[styles.infoLabel, { color: '#0284C7', marginBottom: 0 }]}>Conditions</ThemedText>
+                </View>
                 <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
                   {med.medical_conditions}
                 </ThemedText>
@@ -408,14 +425,17 @@ export default function DriverEmergencyScreen() {
             ) : null}
 
             {med.emergency_contact_name ? (
-              <View style={styles.infoRow}>
-                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>Emergency Contact</ThemedText>
+              <View style={[styles.emergencyContactBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: cardBorder }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <MaterialIcons name="contact-phone" size={16} color="#059669" />
+                  <ThemedText style={[styles.infoLabel, { color: '#059669', marginBottom: 0 }]}>Emergency Contact</ThemedText>
+                </View>
                 <ThemedText style={[styles.infoValue, { color: isDark ? '#F1F5F9' : '#0F172A' }]}>
                   {med.emergency_contact_name}
                 </ThemedText>
                 {med.emergency_contact_phone ? (
                   <Pressable onPress={() => Linking.openURL(`tel:${med.emergency_contact_phone}`)}>
-                    <ThemedText style={[styles.phoneLink, { marginTop: 2 }]}>
+                    <ThemedText style={[styles.phoneLink, { marginTop: 4 }]}>
                       {med.emergency_contact_phone}
                     </ThemedText>
                   </Pressable>
@@ -604,8 +624,71 @@ const styles = StyleSheet.create({
   },
   descText: { fontSize: 13, fontFamily: Fonts.sans, marginLeft: 8, flex: 1, lineHeight: 20 },
 
-  // Medical
-  bloodRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  // View Profile button
+  viewProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    marginTop: 12,
+    gap: 8,
+  },
+  viewProfileBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: Fonts.sans,
+    color: '#0EA5E9',
+    flex: 1,
+    textAlign: 'center',
+  },
+
+  // Medical card
+  medicalCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  medicalGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  medicalGridItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    gap: 6,
+  },
+  medicalGridValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    fontFamily: Fonts.sans,
+    textAlign: 'center',
+  },
+  medicalGridLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  medicalConditionBox: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  emergencyContactBox: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+
+  // Medical (kept for grid items)
   bloodBadge: {
     backgroundColor: '#DC2626',
     paddingHorizontal: 12,
@@ -613,16 +696,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   bloodText: { color: '#FFF', fontWeight: '800', fontSize: 16, fontFamily: Fonts.sans },
-
-  alertChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
 
   // Bottom bar
   bottomBar: {
