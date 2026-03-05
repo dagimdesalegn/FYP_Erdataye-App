@@ -562,10 +562,7 @@ export const getPatientInfo = async (
     // Use supabaseAdmin to bypass RLS for profile reads
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select(`
-        *,
-        medical_profiles(*)
-      `)
+      .select('*')
       .eq('id', patientId)
       .single();
 
@@ -573,11 +570,23 @@ export const getPatientInfo = async (
       throw profileError;
     }
 
+    // Fetch medical profile separately (no FK relationship)
+    let medicalProfiles: any[] = [];
+    try {
+      const { data: medData } = await supabaseAdmin
+        .from('medical_profiles')
+        .select('*')
+        .eq('user_id', patientId);
+      if (medData) medicalProfiles = medData;
+    } catch {
+      // medical_profiles table may not exist — ignore
+    }
+
     const info = {
       id: profileData?.id,
       full_name: profileData?.full_name,
       phone: profileData?.phone,
-      medical_profiles: profileData?.medical_profiles || [],
+      medical_profiles: medicalProfiles,
     };
 
     return { info, error: null };
