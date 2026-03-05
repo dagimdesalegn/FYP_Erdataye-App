@@ -28,8 +28,8 @@ import {
     getAvailableAmbulances,
     parsePostGISPoint,
 } from '@/utils/emergency';
-import { supabase } from '@/utils/supabase';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
+import { supabase } from '@/utils/supabase';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 export default function PatientEmergencyScreen() {
