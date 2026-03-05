@@ -1,23 +1,25 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Animated,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { getFirstAidAiResponse, isFirstAidAiConfigured } from '@/utils/first-aid-ai';
 import { getBotResponse, getWelcomeMessage, Message, QUICK_TOPICS } from '@/utils/first-aid-chatbot';
+import { type Lang, LANG_LABELS, UI } from '@/utils/i18n-first-aid';
 import { useRouter } from 'expo-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,8 +173,10 @@ export default function FirstAidChatScreen() {
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
   const colors = Colors[colorScheme];
+  const aiConfigured = isFirstAidAiConfigured();
 
-  const [messages, setMessages] = useState<Message[]>([getWelcomeMessage()]);
+  const [lang, setLang] = useState<Lang>('en');
+  const [messages, setMessages] = useState<Message[]>([getWelcomeMessage('en')]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
@@ -187,23 +191,26 @@ export default function FirstAidChatScreen() {
   const sendMessage = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed) return;
+      if (!trimmed || isTyping) return;
 
       const userMsg: Message = { role: 'user', text: trimmed };
+      const historyForReply = [...messages, userMsg];
       setMessages((prev) => [...prev, userMsg]);
       setInputText('');
       setIsTyping(true);
       scrollToBottom();
 
-      // Short delay so the typing indicator flashes briefly (feels natural)
-      setTimeout(() => {
-        const botMsg = getBotResponse(trimmed);
+      const fetchReply = async () => {
+        const aiReply = await getFirstAidAiResponse(trimmed, historyForReply, lang);
+        const botMsg = aiReply ?? getBotResponse(trimmed, lang);
         setMessages((prev) => [...prev, botMsg]);
         setIsTyping(false);
         scrollToBottom();
-      }, 250);
+      };
+
+      void fetchReply();
     },
-    [scrollToBottom]
+    [isTyping, messages, scrollToBottom, lang]
   );
 
   const handleFollowUp = useCallback(
@@ -247,12 +254,37 @@ export default function FirstAidChatScreen() {
           <View>
             <ThemedText style={styles.headerTitle}>First Aid Assistant</ThemedText>
             <ThemedText style={[styles.headerSub, { color: isDark ? '#64748B' : '#94A3B8' }]}>
-              WHO Guidelines • Always online
+              {aiConfigured ? 'WHO guidelines | AI enabled' : 'WHO guidelines | offline backup mode'}
             </ThemedText>
           </View>
         </View>
 
         <View style={styles.headerRight}>
+          {/* Language switcher */}
+          <View style={styles.langRow}>
+            {(['en', 'am', 'om'] as Lang[]).map((l) => (
+              <Pressable
+                key={l}
+                onPress={() => {
+                  if (l !== lang) {
+                    setLang(l);
+                    setMessages([getWelcomeMessage(l)]);
+                  }
+                }}
+                style={[
+                  styles.langChip,
+                  {
+                    backgroundColor: l === lang ? '#DC2626' : (isDark ? '#1E2028' : '#F1F5F9'),
+                    borderColor: l === lang ? '#DC2626' : (isDark ? '#334155' : '#E2E8F0'),
+                  },
+                ]}>
+                <ThemedText style={[
+                  styles.langChipText,
+                  { color: l === lang ? '#fff' : (isDark ? '#94A3B8' : '#64748B') },
+                ]}>{LANG_LABELS[l]}</ThemedText>
+              </Pressable>
+            ))}
+          </View>
           <View style={[styles.onlineDot, { backgroundColor: '#10B981' }]} />
         </View>
       </View>
@@ -335,7 +367,7 @@ export default function FirstAidChatScreen() {
                 borderColor: isDark ? '#334155' : '#E2E8F0',
               },
             ]}
-            placeholder="Ask about first aid..."
+            placeholder={UI[lang].inputPlaceholder}
             placeholderTextColor={isDark ? '#475569' : '#94A3B8'}
             value={inputText}
             onChangeText={setInputText}
@@ -410,9 +442,25 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   headerRight: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 28,
+    gap: 8,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  langChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  langChipText: {
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: Fonts.sans,
   },
   onlineDot: {
     width: 10,
@@ -602,3 +650,4 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 });
+
