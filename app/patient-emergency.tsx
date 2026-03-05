@@ -11,9 +11,9 @@ import {
     TextInput,
     View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/app-button';
-import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
 import { HtmlMapView } from '@/components/html-map-view';
 import { LoadingModal } from '@/components/loading-modal';
@@ -28,6 +28,7 @@ import {
     getAvailableAmbulances,
     parsePostGISPoint,
 } from '@/utils/emergency';
+import { supabase } from '@/utils/supabase';
 import { createEmergency, getActiveEmergency, subscribeToEmergency } from '@/utils/patient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -38,6 +39,7 @@ export default function PatientEmergencyScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { user } = useAppState();
+  const insets = useSafeAreaInsets();
 
   const [hasActiveEmergency, setHasActiveEmergency] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,6 +67,31 @@ export default function PatientEmergencyScreen() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
 
+  // Auto-refresh ambulance count every 15s (picks up driver availability toggles)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadNearbyAmbulances();
+    }, 15000);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.latitude, location?.longitude]);
+
+  // Realtime: instantly refresh when any driver toggles availability
+  useEffect(() => {
+    const channel = supabase
+      .channel('ambulance-availability')
+      .on(
+        'postgres_changes' as any,
+        { event: 'UPDATE', schema: 'public', table: 'ambulances' },
+        () => { loadNearbyAmbulances(); },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location?.latitude, location?.longitude]);
+
+  const MAX_AMBULANCE_DISTANCE_KM = 50; // Only show ambulances within 50km
+
   const loadNearbyAmbulances = async () => {
     try {
       const { ambulances: data } = await getAvailableAmbulances();
@@ -76,19 +103,18 @@ export default function PatientEmergencyScreen() {
           const dist = location
             ? calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude)
             : null;
+          // Filter out ambulances that are too far away
+          if (dist !== null && dist > MAX_AMBULANCE_DISTANCE_KM) return null;
           return {
             lat: loc.latitude,
             lng: loc.longitude,
             label: a.registration_number || 'Ambulance',
             distance: dist !== null ? (dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`) : '',
+            distanceRaw: dist ?? 999,
           };
         })
         .filter(Boolean)
-        .sort((a: any, b: any) => {
-          const da = parseFloat(a.distance) || 999;
-          const db = parseFloat(b.distance) || 999;
-          return da - db;
-        });
+        .sort((a: any, b: any) => a.distanceRaw - b.distanceRaw);
       setNearbyAmbulances(parsed as any[]);
     } catch (err) {
       console.error('Error loading ambulances:', err);
@@ -313,14 +339,40 @@ export default function PatientEmergencyScreen() {
     <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Requesting ambulance..." />
 
-      <AppHeader title="Emergency Service" />
-
       <ScrollView
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top, 16) }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
+
+        {/* ── Header Row: Back (X) + Refresh ─────────── */}
+        <View style={styles.headerRow}>
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.headerBtn,
+              { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <MaterialIcons name="close" size={20} color={isDark ? '#E2E8F0' : '#334155'} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              loadNearbyAmbulances();
+              checkActiveEmergency();
+            }}
+            style={({ pressed }) => [
+              styles.headerBtn,
+              { backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.08)' },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <MaterialIcons name="refresh" size={20} color="#0EA5E9" />
+          </Pressable>
+        </View>
+
         <ThemedView style={styles.card}>
-          {/* Status Badge with X close button inside */}
+          {/* Status Badge */}
           <View style={styles.statusContainer}>
             <View
               style={[
@@ -340,18 +392,6 @@ export default function PatientEmergencyScreen() {
                 ]}>
                 {hasActiveEmergency ? 'Emergency Active' : 'No Active Emergency'}
               </ThemedText>
-              {/* X close button inside status box at the right end */}
-              <Pressable
-                onPress={() => router.back()}
-                style={[
-                  styles.statusCloseBtn,
-                  {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)',
-                  },
-                ]}
-              >
-                <MaterialIcons name="close" size={16} color={isDark ? '#E6E9EC' : '#11181C'} />
-              </Pressable>
             </View>
           </View>
 
@@ -392,9 +432,6 @@ export default function PatientEmergencyScreen() {
           ) : (
             // No Emergency View
             <>
-              <ThemedText style={styles.title}>
-                {isForOther ? 'Request Help for Someone Else' : 'Request Emergency Service'}
-              </ThemedText>
 
               {/* ── Map Box: Your location + nearby ambulances ─── */}
               {location && (
@@ -542,18 +579,22 @@ const styles = StyleSheet.create({
   bg: {
     flex: 1,
   },
-  statusCloseBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  headerBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
   },
   scroll: {
     flexGrow: 1,
     padding: 18,
-    paddingTop: 28,
     paddingBottom: 40,
   },
   card: {
