@@ -8,6 +8,8 @@
  * (dial 911) immediately in life-threatening situations.
  */
 
+import type { Lang } from './i18n-first-aid';
+
 export interface ChatTopic {
   id: string;
   label: string;
@@ -807,13 +809,14 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 // ─────────────────────────────────────────────────────────────────────────────
 // Fallback responses
 // ─────────────────────────────────────────────────────────────────────────────
-const FALLBACK_RESPONSES: string[] = [
-  `I'm your WHO-based first aid assistant. I can help with topics like **CPR, bleeding, choking, burns, stroke, poisoning, fractures, shock**, and more.
+const FALLBACK_RESPONSES: Record<Lang, string[]> = {
+  en: [
+    `I'm your WHO-based first aid assistant. I can help with topics like **CPR, bleeding, choking, burns, stroke, poisoning, fractures, shock**, and more.
 
 Please describe your situation or choose a topic from the suggestions above.
 
 ⚠️ *In a life-threatening emergency, call 911 immediately and do not wait for chatbot guidance.*`,
-  `I didn't quite understand that. Here are some topics I can help with:
+    `I didn't quite understand that. Here are some topics I can help with:
 • CPR and cardiac arrest
 • Controlling bleeding
 • Choking (Heimlich manoeuvre)
@@ -824,21 +827,56 @@ Please describe your situation or choose a topic from the suggestions above.
 • Shock
 
 Please type your question, or tap one of the quick topics above.`,
-];
+  ],
+  am: [
+    `እኔ በWHO ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ። በ**CPR፣ ደም መፍሰስ፣ መታፈን፣ ቃጠሎ፣ ስትሮክ፣ መመረዝ፣ ስብራት፣ ሾክ** እና ሌሎችም ርዕሶች ልረዳዎት እችላለሁ።
 
-let fallbackIndex = 0;
+እባክዎ ሁኔታዎን ይግለጹ ወይም ከላይ ካሉት ምክሮች ርዕስ ይምረጡ።
+
+⚠️ *ሕይወትን አደጋ ላይ የሚጥል ድንገተኛ ሁኔታ ከሆነ፣ ወዲያውኑ 911 ይደውሉ።*`,
+    `ያንን በትክክል አልገባኝም። እነዚህን ርዕሶች ልረዳዎት እችላለሁ፡
+• CPR እና የልብ ማቆም
+• ደም መፍሰስ መቆጣጠር
+• መታፈን
+• ቃጠሎ
+• ስትሮክ ማወቅ (FAST)
+• ስብራት
+• መመረዝ
+• ሾክ
+
+እባክዎ ጥያቄዎን ይተይቡ።`,
+  ],
+  om: [
+    `Ani gargaaraa gargaarsa jalqabaa WHO irratti hundaa'e dha. Mata dureewwan akka **CPR, dhiiguu, ukkaamfamuu, gubachuu, istirookii, summaa'uu, caccabsuu, shookii** fi kanneen biroo isin gargaaruu nan danda'a.
+
+Maaloo haala keessan ibsaa yookiin mata duree armaan olii keessaa filadhaa.
+
+⚠️ *Balaa lubbuu balaa irra buusu yoo ta'e, battaluma 911 bilbiladhaa.*`,
+    `Sana sirritti hin hubanne. Mata dureewwan isin gargaaruu danda'u kunooti:
+• CPR fi dhaabbachuu onnee
+• Dhiiguu to'achuu
+• Ukkaamfamuu
+• Gubachuu
+• Istirookii adda baasuu (FAST)
+• Caccabsuu
+• Summaa'uu
+• Shookii
+
+Maaloo gaaffii keessan barreessaa.`,
+  ],
+};
+
+const fallbackIndices: Record<Lang, number> = { en: 0, am: 0, om: 0 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main response function
 // ─────────────────────────────────────────────────────────────────────────────
-export function getBotResponse(userInput: string): BotMessage {
-  const lower = userInput.toLowerCase().trim();
 
-  // Greetings
-  if (/^(hi|hello|hey|good morning|good afternoon|good evening|salam|selam)\b/.test(lower)) {
-    return {
-      role: 'bot',
-      text: `👋 **Hello! I'm your First Aid Assistant, powered by WHO guidelines.**
+// Greeting responses per language
+const GREETINGS: Record<Lang, BotMessage> = {
+  en: {
+    role: 'bot',
+    text: `👋 **Hello! I'm your First Aid Assistant, powered by WHO guidelines.**
 
 I can guide you through emergency first aid procedures. Ask me about:
 • CPR, choking, severe bleeding
@@ -846,26 +884,62 @@ I can guide you through emergency first aid procedures. Ask me about:
 • Poisoning, allergic reactions, seizures
 
 💡 *For immediate life-threatening emergencies, call 911 first, then use this chatbot for step-by-step guidance.*`,
-      followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling bleeding'],
-    };
-  }
+    followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling bleeding'],
+  },
+  am: {
+    role: 'bot',
+    text: `👋 **ሰላም! እኔ በWHO መመሪያዎች ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ።**
 
-  // Thank you
-  if (/\b(thank|thanks|thx|appreciated|helpful)\b/.test(lower)) {
-    return {
-      role: 'bot',
-      text: `You're welcome! 🙏 Stay safe. Remember — in a life-threatening emergency, always **call 911** immediately and use this chatbot for step-by-step guidance while help is on the way.
+በድንገተኛ የመጀመሪያ እርዳታ ሂደቶች ልመራዎት እችላለሁ። ስለ እነዚህ ይጠይቁኝ፡
+• CPR፣ መታፈን፣ ከባድ ደም መፍሰስ
+• ቃጠሎ፣ ስብራት፣ ስትሮክ፣ ሾክ
+• መመረዝ፣ አለርጂ፣ መንቀጥቀጥ
+
+💡 *ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ መጀመሪያ 911 ይደውሉ።*`,
+    followUps: ['CPR እንዴት ይደረጋል?', 'የስትሮክ ምልክቶች', 'ደም መፍሰስ መቆጣጠር'],
+  },
+  om: {
+    role: 'bot',
+    text: `👋 **Akkam! Ani Gargaaraa Gargaarsa Jalqabaa qajeelfama WHO irratti hundaa'e dha.**
+
+Adeemsa gargaarsa jalqabaa hatattamaa keessatti isin qajeelchuu nan danda'a. Waa'ee kanneenii na gaafadhaa:
+• CPR, ukkaamfamuu, dhiiguu cimaa
+• Gubachuu, caccabsuu, istirookii, shookii
+• Summaa'uu, alarjii, hollachuu
+
+💡 *Balaa lubbuu balaa irra buusuuf, dursa 911 bilbiladhaa.*`,
+    followUps: ['CPR akkamiin hojjatama?', 'Mallattoo istirookii', 'Dhiiguu to\'achuu'],
+  },
+};
+
+const THANK_RESPONSES: Record<Lang, BotMessage> = {
+  en: {
+    role: 'bot',
+    text: `You're welcome! 🙏 Stay safe. Remember — in a life-threatening emergency, always **call 911** immediately and use this chatbot for step-by-step guidance while help is on the way.
 
 Is there anything else I can help you with?`,
-      followUps: ['CPR steps', 'Ethiopian emergency numbers', 'First aid kit'],
-    };
-  }
+    followUps: ['CPR steps', 'Ethiopian emergency numbers', 'First aid kit'],
+  },
+  am: {
+    role: 'bot',
+    text: `እባክዎን! 🙏 ጥንቃቄ ያድርጉ። ያስታውሱ — ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ ሁልጊዜ ወዲያውኑ **911 ይደውሉ**።
 
-  // Emergency trigger words — strong CTA
-  if (/\b(dying|dead|no pulse|not breathing|unconscious|emergency|critical|help me)\b/.test(lower)) {
-    return {
-      role: 'bot',
-      text: `🚨 **CALL 911 NOW!**
+ሌላ ልረዳዎት የምችለው ነገር አለ?`,
+    followUps: ['CPR ደረጃዎች', 'የኢትዮጵያ ድንገተኛ ቁጥሮች', 'የመጀመሪያ እርዳታ ኪት'],
+  },
+  om: {
+    role: 'bot',
+    text: `Kabajamaa! 🙏 Nagaan turaa. Yaadadhaa — balaa lubbuu balaa irra buusuuf, yeroo hunda battaluma **911 bilbiladhaa**.
+
+Waan biraa isin gargaaruu danda'u jiraa?`,
+    followUps: ['Tarkaanfii CPR', 'Lakkoofsa balaa hatattamaa Itoophiyaa', 'Saanduqa gargaarsa jalqabaa'],
+  },
+};
+
+const EMERGENCY_RESPONSES: Record<Lang, BotMessage> = {
+  en: {
+    role: 'bot',
+    text: `🚨 **CALL 911 NOW!**
 
 While waiting for help, you can:
 • **Perform CPR** if they are not breathing and have no pulse.
@@ -873,11 +947,53 @@ While waiting for help, you can:
 • **Place in recovery position** if unconscious but breathing.
 
 What specific situation are you dealing with?`,
-      followUps: ['CPR steps', 'Controlling bleeding', 'Recovery position'],
-    };
+    followUps: ['CPR steps', 'Controlling bleeding', 'Recovery position'],
+  },
+  am: {
+    role: 'bot',
+    text: `🚨 **አሁኑኑ 911 ይደውሉ!**
+
+እርዳታ እየጠበቁ ሳሉ፡
+• ትንፋሽ ከሌለው እና ልብ ምት ከሌለው **CPR ያድርጉ**።
+• ከባድ ደም መፍሰስን **በጠንካራ ቀጥተኛ ግፊት ይቆጣጠሩ**።
+• ንቃተ ህሊና ያጣ ግን የሚተነፍስ ከሆነ **በማገገሚያ ቦታ ያስቀምጡ**።
+
+ምን ዓይነት ሁኔታ ነው ያጋጠመዎት?`,
+    followUps: ['CPR ደረጃዎች', 'ደም መፍሰስ መቆጣጠር', 'የማገገሚያ ቦታ'],
+  },
+  om: {
+    role: 'bot',
+    text: `🚨 **AMMA 911 BILBILADHAA!**
+
+Gargaarsa osoo eeggatanii:
+• Yoo hin hafuursin fi garramiin hin qabaanne **CPR hojjadhaa**.
+• Dhiiguu cimaa **dhiibbaa kallattii cimaadhaan to'adhaa**.
+• Yoo of wallaalee garuu hafuursisaa jiraate **bakka dandamachuu kaa'aa**.
+
+Haalli addaa maaltu isinitti dhufe?`,
+    followUps: ['Tarkaanfii CPR', 'Dhiiguu to\'achuu', 'Bakka dandamachuu'],
+  },
+};
+
+export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage {
+  const lower = userInput.toLowerCase().trim();
+
+  // Greetings — support all three languages
+  if (/^(hi|hello|hey|good morning|good afternoon|good evening|salam|selam|ሰላም|akkam|nagaa|ashamaa)\b/i.test(lower)) {
+    return GREETINGS[lang];
   }
 
-  // Search the knowledge base
+  // Thank you — support all three languages
+  if (/\b(thank|thanks|thx|appreciated|helpful|አመሰግናለሁ|እናመሰግናለን|galatoomaa|galatoomi)\b/i.test(lower)) {
+    return THANK_RESPONSES[lang];
+  }
+
+  // Emergency trigger words — support all three languages
+  if (/\b(dying|dead|no pulse|not breathing|unconscious|emergency|critical|help me|እርዳታ|ሞት|ድንገተኛ|hatattama|du'a|gargaarsa)\b/i.test(lower)) {
+    return EMERGENCY_RESPONSES[lang];
+  }
+
+  // Search the knowledge base (English KB — for non-English, the AI handles translation)
   for (const entry of KB) {
     const matched = entry.keywords.some((kw) => lower.includes(kw));
     if (matched) {
@@ -890,20 +1006,25 @@ What specific situation are you dealing with?`,
   }
 
   // Fallback
-  const fbText = FALLBACK_RESPONSES[fallbackIndex % FALLBACK_RESPONSES.length];
-  fallbackIndex += 1;
+  const responses = FALLBACK_RESPONSES[lang];
+  const idx = fallbackIndices[lang] % responses.length;
+  fallbackIndices[lang] += 1;
   return {
     role: 'bot',
-    text: fbText,
-    followUps: ['CPR steps', 'Controlling bleeding', 'Stroke recognition', 'Ethiopian emergency numbers'],
+    text: responses[idx],
+    followUps: lang === 'am'
+      ? ['CPR ደረጃዎች', 'ደም መፍሰስ መቆጣጠር', 'ስትሮክ ማወቅ', 'የኢትዮጵያ ድንገተኛ ቁጥሮች']
+      : lang === 'om'
+      ? ['Tarkaanfii CPR', 'Dhiiguu to\'achuu', 'Istirookii adda baasuu', 'Lakkoofsa balaa hatattamaa Itoophiyaa']
+      : ['CPR steps', 'Controlling bleeding', 'Stroke recognition', 'Ethiopian emergency numbers'],
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Welcome message shown when chat opens
 // ─────────────────────────────────────────────────────────────────────────────
-export function getWelcomeMessage(): BotMessage {
-  return {
+const WELCOME_MESSAGES: Record<Lang, BotMessage> = {
+  en: {
     role: 'bot',
     text: `👋 **Welcome to the Erdataya First Aid Chatbot!**
 
@@ -923,5 +1044,51 @@ I can help you with:
 
 ⚠️ *Disclaimer: This chatbot provides general first aid information. It is NOT a substitute for professional medical care. In a life-threatening emergency, CALL 911 immediately.*`,
     followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling a nosebleed', 'Emergency contacts'],
-  };
+  },
+  am: {
+    role: 'bot',
+    text: `👋 **እንኳን ወደ Erdataya የመጀመሪያ እርዳታ ቻትቦት በደህና መጡ!**
+
+በ**የዓለም ጤና ድርጅት (WHO)** መመሪያዎች እና በኢትዮጵያ ጤና ሚኒስቴር ፕሮቶኮሎች ላይ ተመስርቼ የመጀመሪያ እርዳታ መመሪያ እሰጣለሁ።
+
+ልረዳዎት የምችለው፡
+• 🫀 CPR እና የልብ ማቆም
+• 🩸 ደም መፍሰስ መቆጣጠር
+• 🫁 መታፈን እና አተነፋፈስ
+• 🔥 ቃጠሎ
+• 🧠 ስትሮክ ማወቅ
+• 🦴 ስብራት
+• ⚡ ሾክ አያያዝ
+• ☠️ መመረዝ
+
+**ለመጀመር:** ከዚህ በታች ጥያቄዎን ይተይቡ።
+
+⚠️ *ማስጠንቀቂያ: ይህ ቻትቦት አጠቃላይ የመጀመሪያ ​​እርዳታ መረጃ ብቻ ይሰጣል። ለሕይወት አደጋ ፣ ወዲያውኑ 911 ይደውሉ።*`,
+    followUps: ['CPR እንዴት ይደረጋል?', 'የስትሮክ ምልክቶች', 'የአፍንጫ ደም መፍሰስ', 'የድንገተኛ ቁጥሮች'],
+  },
+  om: {
+    role: 'bot',
+    text: `👋 **Baga gara Chatbot Gargaarsa Jalqabaa Erdataya nagaan dhuftan!**
+
+Qajeelfama **Dhaabbata Fayyaa Addunyaa (WHO)** fi Pirootokoolii Ministeera Fayyaa Itoophiyaa irratti hundaa'uudhaan qajeelfama gargaarsa jalqabaa nan kenna.
+
+Waan isin gargaaruu danda'u:
+• 🫀 CPR fi Dhaabbachuu Onnee
+• 🩸 Dhiiguu To'achuu
+• 🫁 Ukkaamfamuu fi Hafuura Baafachuu
+• 🔥 Gubachuu
+• 🧠 Istirookii Adda Baasuu
+• 🦴 Caccabsuu
+• ⚡ Shookii Bulchuu
+• ☠️ Summaa'uu
+
+**Jalqabuuf:** Gaaffii keessan armaan gaditti barreessaa.
+
+⚠️ *Hubachiisa: Chatbot kun odeeffannoo gargaarsa jalqabaa waliigalaa qofa kenna. Balaa lubbuu yoo ta'e, battaluma 911 bilbiladhaa.*`,
+    followUps: ['CPR akkamiin hojjatama?', 'Mallattoo istirookii', 'Dhiiguu funyaanii', 'Lakkoofsa balaa hatattamaa'],
+  },
+};
+
+export function getWelcomeMessage(lang: Lang = 'en'): BotMessage {
+  return WELCOME_MESSAGES[lang];
 }

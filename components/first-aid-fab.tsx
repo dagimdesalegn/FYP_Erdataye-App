@@ -5,30 +5,32 @@
 import { useAppState } from '@/components/app-state';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { addChatMessage } from '@/utils/chat';
-import { getBotResponse, getWelcomeMessage } from '@/utils/first-aid-chatbot';
+import { getFirstAidAiResponse } from '@/utils/first-aid-ai';
+import { getBotResponse, type Message as ChatKbMessage } from '@/utils/first-aid-chatbot';
+import { LANG_LABELS, UI, type Lang } from '@/utils/i18n-first-aid';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Animated,
+    Dimensions,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const W = Math.min(Dimensions.get('window').width * 0.82, 310);
 const SCREEN_H = Dimensions.get('window').height;
 
-// Minimal welcome shown inside the widget
-const WELCOME: Msg = {
-  role: 'bot',
-  text: 'Hi! I\'m your **First Aid Assistant** powered by WHO guidelines.\n\nAsk me anything — CPR, bleeding, stroke, burns, poisoning and more.',
-};
+const LANGS: Lang[] = ['en', 'am', 'om'];
+
+function makeWelcome(lang: Lang): Msg {
+  return { role: 'bot', text: UI[lang].welcomeMessage };
+}
 
 function BoldText({ text, color, size = 12.5 }: { text: string; color: string; size?: number }) {
   const parts = text.split(/\*\*(.*?)\*\*/g);
@@ -49,13 +51,12 @@ export function FirstAidFab() {
   const isDark = useColorScheme() === 'dark';
 
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([WELCOME]);
+  const [lang, setLang] = useState<Lang>('en');
+  const [messages, setMessages] = useState<Msg[]>([makeWelcome('en')]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<FlatList<Msg>>(null);
   const fabScale = useRef(new Animated.Value(1)).current;
-
-  if (!isRegistered) return null;
 
   // ── palette ─────────────────────────────────────────────────────────────
   const surface   = isDark ? '#0D1117' : '#FFFFFF';
@@ -74,28 +75,38 @@ export function FirstAidFab() {
   const send = useCallback(async (text: string) => {
     const t = text.trim();
     if (!t) return;
-    setMessages(p => [...p, { role: 'user', text: t }]);
+    const userMsg: Msg = { role: 'user', text: t };
+    const historyForReply: ChatKbMessage[] = [...messages, userMsg].map((m) => ({
+      role: m.role,
+      text: m.text,
+    }));
+
+    setMessages(p => [...p, userMsg]);
     setInput('');
     setTyping(true);
     scrollEnd();
-    setTimeout(async () => {
-      const bot = getBotResponse(t) as Msg;
-      setMessages(p => [...p, bot]);
-      setTyping(false);
-      scrollEnd();
-      if (user?.id) {
-        await addChatMessage(user.id, user.id, t, bot.text).catch(() => {});
-      }
-    }, 220);
-  }, [user]);
 
-  const toggleOpen = () => {
+    const aiReply = await getFirstAidAiResponse(t, historyForReply, lang);
+    const bot = (aiReply ?? getBotResponse(t, lang)) as Msg;
+
+    setMessages(p => [...p, bot]);
+    setTyping(false);
+    scrollEnd();
+
+    if (user?.id) {
+      await addChatMessage(user.id, user.id, t, bot.text).catch(() => {});
+    }
+  }, [messages, user, lang]);
+
+  const toggleOpen = useCallback(() => {
     Animated.sequence([
       Animated.timing(fabScale, { toValue: 0.85, duration: 70, useNativeDriver: true }),
       Animated.spring(fabScale, { toValue: 1, useNativeDriver: true }),
     ]).start();
     setOpen(o => !o);
-  };
+  }, [fabScale]);
+
+  if (!isRegistered) return null;
 
   return (
     <View
@@ -122,20 +133,47 @@ export function FirstAidFab() {
                   <Text style={{ fontSize: 13 }}>🚑</Text>
                 </View>
                 <View>
-                  <Text style={[styles.hdrTitle, { color: txt }]}>First Aid</Text>
+                  <Text style={[styles.hdrTitle, { color: txt }]}>{UI[lang].headerTitle}</Text>
                   <View style={styles.hdrStatusRow}>
                     <View style={[styles.onlineDot, { backgroundColor: '#38A169' }]} />
-                    <Text style={[styles.hdrStatus, { color: sub }]}>WHO · Always ready</Text>
+                    <Text style={[styles.hdrStatus, { color: sub }]}>{UI[lang].headerStatus}</Text>
                   </View>
                 </View>
               </View>
-              <Pressable onPress={() => setOpen(false)} hitSlop={16} style={styles.closeBtn}>
-                <Text style={[styles.closeX, { color: sub }]}>✕</Text>
-              </Pressable>
+              <View style={styles.hdrRight}>
+                {/* ── Language switcher ── */}
+                <View style={styles.langRow}>
+                  {LANGS.map((l) => (
+                    <Pressable
+                      key={l}
+                      onPress={() => {
+                        if (l !== lang) {
+                          setLang(l);
+                          setMessages([makeWelcome(l)]);
+                        }
+                      }}
+                      style={[
+                        styles.langBtn,
+                        {
+                          backgroundColor: l === lang ? accent : (isDark ? '#21262D' : '#EDF2F7'),
+                          borderColor: l === lang ? accent : border,
+                        },
+                      ]}>
+                      <Text style={[
+                        styles.langTxt,
+                        { color: l === lang ? '#fff' : sub },
+                      ]}>{LANG_LABELS[l]}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable onPress={() => setOpen(false)} hitSlop={16} style={styles.closeBtn}>
+                  <Text style={[styles.closeX, { color: sub }]}>✕</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* ── Message list ── */}
-            <FlatList
+            <FlatList<Msg>
               ref={listRef}
               data={messages}
               keyExtractor={(_, i) => String(i)}
@@ -157,7 +195,7 @@ export function FirstAidFab() {
                   </View>
                   {item.role === 'bot' && item.followUps?.length ? (
                     <View style={styles.fuWrap}>
-                      {item.followUps.map(fu => (
+                      {item.followUps.map((fu: string) => (
                         <Pressable
                           key={fu}
                           onPress={() => send(fu)}
@@ -187,7 +225,7 @@ export function FirstAidFab() {
             <View style={[styles.inputBar, { borderTopColor: border, backgroundColor: surfaceEl }]}>
               <TextInput
                 style={[styles.input, { backgroundColor: inputBg, color: txt }]}
-                placeholder="Ask about first aid…"
+                placeholder={UI[lang].inputPlaceholder}
                 placeholderTextColor={sub}
                 value={input}
                 onChangeText={setInput}
@@ -251,6 +289,13 @@ const styles = StyleSheet.create({
   hdrStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   onlineDot: { width: 6, height: 6, borderRadius: 3 },
   hdrStatus: { fontSize: 10, fontWeight: '500' },
+  hdrRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  langRow: { flexDirection: 'row', gap: 3 },
+  langBtn: {
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 6, borderWidth: 1,
+  },
+  langTxt: { fontSize: 9, fontWeight: '800' },
   closeBtn: { padding: 2 },
   closeX: { fontSize: 13, fontWeight: '700' },
 
