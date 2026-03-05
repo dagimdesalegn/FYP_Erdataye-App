@@ -344,35 +344,8 @@ export default function PatientEmergencyScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        {/* ── Header Row: Back (X) + Refresh ─────────── */}
-        <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.headerBtn,
-              { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons name="close" size={20} color={isDark ? '#E2E8F0' : '#334155'} />
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              loadNearbyAmbulances();
-              checkActiveEmergency();
-            }}
-            style={({ pressed }) => [
-              styles.headerBtn,
-              { backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.08)' },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons name="refresh" size={20} color="#0EA5E9" />
-          </Pressable>
-        </View>
-
         <ThemedView style={styles.card}>
-          {/* Status Badge */}
+          {/* Status Badge with Refresh + X buttons */}
           <View style={styles.statusContainer}>
             <View
               style={[
@@ -392,6 +365,31 @@ export default function PatientEmergencyScreen() {
                 ]}>
                 {hasActiveEmergency ? 'Emergency Active' : 'No Active Emergency'}
               </ThemedText>
+              {/* Refresh button */}
+              <Pressable
+                onPress={() => {
+                  loadNearbyAmbulances();
+                  checkActiveEmergency();
+                }}
+                style={({ pressed }) => [
+                  styles.statusActionBtn,
+                  { backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.08)' },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <MaterialIcons name="refresh" size={16} color="#0EA5E9" />
+              </Pressable>
+              {/* X close button */}
+              <Pressable
+                onPress={() => router.back()}
+                style={({ pressed }) => [
+                  styles.statusActionBtn,
+                  { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' },
+                  pressed && { opacity: 0.6 },
+                ]}
+              >
+                <MaterialIcons name="close" size={16} color={isDark ? '#E2E8F0' : '#334155'} />
+              </Pressable>
             </View>
           </View>
 
@@ -579,18 +577,13 @@ const styles = StyleSheet.create({
   bg: {
     flex: 1,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 14,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
+  statusActionBtn: {
+    width: 28,
+    height: 28,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 4,
   },
   scroll: {
     flexGrow: 1,

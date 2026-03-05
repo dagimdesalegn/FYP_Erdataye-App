@@ -85,7 +85,7 @@ export default function LoginScreen() {
 
   const validatePhone = (phone: string): boolean => {
     const digits = phone.replace(/[^0-9]/g, '');
-    // Accept: 09XXXXXXXX (10), 9XXXXXXXX (9), 2519XXXXXXXX (12)
+    // Accept: 09XXXXXXXX (10), 9XXXXXXXX (9),2519XXXXXX XX (12)
     if (digits.length === 10 && digits.startsWith('0')) return true;
     if (digits.length === 9 && digits.startsWith('9')) return true;
     if (digits.length === 12 && digits.startsWith('251')) return true;
