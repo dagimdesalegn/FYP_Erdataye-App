@@ -67,6 +67,7 @@ export default function PatientProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { user, setUser } = useAppState();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -220,19 +221,19 @@ export default function PatientProfileScreen() {
     return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading profile..." />;
   }
 
-  const bg = isDark ? '#0B0F1A' : '#F1F5FB';
-  const cardBg = isDark ? '#151C2C' : '#FFFFFF';
-  const cardBorder = isDark ? '#1E293B' : '#E2E8F0';
-  const sectionBg = isDark ? '#0F172A' : '#F8FAFC';
-  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
-  const textSecondary = isDark ? '#94A3B8' : '#64748B';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const sectionBg = colors.surfaceMuted;
+  const textPrimary = colors.text;
+  const textSecondary = colors.textMuted;
 
   return (
     <View style={[styles.bg, { backgroundColor: bg }]}>
       <LoadingModal visible={saving} colorScheme={colorScheme} message="Saving profile..." />
 
       <LinearGradient
-        colors={['#DC2626', '#EF4444', bg]}
+        colors={[colors.primary, '#EF4444', bg]}
         style={styles.topGradient}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}

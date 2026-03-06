@@ -56,6 +56,7 @@ export default function DriverEmergencyScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme];
   const { user } = useAppState();
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
@@ -240,12 +241,12 @@ export default function DriverEmergencyScreen() {
   const med = patientInfo?.medical_profiles?.[0];
 
   // ─── UI ───────────────────────────────────────────────────
-  const cardBg = isDark ? '#1E293B' : '#FFFFFF';
-  const cardBorder = isDark ? '#334155' : '#E2E8F0';
-  const subtleText = isDark ? '#94A3B8' : '#64748B';
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const subtleText = colors.textMuted;
 
   return (
-    <View style={[styles.root, { backgroundColor: isDark ? '#0F172A' : '#F1F5F9' }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LoadingModal visible={processing} colorScheme={colorScheme} message="Processing..." />
 
       <ScrollView

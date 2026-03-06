@@ -24,8 +24,9 @@ export default function EmergencyScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
-  const textColor = Colors[theme].text;
-  const subText = isDark ? '#B7BDC3' : '#475569';
+  const colors = Colors[theme];
+  const textColor = colors.text;
+  const subText = colors.textMuted;
 
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -131,8 +132,8 @@ export default function EmergencyScreen() {
         {errorMsg && <ThemedText style={styles.error}>{errorMsg}</ThemedText>}
 
         {location && (
-          <View style={[styles.locationCard, { backgroundColor: isDark ? '#0B1220' : '#F0F9FF', borderColor: isDark ? '#2E3236' : '#BAE6FD' }]}>
-            <MaterialIcons name="my-location" size={18} color="#3B82F6" />
+          <View style={[styles.locationCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}> 
+            <MaterialIcons name="my-location" size={18} color={colors.info} />
             <ThemedText style={[styles.locationText, { color: subText }]}>
               {formatCoords(location.coords.latitude, location.coords.longitude)}
               {'  '}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
@@ -184,7 +185,7 @@ export default function EmergencyScreen() {
             {nearbyAmbulances.map((ambulance) => (
               <View
                 key={ambulance.id}
-                style={[styles.ambulanceCard, { backgroundColor: isDark ? '#0B1220' : '#F8FAFC', borderColor: isDark ? '#2E3236' : '#EEF2F6' }]}
+                style={[styles.ambulanceCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
               >
                 <View style={styles.ambulanceRow}>
                   <ThemedText style={[styles.ambulanceText, { color: textColor }]}>

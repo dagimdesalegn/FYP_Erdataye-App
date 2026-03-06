@@ -15,6 +15,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { setRegistered } = useAppState();
 
   React.useEffect(() => {
@@ -36,7 +37,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -54,8 +55,8 @@ export default function LoginScreen() {
                   isDark ? styles.backButtonDark : styles.backButtonLight,
                   pressed ? { opacity: 0.85, transform: [{ scale: 0.95 }] } : null,
                 ]}>
-                <MaterialIcons name="arrow-back" size={20} color={isDark ? '#ECEDEE' : '#0F172A'} />
-                <ThemedText style={[styles.backText, { color: isDark ? '#ECEDEE' : '#0F172A' }]}>Back</ThemedText>
+                <MaterialIcons name="arrow-back" size={20} color={colors.text} />
+                <ThemedText style={[styles.backText, { color: colors.text }]}>Back</ThemedText>
               </Pressable>
             </View>
             <ThemedText style={styles.title}>Welcome back</ThemedText>
@@ -67,7 +68,7 @@ export default function LoginScreen() {
                 value={contact}
                 onChangeText={setContact}
                 placeholder="Contact Number"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
+                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
                 keyboardType="phone-pad"
                 style={[styles.input, isDark ? styles.inputDark : null]}
               />

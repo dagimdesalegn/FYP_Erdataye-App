@@ -19,7 +19,7 @@ import { useAppState } from '@/components/app-state';
 import { HtmlMapView } from '@/components/html-map-view';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
     getDriverAmbulanceId,
@@ -53,6 +53,7 @@ export default function DriverEmergencyTrackingScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme];
   const { emergencyId } = useLocalSearchParams();
   const { user } = useAppState();
   const { width: windowWidth } = useWindowDimensions();
@@ -228,16 +229,16 @@ export default function DriverEmergencyTrackingScreen() {
           ? buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16)
           : null;
 
-  const cardBg = isDark ? '#1E293B' : '#FFFFFF';
-  const cardBorder = isDark ? '#334155' : '#E2E8F0';
-  const subtleText = isDark ? '#94A3B8' : '#64748B';
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const subtleText = colors.textMuted;
 
   return (
-    <View style={[styles.root, { backgroundColor: isDark ? '#0F172A' : '#F1F5F9' }]}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}>
       <LoadingModal visible={updating} colorScheme={colorScheme} message="Updating..." />
 
       {/* ── Header ───────────────────────────────────── */}
-      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: cardBorder, paddingTop: Math.max(insets.top, 12) }]}>
+      <View style={[styles.header, { backgroundColor: cardBg, borderBottomColor: cardBorder, paddingTop: Math.max(insets.top, 12) }]}> 
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.headerBtn, { backgroundColor: isDark ? '#334155' : '#F1F5F9' }, pressed && { opacity: 0.6 }]}

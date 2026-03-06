@@ -195,32 +195,32 @@ export default function HelpScreen() {
 
       {/* Profile Dropdown */}
       {profileOpen && (
-        <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: isDark ? '#1E2028' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
+        <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.profileDropdownHeader}>
             <View style={{ flex: 1 }}>
               {(profileName || user?.fullName) ? (
                 <ThemedText style={[styles.profileName, { color: colors.text }]}>{profileName || user?.fullName}</ThemedText>
               ) : null}
-              <ThemedText style={[styles.profileEmail, { color: isDark ? '#94A3B8' : '#64748B' }]}>{user?.phone ?? 'Not signed in'}</ThemedText>
+              <ThemedText style={[styles.profileEmail, { color: colors.textMuted }]}>{user?.phone ?? 'Not signed in'}</ThemedText>
             </View>
             <Pressable onPress={() => setProfileOpen(false)} style={({ pressed }) => [styles.profileCloseBtn, pressed && { opacity: 0.7 }]}>
-              <MaterialIcons name="close" size={16} color={isDark ? '#94A3B8' : '#64748B'} />
+              <MaterialIcons name="close" size={16} color={colors.textMuted} />
             </Pressable>
           </View>
           <Pressable onPress={() => { setProfileOpen(false); router.push('/patient-profile'); }} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
-            <MaterialIcons name="edit" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+            <MaterialIcons name="edit" size={18} color={colors.text} />
             <ThemedText style={[styles.profileMenuText, { color: colors.text }]}>Edit Profile</ThemedText>
           </Pressable>
-          <View style={[styles.profileDivider, { backgroundColor: isDark ? '#2E3236' : '#E6ECF2' }]} />
+          <View style={[styles.profileDivider, { backgroundColor: colors.border }]} />
           <Pressable onPress={handleLogout} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
-            <MaterialIcons name="logout" size={18} color="#DC2626" />
-            <ThemedText style={[styles.profileMenuText, { color: '#DC2626' }]}>Sign Out</ThemedText>
+            <MaterialIcons name="logout" size={18} color={colors.primary} />
+            <ThemedText style={[styles.profileMenuText, { color: colors.primary }]}>Sign Out</ThemedText>
           </Pressable>
         </View>
       )}
 
       <View style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]}>
-        <ThemedView style={[styles.hero, { borderColor: isDark ? '#2E3236' : '#EEF2F6' }]}>
+        <ThemedView style={[styles.hero, { borderColor: colors.border }]}>
           <View style={styles.heroTopRow}>
             <View style={[styles.heroIconWrap, { backgroundColor: isDark ? 'rgba(220,38,38,0.18)' : 'rgba(220,38,38,0.12)' }]}>
               <MaterialIcons name="location-on" size={22} color={isDark ? '#FCA5A5' : '#DC2626'} />
@@ -230,7 +230,7 @@ export default function HelpScreen() {
             </View>
           </View>
 
-          <View style={[styles.mapShell, { borderColor: isDark ? '#2E3236' : '#E6ECF2', backgroundColor: isDark ? '#0B1220' : '#F8FAFC' }]}>
+          <View style={[styles.mapShell, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
             {mapLocation ? (
               <View style={styles.liveMapRoot}>
                 <View style={styles.mapMetaRow}>
@@ -238,14 +238,14 @@ export default function HelpScreen() {
                     <MaterialIcons name="my-location" size={18} color={isDark ? '#E6E9EC' : '#0F172A'} />
                     <View>
                       <ThemedText style={styles.mapMetaLabel}>{mapLocation.sourceLabel}</ThemedText>
-                      <ThemedText style={[styles.mapMetaValue, { color: isDark ? '#A3AAB3' : '#64748B' }]}>
+                      <ThemedText style={[styles.mapMetaValue, { color: colors.textMuted }]}>
                         {mapSummaryText}
                       </ThemedText>
                     </View>
                   </View>
                   <Pressable onPress={openInGoogleMaps} style={({ pressed }) => [styles.openMapBtn, pressed && { opacity: 0.7 }]}>
-                    <MaterialIcons name="directions" size={16} color={isDark ? '#E6E9EC' : '#0F172A'} />
-                    <ThemedText style={[styles.openMapText, { color: isDark ? '#E6E9EC' : '#0F172A' }]}>Directions</ThemedText>
+                    <MaterialIcons name="directions" size={16} color={colors.text} />
+                    <ThemedText style={[styles.openMapText, { color: colors.text }]}>Directions</ThemedText>
                   </Pressable>
                 </View>
                 <View style={styles.mapFrameWrap}>

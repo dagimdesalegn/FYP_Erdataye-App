@@ -33,6 +33,7 @@ export default function DriverHomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { user, setUser } = useAppState();
 
   const [isAvailable, setIsAvailable] = useState(false);
@@ -238,7 +239,7 @@ export default function DriverHomeScreen() {
   );
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Loading..." />
 
       {/* App Header – project name top-left, theme toggle + profile icon top-right */}
@@ -246,7 +247,7 @@ export default function DriverHomeScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Welcome Card */}
-        <ThemedView style={styles.welcomeCard}>
+        <ThemedView style={[styles.welcomeCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
           <View style={styles.welcomeRow}>
             <View style={[styles.avatarCircle, isDark && styles.avatarCircleDark]}>
               <MaterialIcons
@@ -265,7 +266,7 @@ export default function DriverHomeScreen() {
         </ThemedView>
 
         {/* Status Card */}
-        <ThemedView style={[styles.card, styles.statusCard]}>
+        <ThemedView style={[styles.card, styles.statusCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
           <ThemedText style={styles.cardTitle}>Driver Status</ThemedText>
 
           <Pressable
@@ -322,19 +323,19 @@ export default function DriverHomeScreen() {
 
         {/* Quick Stats */}
         <View style={styles.statsGrid}>
-          <ThemedView style={styles.statCard}>
+          <ThemedView style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
             <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
             <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
             <ThemedText style={styles.statLabel}>Active</ThemedText>
           </ThemedView>
 
-          <ThemedView style={styles.statCard}>
+          <ThemedView style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
             <MaterialIcons name="check-circle" size={28} color="#10B981" />
             <ThemedText style={styles.statNumber}>{completedCount}</ThemedText>
             <ThemedText style={styles.statLabel}>Completed</ThemedText>
           </ThemedView>
 
-          <ThemedView style={styles.statCard}>
+          <ThemedView style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
             <MaterialIcons name="schedule" size={28} color="#F59E0B" />
             <ThemedText style={styles.statNumber}>{activeCount + completedCount}</ThemedText>
             <ThemedText style={styles.statLabel}>Total</ThemedText>
@@ -342,7 +343,7 @@ export default function DriverHomeScreen() {
         </View>
 
         {/* Completed History */}
-        <ThemedView style={styles.card}>
+        <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}>
           <Pressable
             onPress={() => setHistoryExpanded(!historyExpanded)}
             style={styles.historyHeader}>
@@ -446,7 +447,7 @@ export default function DriverHomeScreen() {
           <ThemedView
             style={[
               styles.modalContent,
-              { backgroundColor: isDark ? '#111827' : '#FFFFFF' },
+              { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
             ]}>
             {/* Close button top-right of the modal card */}
             <Pressable
@@ -454,14 +455,14 @@ export default function DriverHomeScreen() {
               style={[
                 styles.modalCloseBtn,
                 {
-                  backgroundColor: isDark ? '#1E2028' : '#F1F5F9',
-                  borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: colors.border,
                 },
               ]}>
               <MaterialIcons
                 name="close"
                 size={20}
-                color={isDark ? '#E6E9EC' : '#11181C'}
+                color={colors.text}
               />
             </Pressable>
 

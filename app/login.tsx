@@ -19,7 +19,7 @@ import {
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signIn } from '@/utils/auth';
 import { useRouter } from 'expo-router';
@@ -30,6 +30,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { setUser, setRegistered } = useAppState();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -156,15 +157,15 @@ export default function LoginScreen() {
   };
 
   /* ---- colours ---- */
-  const bg = isDark ? '#0B0F1A' : '#F0F4FA';
-  const cardBg = isDark ? '#151C2C' : '#FFFFFF';
-  const cardBorder = isDark ? '#1E293B' : '#E2E8F0';
-  const inputBg = isDark ? '#0F172A' : '#F8FAFC';
-  const inputBorder = isDark ? '#1E293B' : '#E2E8F0';
-  const inputFocusBorder = '#DC2626';
-  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
-  const textSecondary = isDark ? '#94A3B8' : '#64748B';
-  const placeholderColor = isDark ? '#475569' : '#94A3B8';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const inputBg = colors.surfaceMuted;
+  const inputBorder = colors.border;
+  const inputFocusBorder = colors.primary;
+  const textPrimary = colors.text;
+  const textSecondary = colors.textMuted;
+  const placeholderColor = isDark ? '#64748B' : '#94A3B8';
 
   return (
     <View style={[styles.root, { backgroundColor: bg }, Platform.OS === 'web' && { minHeight: '100vh' as any }]}>
@@ -173,7 +174,7 @@ export default function LoginScreen() {
 
       {/* Top accent gradient */}
       <LinearGradient
-        colors={['#DC2626', '#EF4444', isDark ? '#0B0F1A' : '#F0F4FA']}
+        colors={[colors.primary, '#EF4444', bg]}
         style={styles.topGradient}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
