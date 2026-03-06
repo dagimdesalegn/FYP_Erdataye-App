@@ -10,7 +10,9 @@ export interface ChatMessage {
 }
 
 /**
- * Add chat message
+ * Add chat message.
+ * emergencyId may be a real emergency UUID or a user-session key for general chats.
+ * Errors are returned rather than thrown so callers can handle silently.
  */
 export const addChatMessage = async (
   emergencyId: string,
@@ -27,7 +29,8 @@ export const addChatMessage = async (
     });
 
     if (error) {
-      throw error;
+      // FK violation or other DB error — return gracefully, don't crash caller
+      return { success: false, error: error as unknown as Error };
     }
 
     return { success: true, error: null };

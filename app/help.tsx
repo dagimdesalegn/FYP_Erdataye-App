@@ -1,6 +1,7 @@
 import { AppButton } from '@/components/app-button';
 import { AppHeader } from '@/components/app-header';
 import { useAppState } from '@/components/app-state';
+import { FirstAidFab } from '@/components/first-aid-fab';
 import { HtmlMapView } from '@/components/html-map-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -390,6 +391,7 @@ export default function HelpScreen() {
           </View>
         ) : null}
       </View>
+      <FirstAidFab />
     </View>
   );
 }
