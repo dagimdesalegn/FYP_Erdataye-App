@@ -332,21 +332,30 @@ export default function FirstAidChatScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={({ item }) => (
-            <MessageBubble message={item} isDark={isDark} onFollowUp={handleFollowUp} />
-          )}
-          ListFooterComponent={isTyping ? <TypingIndicator isDark={isDark} /> : null}
-          contentContainerStyle={[
-            styles.messageList,
-            { paddingBottom: 16 + insets.bottom },
-          ]}
-          onContentSizeChange={scrollToBottom}
-          showsVerticalScrollIndicator={false}
-        />
+        <View
+          style={[
+            styles.chatPanel,
+            {
+              backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+              borderColor: isDark ? '#1F2937' : '#E2E8F0',
+            },
+          ]}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(_, i) => String(i)}
+            renderItem={({ item }) => (
+              <MessageBubble message={item} isDark={isDark} onFollowUp={handleFollowUp} />
+            )}
+            ListFooterComponent={isTyping ? <TypingIndicator isDark={isDark} /> : null}
+            contentContainerStyle={[
+              styles.messageList,
+              { paddingBottom: 16 + insets.bottom },
+            ]}
+            onContentSizeChange={scrollToBottom}
+            showsVerticalScrollIndicator={false}
+          />
+        </View>
 
         {/* Input bar */}
         <View
@@ -354,8 +363,8 @@ export default function FirstAidChatScreen() {
             styles.inputBar,
             {
               paddingBottom: Math.max(insets.bottom, 8) + 4,
-              backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
-              borderTopColor: isDark ? '#1E2028' : '#EEF2F6',
+              backgroundColor: 'transparent',
+              borderTopColor: 'transparent',
             },
           ]}>
           <TextInput
@@ -364,7 +373,7 @@ export default function FirstAidChatScreen() {
               {
                 backgroundColor: isDark ? '#1E2028' : '#F1F5F9',
                 color: isDark ? '#E2E8F0' : '#0F172A',
-                borderColor: isDark ? '#334155' : '#E2E8F0',
+                borderColor: isDark ? '#334155' : '#CBD5E1',
               },
             ]}
             placeholder={UI[lang].inputPlaceholder}
@@ -525,9 +534,17 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
   // Messages
+  chatPanel: {
+    flex: 1,
+    marginHorizontal: 12,
+    marginTop: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
   messageList: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: 14,
+    paddingTop: 14,
     gap: 12,
   },
   bubbleRow: {
@@ -556,19 +573,22 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   bubble: {
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
     maxWidth: '100%',
+    borderWidth: 1,
   },
   bubbleBot: {
     borderBottomLeftRadius: 4,
   },
   bubbleBotLight: {
     backgroundColor: '#F1F5F9',
+    borderColor: '#E2E8F0',
   },
   bubbleBotDark: {
     backgroundColor: '#1E2028',
+    borderColor: '#334155',
   },
   bubbleUser: {
     borderBottomRightRadius: 4,
@@ -576,9 +596,11 @@ const styles = StyleSheet.create({
   },
   bubbleUserLight: {
     backgroundColor: '#DC2626',
+    borderColor: '#B91C1C',
   },
   bubbleUserDark: {
     backgroundColor: '#991B1B',
+    borderColor: '#7F1D1D',
   },
   bubbleText: {
     fontSize: 13.5,
@@ -626,9 +648,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 8,
     gap: 10,
-    borderTopWidth: 1,
   },
   textInput: {
     flex: 1,

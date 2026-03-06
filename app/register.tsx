@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
+import { Alert, Animated, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StatusBar, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
@@ -310,7 +310,7 @@ export default function RegisterScreen() {
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
-          scrollEnabled={isSmallScreen}>
+          scrollEnabled={false}>
 
           {/* Card */}
           <Animated.View style={[
@@ -319,16 +319,16 @@ export default function RegisterScreen() {
             isSmallScreen && styles.cardMobile,
           ]}>
 
-            {/* Close button (top-right) */}
-            <Pressable
-              onPress={() => !loading && router.replace('/login')}
-              style={({ pressed }) => [
-                styles.closeBtn,
-                { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
-                pressed && { opacity: 0.7 },
-              ]}>
-              <MaterialIcons name="close" size={18} color={textSecondary} />
-            </Pressable>
+            {/* Logo / Header area */}
+            <View style={styles.headerArea}>
+              <View style={styles.logoContainer}>
+                <Image
+                  source={require('@/assets/images/ambulance-favicon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+              </View>
+            </View>
 
             {/* Header */}
             <ThemedText style={[styles.title, { color: textPrimary }]}>Create Account</ThemedText>
@@ -347,7 +347,7 @@ export default function RegisterScreen() {
 
             {/* Form - single column on mobile, two columns on desktop */}
             <View style={styles.form}>
-              <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
+              <View style={styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.phone ? '#DC2626' : inputBorder }]}>
@@ -384,7 +384,7 @@ export default function RegisterScreen() {
                 </View>
               </View>
 
-              <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
+              <View style={styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
                   <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.fullName ? '#DC2626' : inputBorder }]}> 
@@ -425,7 +425,7 @@ export default function RegisterScreen() {
 
               {/* Patient-specific fields */}
               {userRole === 'patient' && (
-                <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
+                <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Blood Type</ThemedText>
                     <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: inputBorder }]}>
@@ -496,7 +496,7 @@ export default function RegisterScreen() {
                     </View>
                   </View>
                 </View>
-                <View style={[styles.row, isSmallScreen && styles.rowMobile]}>
+                <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>Plate Number *</ThemedText>
                     <View style={[styles.inputWrap, { backgroundColor: inputBg, borderColor: fieldErrors.plateNumber ? '#DC2626' : inputBorder }]}>
@@ -595,10 +595,11 @@ const styles = StyleSheet.create({
   },
   scrollMobile: {
     flexGrow: 1,
+    justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 24,
+    paddingTop: Platform.OS === 'android' ? 18 : 22,
+    paddingBottom: 10,
   },
   card: {
     width: '100%',
@@ -620,23 +621,33 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: 24,
     borderWidth: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
     marginHorizontal: 12,
-    marginBottom: 24,
+    marginBottom: 8,
     flexGrow: 0,
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  headerArea: { alignItems: 'center', marginBottom: 12 },
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: 'rgba(220, 38, 38, 0.08)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    padding: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.12)',
+  },
+  logoImage: {
+    width: 48,
+    height: 48,
   },
   title: {
     fontSize: 24,
@@ -647,16 +658,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 20,
+    lineHeight: 18,
+    marginBottom: 10,
     textAlign: 'center',
   },
   roleSection: {
-    marginBottom: 16,
-    paddingBottom: 14,
+    marginBottom: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#E6ECF2',
   },
@@ -665,7 +676,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   roleButtons: {
     flexDirection: 'row',
@@ -676,11 +687,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     borderRadius: 14,
     borderWidth: 1.5,
-    gap: 6,
+    gap: 4,
   },
   roleButtonLight: {
     backgroundColor: '#F8FAFC',
@@ -709,11 +720,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   form: {
-    gap: 16,
+    gap: 10,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
   },
   rowMobile: {
     flexDirection: 'column',
@@ -721,7 +732,7 @@ const styles = StyleSheet.create({
   },
   fieldHalf: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   label: {
     fontSize: 13,
@@ -733,14 +744,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 14,
-    height: 52,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    height: 44,
+    paddingHorizontal: 10,
   },
   inputIcon: { marginRight: 6 },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: Fonts.sans,
     fontWeight: '500',
     height: '100%',
@@ -755,16 +766,16 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   primaryBtn: {
-    marginTop: 4,
-    borderRadius: 14,
+    marginTop: 2,
+    borderRadius: 12,
     overflow: 'hidden',
   },
   primaryBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 52,
-    borderRadius: 14,
+    height: 46,
+    borderRadius: 12,
     gap: 8,
     shadowColor: '#DC2626',
     shadowOffset: { width: 0, height: 4 },
