@@ -305,7 +305,10 @@ export default function RegisterScreen() {
             !isSmallScreen && Platform.OS === 'web' && { minHeight: '100vh' as any },
           ]}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+          scrollEnabled={isSmallScreen}>
 
           {/* Card */}
           <Animated.View style={[
@@ -592,12 +595,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 0,
     paddingTop: Platform.OS === 'android' ? 48 : 56,
+    paddingBottom: 24,
   },
   card: {
     width: '100%',
     maxWidth: CARD_MAX_W,
     alignSelf: 'center',
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
     paddingHorizontal: 28,
     paddingVertical: 28,
@@ -609,11 +613,13 @@ const styles = StyleSheet.create({
   },
   cardMobile: {
     maxWidth: '100%' as any,
-    borderRadius: 0,
-    borderWidth: 0,
+    borderRadius: 22,
+    borderWidth: 1,
     paddingHorizontal: 20,
-    paddingTop: 28,
-    paddingBottom: 48,
+    paddingTop: 24,
+    paddingBottom: 40,
+    marginHorizontal: 16,
+    marginBottom: 24,
     flexGrow: 1,
   },
   closeBtn: {

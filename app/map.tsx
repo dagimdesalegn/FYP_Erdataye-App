@@ -34,6 +34,7 @@ export default function MapScreen() {
   const isDark = theme === 'dark';
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [ambulances, setAmbulances] = useState<(Ambulance & { lat: number; lng: number })[]>([]);
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
   const [hospitals, setHospitals] = useState<(Hospital & { lat: number; lng: number })[]>([]);
@@ -46,15 +47,42 @@ export default function MapScreen() {
 
   const getUserLocation = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setLocation(currentLocation);
-      return currentLocation;
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled) {
+        setLocationError('Location services are turned off. Please enable GPS.');
+        return null;
+      }
+
+      const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError(
+          canAskAgain
+            ? 'Location permission denied. Please allow location access.'
+            : 'Location permission denied. Enable it in system settings.'
+        );
+        return null;
+      }
+
+      setLocationError(null);
+
+      try {
+        const currentLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        setLocation(currentLocation);
+        return currentLocation;
+      } catch {
+        const lastKnown = await Location.getLastKnownPositionAsync();
+        if (lastKnown) {
+          setLocation(lastKnown);
+          return lastKnown;
+        }
+        setLocationError('Unable to read current location. Try moving outdoors.');
+        return null;
+      }
     } catch (error) {
       console.error('Error getting location:', error);
+      setLocationError('Unable to read current location. Check permissions and GPS.');
       return null;
     }
   };
@@ -177,6 +205,12 @@ export default function MapScreen() {
 
       {/* Data panel */}
       <ScrollView style={[styles.dataPanel, { backgroundColor: cardBg }]}>
+        {locationError && (
+          <ThemedText style={[styles.errorText, { color: '#EF4444' }]}>
+            {locationError}
+          </ThemedText>
+        )}
+
         {location && (
           <ThemedText style={[styles.locationText, { color: subText }]}>
             📍 Your location: {formatCoords(userLat, userLng)}
@@ -271,7 +305,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  locationText: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 12 },
+    locationText: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 12 },
+    errorText: {
+      marginBottom: 10,
+      fontSize: 13,
+      fontFamily: Fonts.sans,
+    },
   sectionTitle: {
     fontWeight: 'bold',
     fontSize: 16,

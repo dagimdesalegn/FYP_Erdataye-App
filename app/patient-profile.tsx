@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
@@ -219,9 +220,23 @@ export default function PatientProfileScreen() {
     return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading profile..." />;
   }
 
+  const bg = isDark ? '#0B0F1A' : '#F1F5FB';
+  const cardBg = isDark ? '#151C2C' : '#FFFFFF';
+  const cardBorder = isDark ? '#1E293B' : '#E2E8F0';
+  const sectionBg = isDark ? '#0F172A' : '#F8FAFC';
+  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
+  const textSecondary = isDark ? '#94A3B8' : '#64748B';
+
   return (
-    <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.bg, { backgroundColor: bg }]}>
       <LoadingModal visible={saving} colorScheme={colorScheme} message="Saving profile..." />
+
+      <LinearGradient
+        colors={['#DC2626', '#EF4444', bg]}
+        style={styles.topGradient}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+      />
 
       {/* Success Banner */}
       {successVisible && (
@@ -246,8 +261,10 @@ export default function PatientProfileScreen() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
-          <ThemedView style={styles.card}>
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never">
+          <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
             {/* Close / Back button – top-right of the card */}
             <Pressable
               onPress={() => router.back()}
@@ -269,19 +286,21 @@ export default function PatientProfileScreen() {
                   <MaterialIcons name="person" size={40} color={isDark ? '#0EA5E9' : '#0284C7'} />
                 </View>
               </View>
-              <ThemedText style={styles.headerTitle}>Patient Profile</ThemedText>
-              <ThemedText style={styles.headerSubtitle}>
+              <ThemedText style={[styles.headerTitle, { color: textPrimary }]}>Patient Profile</ThemedText>
+              <ThemedText style={[styles.headerSubtitle, { color: textSecondary }]}>
                 Keep your medical information up to date
               </ThemedText>
             </View>
 
             {/* Personal Information Section */}
             <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
+              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              >
+              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
                 <MaterialIcons name="person" size={16} /> Personal Information
               </ThemedText>
 
-              <ThemedText style={styles.label}>Full Name *</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="Enter your full name"
@@ -292,7 +311,7 @@ export default function PatientProfileScreen() {
                 editable={!saving}
               />
 
-              <ThemedText style={styles.label}>Phone Number *</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="09XXXXXXXX"
@@ -303,15 +322,18 @@ export default function PatientProfileScreen() {
                 onChangeText={(text) => handleChange('phone', text)}
                 editable={!saving}
               />
+              </View>
             </View>
 
             {/* Medical Information Section */}
             <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
+              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              >
+              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
                 <MaterialIcons name="health-and-safety" size={16} /> Medical Information
               </ThemedText>
 
-              <ThemedText style={styles.label}>Blood Type</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Blood Type</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="e.g. A+, O-, B-"
@@ -321,7 +343,7 @@ export default function PatientProfileScreen() {
                 editable={!saving}
               />
 
-              <ThemedText style={styles.label}>Allergies (comma-separated)</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Allergies (comma-separated)</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="e.g. Penicillin, Nuts, Dairy"
@@ -333,7 +355,7 @@ export default function PatientProfileScreen() {
                 editable={!saving}
               />
 
-              <ThemedText style={styles.label}>Medical Conditions (comma-separated)</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Medical Conditions (comma-separated)</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="e.g. Asthma, Diabetes, Hypertension"
@@ -344,17 +366,20 @@ export default function PatientProfileScreen() {
                 numberOfLines={2}
                 editable={!saving}
               />
+              </View>
 
 
             </View>
 
             {/* Emergency Contact Section */}
             <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
+              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              >
+              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
                 <MaterialIcons name="phone" size={16} /> Emergency Contact
               </ThemedText>
 
-              <ThemedText style={styles.label}>Contact Name</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Contact Name</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="Emergency contact name"
@@ -365,7 +390,7 @@ export default function PatientProfileScreen() {
                 editable={!saving}
               />
 
-              <ThemedText style={styles.label}>Contact Phone</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Contact Phone</ThemedText>
               <TextInput
                 style={[styles.input, isDark ? styles.inputDark : null]}
                 placeholder="09XXXXXXXX"
@@ -376,6 +401,7 @@ export default function PatientProfileScreen() {
                 onChangeText={(text) => handleChange('emergencyContactPhone', text)}
                 editable={!saving}
               />
+              </View>
             </View>
 
             {/* Action Buttons */}
@@ -413,18 +439,21 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     padding: 16,
+    paddingTop: Platform.OS === 'android' ? 60 : 56,
     paddingBottom: 32,
+    justifyContent: 'center',
   },
   card: {
-    borderRadius: 18,
-    padding: 20,
+    borderRadius: 24,
+    padding: 18,
     borderWidth: 1,
-    borderColor: '#EEF2F6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
+    marginTop: 12,
+    marginBottom: 24,
   },
   header: {
     alignItems: 'center',
@@ -459,10 +488,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   section: {
-    marginBottom: 24,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEF2F6',
+    marginBottom: 14,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
   },
   sectionTitle: {
     fontSize: 15,
@@ -484,9 +515,9 @@ const styles = StyleSheet.create({
     borderColor: '#E6ECF2',
     backgroundColor: '#F8FAFC',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    fontSize: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    fontSize: 15,
     color: '#11181C',
     fontFamily: Fonts.sans,
     fontWeight: '500',
@@ -519,6 +550,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
+  },
+  topGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 260,
   },
   successBanner: {
     position: 'absolute',
