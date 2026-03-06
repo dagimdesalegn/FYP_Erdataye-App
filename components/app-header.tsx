@@ -1,19 +1,19 @@
-import { useAppState } from '@/components/app-state';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { type Href, useRouter } from 'expo-router';
-import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppState } from "@/components/app-state";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { type Href, useRouter } from "expo-router";
+import React from "react";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
-import { ThemedText } from './themed-text';
+import { ThemedText } from "./themed-text";
 
 type HeaderAction = {
   label: string;
   href: Href;
-  variant?: 'primary' | 'ghost';
+  variant?: "primary" | "ghost";
 };
 
 export function AppHeader({
@@ -32,7 +32,7 @@ export function AppHeader({
   const { themeMode, toggleThemeMode } = useAppState();
   const router = useRouter();
 
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
 
   return (
     <View
@@ -43,11 +43,16 @@ export function AppHeader({
           backgroundColor: colors.surface,
           borderBottomColor: colors.border,
         },
-      ]}>
+      ]}
+    >
       <View style={styles.content}>
         <View style={styles.left}>
           <View style={styles.brandMark}>
-            <MaterialIcons name="local-hospital" size={20} color={colors.primary} />
+            <MaterialIcons
+              name="local-hospital"
+              size={20}
+              color={colors.primary}
+            />
           </View>
           <ThemedText
             style={[
@@ -57,7 +62,8 @@ export function AppHeader({
                 fontFamily: Fonts.rounded,
               },
             ]}
-            numberOfLines={1}>
+            numberOfLines={1}
+          >
             {title}
           </ThemedText>
         </View>
@@ -73,7 +79,8 @@ export function AppHeader({
                   borderColor: colors.border,
                 },
                 pressed ? { opacity: 0.85 } : null,
-              ]}>
+              ]}
+            >
               <MaterialIcons name="campaign" size={20} color={colors.text} />
             </Pressable>
           ) : null}
@@ -86,9 +93,16 @@ export function AppHeader({
                 borderColor: colors.border,
               },
               pressed ? { opacity: 0.85 } : null,
-            ]}>
+            ]}
+          >
             <MaterialIcons
-              name={themeMode === 'dark' ? 'dark-mode' : themeMode === 'light' ? 'light-mode' : 'brightness-auto'}
+              name={
+                themeMode === "dark"
+                  ? "dark-mode"
+                  : themeMode === "light"
+                    ? "light-mode"
+                    : "brightness-auto"
+              }
               size={20}
               color={colors.text}
             />
@@ -99,18 +113,18 @@ export function AppHeader({
               onPress={() => router.push(a.href)}
               style={({ pressed }) => [
                 styles.actionBase,
-                a.variant === 'primary'
+                a.variant === "primary"
                   ? {
                       backgroundColor: colors.primary,
-                      borderColor: 'transparent',
+                      borderColor: "transparent",
                     }
                   : {
                       backgroundColor: colors.surfaceMuted,
                       borderColor: colors.border,
                     },
-                a.variant === 'primary'
+                a.variant === "primary"
                   ? {
-                      shadowColor: '#000',
+                      shadowColor: "#000",
                       shadowOffset: { width: 0, height: 10 },
                       shadowOpacity: 0.16,
                       shadowRadius: 18,
@@ -118,14 +132,16 @@ export function AppHeader({
                     }
                   : null,
                 pressed ? { opacity: 0.85 } : null,
-              ]}>
+              ]}
+            >
               <ThemedText
                 style={[
                   styles.actionText,
-                  a.variant === 'primary'
-                    ? { color: '#fff' }
+                  a.variant === "primary"
+                    ? { color: "#fff" }
                     : { color: colors.text },
-                ]}>
+                ]}
+              >
                 {a.label}
               </ThemedText>
             </Pressable>
@@ -136,12 +152,16 @@ export function AppHeader({
               style={({ pressed }) => [
                 styles.toggleBase,
                 {
-                  backgroundColor: colorScheme === 'dark' ? 'rgba(239,68,68,0.18)' : 'rgba(220,38,38,0.10)',
+                  backgroundColor:
+                    colorScheme === "dark"
+                      ? "rgba(239,68,68,0.18)"
+                      : "rgba(220,38,38,0.10)",
                   borderColor: colors.border,
                   borderRadius: 20,
                 },
                 pressed ? { opacity: 0.85 } : null,
-              ]}>
+              ]}
+            >
               <MaterialIcons name="person" size={20} color={colors.primary} />
             </Pressable>
           ) : null}
@@ -154,7 +174,7 @@ export function AppHeader({
 const styles = StyleSheet.create({
   container: {
     borderBottomWidth: 1,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -163,36 +183,36 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
     paddingBottom: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 12,
   },
   left: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   brandMark: {
     width: 38,
     height: 38,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(220,38,38,0.12)',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(220,38,38,0.12)",
     borderWidth: 1,
-    borderColor: 'rgba(220,38,38,0.18)',
+    borderColor: "rgba(220,38,38,0.18)",
   },
   title: {
     fontSize: 20,
-    fontWeight: Platform.select({ ios: '700', default: '800' }),
+    fontWeight: Platform.select({ ios: "700", default: "800" }),
     letterSpacing: 0.2,
     fontFamily: Fonts.sans,
   },
   right: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   toggleBase: {
@@ -200,8 +220,8 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 999,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionBase: {
     paddingHorizontal: 16,
@@ -211,7 +231,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.2,
     fontFamily: Fonts.sans,
   },

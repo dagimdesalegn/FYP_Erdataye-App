@@ -1,7 +1,7 @@
-import { AuthChangeEvent, AuthError, Session } from '@supabase/supabase-js';
-import { supabase, supabaseAdmin } from './supabase';
+import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "./supabase";
 
-export type UserRole = 'patient' | 'driver' | 'admin' | 'hospital';
+export type UserRole = "patient" | "driver" | "admin" | "hospital";
 
 export interface AuthUser {
   id: string;
@@ -11,14 +11,20 @@ export interface AuthUser {
 }
 
 const isUserRole = (value: unknown): value is UserRole =>
-  value === 'patient' || value === 'driver' || value === 'admin' || value === 'hospital';
+  value === "patient" ||
+  value === "driver" ||
+  value === "admin" ||
+  value === "hospital";
 
 const getRoleFromMetadata = (value: unknown): UserRole | null =>
   isUserRole(value) ? value : null;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isObfuscatedExistingSignupUser = (user: any, session: Session | null): boolean => {
+const isObfuscatedExistingSignupUser = (
+  user: any,
+  session: Session | null,
+): boolean => {
   const identities = user?.identities;
   return !session && Array.isArray(identities) && identities.length === 0;
 };
@@ -43,15 +49,17 @@ const buildProfilePayload = ({
 
 const upsertProfileWithRetry = async (
   payload: ReturnType<typeof buildProfilePayload>,
-  retries: number = 2
+  retries: number = 2,
 ) => {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const { error } = await supabaseAdmin.from('profiles').upsert(payload, { onConflict: 'id' });
+    const { error } = await supabaseAdmin
+      .from("profiles")
+      .upsert(payload, { onConflict: "id" });
     if (!error) {
       return { error: null };
     }
 
-    if (error.code === '23503' && attempt < retries) {
+    if (error.code === "23503" && attempt < retries) {
       await sleep(250 * (attempt + 1));
       continue;
     }
@@ -60,6 +68,76 @@ const upsertProfileWithRetry = async (
   }
 
   return { error: null };
+};
+
+const phoneToAuthEmail = (phone: string): string => {
+  let digits = phone.replace(/[^0-9]/g, "");
+  // 09XXXXXXXX -> 2519XXXXXXXX
+  if (digits.startsWith("0") && digits.length === 10) {
+    digits = "251" + digits.substring(1);
+  }
+  // 9XXXXXXXX -> 2519XXXXXXXX
+  if (digits.length === 9 && digits.startsWith("9")) {
+    digits = "251" + digits;
+  }
+  return `${digits}@phone.erdataya.app`;
+};
+
+/**
+ * Update auth login identifier (email-like phone login) for an existing user.
+ * This keeps sign-in phone number in sync after profile phone changes.
+ */
+export const updateAuthLoginPhone = async (
+  userId: string,
+  phone: string,
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      return {
+        success: false,
+        error: new Error("Missing Supabase service-role configuration"),
+      };
+    }
+
+    const authEmail = phoneToAuthEmail(phone);
+
+    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
+      method: "PUT",
+      headers: {
+        apikey: serviceRoleKey,
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: authEmail,
+        email_confirm: true,
+        user_metadata: { phone },
+      }),
+    });
+
+    if (!res.ok) {
+      let msg = `Failed to update auth login (${res.status})`;
+      try {
+        const body = await res.json();
+        msg =
+          body?.msg ||
+          body?.message ||
+          body?.error_description ||
+          body?.error ||
+          msg;
+      } catch {
+        // ignore JSON parse failure
+      }
+      return { success: false, error: new Error(msg) };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
 };
 
 /**
@@ -73,17 +151,19 @@ const upsertProfileWithRetry = async (
 export const signUp = async (
   email: string,
   password: string,
-  role: UserRole = 'patient',
-  fullName: string = '',
-  phone: string = ''
+  role: UserRole = "patient",
+  fullName: string = "",
+  phone: string = "",
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     // Validate role – only patient and driver can register through the app
     // Admin and hospital accounts are created via the Supabase dashboard
-    if (!['patient', 'driver'].includes(role)) {
-      return { 
-        user: null, 
-        error: new Error('Invalid role. Only patient and driver accounts can be registered through the app.') as AuthError 
+    if (!["patient", "driver"].includes(role)) {
+      return {
+        user: null,
+        error: new Error(
+          "Invalid role. Only patient and driver accounts can be registered through the app.",
+        ) as AuthError,
       };
     }
 
@@ -98,11 +178,11 @@ export const signUp = async (
     if (supabaseUrl && serviceRoleKey) {
       try {
         const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'apikey': serviceRoleKey,
-            'Authorization': `Bearer ${serviceRoleKey}`,
-            'Content-Type': 'application/json',
+            apikey: serviceRoleKey,
+            Authorization: `Bearer ${serviceRoleKey}`,
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
             email,
@@ -117,12 +197,21 @@ export const signUp = async (
           userId = adminData.id;
           userEmail = adminData.email || email;
           adminCreated = true;
-          console.log('User created via Admin API (rate limit bypassed):', userId);
+          console.log(
+            "User created via Admin API (rate limit bypassed):",
+            userId,
+          );
         } else {
-          console.warn('Admin API failed, falling back to standard signup:', adminData.message || adminData.msg);
+          console.warn(
+            "Admin API failed, falling back to standard signup:",
+            adminData.message || adminData.msg,
+          );
         }
       } catch (adminErr) {
-        console.warn('Admin API error, falling back to standard signup:', adminErr);
+        console.warn(
+          "Admin API error, falling back to standard signup:",
+          adminErr,
+        );
       }
     }
 
@@ -141,22 +230,24 @@ export const signUp = async (
       });
 
       if (error) {
-        console.error('Supabase signup error:', error);
+        console.error("Supabase signup error:", error);
         return { user: null, error };
       }
 
       if (!data.user) {
-        console.error('No user returned from signup');
-        return { 
-          user: null, 
-          error: new Error('No user returned from signup') as AuthError 
+        console.error("No user returned from signup");
+        return {
+          user: null,
+          error: new Error("No user returned from signup") as AuthError,
         };
       }
 
       if (isObfuscatedExistingSignupUser(data.user, data.session ?? null)) {
         return {
           user: null,
-          error: new Error('This email is already registered. Please sign in instead.') as AuthError,
+          error: new Error(
+            "This email is already registered. Please sign in instead.",
+          ) as AuthError,
         };
       }
 
@@ -165,10 +256,13 @@ export const signUp = async (
     }
 
     if (!userId) {
-      return { user: null, error: new Error('Failed to create user') as AuthError };
+      return {
+        user: null,
+        error: new Error("Failed to create user") as AuthError,
+      };
     }
 
-    console.log('Signup successful, user created:', userId);
+    console.log("Signup successful, user created:", userId);
 
     const resolvedRole = role;
 
@@ -184,20 +278,25 @@ export const signUp = async (
       const { error: profileError } = await upsertProfileWithRetry(profileData);
 
       if (profileError) {
-        if (profileError.code === '23503') {
+        if (profileError.code === "23503") {
           // In some projects auth.users insert is not yet visible right after signUp.
           // Continue; profile will be re-attempted on sign-in.
-          console.warn('Profile insert deferred due FK timing:', profileError.message);
+          console.warn(
+            "Profile insert deferred due FK timing:",
+            profileError.message,
+          );
         } else {
-          console.error('Profile upsert error:', profileError);
+          console.error("Profile upsert error:", profileError);
           return {
             user: null,
-            error: new Error(`Database error: ${profileError.message}`) as AuthError,
+            error: new Error(
+              `Database error: ${profileError.message}`,
+            ) as AuthError,
           };
         }
       }
     } catch (profileErr) {
-      console.error('Exception creating profile:', profileErr);
+      console.error("Exception creating profile:", profileErr);
       return {
         user: null,
         error: new Error(`Database error: ${String(profileErr)}`) as AuthError,
@@ -216,13 +315,13 @@ export const signUp = async (
       try {
         await supabase.auth.signInWithPassword({ email, password });
       } catch (e) {
-        console.warn('Auto sign-in after admin create failed:', e);
+        console.warn("Auto sign-in after admin create failed:", e);
       }
     }
 
     return { user, error: null };
   } catch (error) {
-    console.error('SignUp exception:', error);
+    console.error("SignUp exception:", error);
     const authError = new Error(String(error)) as AuthError;
     return { user: null, error: authError };
   }
@@ -235,7 +334,7 @@ export const signUp = async (
  */
 export const signIn = async (
   email: string,
-  password: string
+  password: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -250,13 +349,13 @@ export const signIn = async (
         const tokenRes = await fetch(
           `${supabaseUrl}/auth/v1/token?grant_type=password`,
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'apikey': serviceRoleKey,
-              'Content-Type': 'application/json',
+              apikey: serviceRoleKey,
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({ email, password }),
-          }
+          },
         );
 
         const tokenData = await tokenRes.json();
@@ -273,7 +372,7 @@ export const signIn = async (
           if (!sessionError && sessionData.session) {
             authUser = sessionData.user ?? sessionData.session.user;
             adminSignedIn = true;
-            console.log('Signed in via Admin API (rate limit bypassed)');
+            console.log("Signed in via Admin API (rate limit bypassed)");
           }
         } else if (!tokenRes.ok) {
           // Real credential / validation error → surface immediately
@@ -281,14 +380,17 @@ export const signIn = async (
             tokenData.error_description ||
             tokenData.msg ||
             tokenData.error ||
-            'Invalid login credentials';
+            "Invalid login credentials";
           return {
             user: null,
             error: new Error(errMsg) as AuthError,
           };
         }
       } catch (adminErr) {
-        console.warn('Admin API sign-in error, falling back to standard:', adminErr);
+        console.warn(
+          "Admin API sign-in error, falling back to standard:",
+          adminErr,
+        );
       }
     }
 
@@ -306,7 +408,7 @@ export const signIn = async (
       if (!data.user) {
         return {
           user: null,
-          error: new Error('No user returned from signin') as AuthError,
+          error: new Error("No user returned from signin") as AuthError,
         };
       }
 
@@ -317,24 +419,24 @@ export const signIn = async (
     const roleFromMetadata = getRoleFromMetadata(authUser.user_metadata?.role);
 
     // Read existing profile from DB (single query for both heal-check and data)
-    let dbFullName = '';
-    let dbPhone = '';
+    let dbFullName = "";
+    let dbPhone = "";
     let profileExists = false;
     let dbRole: UserRole | null = null;
     try {
       const { data: profileRow } = await supabase
-        .from('profiles')
-        .select('full_name, phone, role')
-        .eq('id', authUser.id)
+        .from("profiles")
+        .select("full_name, phone, role")
+        .eq("id", authUser.id)
         .single();
       if (profileRow) {
         profileExists = true;
-        dbFullName = profileRow.full_name || '';
-        dbPhone = profileRow.phone || '';
+        dbFullName = profileRow.full_name || "";
+        dbPhone = profileRow.phone || "";
         dbRole = isUserRole(profileRow.role) ? profileRow.role : null;
       }
     } catch (e) {
-      console.warn('Could not read profile from DB on sign-in:', e);
+      console.warn("Could not read profile from DB on sign-in:", e);
     }
 
     // Only create a profile row if one doesn't exist (heal missing rows).
@@ -342,31 +444,36 @@ export const signIn = async (
     if (!profileExists) {
       const profilePayload = buildProfilePayload({
         id: authUser.id,
-        role: roleFromMetadata ?? 'patient',
-        fullName: String(authUser.user_metadata?.full_name || ''),
+        role: roleFromMetadata ?? "patient",
+        fullName: String(authUser.user_metadata?.full_name || ""),
         phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
       });
-      const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
-      if (upsertProfileError && upsertProfileError.code !== '23503') {
-        console.error('Profile ensure error on sign in:', upsertProfileError);
+      const { error: upsertProfileError } =
+        await upsertProfileWithRetry(profilePayload);
+      if (upsertProfileError && upsertProfileError.code !== "23503") {
+        console.error("Profile ensure error on sign in:", upsertProfileError);
       }
       // Use the values we just inserted
-      dbFullName = String(authUser.user_metadata?.full_name || '');
-      dbPhone = String(authUser.user_metadata?.phone || '');
+      dbFullName = String(authUser.user_metadata?.full_name || "");
+      dbPhone = String(authUser.user_metadata?.phone || "");
     }
 
-    const role = roleFromMetadata ?? dbRole ?? (await getUserRole(authUser.id)) ?? 'patient';
+    const role =
+      roleFromMetadata ??
+      dbRole ??
+      (await getUserRole(authUser.id)) ??
+      "patient";
 
     const user: AuthUser = {
       id: authUser.id,
       role,
-      fullName: dbFullName || String(authUser.user_metadata?.full_name || ''),
-      phone: dbPhone || String(authUser.user_metadata?.phone || ''),
+      fullName: dbFullName || String(authUser.user_metadata?.full_name || ""),
+      phone: dbPhone || String(authUser.user_metadata?.phone || ""),
     };
 
     return { user, error: null };
   } catch (error) {
-    console.error('SignIn exception:', error);
+    console.error("SignIn exception:", error);
     const authError = new Error(String(error)) as AuthError;
     return { user: null, error: authError };
   }
@@ -378,19 +485,19 @@ export const signIn = async (
 export const getUserRole = async (userId: string): Promise<UserRole | null> => {
   try {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
+      .from("profiles")
+      .select("role")
+      .eq("id", userId)
       .single();
 
     if (error || !data) {
-      console.error('Error fetching user role:', error);
+      console.error("Error fetching user role:", error);
       return null;
     }
 
     return data.role as UserRole;
   } catch (error) {
-    console.error('Exception fetching user role:', error);
+    console.error("Exception fetching user role:", error);
     return null;
   }
 };
@@ -407,7 +514,8 @@ export const getCurrentUserWithRole = async (): Promise<AuthUser | null> => {
     }
 
     const roleFromMetadata = getRoleFromMetadata(data.user.user_metadata?.role);
-    const role = roleFromMetadata ?? (await getUserRole(data.user.id)) ?? 'patient';
+    const role =
+      roleFromMetadata ?? (await getUserRole(data.user.id)) ?? "patient";
 
     const user: AuthUser = {
       id: data.user.id,
@@ -416,7 +524,7 @@ export const getCurrentUserWithRole = async (): Promise<AuthUser | null> => {
 
     return user;
   } catch (error) {
-    console.error('Error getting current user with role:', error);
+    console.error("Error getting current user with role:", error);
     return null;
   }
 };
@@ -442,7 +550,7 @@ export const getCurrentSession = async (): Promise<Session | null> => {
     const { data, error } = await supabase.auth.getSession();
     return data.session;
   } catch (error) {
-    console.error('Error getting session:', error);
+    console.error("Error getting session:", error);
     return null;
   }
 };
@@ -458,7 +566,7 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
  * Listen to auth state changes with role information
  */
 export const onAuthStateChange = (
-  callback: (user: AuthUser | null) => void
+  callback: (user: AuthUser | null) => void,
 ) => {
   const { data: authListener } = supabase.auth.onAuthStateChange(
     (_event: AuthChangeEvent, session: Session | null) => {
@@ -472,36 +580,42 @@ export const onAuthStateChange = (
       const roleFromMetadata = getRoleFromMetadata(meta.role);
       const fallbackUser: AuthUser = {
         id: sessionUser.id,
-        role: roleFromMetadata ?? 'patient',
-        fullName: String(meta.full_name || ''),
-        phone: String(meta.phone || ''),
+        role: roleFromMetadata ?? "patient",
+        fullName: String(meta.full_name || ""),
+        phone: String(meta.phone || ""),
       };
 
       // Always try to load full profile from DB (async, deferred).
       setTimeout(async () => {
         try {
           const { data: profileRow } = await supabase
-            .from('profiles')
-            .select('full_name, phone, role')
-            .eq('id', sessionUser.id)
+            .from("profiles")
+            .select("full_name, phone, role")
+            .eq("id", sessionUser.id)
             .maybeSingle();
 
-          const role = (profileRow?.role && isUserRole(profileRow.role))
-            ? profileRow.role
-            : roleFromMetadata ?? (await getUserRole(sessionUser.id)) ?? 'patient';
+          const role =
+            profileRow?.role && isUserRole(profileRow.role)
+              ? profileRow.role
+              : (roleFromMetadata ??
+                (await getUserRole(sessionUser.id)) ??
+                "patient");
 
           callback({
             id: sessionUser.id,
             role,
-            fullName: profileRow?.full_name || fallbackUser.fullName || '',
-            phone: profileRow?.phone || fallbackUser.phone || '',
+            fullName: profileRow?.full_name || fallbackUser.fullName || "",
+            phone: profileRow?.phone || fallbackUser.phone || "",
           });
         } catch (error) {
-          console.error('Error resolving profile during auth state change:', error);
+          console.error(
+            "Error resolving profile during auth state change:",
+            error,
+          );
           callback(fallbackUser);
         }
       }, 0);
-    }
+    },
   );
 
   return () => {

@@ -1,8 +1,8 @@
-import { AppHeader } from '@/components/app-header';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppHeader } from "@/components/app-header";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     Ambulance,
     buildMapHtml,
@@ -13,29 +13,35 @@ import {
     Hospital,
     normalizeEmergency,
     parsePostGISPoint,
-} from '@/utils/emergency';
-import { supabase } from '@/utils/supabase';
-import { MaterialIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import React, { useEffect, useState } from 'react';
+} from "@/utils/emergency";
+import { supabase } from "@/utils/supabase";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
     ScrollView,
     StyleSheet,
     View,
-} from 'react-native';
+} from "react-native";
 
 export default function MapScreen() {
   const colorScheme = useColorScheme();
-  const theme = colorScheme ?? 'light';
-  const isDark = theme === 'dark';
+  const theme = colorScheme ?? "light";
+  const isDark = theme === "dark";
   const colors = Colors[theme];
 
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [ambulances, setAmbulances] = useState<(Ambulance & { lat: number; lng: number })[]>([]);
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null,
+  );
+  const [ambulances, setAmbulances] = useState<
+    (Ambulance & { lat: number; lng: number })[]
+  >([]);
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
-  const [hospitals, setHospitals] = useState<(Hospital & { lat: number; lng: number })[]>([]);
+  const [hospitals, setHospitals] = useState<
+    (Hospital & { lat: number; lng: number })[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   const textColor = colors.text;
@@ -46,14 +52,14 @@ export default function MapScreen() {
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return null;
+      if (status !== "granted") return null;
       const currentLocation = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
       setLocation(currentLocation);
       return currentLocation;
     } catch (error) {
-      console.error('Error getting location:', error);
+      console.error("Error getting location:", error);
       return null;
     }
   };
@@ -70,20 +76,20 @@ export default function MapScreen() {
         .filter(Boolean) as (Ambulance & { lat: number; lng: number })[];
       setAmbulances(parsed);
     } catch (error) {
-      console.error('Error fetching ambulances:', error);
+      console.error("Error fetching ambulances:", error);
     }
   };
 
   const fetchEmergencies = async () => {
     try {
       const { data, error } = await supabase
-        .from('emergency_requests')
-        .select('*')
-        .in('status', ['pending', 'assigned', 'en_route', 'arrived']);
+        .from("emergency_requests")
+        .select("*")
+        .in("status", ["pending", "assigned", "en_route", "arrived"]);
       if (error) throw error;
       setEmergencies((data || []).map(normalizeEmergency));
     } catch (error) {
-      console.error('Error fetching emergencies:', error);
+      console.error("Error fetching emergencies:", error);
     }
   };
 
@@ -99,25 +105,38 @@ export default function MapScreen() {
         .filter(Boolean) as (Hospital & { lat: number; lng: number })[];
       setHospitals(parsed);
     } catch (error) {
-      console.error('Error fetching hospitals:', error);
+      console.error("Error fetching hospitals:", error);
     }
   };
 
   const fetchAllData = async () => {
     setLoading(true);
-    await Promise.all([getUserLocation(), fetchAmbulances(), fetchEmergencies(), fetchHospitals()]);
+    await Promise.all([
+      getUserLocation(),
+      fetchAmbulances(),
+      fetchEmergencies(),
+      fetchHospitals(),
+    ]);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchAllData();
     const ambulanceSub = supabase
-      .channel('map_ambulance_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ambulances' }, () => fetchAmbulances())
+      .channel("map_ambulance_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ambulances" },
+        () => fetchAmbulances(),
+      )
       .subscribe();
     const emergencySub = supabase
-      .channel('map_emergency_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'emergency_requests' }, () => fetchEmergencies())
+      .channel("map_emergency_changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "emergency_requests" },
+        () => fetchEmergencies(),
+      )
       .subscribe();
     const locationInterval = setInterval(() => getUserLocation(), 10000);
     return () => {
@@ -134,7 +153,9 @@ export default function MapScreen() {
         <AppHeader title="Erdataya Ambulance" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color={accentColor} />
-          <ThemedText style={{ marginTop: 16, color: textColor, fontFamily: Fonts.sans }}>
+          <ThemedText
+            style={{ marginTop: 16, color: textColor, fontFamily: Fonts.sans }}
+          >
             Loading map…
           </ThemedText>
         </View>
@@ -156,14 +177,17 @@ export default function MapScreen() {
         {/* @ts-ignore – iframe is valid on web */}
         <iframe
           src={mapUrl}
-          style={{ width: '100%', height: '100%', border: 'none' }}
+          style={{ width: "100%", height: "100%", border: "none" }}
           title="Map"
         />
       </View>
 
       {/* Refresh button */}
       <View style={styles.controls}>
-        <Pressable style={[styles.controlBtn, { backgroundColor: accentColor }]} onPress={fetchAllData}>
+        <Pressable
+          style={[styles.controlBtn, { backgroundColor: accentColor }]}
+          onPress={fetchAllData}
+        >
           <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
@@ -182,15 +206,20 @@ export default function MapScreen() {
           🚑 Ambulances ({ambulances.length})
         </ThemedText>
         {ambulances.length === 0 && (
-          <ThemedText style={[styles.emptyText, { color: subText }]}>No ambulances available</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: subText }]}>
+            No ambulances available
+          </ThemedText>
         )}
         {ambulances.map((amb) => (
-          <View key={amb.id} style={[styles.card, { borderColor: colors.border }]}>
+          <View
+            key={amb.id}
+            style={[styles.card, { borderColor: colors.border }]}
+          >
             <ThemedText style={[styles.cardTitle, { color: textColor }]}>
               Ambulance {amb.vehicle_number}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              Type: {amb.type || 'Standard'} • {formatCoords(amb.lat, amb.lng)}
+              Type: {amb.type || "Standard"} • {formatCoords(amb.lat, amb.lng)}
             </ThemedText>
           </View>
         ))}
@@ -200,16 +229,23 @@ export default function MapScreen() {
           ⚠️ Emergencies ({emergencies.length})
         </ThemedText>
         {emergencies.length === 0 && (
-          <ThemedText style={[styles.emptyText, { color: subText }]}>No active emergencies</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: subText }]}>
+            No active emergencies
+          </ThemedText>
         )}
         {emergencies
           .filter((e) => e.latitude !== 0 || e.longitude !== 0)
           .map((e) => (
-            <View key={e.id} style={[styles.card, { borderColor: colors.danger }]}>
+            <View
+              key={e.id}
+              style={[styles.card, { borderColor: colors.danger }]}
+            >
               <ThemedText style={[styles.cardTitle, { color: textColor }]}>
                 {e.emergency_type} — {e.status}
               </ThemedText>
-              <ThemedText style={[styles.cardSub, { color: subText }]}>{e.description}</ThemedText>
+              <ThemedText style={[styles.cardSub, { color: subText }]}>
+                {e.description}
+              </ThemedText>
             </View>
           ))}
 
@@ -218,11 +254,18 @@ export default function MapScreen() {
           🏥 Hospitals ({hospitals.length})
         </ThemedText>
         {hospitals.length === 0 && (
-          <ThemedText style={[styles.emptyText, { color: subText }]}>No hospitals found</ThemedText>
+          <ThemedText style={[styles.emptyText, { color: subText }]}>
+            No hospitals found
+          </ThemedText>
         )}
         {hospitals.map((h) => (
-          <View key={h.id} style={[styles.card, { borderColor: colors.border }]}>
-            <ThemedText style={[styles.cardTitle, { color: textColor }]}>{h.name}</ThemedText>
+          <View
+            key={h.id}
+            style={[styles.card, { borderColor: colors.border }]}
+          >
+            <ThemedText style={[styles.cardTitle, { color: textColor }]}>
+              {h.name}
+            </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
               {h.address} • 📞 {h.phone}
             </ThemedText>
@@ -238,15 +281,15 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1 },
-  loadingContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  mapContainer: { width: '100%', height: '45%' },
-  controls: { position: 'absolute', right: 16, top: 80, zIndex: 10 },
+  loadingContent: { flex: 1, justifyContent: "center", alignItems: "center" },
+  mapContainer: { width: "100%", height: "45%" },
+  controls: { position: "absolute", right: 16, top: 80, zIndex: 10 },
   controlBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 5,
   },
   dataPanel: {
@@ -258,14 +301,19 @@ const styles = StyleSheet.create({
   },
   locationText: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 12 },
   sectionTitle: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 16,
     fontFamily: Fonts.sans,
     marginTop: 12,
     marginBottom: 8,
   },
-  emptyText: { fontSize: 13, fontFamily: Fonts.sans, marginBottom: 8, fontStyle: 'italic' },
+  emptyText: {
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+    fontStyle: "italic",
+  },
   card: { borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 8 },
-  cardTitle: { fontWeight: '600', fontSize: 14, fontFamily: Fonts.sans },
+  cardTitle: { fontWeight: "600", fontSize: 14, fontFamily: Fonts.sans },
   cardSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
 });

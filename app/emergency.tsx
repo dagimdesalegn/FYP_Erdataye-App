@@ -1,9 +1,9 @@
-import { AppHeader } from '@/components/app-header';
-import { useAppState } from '@/components/app-state';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AppHeader } from "@/components/app-header";
+import { useAppState } from "@/components/app-state";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     Ambulance,
     createEmergencyRequest,
@@ -11,34 +11,45 @@ import {
     formatCoords,
     getAvailableAmbulances,
     parsePostGISPoint,
-} from '@/utils/emergency';
-import { MaterialIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+} from "@/utils/emergency";
+import { MaterialIcons } from "@expo/vector-icons";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 
 export default function EmergencyScreen() {
   const { user } = useAppState();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const theme = colorScheme ?? 'light';
-  const isDark = theme === 'dark';
+  const theme = colorScheme ?? "light";
+  const isDark = theme === "dark";
   const colors = Colors[theme];
   const textColor = colors.text;
   const subText = colors.textMuted;
 
   const [loading, setLoading] = useState(false);
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [nearbyAmbulances, setNearbyAmbulances] = useState<(Ambulance & { lat: number; lng: number })[]>([]);
+  const [location, setLocation] = useState<Location.LocationObject | null>(
+    null,
+  );
+  const [nearbyAmbulances, setNearbyAmbulances] = useState<
+    (Ambulance & { lat: number; lng: number })[]
+  >([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Get user's current location with high accuracy
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setErrorMsg('Permission to access location was denied');
+      if (status !== "granted") {
+        setErrorMsg("Permission to access location was denied");
         return null;
       }
 
@@ -56,7 +67,7 @@ export default function EmergencyScreen() {
   // Call emergency
   const handleEmergencyCall = async () => {
     if (!user) {
-      Alert.alert('Error', 'You must be logged in to call an ambulance');
+      Alert.alert("Error", "You must be logged in to call an ambulance");
       return;
     }
 
@@ -64,7 +75,10 @@ export default function EmergencyScreen() {
     try {
       const currentLocation = await getUserLocation();
       if (!currentLocation) {
-        Alert.alert('Error', 'Could not get your location. Please enable location services.');
+        Alert.alert(
+          "Error",
+          "Could not get your location. Please enable location services.",
+        );
         setLoading(false);
         return;
       }
@@ -76,20 +90,30 @@ export default function EmergencyScreen() {
         user.id,
         latitude,
         longitude,
-        'Emergency ambulance request',
-        'medical'
+        "Emergency ambulance request",
+        "medical",
       );
 
       if (error) {
-        Alert.alert('Error', `Failed to create emergency request: ${error.message}`);
+        Alert.alert(
+          "Error",
+          `Failed to create emergency request: ${error.message}`,
+        );
         setLoading(false);
         return;
       }
 
       // Try to find nearest ambulance (expanded 50km range)
-      const { ambulanceId, distanceKm, error: ambulanceError } = await findNearestAmbulance(latitude, longitude, 50);
+      const {
+        ambulanceId,
+        distanceKm,
+        error: ambulanceError,
+      } = await findNearestAmbulance(latitude, longitude, 50);
       if (ambulanceError) {
-        console.warn('Warning finding nearest ambulance:', ambulanceError.message);
+        console.warn(
+          "Warning finding nearest ambulance:",
+          ambulanceError.message,
+        );
       }
 
       // Fetch available ambulances for display
@@ -105,12 +129,12 @@ export default function EmergencyScreen() {
       }
 
       Alert.alert(
-        'Emergency Request Sent',
-        `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ''}. Help is on the way!` : '\n\nSearching for available ambulances...'}`,
-        [{ text: 'OK' }]
+        "Emergency Request Sent",
+        `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ""}. Help is on the way!` : "\n\nSearching for available ambulances..."}`,
+        [{ text: "OK" }],
       );
     } catch (error) {
-      Alert.alert('Error', `Emergency call failed: ${error}`);
+      Alert.alert("Error", `Emergency call failed: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -132,11 +156,22 @@ export default function EmergencyScreen() {
         {errorMsg && <ThemedText style={styles.error}>{errorMsg}</ThemedText>}
 
         {location && (
-          <View style={[styles.locationCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}> 
+          <View
+            style={[
+              styles.locationCard,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <MaterialIcons name="my-location" size={18} color={colors.info} />
             <ThemedText style={[styles.locationText, { color: subText }]}>
-              {formatCoords(location.coords.latitude, location.coords.longitude)}
-              {'  '}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
+              {formatCoords(
+                location.coords.latitude,
+                location.coords.longitude,
+              )}
+              {"  "}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
             </ThemedText>
           </View>
         )}
@@ -152,7 +187,9 @@ export default function EmergencyScreen() {
             ) : (
               <>
                 <MaterialIcons name="phone-in-talk" size={48} color="#fff" />
-                <ThemedText style={styles.callButtonText}>CALL{'\n'}AMBULANCE</ThemedText>
+                <ThemedText style={styles.callButtonText}>
+                  CALL{"\n"}AMBULANCE
+                </ThemedText>
               </>
             )}
           </Pressable>
@@ -161,15 +198,15 @@ export default function EmergencyScreen() {
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <Pressable
-            style={[styles.actionBtn, { backgroundColor: '#3B82F6' }]}
-            onPress={() => router.push('/map')}
+            style={[styles.actionBtn, { backgroundColor: "#3B82F6" }]}
+            onPress={() => router.push("/map")}
           >
             <MaterialIcons name="map" size={22} color="#fff" />
             <ThemedText style={styles.actionBtnText}>Live Map</ThemedText>
           </Pressable>
           <Pressable
-            style={[styles.actionBtn, { backgroundColor: '#10B981' }]}
-            onPress={() => router.push('/hospital')}
+            style={[styles.actionBtn, { backgroundColor: "#10B981" }]}
+            onPress={() => router.push("/hospital")}
           >
             <MaterialIcons name="local-hospital" size={22} color="#fff" />
             <ThemedText style={styles.actionBtnText}>Hospital</ThemedText>
@@ -179,23 +216,38 @@ export default function EmergencyScreen() {
         {/* Nearby Ambulances */}
         {nearbyAmbulances.length > 0 && (
           <View style={styles.ambulancesSection}>
-            <ThemedText type="subtitle" style={[styles.ambulancesTitle, { color: textColor }]}>
+            <ThemedText
+              type="subtitle"
+              style={[styles.ambulancesTitle, { color: textColor }]}
+            >
               Available Ambulances ({nearbyAmbulances.length})
             </ThemedText>
             {nearbyAmbulances.map((ambulance) => (
               <View
                 key={ambulance.id}
-                style={[styles.ambulanceCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border }]}
+                style={[
+                  styles.ambulanceCard,
+                  {
+                    backgroundColor: colors.surfaceMuted,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
                 <View style={styles.ambulanceRow}>
-                  <ThemedText style={[styles.ambulanceText, { color: textColor }]}>
+                  <ThemedText
+                    style={[styles.ambulanceText, { color: textColor }]}
+                  >
                     🚑 {ambulance.vehicle_number}
                   </ThemedText>
-                  <ThemedText style={[styles.ambulanceType, { color: subText }]}>
-                    {ambulance.type || 'Standard'}
+                  <ThemedText
+                    style={[styles.ambulanceType, { color: subText }]}
+                  >
+                    {ambulance.type || "Standard"}
                   </ThemedText>
                 </View>
-                <ThemedText style={[styles.ambulanceLocation, { color: subText }]}>
+                <ThemedText
+                  style={[styles.ambulanceLocation, { color: subText }]}
+                >
                   📍 {ambulance.lat.toFixed(4)}, {ambulance.lng.toFixed(4)}
                 </ThemedText>
               </View>
@@ -213,50 +265,50 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
     paddingBottom: 40,
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: Fonts.sans,
   },
   error: {
-    color: '#DC2626',
+    color: "#DC2626",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: Fonts.sans,
   },
   locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
     marginBottom: 24,
-    width: '100%',
+    width: "100%",
   },
   locationText: {
     fontSize: 13,
     fontFamily: Fonts.sans,
   },
   buttonContainer: {
-    width: '100%',
-    alignItems: 'center',
+    width: "100%",
+    alignItems: "center",
     marginBottom: 24,
   },
   callButton: {
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#DC2626',
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.4,
     shadowRadius: 16,
@@ -267,40 +319,40 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   callButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
+    fontWeight: "800",
+    textAlign: "center",
     fontFamily: Fonts.sans,
   },
   quickActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
-    width: '100%',
+    width: "100%",
     marginBottom: 24,
   },
   actionBtn: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
   },
   actionBtnText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: "600",
     fontFamily: Fonts.sans,
   },
   ambulancesSection: {
-    width: '100%',
+    width: "100%",
     marginTop: 8,
   },
   ambulancesTitle: {
@@ -314,19 +366,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   ambulanceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 6,
   },
   ambulanceText: {
-    fontWeight: '600',
+    fontWeight: "600",
     fontSize: 15,
     fontFamily: Fonts.sans,
   },
   ambulanceType: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     fontFamily: Fonts.sans,
   },
   ambulanceLocation: {

@@ -1,28 +1,35 @@
-import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useState } from "react";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
+} from "react-native";
 
-import { AppButton } from '@/components/app-button';
-import { useAppState } from '@/components/app-state';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useRouter } from 'expo-router';
-
+import { AppButton } from "@/components/app-button";
+import { useAppState } from "@/components/app-state";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
 
 export default function LoginScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === "dark";
+  const colors = Colors[colorScheme ?? "light"];
   const { setRegistered } = useAppState();
 
   React.useEffect(() => {
-    router.replace('/');
+    router.replace("/");
   }, [router]);
 
-  const [contact, setContact] = useState('');
+  const [contact, setContact] = useState("");
   const [loading, setLoading] = useState(false);
 
   const onLogin = async () => {
@@ -30,7 +37,7 @@ export default function LoginScreen() {
     try {
       await new Promise((r) => setTimeout(r, 600));
       setRegistered(true);
-      router.replace('/help');
+      router.replace("/help");
     } finally {
       setLoading(false);
     }
@@ -40,23 +47,34 @@ export default function LoginScreen() {
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+      >
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+        >
           <ThemedView style={styles.card}>
             <View style={styles.navBar}>
               <Pressable
-                onPress={() => router.replace('/')}
+                onPress={() => router.replace("/")}
                 style={({ pressed }) => [
                   styles.backButton,
                   isDark ? styles.backButtonDark : styles.backButtonLight,
-                  pressed ? { opacity: 0.85, transform: [{ scale: 0.95 }] } : null,
-                ]}>
-                <MaterialIcons name="arrow-back" size={20} color={colors.text} />
-                <ThemedText style={[styles.backText, { color: colors.text }]}>Back</ThemedText>
+                  pressed
+                    ? { opacity: 0.85, transform: [{ scale: 0.95 }] }
+                    : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="arrow-back"
+                  size={20}
+                  color={colors.text}
+                />
+                <ThemedText style={[styles.backText, { color: colors.text }]}>
+                  Back
+                </ThemedText>
               </Pressable>
             </View>
             <ThemedText style={styles.title}>Welcome back</ThemedText>
@@ -68,13 +86,13 @@ export default function LoginScreen() {
                 value={contact}
                 onChangeText={setContact}
                 placeholder="Contact Number"
-                placeholderTextColor={isDark ? '#64748B' : '#94A3B8'}
+                placeholderTextColor={isDark ? "#64748B" : "#94A3B8"}
                 keyboardType="phone-pad"
                 style={[styles.input, isDark ? styles.inputDark : null]}
               />
 
               <AppButton
-                label={loading ? 'Signing in…' : 'Sign in'}
+                label={loading ? "Signing in…" : "Sign in"}
                 onPress={onLogin}
                 loading={loading}
                 fullWidth
@@ -84,7 +102,11 @@ export default function LoginScreen() {
 
               <View style={styles.footerRow}>
                 <ThemedText style={styles.footerText}>No account?</ThemedText>
-                <AppButton label="Create one" onPress={() => router.push('/register')} variant="ghost" />
+                <AppButton
+                  label="Create one"
+                  onPress={() => router.push("/register")}
+                  variant="ghost"
+                />
               </View>
             </View>
           </ThemedView>
@@ -102,54 +124,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   navBar: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 20,
   },
   backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    boxShadow: '0px 3px 6px rgba(0, 0, 0, 0.08)',
+    boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.08)",
     elevation: 2,
     gap: 8,
   },
   backButtonLight: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderColor: '#E6ECF2',
+    backgroundColor: "rgba(255,255,255,0.95)",
+    borderColor: "#E6ECF2",
   },
   backButtonDark: {
-    backgroundColor: 'rgba(11,18,32,0.85)',
-    borderColor: '#2E3236',
+    backgroundColor: "rgba(11,18,32,0.85)",
+    borderColor: "#2E3236",
   },
   backText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.2,
     fontFamily: Fonts.sans,
   },
   scroll: {
     flexGrow: 1,
     padding: 14,
-    justifyContent: 'center',
+    justifyContent: "center",
     paddingBottom: 28,
   },
   card: {
     maxWidth: 420,
-    width: '100%',
-    alignSelf: 'center',
+    width: "100%",
+    alignSelf: "center",
     borderRadius: 18,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EEF2F6',
-    boxShadow: '0px 14px 22px rgba(0, 0, 0, 0.08)',
+    borderColor: "#EEF2F6",
+    boxShadow: "0px 14px 22px rgba(0, 0, 0, 0.08)",
     elevation: 6,
   },
   title: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 8,
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
@@ -157,10 +179,10 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
     marginBottom: 16,
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 20,
   },
   form: {
@@ -168,42 +190,42 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
     marginBottom: 4,
   },
   input: {
     borderWidth: 0.8,
-    borderColor: '#E6ECF2',
-    backgroundColor: '#F8FAFC',
+    borderColor: "#E6ECF2",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 14,
     fontSize: 15,
-    color: '#11181C',
+    color: "#11181C",
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   inputDark: {
-    backgroundColor: '#0B1220',
-    borderColor: '#2E3236',
-    color: '#ECEDEE',
+    backgroundColor: "#0B1220",
+    borderColor: "#2E3236",
+    color: "#ECEDEE",
   },
   primaryBtn: {
     marginTop: 10,
   },
   footerRow: {
     marginTop: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   footerText: {
     fontSize: 14,
-    color: '#64748B',
+    color: "#64748B",
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

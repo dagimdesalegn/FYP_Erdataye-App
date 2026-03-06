@@ -1,22 +1,22 @@
-import { AppButton } from '@/components/app-button';
-import { AppHeader } from '@/components/app-header';
-import { useAppState } from '@/components/app-state';
-import { FirstAidFab } from '@/components/first-aid-fab';
-import { HtmlMapView } from '@/components/html-map-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { signOut } from '@/utils/auth';
-import { buildMapHtml, formatCoords } from '@/utils/emergency';
-import { getActiveEmergency, type PatientEmergency } from '@/utils/patient';
-import { getUserProfile } from '@/utils/profile';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AppButton } from "@/components/app-button";
+import { AppHeader } from "@/components/app-header";
+import { useAppState } from "@/components/app-state";
+import { FirstAidFab } from "@/components/first-aid-fab";
+import { HtmlMapView } from "@/components/html-map-view";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { signOut } from "@/utils/auth";
+import { buildMapHtml, formatCoords } from "@/utils/emergency";
+import { getActiveEmergency, type PatientEmergency } from "@/utils/patient";
+import { getUserProfile } from "@/utils/profile";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Location from "expo-location";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Linking, Platform, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HelpScreen() {
   const router = useRouter();
@@ -24,16 +24,24 @@ export default function HelpScreen() {
   const colorScheme = useColorScheme();
   const { user, setUser } = useAppState();
   const colors = Colors[colorScheme];
-  const isDark = colorScheme === 'dark';
+  const isDark = colorScheme === "dark";
   const [helpOpen, setHelpOpen] = React.useState(false);
   const [directOpen, setDirectOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
-  const [activeEmergency, setActiveEmergency] = React.useState<PatientEmergency | null>(null);
-  const [activeEmergencyId, setActiveEmergencyId] = React.useState<string | null>(null);
-  const [currentLocation, setCurrentLocation] = React.useState<{ latitude: number; longitude: number } | null>(null);
+  const [activeEmergency, setActiveEmergency] =
+    React.useState<PatientEmergency | null>(null);
+  const [activeEmergencyId, setActiveEmergencyId] = React.useState<
+    string | null
+  >(null);
+  const [currentLocation, setCurrentLocation] = React.useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [locationLoading, setLocationLoading] = React.useState(true);
-  const [profileName, setProfileName] = React.useState<string>(user?.fullName || '');
+  const [profileName, setProfileName] = React.useState<string>(
+    user?.fullName || "",
+  );
 
   // Load profile name from DB
   React.useEffect(() => {
@@ -41,16 +49,22 @@ export default function HelpScreen() {
     const loadProfile = async () => {
       if (!user?.id) return;
       const { profile } = await getUserProfile(user.id);
-      if (!cancelled && profile?.full_name) {
-        setProfileName(profile.full_name);
-        if (profile.full_name !== user.fullName) {
-          setUser({ ...user, fullName: profile.full_name });
+      if (!cancelled && profile) {
+        setProfileName(profile.full_name || "");
+        if (profile.full_name !== user.fullName || profile.phone !== user.phone) {
+          setUser({
+            ...user,
+            fullName: profile.full_name || user.fullName,
+            phone: profile.phone || user.phone,
+          });
         }
       }
     };
     void loadProfile();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.fullName]);
 
   React.useEffect(() => {
@@ -67,7 +81,9 @@ export default function HelpScreen() {
       }
     };
     void loadActiveEmergency();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user?.id]);
 
   React.useEffect(() => {
@@ -76,9 +92,9 @@ export default function HelpScreen() {
       try {
         setLocationLoading(true);
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status !== 'granted') {
+        if (permission.status !== "granted") {
           if (!cancelled) {
-            setLocationError('Location permission is required.');
+            setLocationError("Location permission is required.");
             setCurrentLocation(null);
           }
           return;
@@ -95,7 +111,7 @@ export default function HelpScreen() {
         }
       } catch {
         if (!cancelled) {
-          setLocationError('Unable to read current location.');
+          setLocationError("Unable to read current location.");
           setCurrentLocation(null);
         }
       } finally {
@@ -103,7 +119,9 @@ export default function HelpScreen() {
       }
     };
     void loadCurrentLocation();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const mapLocation = React.useMemo(() => {
@@ -115,14 +133,14 @@ export default function HelpScreen() {
       return {
         latitude: activeEmergency.latitude,
         longitude: activeEmergency.longitude,
-        sourceLabel: 'Emergency location',
+        sourceLabel: "Emergency location",
       };
     }
     if (currentLocation) {
       return {
         latitude: currentLocation.latitude,
         longitude: currentLocation.longitude,
-        sourceLabel: 'Current device location',
+        sourceLabel: "Current device location",
       };
     }
     return null;
@@ -134,10 +152,11 @@ export default function HelpScreen() {
   }, [mapLocation]);
 
   const mapSummaryText = React.useMemo(() => {
-    if (mapLocation) return formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
-    if (locationLoading) return 'Getting your current location...';
+    if (mapLocation)
+      return formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
+    if (locationLoading) return "Getting your current location...";
     if (locationError) return locationError;
-    return 'No active location is available yet.';
+    return "No active location is available yet.";
   }, [locationError, locationLoading, mapLocation]);
 
   const openInGoogleMaps = () => {
@@ -151,14 +170,16 @@ export default function HelpScreen() {
 
   const openPatientEmergency = React.useCallback(() => {
     if (!user?.id) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
     if (activeEmergencyId) {
-      router.push(`/patient-emergency-tracking?emergencyId=${activeEmergencyId}`);
+      router.push(
+        `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
+      );
       return;
     }
-    router.push('/patient-emergency');
+    router.push("/patient-emergency");
   }, [activeEmergencyId, router, user?.id]);
 
   const handleForMe = () => {
@@ -168,7 +189,7 @@ export default function HelpScreen() {
 
   const handleForOther = () => {
     setHelpOpen(false);
-    router.push('/patient-emergency?forOther=true');
+    router.push("/patient-emergency?forOther=true");
   };
 
   const handleCall = (number: string) => {
@@ -180,72 +201,178 @@ export default function HelpScreen() {
     const { error } = await signOut();
     if (!error) {
       setUser(null);
-      router.replace('/');
+      router.replace("/");
     }
   };
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <AppHeader title="Erdataya Ambulance" announcementHref="/modal" onProfilePress={() => setProfileOpen(!profileOpen)} />
+      <AppHeader
+        title="Erdataya Ambulance"
+        announcementHref="/modal"
+        onProfilePress={() => setProfileOpen(!profileOpen)}
+      />
 
       {/* Profile Dropdown Backdrop */}
       {profileOpen && (
-        <Pressable style={styles.profileBackdrop} onPress={() => setProfileOpen(false)} />
+        <Pressable
+          style={styles.profileBackdrop}
+          onPress={() => setProfileOpen(false)}
+        />
       )}
 
       {/* Profile Dropdown */}
       {profileOpen && (
-        <View style={[styles.profileDropdown, { top: Math.max(insets.top, 12) + 52, backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.profileDropdown,
+            {
+              top: Math.max(insets.top, 12) + 52,
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
           <View style={styles.profileDropdownHeader}>
             <View style={{ flex: 1 }}>
-              {(profileName || user?.fullName) ? (
-                <ThemedText style={[styles.profileName, { color: colors.text }]}>{profileName || user?.fullName}</ThemedText>
+              {profileName || user?.fullName ? (
+                <ThemedText
+                  style={[styles.profileName, { color: colors.text }]}
+                >
+                  {profileName || user?.fullName}
+                </ThemedText>
               ) : null}
-              <ThemedText style={[styles.profileEmail, { color: colors.textMuted }]}>{user?.phone ?? 'Not signed in'}</ThemedText>
+              <ThemedText
+                style={[styles.profileEmail, { color: colors.textMuted }]}
+              >
+                {user?.phone ?? "Not signed in"}
+              </ThemedText>
             </View>
-            <Pressable onPress={() => setProfileOpen(false)} style={({ pressed }) => [styles.profileCloseBtn, pressed && { opacity: 0.7 }]}>
+            <Pressable
+              onPress={() => setProfileOpen(false)}
+              style={({ pressed }) => [
+                styles.profileCloseBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
               <MaterialIcons name="close" size={16} color={colors.textMuted} />
             </Pressable>
           </View>
-          <Pressable onPress={() => { setProfileOpen(false); router.push('/patient-profile'); }} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
+          <Pressable
+            onPress={() => {
+              setProfileOpen(false);
+              router.push("/patient-profile");
+            }}
+            style={({ pressed }) => [
+              styles.profileMenuItem,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
             <MaterialIcons name="edit" size={18} color={colors.text} />
-            <ThemedText style={[styles.profileMenuText, { color: colors.text }]}>Edit Profile</ThemedText>
+            <ThemedText
+              style={[styles.profileMenuText, { color: colors.text }]}
+            >
+              Edit Profile
+            </ThemedText>
           </Pressable>
-          <View style={[styles.profileDivider, { backgroundColor: colors.border }]} />
-          <Pressable onPress={handleLogout} style={({ pressed }) => [styles.profileMenuItem, pressed && { opacity: 0.7 }]}>
+          <View
+            style={[styles.profileDivider, { backgroundColor: colors.border }]}
+          />
+          <Pressable
+            onPress={handleLogout}
+            style={({ pressed }) => [
+              styles.profileMenuItem,
+              pressed && { opacity: 0.7 },
+            ]}
+          >
             <MaterialIcons name="logout" size={18} color={colors.primary} />
-            <ThemedText style={[styles.profileMenuText, { color: colors.primary }]}>Sign Out</ThemedText>
+            <ThemedText
+              style={[styles.profileMenuText, { color: colors.primary }]}
+            >
+              Sign Out
+            </ThemedText>
           </Pressable>
         </View>
       )}
 
-      <View style={[styles.content, { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 }]}>
+      <View
+        style={[
+          styles.content,
+          { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 },
+        ]}
+      >
         <ThemedView style={[styles.hero, { borderColor: colors.border }]}>
           <View style={styles.heroTopRow}>
-            <View style={[styles.heroIconWrap, { backgroundColor: isDark ? 'rgba(220,38,38,0.18)' : 'rgba(220,38,38,0.12)' }]}>
-              <MaterialIcons name="location-on" size={22} color={isDark ? '#FCA5A5' : '#DC2626'} />
+            <View
+              style={[
+                styles.heroIconWrap,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(220,38,38,0.18)"
+                    : "rgba(220,38,38,0.12)",
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="location-on"
+                size={22}
+                color={isDark ? "#FCA5A5" : "#DC2626"}
+              />
             </View>
             <View style={styles.heroTextCol}>
               <ThemedText style={styles.heroTitle}>Live location</ThemedText>
             </View>
           </View>
 
-          <View style={[styles.mapShell, { borderColor: colors.border, backgroundColor: colors.surfaceMuted }]}>
+          <View
+            style={[
+              styles.mapShell,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.surfaceMuted,
+              },
+            ]}
+          >
             {mapLocation ? (
               <View style={styles.liveMapRoot}>
                 <View style={styles.mapMetaRow}>
                   <View style={styles.mapMetaLeft}>
-                    <MaterialIcons name="my-location" size={18} color={isDark ? '#E6E9EC' : '#0F172A'} />
+                    <MaterialIcons
+                      name="my-location"
+                      size={18}
+                      color={isDark ? "#E6E9EC" : "#0F172A"}
+                    />
                     <View>
-                      <ThemedText style={styles.mapMetaLabel}>{mapLocation.sourceLabel}</ThemedText>
-                      <ThemedText style={[styles.mapMetaValue, { color: colors.textMuted }]}>
+                      <ThemedText style={styles.mapMetaLabel}>
+                        {mapLocation.sourceLabel}
+                      </ThemedText>
+                      <ThemedText
+                        style={[
+                          styles.mapMetaValue,
+                          { color: colors.textMuted },
+                        ]}
+                      >
                         {mapSummaryText}
                       </ThemedText>
                     </View>
                   </View>
-                  <Pressable onPress={openInGoogleMaps} style={({ pressed }) => [styles.openMapBtn, pressed && { opacity: 0.7 }]}>
-                    <MaterialIcons name="directions" size={16} color={colors.text} />
-                    <ThemedText style={[styles.openMapText, { color: colors.text }]}>Directions</ThemedText>
+                  <Pressable
+                    onPress={openInGoogleMaps}
+                    style={({ pressed }) => [
+                      styles.openMapBtn,
+                      pressed && { opacity: 0.7 },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="directions"
+                      size={16}
+                      color={colors.text}
+                    />
+                    <ThemedText
+                      style={[styles.openMapText, { color: colors.text }]}
+                    >
+                      Directions
+                    </ThemedText>
                   </Pressable>
                 </View>
                 <View style={styles.mapFrameWrap}>
@@ -260,8 +387,17 @@ export default function HelpScreen() {
               </View>
             ) : (
               <View style={styles.mapPlaceholder}>
-                <MaterialIcons name="map" size={22} color={isDark ? '#E6E9EC' : '#0F172A'} />
-                <ThemedText style={[styles.mapPlaceholderText, { color: isDark ? '#A3AAB3' : '#64748B' }]}>
+                <MaterialIcons
+                  name="map"
+                  size={22}
+                  color={isDark ? "#E6E9EC" : "#0F172A"}
+                />
+                <ThemedText
+                  style={[
+                    styles.mapPlaceholderText,
+                    { color: isDark ? "#A3AAB3" : "#64748B" },
+                  ]}
+                >
                   {mapSummaryText}
                 </ThemedText>
               </View>
@@ -276,7 +412,13 @@ export default function HelpScreen() {
               onPress={() => setHelpOpen(true)}
               variant="primary"
               fullWidth
-              leftIcon={<MaterialIcons name="help-outline" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+              leftIcon={
+                <MaterialIcons
+                  name="help-outline"
+                  size={18}
+                  color={isDark ? "#E6E9EC" : "#11181C"}
+                />
+              }
               style={[styles.actionBtn, styles.helpPrimary]}
             />
           </View>
@@ -286,7 +428,13 @@ export default function HelpScreen() {
               onPress={() => setDirectOpen(true)}
               variant="secondary"
               fullWidth
-              leftIcon={<MaterialIcons name="phone-in-talk" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+              leftIcon={
+                <MaterialIcons
+                  name="phone-in-talk"
+                  size={18}
+                  color={isDark ? "#E6E9EC" : "#11181C"}
+                />
+              }
               style={[styles.actionBtn, styles.directPrimary]}
             />
           </View>
@@ -294,12 +442,36 @@ export default function HelpScreen() {
 
         {helpOpen ? (
           <View style={styles.modalRoot}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setHelpOpen(false)} />
-            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) + 14, backgroundColor: isDark ? '#0B1220' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setHelpOpen(false)}
+            />
+            <View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, 14) + 14,
+                  backgroundColor: isDark ? "#0B1220" : "#FFFFFF",
+                  borderColor: isDark ? "#2E3236" : "#E6ECF2",
+                },
+              ]}
+            >
               <View style={styles.sheetHeader}>
-                <ThemedText style={styles.sheetTitle}>Choose help type</ThemedText>
-                <Pressable onPress={() => setHelpOpen(false)} style={({ pressed }) => [styles.sheetClose, pressed ? { opacity: 0.7 } : null]}>
-                  <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+                <ThemedText style={styles.sheetTitle}>
+                  Choose help type
+                </ThemedText>
+                <Pressable
+                  onPress={() => setHelpOpen(false)}
+                  style={({ pressed }) => [
+                    styles.sheetClose,
+                    pressed ? { opacity: 0.7 } : null,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={isDark ? "#E6E9EC" : "#11181C"}
+                  />
                 </Pressable>
               </View>
               <View style={styles.modalActionsRow}>
@@ -309,7 +481,13 @@ export default function HelpScreen() {
                     onPress={handleForMe}
                     variant="ghost"
                     fullWidth
-                    leftIcon={<MaterialIcons name="person" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+                    leftIcon={
+                      <MaterialIcons
+                        name="person"
+                        size={18}
+                        color={isDark ? "#E6E9EC" : "#11181C"}
+                      />
+                    }
                     style={[styles.actionBtn, styles.modalMeBtn]}
                   />
                 </View>
@@ -319,7 +497,13 @@ export default function HelpScreen() {
                     onPress={handleForOther}
                     variant="ghost"
                     fullWidth
-                    leftIcon={<MaterialIcons name="groups" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />}
+                    leftIcon={
+                      <MaterialIcons
+                        name="groups"
+                        size={18}
+                        color={isDark ? "#E6E9EC" : "#11181C"}
+                      />
+                    }
                     style={[styles.actionBtn, styles.modalOtherBtn]}
                   />
                 </View>
@@ -331,59 +515,205 @@ export default function HelpScreen() {
         {/* Direct Call Modal */}
         {directOpen ? (
           <View style={styles.modalRoot}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setDirectOpen(false)} />
-            <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 14) + 14, backgroundColor: isDark ? '#0B1220' : '#FFFFFF', borderColor: isDark ? '#2E3236' : '#E6ECF2' }]}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setDirectOpen(false)}
+            />
+            <View
+              style={[
+                styles.sheet,
+                {
+                  paddingBottom: Math.max(insets.bottom, 14) + 14,
+                  backgroundColor: isDark ? "#0B1220" : "#FFFFFF",
+                  borderColor: isDark ? "#2E3236" : "#E6ECF2",
+                },
+              ]}
+            >
               <View style={styles.sheetHeader}>
-                <ThemedText style={styles.sheetTitle}>Emergency Contacts</ThemedText>
-                <Pressable onPress={() => setDirectOpen(false)} style={({ pressed }) => [styles.sheetClose, pressed ? { opacity: 0.7 } : null]}>
-                  <MaterialIcons name="close" size={18} color={isDark ? '#E6E9EC' : '#11181C'} />
+                <ThemedText style={styles.sheetTitle}>
+                  Emergency Contacts
+                </ThemedText>
+                <Pressable
+                  onPress={() => setDirectOpen(false)}
+                  style={({ pressed }) => [
+                    styles.sheetClose,
+                    pressed ? { opacity: 0.7 } : null,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="close"
+                    size={18}
+                    color={isDark ? "#E6E9EC" : "#11181C"}
+                  />
                 </Pressable>
               </View>
 
-              <ThemedText style={[styles.contactSectionTitle, { color: isDark ? '#94A3B8' : '#64748B' }]}>Ethiopian Emergency Services</ThemedText>
+              <ThemedText
+                style={[
+                  styles.contactSectionTitle,
+                  { color: isDark ? "#94A3B8" : "#64748B" },
+                ]}
+              >
+                Ethiopian Emergency Services
+              </ThemedText>
 
-              <Pressable onPress={() => handleCall('911')} style={({ pressed }) => [styles.contactRow, { backgroundColor: isDark ? '#1E2028' : '#FEF2F2', borderColor: isDark ? '#2E3236' : '#FECACA' }, pressed && { opacity: 0.8 }]}>
-                <View style={[styles.contactIconWrap, { backgroundColor: '#DC262620' }]}>
-                  <MaterialIcons name="local-hospital" size={20} color="#DC2626" />
+              <Pressable
+                onPress={() => handleCall("911")}
+                style={({ pressed }) => [
+                  styles.contactRow,
+                  {
+                    backgroundColor: isDark ? "#1E2028" : "#FEF2F2",
+                    borderColor: isDark ? "#2E3236" : "#FECACA",
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.contactIconWrap,
+                    { backgroundColor: "#DC262620" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="local-hospital"
+                    size={20}
+                    color="#DC2626"
+                  />
                 </View>
                 <View style={styles.contactInfo}>
-                  <ThemedText style={[styles.contactName, { color: colors.text }]}>Emergency (Ambulance)</ThemedText>
-                  <ThemedText style={[styles.contactNumber, { color: '#DC2626' }]}>911</ThemedText>
+                  <ThemedText
+                    style={[styles.contactName, { color: colors.text }]}
+                  >
+                    Emergency (Ambulance)
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.contactNumber, { color: "#DC2626" }]}
+                  >
+                    911
+                  </ThemedText>
                 </View>
                 <MaterialIcons name="call" size={22} color="#DC2626" />
               </Pressable>
 
-              <Pressable onPress={() => handleCall('939')} style={({ pressed }) => [styles.contactRow, { backgroundColor: isDark ? '#1E2028' : '#FFF7ED', borderColor: isDark ? '#2E3236' : '#FED7AA' }, pressed && { opacity: 0.8 }]}>
-                <View style={[styles.contactIconWrap, { backgroundColor: '#F59E0B20' }]}>
-                  <MaterialIcons name="local-fire-department" size={20} color="#F59E0B" />
+              <Pressable
+                onPress={() => handleCall("939")}
+                style={({ pressed }) => [
+                  styles.contactRow,
+                  {
+                    backgroundColor: isDark ? "#1E2028" : "#FFF7ED",
+                    borderColor: isDark ? "#2E3236" : "#FED7AA",
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.contactIconWrap,
+                    { backgroundColor: "#F59E0B20" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="local-fire-department"
+                    size={20}
+                    color="#F59E0B"
+                  />
                 </View>
                 <View style={styles.contactInfo}>
-                  <ThemedText style={[styles.contactName, { color: colors.text }]}>Fire & Emergency</ThemedText>
-                  <ThemedText style={[styles.contactNumber, { color: '#F59E0B' }]}>939</ThemedText>
+                  <ThemedText
+                    style={[styles.contactName, { color: colors.text }]}
+                  >
+                    Fire & Emergency
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.contactNumber, { color: "#F59E0B" }]}
+                  >
+                    939
+                  </ThemedText>
                 </View>
                 <MaterialIcons name="call" size={22} color="#F59E0B" />
               </Pressable>
 
-              <Pressable onPress={() => handleCall('991')} style={({ pressed }) => [styles.contactRow, { backgroundColor: isDark ? '#1E2028' : '#EFF6FF', borderColor: isDark ? '#2E3236' : '#BFDBFE' }, pressed && { opacity: 0.8 }]}>
-                <View style={[styles.contactIconWrap, { backgroundColor: '#3B82F620' }]}>
-                  <MaterialIcons name="local-police" size={20} color="#3B82F6" />
+              <Pressable
+                onPress={() => handleCall("991")}
+                style={({ pressed }) => [
+                  styles.contactRow,
+                  {
+                    backgroundColor: isDark ? "#1E2028" : "#EFF6FF",
+                    borderColor: isDark ? "#2E3236" : "#BFDBFE",
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.contactIconWrap,
+                    { backgroundColor: "#3B82F620" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="local-police"
+                    size={20}
+                    color="#3B82F6"
+                  />
                 </View>
                 <View style={styles.contactInfo}>
-                  <ThemedText style={[styles.contactName, { color: colors.text }]}>Police</ThemedText>
-                  <ThemedText style={[styles.contactNumber, { color: '#3B82F6' }]}>991</ThemedText>
+                  <ThemedText
+                    style={[styles.contactName, { color: colors.text }]}
+                  >
+                    Police
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.contactNumber, { color: "#3B82F6" }]}
+                  >
+                    991
+                  </ThemedText>
                 </View>
                 <MaterialIcons name="call" size={22} color="#3B82F6" />
               </Pressable>
 
-              <ThemedText style={[styles.contactSectionTitle, { color: isDark ? '#94A3B8' : '#64748B', marginTop: 12 }]}>Family / Personal</ThemedText>
+              <ThemedText
+                style={[
+                  styles.contactSectionTitle,
+                  { color: isDark ? "#94A3B8" : "#64748B", marginTop: 12 },
+                ]}
+              >
+                Family / Personal
+              </ThemedText>
 
-              <Pressable onPress={() => handleCall('+251911000000')} style={({ pressed }) => [styles.contactRow, { backgroundColor: isDark ? '#1E2028' : '#F0FDF4', borderColor: isDark ? '#2E3236' : '#BBF7D0' }, pressed && { opacity: 0.8 }]}>
-                <View style={[styles.contactIconWrap, { backgroundColor: '#10B98120' }]}>
-                  <MaterialIcons name="family-restroom" size={20} color="#10B981" />
+              <Pressable
+                onPress={() => handleCall("+251911000000")}
+                style={({ pressed }) => [
+                  styles.contactRow,
+                  {
+                    backgroundColor: isDark ? "#1E2028" : "#F0FDF4",
+                    borderColor: isDark ? "#2E3236" : "#BBF7D0",
+                  },
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.contactIconWrap,
+                    { backgroundColor: "#10B98120" },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="family-restroom"
+                    size={20}
+                    color="#10B981"
+                  />
                 </View>
                 <View style={styles.contactInfo}>
-                  <ThemedText style={[styles.contactName, { color: colors.text }]}>Emergency Contact</ThemedText>
-                  <ThemedText style={[styles.contactNumber, { color: '#10B981' }]}>From your profile</ThemedText>
+                  <ThemedText
+                    style={[styles.contactName, { color: colors.text }]}
+                  >
+                    Emergency Contact
+                  </ThemedText>
+                  <ThemedText
+                    style={[styles.contactNumber, { color: "#10B981" }]}
+                  >
+                    From your profile
+                  </ThemedText>
                 </View>
                 <MaterialIcons name="call" size={22} color="#10B981" />
               </Pressable>
@@ -398,74 +728,220 @@ export default function HelpScreen() {
 
 const styles = StyleSheet.create({
   bg: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: 14, justifyContent: 'space-between' },
+  content: { flex: 1, paddingHorizontal: 14, justifyContent: "space-between" },
   hero: {
-    flex: 1, borderRadius: 24, borderWidth: 1, padding: 16,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.1, shadowRadius: 24, elevation: 8,
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 8,
   },
-  heroTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
-  heroIconWrap: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+  },
+  heroIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   heroTextCol: { flex: 1 },
-  heroTitle: { fontSize: 18, fontWeight: '900', letterSpacing: -0.3 },
+  heroTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.3 },
   mapShell: {
-    borderRadius: 20, borderWidth: 1, overflow: 'hidden', flex: 1, minHeight: 420,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.12, shadowRadius: 18, elevation: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+    flex: 1,
+    minHeight: 420,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 6,
   },
-  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 18 },
-  mapPlaceholderText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  mapPlaceholder: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingHorizontal: 18,
+  },
+  mapPlaceholderText: { fontSize: 13, fontWeight: "600", textAlign: "center" },
   liveMapRoot: { flex: 1 },
   mapMetaRow: {
-    minHeight: 56, paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(148,163,184,0.26)',
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+    minHeight: 56,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(148,163,184,0.26)",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
   },
-  mapMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  mapMetaLabel: { fontSize: 12, fontWeight: '800' },
-  mapMetaValue: { fontSize: 12, marginTop: 2, fontWeight: '500' },
+  mapMetaLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
+  mapMetaLabel: { fontSize: 12, fontWeight: "800" },
+  mapMetaValue: { fontSize: 12, marginTop: 2, fontWeight: "500" },
   openMapBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: 'rgba(148,163,184,0.35)', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.35)",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  openMapText: { fontSize: 12, fontWeight: '700' },
+  openMapText: { fontSize: 12, fontWeight: "700" },
   mapFrameWrap: { flex: 1, minHeight: 300 },
-  actionsRow: { marginTop: 14, flexDirection: 'row', gap: 14 },
-  modalActionsRow: { marginTop: 14, flexDirection: 'row', gap: 14 },
+  actionsRow: { marginTop: 14, flexDirection: "row", gap: 14 },
+  modalActionsRow: { marginTop: 14, flexDirection: "row", gap: 14 },
   actionCol: { flex: 1 },
-  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
   modalRoot: { ...StyleSheet.absoluteFillObject, zIndex: 1000 },
   sheet: {
-    position: 'absolute', left: 14, right: 14, bottom: 14, borderRadius: 24, borderWidth: 1, padding: 18, gap: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 14,
+    position: "absolute",
+    left: 14,
+    right: 14,
+    bottom: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 18,
+    gap: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    elevation: 14,
   },
-  sheetHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  sheetTitle: { fontSize: 17, fontWeight: '900' },
+  sheetHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  sheetTitle: { fontSize: 17, fontWeight: "900" },
   sheetClose: {
-    width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(148,163,184,0.35)',
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(148,163,184,0.35)",
   },
   actionBtn: { minHeight: 56, borderRadius: 18, paddingVertical: 14 },
-  helpPrimary: { backgroundColor: '#DC2626', borderColor: '#DC2626', borderWidth: 1, shadowColor: '#DC2626', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
-  directPrimary: { backgroundColor: '#10B981', borderColor: '#10B981', borderWidth: 1, shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 6 },
-  modalMeBtn: { backgroundColor: 'transparent', borderColor: '#DC2626', borderWidth: 1, shadowOpacity: 0, elevation: 0 },
-  modalOtherBtn: { backgroundColor: 'transparent', borderColor: '#10B981', borderWidth: 1, shadowOpacity: 0, elevation: 0 },
+  helpPrimary: {
+    backgroundColor: "#DC2626",
+    borderColor: "#DC2626",
+    borderWidth: 1,
+    shadowColor: "#DC2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  directPrimary: {
+    backgroundColor: "#10B981",
+    borderColor: "#10B981",
+    borderWidth: 1,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  modalMeBtn: {
+    backgroundColor: "transparent",
+    borderColor: "#DC2626",
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  modalOtherBtn: {
+    backgroundColor: "transparent",
+    borderColor: "#10B981",
+    borderWidth: 1,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
   profileBackdrop: { ...StyleSheet.absoluteFillObject, zIndex: 150 },
   profileDropdown: {
-    position: 'absolute', right: 16, zIndex: 200, borderRadius: 14, borderWidth: 1,
-    padding: 8, minWidth: 200,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 10,
+    position: "absolute",
+    right: 16,
+    zIndex: 200,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 8,
+    minWidth: 200,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  profileDropdownHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 6 },
-  profileEmail: { fontSize: 12, fontWeight: '600', flex: 1 },
-  profileName: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  profileCloseBtn: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  profileMenuItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8 },
-  profileMenuText: { fontSize: 14, fontWeight: '600' },
+  profileDropdownHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  profileEmail: { fontSize: 12, fontWeight: "600", flex: 1 },
+  profileName: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
+  profileCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  profileMenuText: { fontSize: 14, fontWeight: "600" },
   profileDivider: { height: 1, marginVertical: 4, marginHorizontal: 8 },
-  contactSectionTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 10 },
-  contactIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  contactSectionTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  contactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  contactIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   contactInfo: { flex: 1, gap: 3 },
-  contactName: { fontSize: 15, fontWeight: '700' },
-  contactNumber: { fontSize: 14, fontWeight: '600' },
+  contactName: { fontSize: 15, fontWeight: "700" },
+  contactNumber: { fontSize: 14, fontWeight: "600" },
 });

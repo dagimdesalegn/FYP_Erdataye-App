@@ -1,16 +1,24 @@
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import React from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import React from "react";
+import {
+    ActivityIndicator,
+    Animated,
+    Pressable,
+    StyleProp,
+    StyleSheet,
+    View,
+    ViewStyle,
+} from "react-native";
 
-import { ThemedText } from './themed-text';
+import { ThemedText } from "./themed-text";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type AppButtonProps = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: "primary" | "secondary" | "ghost";
   fullWidth?: boolean;
   loading?: boolean;
   disabled?: boolean;
@@ -21,7 +29,7 @@ type AppButtonProps = {
 export function AppButton({
   label,
   onPress,
-  variant = 'primary',
+  variant = "primary",
   fullWidth,
   loading,
   disabled,
@@ -29,26 +37,25 @@ export function AppButton({
   style,
 }: AppButtonProps) {
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === "dark";
+  const colors = Colors[colorScheme ?? "light"];
   const animatedValue = React.useRef(new Animated.Value(0)).current;
 
   const bg =
-    variant === 'primary'
+    variant === "primary"
       ? colors.primary
-      : variant === 'secondary'
+      : variant === "secondary"
         ? colors.surfaceMuted
-        : 'transparent';
+        : "transparent";
 
   const borderColor =
-    variant === 'ghost'
+    variant === "ghost"
       ? colors.border
-      : variant === 'secondary'
+      : variant === "secondary"
         ? colors.borderStrong
-        : 'transparent';
+        : "transparent";
 
-  const textColor =
-    variant === 'primary' ? '#fff' : colors.text;
+  const textColor = variant === "primary" ? "#fff" : colors.text;
 
   const handlePressIn = () => {
     Animated.timing(animatedValue, {
@@ -72,14 +79,14 @@ export function AppButton({
         scale: animatedValue.interpolate({
           inputRange: [0, 1],
           outputRange: [1, 0.96],
-          extrapolate: 'clamp',
+          extrapolate: "clamp",
         }),
       },
     ],
     shadowOpacity: animatedValue.interpolate({
       inputRange: [0, 1],
       outputRange: [0.25, 0.15],
-      extrapolate: 'clamp',
+      extrapolate: "clamp",
     }),
   };
 
@@ -97,9 +104,9 @@ export function AppButton({
           {
             backgroundColor: bg,
             borderColor,
-            borderWidth: variant === 'primary' ? 0 : 1,
+            borderWidth: variant === "primary" ? 0 : 1,
           },
-          variant === 'primary'
+          variant === "primary"
             ? {
                 shadowColor: colors.primary,
                 shadowOffset: { width: 0, height: 8 },
@@ -107,25 +114,28 @@ export function AppButton({
                 shadowRadius: 18,
                 elevation: 6,
               }
-            : variant === 'secondary'
-            ? {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: isDark ? 0.2 : 0.12,
-                shadowRadius: 10,
-                elevation: 4,
-              }
-            : null,
+            : variant === "secondary"
+              ? {
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: isDark ? 0.2 : 0.12,
+                  shadowRadius: 10,
+                  elevation: 4,
+                }
+              : null,
           animatedStyle,
-          (disabled || loading) ? { opacity: 0.55 } : null,
+          disabled || loading ? { opacity: 0.55 } : null,
           style,
-        ]}>
+        ]}
+      >
         {loading ? (
           <ActivityIndicator color={textColor} size="small" />
         ) : (
           <View style={styles.contentRow}>
             {leftIcon ? <View style={styles.iconWrap}>{leftIcon}</View> : null}
-            <ThemedText style={[styles.label, { color: textColor }]}>{label}</ThemedText>
+            <ThemedText style={[styles.label, { color: textColor }]}>
+              {label}
+            </ThemedText>
           </View>
         )}
       </AnimatedPressable>
@@ -139,29 +149,29 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 22,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    overflow: 'hidden',
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
   },
   contentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   iconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   fullWidth: {
-    width: '100%',
+    width: "100%",
   },
   label: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.3,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: Fonts.sans,
   },
 });
