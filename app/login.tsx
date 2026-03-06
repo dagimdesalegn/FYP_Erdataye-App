@@ -152,10 +152,6 @@ export default function LoginScreen() {
     }
   };
 
-  const handleForgotPassword = () => {
-    Alert.alert('Password Reset', 'Please use the Supabase dashboard to reset your password or contact support.');
-  };
-
   /* ---- colours ---- */
   const bg = colors.background;
   const cardBg = colors.surface;
@@ -246,12 +242,7 @@ export default function LoginScreen() {
 
               {/* Password */}
               <View style={styles.fieldGroup}>
-                <View style={styles.labelRow}>
-                  <ThemedText style={[styles.label, { color: textPrimary }]}>Password</ThemedText>
-                  <Pressable onPress={handleForgotPassword} disabled={loading} hitSlop={8}>
-                    <ThemedText style={styles.forgotLink}>Forgot?</ThemedText>
-                  </Pressable>
-                </View>
+                <ThemedText style={[styles.label, { color: textPrimary }]}>Password</ThemedText>
                 <View style={[
                   styles.inputWrap,
                   { backgroundColor: inputBg, borderColor: fieldErrors.password ? '#DC2626' : (focusedField === 'password' ? inputFocusBorder : inputBorder) },
@@ -406,7 +397,6 @@ const styles = StyleSheet.create({
   /* ---- Form ---- */
   form: { gap: 16 },
   fieldGroup: { gap: 6 },
-  labelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   label: {
     fontSize: 13,
     fontWeight: '700',
@@ -437,12 +427,6 @@ const styles = StyleSheet.create({
     color: '#DC2626',
     marginTop: 2,
     marginLeft: 2,
-  },
-  forgotLink: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: Fonts.sans,
-    color: '#DC2626',
   },
   /* ---- Primary button ---- */
   primaryBtn: { marginTop: 4, borderRadius: 14, overflow: 'hidden' },
