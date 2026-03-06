@@ -1,6 +1,6 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useRef, useState } from 'react';
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef, useState } from "react";
 import {
     Alert,
     Animated,
@@ -10,18 +10,25 @@ import {
     ScrollView,
     StyleSheet,
     TextInput,
-    View
-} from 'react-native';
+    View,
+} from "react-native";
 
-import { AppButton } from '@/components/app-button';
-import { useAppState } from '@/components/app-state';
-import { LoadingModal } from '@/components/loading-modal';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getMedicalProfile, getUserProfile, updateUserProfile, upsertMedicalProfile } from '@/utils/profile';
-import { useRouter } from 'expo-router';
+import { AppButton } from "@/components/app-button";
+import { useAppState } from "@/components/app-state";
+import { LoadingModal } from "@/components/loading-modal";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { updateAuthLoginPhone } from "@/utils/auth";
+import {
+    getMedicalProfile,
+    getUserProfile,
+    updateUserProfile,
+    upsertMedicalProfile,
+} from "@/utils/profile";
+import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 
 interface PatientProfileForm {
   fullName: string;
@@ -38,25 +45,27 @@ interface PatientProfileForm {
  * Handles: JS array (legacy), PostgreSQL text-array literal "{a,b}" (legacy), plain string, null.
  */
 const parseAllergiesToString = (raw: unknown): string => {
-  if (!raw) return '';
-  if (Array.isArray(raw)) return raw.filter(Boolean).join(', ');
-  if (typeof raw === 'string') {
+  if (!raw) return "";
+  if (Array.isArray(raw)) return raw.filter(Boolean).join(", ");
+  if (typeof raw === "string") {
     const trimmed = raw.trim();
     // Legacy PostgreSQL array literal: {val1,val2}
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
       return trimmed
         .slice(1, -1)
-        .split(',')
-        .map((s) => s.trim().replace(/^"|"$/g, ''))
+        .split(",")
+        .map((s) => s.trim().replace(/^"|"$/g, ""))
         .filter(Boolean)
-        .join(', ');
+        .join(", ");
     }
     // Legacy JSON array: ["a","b"]
-    if (trimmed.startsWith('[')) {
+    if (trimmed.startsWith("[")) {
       try {
         const arr = JSON.parse(trimmed);
-        if (Array.isArray(arr)) return arr.filter(Boolean).join(', ');
-      } catch { /* not JSON, treat as plain string */ }
+        if (Array.isArray(arr)) return arr.filter(Boolean).join(", ");
+      } catch {
+        /* not JSON, treat as plain string */
+      }
     }
     return trimmed;
   }
@@ -66,27 +75,29 @@ const parseAllergiesToString = (raw: unknown): string => {
 export default function PatientProfileScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const colors = Colors[colorScheme ?? 'light'];
+  const isDark = colorScheme === "dark";
+  const colors = Colors[colorScheme ?? "light"];
   const { user, setUser } = useAppState();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
   const successAnim = useRef(new Animated.Value(0)).current;
   const [form, setForm] = useState<PatientProfileForm>({
-    fullName: '',
-    phone: '',
-    bloodType: '',
-    allergies: '',
-    medicalConditions: '',
-    emergencyContactName: '',
-    emergencyContactPhone: '',
+    fullName: "",
+    phone: "",
+    bloodType: "",
+    allergies: "",
+    medicalConditions: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
   });
 
-  useEffect(() => {
-    loadPatientData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadPatientData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id]),
+  );
 
   const loadPatientData = async () => {
     if (!user?.id) return;
@@ -99,8 +110,8 @@ export default function PatientProfileScreen() {
       if (profile) {
         setForm((prev) => ({
           ...prev,
-          fullName: profile.full_name || '',
-          phone: profile.phone || '',
+          fullName: profile.full_name || "",
+          phone: profile.phone || "",
         }));
       }
 
@@ -109,17 +120,16 @@ export default function PatientProfileScreen() {
       if (medicalProfile) {
         setForm((prev) => ({
           ...prev,
-          bloodType: medicalProfile.blood_type || '',
+          bloodType: medicalProfile.blood_type || "",
           allergies: parseAllergiesToString(medicalProfile.allergies),
-          medicalConditions: medicalProfile.medical_conditions || '',
-          emergencyContactName: medicalProfile.emergency_contact_name || '',
-          emergencyContactPhone: medicalProfile.emergency_contact_phone || '',
-
+          medicalConditions: medicalProfile.medical_conditions || "",
+          emergencyContactName: medicalProfile.emergency_contact_name || "",
+          emergencyContactPhone: medicalProfile.emergency_contact_phone || "",
         }));
       }
     } catch (error) {
-      console.error('Error loading patient data:', error);
-      Alert.alert('Error', 'Failed to load profile data');
+      console.error("Error loading patient data:", error);
+      Alert.alert("Error", "Failed to load profile data");
     } finally {
       setLoading(false);
     }
@@ -127,8 +137,8 @@ export default function PatientProfileScreen() {
 
   const handleChange = (key: keyof PatientProfileForm, value: string) => {
     // Phone fields: digits only
-    if (key === 'phone' || key === 'emergencyContactPhone') {
-      const cleaned = value.replace(/[^0-9]/g, '');
+    if (key === "phone" || key === "emergencyContactPhone") {
+      const cleaned = value.replace(/[^0-9]/g, "");
       setForm((prev) => ({ ...prev, [key]: cleaned }));
       return;
     }
@@ -137,88 +147,132 @@ export default function PatientProfileScreen() {
 
   const validatePhone = (phone: string): boolean => {
     if (!phone) return false;
-    const digits = phone.replace(/[^0-9]/g, '');
-    if (digits.length === 10 && digits.startsWith('0')) return true;
-    if (digits.length === 9 && digits.startsWith('9')) return true;
-    if (digits.length === 12 && digits.startsWith('251')) return true;
+    const digits = phone.replace(/[^0-9]/g, "");
+    if (digits.length === 10 && digits.startsWith("0")) return true;
+    if (digits.length === 9 && digits.startsWith("9")) return true;
+    if (digits.length === 12 && digits.startsWith("251")) return true;
     return false;
   };
 
   const formatPhoneForDB = (phone: string): string => {
-    if (!phone) return '';
-    let digits = phone.replace(/[^0-9]/g, '');
-    if (digits.startsWith('0') && digits.length === 10) digits = '251' + digits.substring(1);
-    if (digits.length === 9 && digits.startsWith('9')) digits = '251' + digits;
-    return '+' + digits;
+    if (!phone) return "";
+    let digits = phone.replace(/[^0-9]/g, "");
+    if (digits.startsWith("0") && digits.length === 10)
+      digits = "251" + digits.substring(1);
+    if (digits.length === 9 && digits.startsWith("9")) digits = "251" + digits;
+    return "+" + digits;
   };
 
   const handleSave = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'User not authenticated');
+      Alert.alert("Error", "User not authenticated");
       return;
     }
 
     if (!form.fullName.trim() || form.fullName.trim().length < 2) {
-      Alert.alert('Error', 'Please enter a valid full name (at least 2 characters)');
+      Alert.alert(
+        "Error",
+        "Please enter a valid full name (at least 2 characters)",
+      );
       return;
     }
 
     if (!validatePhone(form.phone)) {
-      Alert.alert('Invalid Phone', 'Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678');
+      Alert.alert(
+        "Invalid Phone",
+        "Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678",
+      );
       return;
     }
 
-    if (form.emergencyContactPhone && !validatePhone(form.emergencyContactPhone)) {
-      Alert.alert('Invalid Phone', 'Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678');
+    if (
+      form.emergencyContactPhone &&
+      !validatePhone(form.emergencyContactPhone)
+    ) {
+      Alert.alert(
+        "Invalid Phone",
+        "Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678",
+      );
       return;
     }
 
     setSaving(true);
     try {
+      const normalizedPhone = formatPhoneForDB(form.phone);
+
+      // 1. Update auth login identifier so new phone can be used for sign-in
+      const { success: authSyncSuccess, error: authSyncError } =
+        await updateAuthLoginPhone(user.id, normalizedPhone);
+      if (!authSyncSuccess) {
+        throw authSyncError || new Error("Failed to update login phone");
+      }
+
       // 1. Update profiles table (full_name, phone)
-      const { success: profileSuccess, error: profileError } = await updateUserProfile(user.id, {
-        full_name: form.fullName.trim(),
-        phone: formatPhoneForDB(form.phone),
-      });
+      const { success: profileSuccess, error: profileError } =
+        await updateUserProfile(user.id, {
+          full_name: form.fullName.trim(),
+          phone: normalizedPhone,
+        });
       if (!profileSuccess) {
-        throw profileError || new Error('Failed to update profile');
+        throw profileError || new Error("Failed to update profile");
       }
 
       // 2. Update medical_profiles table
       const { success, error } = await upsertMedicalProfile(user.id, {
-        blood_type: form.bloodType || 'Unknown',
+        blood_type: form.bloodType || "Unknown",
         allergies: form.allergies.trim(),
-        medical_conditions: form.medicalConditions || '',
+        medical_conditions: form.medicalConditions || "",
         emergency_contact_name: form.emergencyContactName.trim(),
         emergency_contact_phone: form.emergencyContactPhone
           ? formatPhoneForDB(form.emergencyContactPhone)
-          : '',
+          : "",
       });
 
       if (!success) {
-        throw error || new Error('Failed to save medical profile');
+        throw error || new Error("Failed to save medical profile");
       }
 
       // 3. Update app state so name reflects everywhere
-      setUser({ ...user, fullName: form.fullName.trim(), phone: formatPhoneForDB(form.phone) });
+      setUser({
+        ...user,
+        fullName: form.fullName.trim(),
+        phone: normalizedPhone,
+      });
 
       // 4. Show success banner
       setSuccessVisible(true);
       Animated.sequence([
-        Animated.timing(successAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
-        Animated.delay(2200),
-        Animated.timing(successAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
-      ]).start(() => setSuccessVisible(false));
+        Animated.timing(successAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1200),
+        Animated.timing(successAnim, {
+          toValue: 0,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setSuccessVisible(false);
+        router.back();
+      });
     } catch (error) {
-      console.error('Error saving profile:', error);
-      Alert.alert('Error', `Failed to save profile: ${error}`);
+      console.error("Error saving profile:", error);
+      Alert.alert("Error", `Failed to save profile: ${error}`);
     } finally {
       setSaving(false);
     }
   };
 
   if (loading) {
-    return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading profile..." />;
+    return (
+      <LoadingModal
+        visible={true}
+        colorScheme={colorScheme}
+        message="Loading profile..."
+      />
+    );
   }
 
   const bg = colors.background;
@@ -230,185 +284,270 @@ export default function PatientProfileScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: bg }]}>
-      <LoadingModal visible={saving} colorScheme={colorScheme} message="Saving profile..." />
+      <LoadingModal
+        visible={saving}
+        colorScheme={colorScheme}
+        message="Saving profile..."
+      />
 
       <LinearGradient
-        colors={[colors.primary, '#EF4444', bg]}
+        colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
       />
 
-      {/* Success Banner */}
+      {/* Success Notification (centered) */}
       {successVisible && (
-        <Animated.View
-          style={[
-            styles.successBanner,
-            {
-              opacity: successAnim,
-              transform: [{ translateY: successAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }],
-            },
-          ]}
-        >
-          <MaterialIcons name="check-circle" size={22} color="#FFFFFF" />
-          <ThemedText style={styles.successText}>Profile updated successfully!</ThemedText>
-        </Animated.View>
+        <View style={styles.successOverlay} pointerEvents="none">
+          <Animated.View
+            style={[
+              styles.successBanner,
+              {
+                opacity: successAnim,
+                transform: [
+                  {
+                    scale: successAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.94, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <MaterialIcons name="check-circle" size={24} color="#FFFFFF" />
+            <ThemedText style={styles.successText}>
+              Profile updated successfully!
+            </ThemedText>
+          </Animated.View>
+        </View>
       )}
 
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}>
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+      >
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           bounces={false}
-          overScrollMode="never">
-          <ThemedView style={[styles.card, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+          overScrollMode="never"
+        >
+          <ThemedView
+            style={[
+              styles.card,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
             {/* Close / Back button – top-right of the card */}
             <Pressable
               onPress={() => router.back()}
               style={[
                 styles.closeBtn,
                 {
-                  backgroundColor: isDark ? '#1E2028' : '#FFFFFF',
-                  borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                  backgroundColor: isDark ? "#1E2028" : "#FFFFFF",
+                  borderColor: isDark ? "#2E3236" : "#E6ECF2",
                 },
               ]}
             >
-              <MaterialIcons name="close" size={20} color={isDark ? '#E6E9EC' : '#11181C'} />
+              <MaterialIcons
+                name="close"
+                size={20}
+                color={isDark ? "#E6E9EC" : "#11181C"}
+              />
             </Pressable>
 
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.avatarContainer}>
-                <View style={[styles.avatar, isDark ? styles.avatarDark : styles.avatarLight]}>
-                  <MaterialIcons name="person" size={40} color={isDark ? '#0EA5E9' : '#0284C7'} />
+                <View
+                  style={[
+                    styles.avatar,
+                    isDark ? styles.avatarDark : styles.avatarLight,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="person"
+                    size={40}
+                    color={isDark ? "#0EA5E9" : "#0284C7"}
+                  />
                 </View>
               </View>
-              <ThemedText style={[styles.headerTitle, { color: textPrimary }]}>Patient Profile</ThemedText>
-              <ThemedText style={[styles.headerSubtitle, { color: textSecondary }]}>
+              <ThemedText style={[styles.headerTitle, { color: textPrimary }]}>
+                Patient Profile
+              </ThemedText>
+              <ThemedText
+                style={[styles.headerSubtitle, { color: textSecondary }]}
+              >
                 Keep your medical information up to date
               </ThemedText>
             </View>
 
             {/* Personal Information Section */}
             <View style={styles.section}>
-              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              <View
+                style={[
+                  styles.sectionCard,
+                  { backgroundColor: sectionBg, borderColor: cardBorder },
+                ]}
               >
-              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
-                <MaterialIcons name="person" size={16} /> Personal Information
-              </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.sectionTitle,
+                    { color: isDark ? "#38BDF8" : "#0EA5E9" },
+                  ]}
+                >
+                  <MaterialIcons name="person" size={16} /> Personal Information
+                </ThemedText>
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Full Name *</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Enter your full name"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                autoCapitalize="words"
-                value={form.fullName}
-                onChangeText={(text) => handleChange('fullName', text)}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Full Name *
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="Enter your full name"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  autoCapitalize="words"
+                  value={form.fullName}
+                  onChangeText={(text) => handleChange("fullName", text)}
+                  editable={!saving}
+                />
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number *</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="09XXXXXXXX"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                keyboardType="phone-pad"
-                maxLength={10}
-                value={form.phone}
-                onChangeText={(text) => handleChange('phone', text)}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Phone Number *
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="09XXXXXXXX"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={form.phone}
+                  onChangeText={(text) => handleChange("phone", text)}
+                  editable={!saving}
+                />
               </View>
             </View>
 
             {/* Medical Information Section */}
             <View style={styles.section}>
-              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              <View
+                style={[
+                  styles.sectionCard,
+                  { backgroundColor: sectionBg, borderColor: cardBorder },
+                ]}
               >
-              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
-                <MaterialIcons name="health-and-safety" size={16} /> Medical Information
-              </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.sectionTitle,
+                    { color: isDark ? "#38BDF8" : "#0EA5E9" },
+                  ]}
+                >
+                  <MaterialIcons name="health-and-safety" size={16} /> Medical
+                  Information
+                </ThemedText>
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Blood Type</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="e.g. A+, O-, B-"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.bloodType}
-                onChangeText={(text) => handleChange('bloodType', text)}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Blood Type
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="e.g. A+, O-, B-"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  value={form.bloodType}
+                  onChangeText={(text) => handleChange("bloodType", text)}
+                  editable={!saving}
+                />
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Allergies (comma-separated)</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="e.g. Penicillin, Nuts, Dairy"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.allergies}
-                onChangeText={(text) => handleChange('allergies', text)}
-                multiline
-                numberOfLines={2}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Allergies (comma-separated)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="e.g. Penicillin, Nuts, Dairy"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  value={form.allergies}
+                  onChangeText={(text) => handleChange("allergies", text)}
+                  multiline
+                  numberOfLines={2}
+                  editable={!saving}
+                />
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Medical Conditions (comma-separated)</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="e.g. Asthma, Diabetes, Hypertension"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                value={form.medicalConditions}
-                onChangeText={(text) => handleChange('medicalConditions', text)}
-                multiline
-                numberOfLines={2}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Medical Conditions (comma-separated)
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="e.g. Asthma, Diabetes, Hypertension"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  value={form.medicalConditions}
+                  onChangeText={(text) =>
+                    handleChange("medicalConditions", text)
+                  }
+                  multiline
+                  numberOfLines={2}
+                  editable={!saving}
+                />
               </View>
-
-
             </View>
 
             {/* Emergency Contact Section */}
             <View style={styles.section}>
-              <View style={[styles.sectionCard, { backgroundColor: sectionBg, borderColor: cardBorder }]}
+              <View
+                style={[
+                  styles.sectionCard,
+                  { backgroundColor: sectionBg, borderColor: cardBorder },
+                ]}
               >
-              <ThemedText style={[styles.sectionTitle, { color: isDark ? '#38BDF8' : '#0EA5E9' }]}>
-                <MaterialIcons name="phone" size={16} /> Emergency Contact
-              </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.sectionTitle,
+                    { color: isDark ? "#38BDF8" : "#0EA5E9" },
+                  ]}
+                >
+                  <MaterialIcons name="phone" size={16} /> Emergency Contact
+                </ThemedText>
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Contact Name</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="Emergency contact name"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                autoCapitalize="words"
-                value={form.emergencyContactName}
-                onChangeText={(text) => handleChange('emergencyContactName', text)}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Contact Name
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="Emergency contact name"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  autoCapitalize="words"
+                  value={form.emergencyContactName}
+                  onChangeText={(text) =>
+                    handleChange("emergencyContactName", text)
+                  }
+                  editable={!saving}
+                />
 
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Contact Phone</ThemedText>
-              <TextInput
-                style={[styles.input, isDark ? styles.inputDark : null]}
-                placeholder="09XXXXXXXX"
-                placeholderTextColor={isDark ? '#6B7280' : '#94A3B8'}
-                keyboardType="phone-pad"
-                maxLength={10}
-                value={form.emergencyContactPhone}
-                onChangeText={(text) => handleChange('emergencyContactPhone', text)}
-                editable={!saving}
-              />
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Contact Phone
+                </ThemedText>
+                <TextInput
+                  style={[styles.input, isDark ? styles.inputDark : null]}
+                  placeholder="09XXXXXXXX"
+                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={form.emergencyContactPhone}
+                  onChangeText={(text) =>
+                    handleChange("emergencyContactPhone", text)
+                  }
+                  editable={!saving}
+                />
               </View>
             </View>
 
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
               <AppButton
-                label={saving ? 'Saving...' : 'Save Profile'}
+                label={saving ? "Saving..." : "Save Profile"}
                 onPress={handleSave}
                 variant="primary"
                 fullWidth
@@ -440,15 +579,15 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     padding: 16,
-    paddingTop: Platform.OS === 'android' ? 60 : 56,
+    paddingTop: Platform.OS === "android" ? 60 : 56,
     paddingBottom: 32,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   card: {
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.12,
     shadowRadius: 20,
@@ -457,7 +596,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   header: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 28,
   },
   avatarContainer: {
@@ -467,26 +606,26 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarLight: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: "#F0F9FF",
   },
   avatarDark: {
-    backgroundColor: '#0C1F3A',
+    backgroundColor: "#0C1F3A",
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     fontFamily: Fonts.sans,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#64748B',
+    color: "#64748B",
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   section: {
     marginBottom: 14,
@@ -498,14 +637,14 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Fonts.sans,
     marginBottom: 12,
-    color: '#0EA5E9',
+    color: "#0EA5E9",
   },
   label: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Fonts.sans,
     letterSpacing: 0.1,
     marginBottom: 6,
@@ -513,20 +652,20 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E6ECF2',
-    backgroundColor: '#F8FAFC',
+    borderColor: "#E6ECF2",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
     fontSize: 15,
-    color: '#11181C',
+    color: "#11181C",
     fontFamily: Fonts.sans,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   inputDark: {
-    backgroundColor: '#0B1220',
-    borderColor: '#2E3236',
-    color: '#ECEDEE',
+    backgroundColor: "#0B1220",
+    borderColor: "#2E3236",
+    color: "#ECEDEE",
   },
   buttonContainer: {
     gap: 10,
@@ -536,7 +675,7 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   closeBtn: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     right: 12,
     zIndex: 10,
@@ -544,44 +683,46 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
   },
   topGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 260,
   },
-  successBanner: {
-    position: 'absolute',
-    top: 24,
-    left: 20,
-    right: 60,
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
     zIndex: 200,
-    backgroundColor: '#10B981',
-    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successBanner: {
+    position: "absolute",
+    backgroundColor: "#10B981",
+    borderRadius: 16,
     paddingVertical: 14,
-    paddingHorizontal: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
-    shadowColor: '#10B981',
+    shadowColor: "#10B981",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
     shadowRadius: 12,
     elevation: 8,
   },
   successText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
     fontFamily: Fonts.sans,
   },
 });

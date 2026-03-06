@@ -1,14 +1,14 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView, StyleSheet, View } from "react-native";
 
-import { LoadingModal } from '@/components/loading-modal';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Colors, Fonts } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { getPatientInfo } from '@/utils/driver';
+import { LoadingModal } from "@/components/loading-modal";
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { Colors, Fonts } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getPatientInfo } from "@/utils/driver";
 
 interface MedicalProfile {
   blood_type?: string;
@@ -29,7 +29,7 @@ interface PatientData {
  * Driver Patient Information Screen - View Patient Medical Data
  */
 export default function DriverPatientInfoScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const { patientId } = useLocalSearchParams();
 
@@ -45,7 +45,7 @@ export default function DriverPatientInfoScreen() {
         const { info, error } = await getPatientInfo(patientId as string);
 
         if (error && error.message) {
-          Alert.alert('Error', 'Failed to load patient information');
+          Alert.alert("Error", "Failed to load patient information");
           return;
         }
 
@@ -53,8 +53,8 @@ export default function DriverPatientInfoScreen() {
           setPatientData(info);
         }
       } catch (error) {
-        console.error('Error loading patient info:', error);
-        Alert.alert('Error', 'Failed to load patient information');
+        console.error("Error loading patient info:", error);
+        Alert.alert("Error", "Failed to load patient information");
       } finally {
         setLoading(false);
       }
@@ -64,7 +64,13 @@ export default function DriverPatientInfoScreen() {
   }, [patientId]);
 
   if (loading) {
-    return <LoadingModal visible={true} colorScheme={colorScheme} message="Loading patient info..." />;
+    return (
+      <LoadingModal
+        visible={true}
+        colorScheme={colorScheme}
+        message="Loading patient info..."
+      />
+    );
   }
 
   if (!patientData) {
@@ -72,7 +78,9 @@ export default function DriverPatientInfoScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         <View style={styles.emptyContainer}>
           <MaterialIcons name="person-off" size={48} color="#9CA3AF" />
-          <ThemedText style={styles.emptyText}>Patient information unavailable</ThemedText>
+          <ThemedText style={styles.emptyText}>
+            Patient information unavailable
+          </ThemedText>
         </View>
       </View>
     );
@@ -82,27 +90,54 @@ export default function DriverPatientInfoScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Patient Header */}
-        <ThemedView style={[styles.headerCard, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}> 
+        <ThemedView
+          style={[
+            styles.headerCard,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+            },
+          ]}
+        >
           <View style={styles.avatarContainer}>
             <MaterialIcons name="person" size={40} color={colors.info} />
           </View>
           <View style={{ marginLeft: 12, flex: 1 }}>
-            <ThemedText style={styles.patientName}>{patientData.full_name}</ThemedText>
-            <ThemedText style={styles.patientPhone}>{patientData.phone}</ThemedText>
+            <ThemedText style={styles.patientName}>
+              {patientData.full_name}
+            </ThemedText>
+            <ThemedText style={styles.patientPhone}>
+              {patientData.phone}
+            </ThemedText>
           </View>
         </ThemedView>
 
         {/* Contact Information */}
-        <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}> 
+        <ThemedView
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+            },
+          ]}
+        >
           <ThemedText style={styles.cardTitle}>Contact Information</ThemedText>
 
           <View style={styles.infoRow}>
-              <MaterialIcons name="phone" size={20} color={colors.info} />
+            <MaterialIcons name="phone" size={20} color={colors.info} />
             <View style={{ marginLeft: 12, flex: 1 }}>
               <ThemedText style={styles.infoLabel}>Primary Phone</ThemedText>
-              <ThemedText style={styles.infoValue}>{patientData.phone}</ThemedText>
+              <ThemedText style={styles.infoValue}>
+                {patientData.phone}
+              </ThemedText>
             </View>
           </View>
 
@@ -110,13 +145,21 @@ export default function DriverPatientInfoScreen() {
             <>
               <View style={styles.divider} />
               <View style={styles.infoRow}>
-                <MaterialIcons name="contacts" size={20} color={colors.success} />
+                <MaterialIcons
+                  name="contacts"
+                  size={20}
+                  color={colors.success}
+                />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <ThemedText style={styles.infoLabel}>Emergency Contact</ThemedText>
+                  <ThemedText style={styles.infoLabel}>
+                    Emergency Contact
+                  </ThemedText>
                   <ThemedText style={styles.infoValue}>
                     {medical.emergency_contact_name}
                   </ThemedText>
-                  <ThemedText style={styles.infoValue}>{medical.emergency_contact_phone}</ThemedText>
+                  <ThemedText style={styles.infoValue}>
+                    {medical.emergency_contact_phone}
+                  </ThemedText>
                 </View>
               </View>
             </>
@@ -125,16 +168,33 @@ export default function DriverPatientInfoScreen() {
 
         {/* Medical Information */}
         {medical && (
-          <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 }]}> 
-            <ThemedText style={styles.cardTitle}>Medical Information</ThemedText>
+          <ThemedView
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <ThemedText style={styles.cardTitle}>
+              Medical Information
+            </ThemedText>
 
             {medical.blood_type && (
               <>
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="bloodtype" size={20} color={colors.danger} />
+                  <MaterialIcons
+                    name="bloodtype"
+                    size={20}
+                    color={colors.danger}
+                  />
                   <View style={{ marginLeft: 12, flex: 1 }}>
                     <ThemedText style={styles.infoLabel}>Blood Type</ThemedText>
-                    <ThemedText style={[styles.infoValue, { fontWeight: '700' }]}>
+                    <ThemedText
+                      style={[styles.infoValue, { fontWeight: "700" }]}
+                    >
                       {medical.blood_type}
                     </ThemedText>
                   </View>
@@ -146,10 +206,16 @@ export default function DriverPatientInfoScreen() {
             {medical.allergies && (
               <>
                 <View style={styles.infoRow}>
-                  <MaterialIcons name="warning" size={20} color={colors.warning} />
+                  <MaterialIcons
+                    name="warning"
+                    size={20}
+                    color={colors.warning}
+                  />
                   <View style={{ marginLeft: 12, flex: 1 }}>
                     <ThemedText style={styles.infoLabel}>Allergies</ThemedText>
-                    <ThemedText style={styles.infoValue}>{medical.allergies}</ThemedText>
+                    <ThemedText style={styles.infoValue}>
+                      {medical.allergies}
+                    </ThemedText>
                   </View>
                 </View>
                 <View style={styles.divider} />
@@ -158,10 +224,18 @@ export default function DriverPatientInfoScreen() {
 
             {medical.medical_conditions && (
               <View style={styles.infoRow}>
-                <MaterialIcons name="local-hospital" size={20} color={colors.info} />
+                <MaterialIcons
+                  name="local-hospital"
+                  size={20}
+                  color={colors.info}
+                />
                 <View style={{ marginLeft: 12, flex: 1 }}>
-                  <ThemedText style={styles.infoLabel}>Medical Conditions</ThemedText>
-                  <ThemedText style={styles.infoValue}>{medical.medical_conditions}</ThemedText>
+                  <ThemedText style={styles.infoLabel}>
+                    Medical Conditions
+                  </ThemedText>
+                  <ThemedText style={styles.infoValue}>
+                    {medical.medical_conditions}
+                  </ThemedText>
                 </View>
               </View>
             )}
@@ -169,10 +243,20 @@ export default function DriverPatientInfoScreen() {
         )}
 
         {/* Privacy Notice */}
-        <ThemedView style={[styles.noticeCard, { backgroundColor: colors.surfaceMuted, borderColor: colors.border, borderWidth: 1 }]}> 
+        <ThemedView
+          style={[
+            styles.noticeCard,
+            {
+              backgroundColor: colors.surfaceMuted,
+              borderColor: colors.border,
+              borderWidth: 1,
+            },
+          ]}
+        >
           <MaterialIcons name="privacy-tip" size={20} color={colors.info} />
           <ThemedText style={styles.noticeText}>
-            This information is confidential and only accessible during active assignments.
+            This information is confidential and only accessible during active
+            assignments.
           </ThemedText>
         </ThemedView>
       </ScrollView>
@@ -190,19 +274,19 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 40,
   },
   emptyText: {
     fontSize: 16,
     marginTop: 12,
-    textAlign: 'center',
+    textAlign: "center",
     fontFamily: Fonts.sans,
   },
   headerCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
     borderRadius: 16,
     marginBottom: 20,
@@ -211,13 +295,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: 'rgba(6, 165, 225, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(6, 165, 225, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   patientName: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: "700",
     fontFamily: Fonts.sans,
   },
   patientPhone: {
@@ -233,13 +317,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 16,
     fontFamily: Fonts.sans,
   },
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     paddingVertical: 8,
   },
   infoLabel: {
@@ -250,20 +334,20 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     fontFamily: Fonts.sans,
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: "rgba(0,0,0,0.1)",
     marginVertical: 12,
   },
   noticeCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 12,
-    backgroundColor: 'rgba(6, 165, 225, 0.1)',
+    backgroundColor: "rgba(6, 165, 225, 0.1)",
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   noticeText: {
     fontSize: 12,
