@@ -50,6 +50,7 @@ export default function PatientEmergencyTrackingScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme];
   const { emergencyId } = useLocalSearchParams();
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
@@ -198,7 +199,7 @@ export default function PatientEmergencyTrackingScreen() {
 
   if (error || !emergency) {
     return (
-      <View style={[styles.root, { backgroundColor: Colors[colorScheme].background }]}>
+      <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.errWrap}>
           <MaterialIcons name="error-outline" size={48} color="#EF4444" />
           <ThemedText style={styles.errText}>{error || 'Emergency not found'}</ThemedText>
@@ -236,13 +237,13 @@ export default function PatientEmergencyTrackingScreen() {
         ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
         : null;
 
-  const cardBg = isDark ? '#1E293B' : '#FFFFFF';
-  const cardBorder = isDark ? '#334155' : '#E2E8F0';
-  const subtleText = isDark ? '#94A3B8' : '#64748B';
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const subtleText = colors.textMuted;
   const isCompleted = emergency.status === 'completed' || emergency.status === 'cancelled';
   const statusGradientColors: [string, string] = isDark
-    ? [st.color + '40', '#020617']
-    : [st.color + '30', '#F8FAFC'];
+    ? [st.color + '40', colors.background]
+    : [st.color + '30', colors.surfaceMuted];
 
   // Status flow steps
   const statusSteps = [

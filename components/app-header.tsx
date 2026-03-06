@@ -40,14 +40,14 @@ export function AppHeader({
         styles.container,
         {
           paddingTop: Math.max(insets.top, 12),
-          backgroundColor: colors.background,
-          borderBottomColor: colorScheme === 'dark' ? '#232526' : '#EEF2F6',
+          backgroundColor: colors.surface,
+          borderBottomColor: colors.border,
         },
       ]}>
       <View style={styles.content}>
         <View style={styles.left}>
           <View style={styles.brandMark}>
-            <MaterialIcons name="local-hospital" size={20} color={colors.tint} />
+            <MaterialIcons name="local-hospital" size={20} color={colors.primary} />
           </View>
           <ThemedText
             style={[
@@ -69,12 +69,12 @@ export function AppHeader({
               style={({ pressed }) => [
                 styles.toggleBase,
                 {
-                  backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
-                  borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
+                  backgroundColor: colors.surfaceMuted,
+                  borderColor: colors.border,
                 },
                 pressed ? { opacity: 0.85 } : null,
               ]}>
-              <MaterialIcons name="campaign" size={20} color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'} />
+              <MaterialIcons name="campaign" size={20} color={colors.text} />
             </Pressable>
           ) : null}
           <Pressable
@@ -82,15 +82,15 @@ export function AppHeader({
             style={({ pressed }) => [
               styles.toggleBase,
               {
-                backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
-                borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
               },
               pressed ? { opacity: 0.85 } : null,
             ]}>
             <MaterialIcons
               name={themeMode === 'dark' ? 'dark-mode' : themeMode === 'light' ? 'light-mode' : 'brightness-auto'}
               size={20}
-              color={colorScheme === 'dark' ? '#E6E9EC' : '#11181C'}
+              color={colors.text}
             />
           </Pressable>
           {(actions ?? []).map((a) => (
@@ -101,12 +101,12 @@ export function AppHeader({
                 styles.actionBase,
                 a.variant === 'primary'
                   ? {
-                      backgroundColor: '#DC2626',
+                      backgroundColor: colors.primary,
                       borderColor: 'transparent',
                     }
                   : {
-                      backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
-                      borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
+                      backgroundColor: colors.surfaceMuted,
+                      borderColor: colors.border,
                     },
                 a.variant === 'primary'
                   ? {
@@ -124,7 +124,7 @@ export function AppHeader({
                   styles.actionText,
                   a.variant === 'primary'
                     ? { color: '#fff' }
-                    : { color: colorScheme === 'dark' ? '#E6E9EC' : '#11181C' },
+                    : { color: colors.text },
                 ]}>
                 {a.label}
               </ThemedText>
@@ -136,13 +136,13 @@ export function AppHeader({
               style={({ pressed }) => [
                 styles.toggleBase,
                 {
-                  backgroundColor: colorScheme === 'dark' ? 'rgba(220,38,38,0.15)' : 'rgba(220,38,38,0.08)',
-                  borderColor: colorScheme === 'dark' ? '#2E3236' : '#E6ECF2',
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(239,68,68,0.18)' : 'rgba(220,38,38,0.10)',
+                  borderColor: colors.border,
                   borderRadius: 20,
                 },
                 pressed ? { opacity: 0.85 } : null,
               ]}>
-              <MaterialIcons name="person" size={20} color="#DC2626" />
+              <MaterialIcons name="person" size={20} color={colors.primary} />
             </Pressable>
           ) : null}
         </View>

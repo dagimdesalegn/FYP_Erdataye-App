@@ -1,6 +1,6 @@
 import { useAppState } from '@/components/app-state';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,7 +19,8 @@ import {
 export default function HomeScreen() {
   const router = useRouter();
   useAppState();
-  useColorScheme();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'dark'];
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -52,11 +53,11 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: colors.background }]}> 
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <LinearGradient
-        colors={['#0F172A', '#1E293B', '#0F172A']}
+        colors={[colors.background, colors.surfaceAlt, colors.background]}
         style={StyleSheet.absoluteFillObject}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -67,27 +68,13 @@ export default function HomeScreen() {
       <View style={styles.decorCircle2} />
       <View style={styles.decorCircle3} />
 
-      {/* Top bar */}
-      <View style={styles.topBar}>
-        <View style={styles.topBarLeft}>
-          <View style={styles.logoIcon}>
-            <MaterialIcons name="local-hospital" size={16} color="#fff" />
-          </View>
-          <ThemedText style={styles.logoText}>Erdataya</ThemedText>
-        </View>
-        <View style={styles.statusPill}>
-          <View style={styles.statusDot} />
-          <ThemedText style={styles.statusText}>Emergency Service</ThemedText>
-        </View>
-      </View>
-
       {/* Hero content - centered */}
       <View style={styles.center}>
         <Animated.View style={[styles.heroSection, { opacity: fadeIn, transform: [{ translateY: slideUp }] }]}>
           {/* Animated SOS ring */}
           <View style={styles.logoWrapper}>
-            <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }] }]} />
-            <Animated.View style={[styles.logoBg, { transform: [{ scale: logoScale }] }]}>
+            <Animated.View style={[styles.pulseRing, { transform: [{ scale: pulseAnim }], borderColor: colors.primary + '40' }]} />
+            <Animated.View style={[styles.logoBg, { transform: [{ scale: logoScale }], backgroundColor: 'transparent' }]}> 
               <Image
                 source={require('@/assets/images/ambulance-favicon.png')}
                 style={styles.logoImage}
@@ -112,7 +99,7 @@ export default function HomeScreen() {
           onPress={() => router.push('/login')}
           style={({ pressed }) => [styles.btn, styles.btnPrimary, pressed && styles.btnPressed]}>
           <LinearGradient
-            colors={['#DC2626', '#B91C1C']}
+            colors={[colors.primary, '#B91C1C']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.btnGradient}>
@@ -124,8 +111,8 @@ export default function HomeScreen() {
         <Pressable
           onPress={() => router.push('/register')}
           style={({ pressed }) => [styles.btn, styles.btnOutline, pressed && styles.btnPressed]}>
-          <MaterialIcons name="person-add" size={20} color="#E2E8F0" />
-          <ThemedText style={styles.btnOutlineText}>Create Account</ThemedText>
+          <MaterialIcons name="person-add" size={20} color={colors.text} />
+          <ThemedText style={[styles.btnOutlineText, { color: colors.text }]}>Create Account</ThemedText>
         </Pressable>
 
         <ThemedText style={styles.footerNote}>
@@ -169,64 +156,6 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     backgroundColor: 'rgba(59, 130, 246, 0.06)',
   },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 12,
-    width: '100%',
-    zIndex: 2,
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  logoIcon: {
-    backgroundColor: '#DC2626',
-    borderRadius: 10,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  logoText: {
-    color: '#F1F5F9',
-    fontWeight: '800',
-    fontSize: 18,
-    letterSpacing: 0.5,
-    fontFamily: Fonts.sans,
-  },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#10B981',
-  },
-  statusText: {
-    color: '#94A3B8',
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: Fonts.sans,
-  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -255,16 +184,12 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 28,
-    backgroundColor: 'rgba(220, 38, 38, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.2)',
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   logoImage: {
     width: 64,

@@ -6,20 +6,21 @@ import { Alert, Animated, KeyboardAvoidingView, Platform, Pressable, ScrollView,
 import { useAppState } from '@/components/app-state';
 import { LoadingModal } from '@/components/loading-modal';
 import { ThemedText } from '@/components/themed-text';
-import { Fonts } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { signUp } from '@/utils/auth';
 import { upsertDriverAmbulance } from '@/utils/driver';
 import { upsertMedicalProfile } from '@/utils/profile';
 import { useRouter } from 'expo-router';
 
-const CARD_MAX_W = 440;
+const CARD_MAX_W = 420;
 type AppRegistrationRole = 'patient' | 'driver';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { setRegistered, setUser } = useAppState();
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<AppRegistrationRole>('patient');
@@ -38,6 +39,7 @@ export default function RegisterScreen() {
     ]).start();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
   const [form, setForm] = useState({
     phone: '',
     password: '',
@@ -273,14 +275,14 @@ export default function RegisterScreen() {
   };
 
   /* ---- colours ---- */
-  const bg = isDark ? '#0B0F1A' : '#F0F4FA';
-  const cardBg = isDark ? '#151C2C' : '#FFFFFF';
-  const cardBorder = isDark ? '#1E293B' : '#E2E8F0';
-  const inputBg = isDark ? '#0F172A' : '#F8FAFC';
-  const inputBorder = isDark ? '#1E293B' : '#E2E8F0';
-  const textPrimary = isDark ? '#F1F5F9' : '#0F172A';
-  const textSecondary = isDark ? '#94A3B8' : '#64748B';
-  const placeholderColor = isDark ? '#475569' : '#94A3B8';
+  const bg = colors.background;
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const inputBg = colors.surfaceMuted;
+  const inputBorder = colors.border;
+  const textPrimary = colors.text;
+  const textSecondary = colors.textMuted;
+  const placeholderColor = isDark ? '#64748B' : '#94A3B8';
 
   return (
     <View style={[styles.root, { backgroundColor: bg }]}>
@@ -289,7 +291,7 @@ export default function RegisterScreen() {
 
       {/* Top accent gradient */}
       <LinearGradient
-        colors={['#DC2626', '#EF4444', isDark ? '#0B0F1A' : '#F0F4FA']}
+        colors={[colors.primary, '#EF4444', bg]}
         style={styles.topGradient}
         start={{ x: 0.2, y: 0 }}
         end={{ x: 0.8, y: 1 }}
@@ -582,7 +584,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 300,
+    height: '50%',
   },
   scroll: {
     flexGrow: 1,
@@ -593,7 +595,8 @@ const styles = StyleSheet.create({
   },
   scrollMobile: {
     flexGrow: 1,
-    paddingHorizontal: 0,
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? 48 : 56,
     paddingBottom: 24,
   },
@@ -612,15 +615,17 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   cardMobile: {
-    maxWidth: '100%' as any,
-    borderRadius: 22,
+    width: '100%',
+    maxWidth: CARD_MAX_W,
+    alignSelf: 'center',
+    borderRadius: 24,
     borderWidth: 1,
     paddingHorizontal: 20,
     paddingTop: 24,
-    paddingBottom: 40,
-    marginHorizontal: 16,
+    paddingBottom: 28,
+    marginHorizontal: 12,
     marginBottom: 24,
-    flexGrow: 1,
+    flexGrow: 0,
   },
   closeBtn: {
     position: 'absolute',
@@ -639,13 +644,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     letterSpacing: -0.5,
     marginBottom: 4,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: Fonts.sans,
     fontWeight: '500',
-    lineHeight: 18,
-    marginBottom: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   roleSection: {
     marginBottom: 16,
@@ -702,7 +709,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   form: {
-    gap: 12,
+    gap: 16,
   },
   row: {
     flexDirection: 'row',
@@ -717,30 +724,30 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     fontFamily: Fonts.sans,
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
   },
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1.5,
-    borderRadius: 12,
-    height: 46,
-    paddingHorizontal: 12,
+    borderRadius: 14,
+    height: 52,
+    paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 6 },
   input: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: Fonts.sans,
     fontWeight: '500',
     height: '100%',
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}),
   },
   fieldError: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: Fonts.sans,
     fontWeight: '600',
     color: '#DC2626',
@@ -748,7 +755,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   primaryBtn: {
-    marginTop: 8,
+    marginTop: 4,
     borderRadius: 14,
     overflow: 'hidden',
   },
@@ -756,13 +763,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 50,
+    height: 52,
     borderRadius: 14,
     gap: 8,
+    shadowColor: '#DC2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
   },
   primaryBtnText: {
     color: '#fff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     fontFamily: Fonts.sans,
     letterSpacing: 0.3,

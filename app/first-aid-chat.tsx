@@ -237,14 +237,14 @@ export default function FirstAidChatScreen() {
           styles.header,
           {
             paddingTop: insets.top + 8,
-            backgroundColor: isDark ? '#0B1220' : '#FFFFFF',
-            borderBottomColor: isDark ? '#1E2028' : '#EEF2F6',
+            backgroundColor: colors.surface,
+            borderBottomColor: colors.border,
           },
         ]}>
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
-          <MaterialIcons name="arrow-back" size={22} color={isDark ? '#E2E8F0' : '#0F172A'} />
+          <MaterialIcons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
 
         <View style={styles.headerCenter}>
@@ -253,7 +253,7 @@ export default function FirstAidChatScreen() {
           </View>
           <View>
             <ThemedText style={styles.headerTitle}>First Aid Assistant</ThemedText>
-            <ThemedText style={[styles.headerSub, { color: isDark ? '#64748B' : '#94A3B8' }]}>
+            <ThemedText style={[styles.headerSub, { color: colors.textMuted }]}>
               {aiConfigured ? 'WHO guidelines | AI enabled' : 'WHO guidelines | offline backup mode'}
             </ThemedText>
           </View>

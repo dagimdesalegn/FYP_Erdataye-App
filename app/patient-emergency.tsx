@@ -38,6 +38,7 @@ export default function PatientEmergencyScreen() {
   const isForOther = params.forOther === 'true';
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const { user } = useAppState();
   const insets = useSafeAreaInsets();
 
@@ -318,8 +319,8 @@ export default function PatientEmergencyScreen() {
                 borderColor: color,
               }
             : {
-                backgroundColor: isDark ? '#0B1220' : '#F8FAFC',
-                borderColor: isDark ? '#2E3236' : '#E6ECF2',
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
               },
           pressed && { opacity: 0.8 },
           hasActiveEmergency && { opacity: 0.5 },
@@ -336,7 +337,7 @@ export default function PatientEmergencyScreen() {
   };
 
   return (
-    <View style={[styles.bg, { backgroundColor: Colors[colorScheme].background }]}>
+    <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <LoadingModal visible={loading} colorScheme={colorScheme} message="Requesting ambulance..." />
 
       <ScrollView
@@ -344,7 +345,7 @@ export default function PatientEmergencyScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
 
-        <ThemedView style={styles.card}>
+        <ThemedView style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}> 
           {/* Status Badge with Refresh + X buttons */}
           <View style={styles.statusContainer}>
             <View
@@ -373,7 +374,7 @@ export default function PatientEmergencyScreen() {
                 }}
                 style={({ pressed }) => [
                   styles.statusActionBtn,
-                  { backgroundColor: isDark ? 'rgba(14,165,233,0.15)' : 'rgba(14,165,233,0.08)' },
+                  { backgroundColor: isDark ? 'rgba(14,165,233,0.18)' : 'rgba(14,165,233,0.10)' },
                   pressed && { opacity: 0.6 },
                 ]}
               >
@@ -384,11 +385,11 @@ export default function PatientEmergencyScreen() {
                 onPress={() => router.back()}
                 style={({ pressed }) => [
                   styles.statusActionBtn,
-                  { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)' },
+                  { backgroundColor: colors.surfaceAlt },
                   pressed && { opacity: 0.6 },
                 ]}
               >
-                <MaterialIcons name="close" size={16} color={isDark ? '#E2E8F0' : '#334155'} />
+                <MaterialIcons name="close" size={16} color={colors.text} />
               </Pressable>
             </View>
           </View>
@@ -433,7 +434,7 @@ export default function PatientEmergencyScreen() {
 
               {/* ── Map Box: Your location + nearby ambulances ─── */}
               {location && (
-                <View style={[styles.mapSection, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}>
+                <View style={[styles.mapSection, { borderColor: colors.border }]}>
                   {(() => {
                     const mapHtml = nearbyAmbulances.length > 0
                       ? buildPatientRequestMapHtml(location.latitude, location.longitude, nearbyAmbulances)
@@ -451,16 +452,16 @@ export default function PatientEmergencyScreen() {
                   <View style={styles.nearbyList}>
                     <View style={styles.nearbyHeader}>
                       <MaterialIcons name="local-shipping" size={16} color="#0EA5E9" />
-                      <ThemedText style={[styles.nearbyTitle, { color: isDark ? '#E2E8F0' : '#1E293B' }]}>
+                      <ThemedText style={[styles.nearbyTitle, { color: colors.text }]}>
                         {nearbyAmbulances.length > 0
                           ? `${nearbyAmbulances.length} Ambulance${nearbyAmbulances.length > 1 ? 's' : ''} Available`
                           : 'Searching for ambulances...'}
                       </ThemedText>
                     </View>
                     {nearbyAmbulances.slice(0, 3).map((amb, idx) => (
-                      <View key={idx} style={[styles.nearbyItem, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' }]}>
+                      <View key={idx} style={[styles.nearbyItem, { backgroundColor: colors.surfaceMuted }]}>
                         <View style={styles.nearbyDot} />
-                        <ThemedText style={[styles.nearbyLabel, { color: isDark ? '#F1F5F9' : '#0F172A' }]} numberOfLines={1}>
+                        <ThemedText style={[styles.nearbyLabel, { color: colors.text }]} numberOfLines={1}>
                           {amb.label}
                         </ThemedText>
                         {amb.distance ? (
@@ -471,7 +472,7 @@ export default function PatientEmergencyScreen() {
                       </View>
                     ))}
                     {nearbyAmbulances.length === 0 && (
-                      <ThemedText style={[styles.nearbyEmpty, { color: isDark ? '#94A3B8' : '#64748B' }]}>
+                      <ThemedText style={[styles.nearbyEmpty, { color: colors.textMuted }]}>
                         No ambulances nearby — your request will still be dispatched
                       </ThemedText>
                     )}

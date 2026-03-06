@@ -71,11 +71,11 @@ export default function HospitalDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
 
-  const cardBg = isDark ? '#1E2028' : '#FFFFFF';
-  const cardBorder = isDark ? '#2D3039' : '#E5E7EB';
-  const inputBg = isDark ? '#1E2028' : '#F9FAFB';
-  const inputBorder = isDark ? '#2D3039' : '#E5E7EB';
-  const subText = isDark ? '#94A3B8' : '#64748B';
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const inputBg = colors.surfaceMuted;
+  const inputBorder = colors.border;
+  const subText = colors.textMuted;
 
   /* ─── Data fetching ─────────────────────────────────────────── */
 

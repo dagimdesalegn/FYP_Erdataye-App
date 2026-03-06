@@ -32,6 +32,7 @@ export default function MapScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? 'light';
   const isDark = theme === 'dark';
+  const colors = Colors[theme];
 
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -40,10 +41,10 @@ export default function MapScreen() {
   const [hospitals, setHospitals] = useState<(Hospital & { lat: number; lng: number })[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const textColor = Colors[theme].text;
-  const subText = isDark ? '#B7BDC3' : '#475569';
-  const accentColor = Colors[theme].tint;
-  const cardBg = isDark ? '#1A2332' : '#FFFFFF';
+  const textColor = colors.text;
+  const subText = colors.textMuted;
+  const accentColor = colors.primary;
+  const cardBg = colors.surface;
 
   const getUserLocation = async () => {
     try {
@@ -226,7 +227,7 @@ export default function MapScreen() {
           <ThemedText style={[styles.emptyText, { color: subText }]}>No ambulances available</ThemedText>
         )}
         {ambulances.map((amb) => (
-          <View key={amb.id} style={[styles.card, { borderColor: isDark ? '#1E3A5F' : '#E2E8F0' }]}>
+          <View key={amb.id} style={[styles.card, { borderColor: colors.border }]}> 
             <ThemedText style={[styles.cardTitle, { color: textColor }]}>
               Ambulance {amb.vehicle_number}
             </ThemedText>
@@ -246,7 +247,7 @@ export default function MapScreen() {
         {emergencies
           .filter((e) => e.latitude !== 0 || e.longitude !== 0)
           .map((e) => (
-            <View key={e.id} style={[styles.card, { borderColor: '#EF4444' }]}>
+            <View key={e.id} style={[styles.card, { borderColor: colors.danger }]}> 
               <ThemedText style={[styles.cardTitle, { color: textColor }]}>
                 {e.emergency_type} — {e.status}
               </ThemedText>

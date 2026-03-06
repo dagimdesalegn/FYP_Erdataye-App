@@ -1,4 +1,4 @@
-import { Fonts } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
@@ -30,30 +30,25 @@ export function AppButton({
 }: AppButtonProps) {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
+  const colors = Colors[colorScheme ?? 'light'];
   const animatedValue = React.useRef(new Animated.Value(0)).current;
 
   const bg =
     variant === 'primary'
-      ? '#DC2626'
+      ? colors.primary
       : variant === 'secondary'
-        ? isDark
-          ? '#1F2937'
-          : '#EEF2F6'
+        ? colors.surfaceMuted
         : 'transparent';
 
   const borderColor =
     variant === 'ghost'
-      ? isDark
-        ? '#2E3236'
-        : '#E6ECF2'
+      ? colors.border
       : variant === 'secondary'
-        ? isDark
-          ? '#374151'
-          : '#CBD5E1'
+        ? colors.borderStrong
         : 'transparent';
 
   const textColor =
-    variant === 'primary' ? '#fff' : isDark ? '#ECEDEE' : '#11181C';
+    variant === 'primary' ? '#fff' : colors.text;
 
   const handlePressIn = () => {
     Animated.timing(animatedValue, {
@@ -106,18 +101,18 @@ export function AppButton({
           },
           variant === 'primary'
             ? {
-                shadowColor: '#DC2626',
+                shadowColor: colors.primary,
                 shadowOffset: { width: 0, height: 8 },
-                shadowOpacity: 0.18,
-                shadowRadius: 16,
-                elevation: 5,
+                shadowOpacity: 0.2,
+                shadowRadius: 18,
+                elevation: 6,
               }
             : variant === 'secondary'
             ? {
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: isDark ? 0.18 : 0.1,
-                shadowRadius: 8,
+                shadowOpacity: isDark ? 0.2 : 0.12,
+                shadowRadius: 10,
                 elevation: 4,
               }
             : null,

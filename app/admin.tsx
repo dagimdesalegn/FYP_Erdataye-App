@@ -80,11 +80,11 @@ export default function AdminScreen() {
   const [filterRole, setFilterRole] = useState<FilterRole>('all');
   const [emergencyFilter, setEmergencyFilter] = useState<EmergencyFilter>('all');
 
-  const cardBg = isDark ? '#1E2028' : '#FFFFFF';
-  const cardBorder = isDark ? '#2D3039' : '#E5E7EB';
-  const inputBg = isDark ? '#1E2028' : '#F9FAFB';
-  const inputBorder = isDark ? '#2D3039' : '#E5E7EB';
-  const subText = isDark ? '#94A3B8' : '#64748B';
+  const cardBg = colors.surface;
+  const cardBorder = colors.border;
+  const inputBg = colors.surfaceMuted;
+  const inputBorder = colors.border;
+  const subText = colors.textMuted;
 
   /* ─── data fetching ───────────────────────────────────────── */
 
