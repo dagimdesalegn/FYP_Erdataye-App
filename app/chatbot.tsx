@@ -1,12 +1,18 @@
 import { useAppState } from "@/components/app-state";
 import { ThemedText } from "@/components/themed-text";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { addChatMessage, getChatHistory } from "@/utils/chat";
+import {
+    addChatbotMessage,
+    deleteChatbotMessages,
+    getChatbotMessages,
+} from "@/utils/chat";
 import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
 import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
+import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
 import {
+    Alert,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -27,21 +33,16 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [lang, setLang] = useState<Lang>("en");
   const flatListRef = useRef<FlatList>(null);
 
-  // Load chat history for user
+  // Load chatbot history for user
   useEffect(() => {
     if (!user?.id) return;
-    getChatHistory(user.id).then(({ messages }) => {
+    getChatbotMessages(user.id).then(({ messages }) => {
       if (messages) {
         setMessages(
-          messages
-            .map((m) => ({ role: "user", text: m.user_message }) as Message)
-            .concat(
-              messages
-                .filter((m) => m.ai_response)
-                .map((m) => ({ role: "bot", text: m.ai_response }) as Message),
-            ),
+          messages.map((m) => ({ role: m.role, text: m.message }) as Message),
         );
       }
     });
@@ -57,11 +58,32 @@ export default function ChatbotPage() {
     setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     setInputText("");
     setIsTyping(true);
-    const aiReply = await getFirstAidAiResponse(trimmed, messages, "en");
-    const botMsg = aiReply ?? getBotResponse(trimmed, "en");
+    await addChatbotMessage(user.id, "user", trimmed);
+
+    const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
+    const botMsg = aiReply ?? getBotResponse(trimmed, lang);
     setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);
-    await addChatMessage(user.id, user.id, trimmed, botMsg.text);
+    await addChatbotMessage(user.id, "bot", botMsg.text);
     setIsTyping(false);
+  };
+
+  const handleDeleteHistory = () => {
+    if (!user?.id) return;
+    Alert.alert(
+      "Delete chat history",
+      "This will permanently remove all your chatbot messages.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const { success } = await deleteChatbotMessages(user.id);
+            if (success) setMessages([]);
+          },
+        },
+      ],
+    );
   };
 
   const handleSubmit = () => {
@@ -80,8 +102,48 @@ export default function ChatbotPage() {
     >
       <StatusBar barStyle="light-content" />
       <View style={styles.centeredBox}>
+        <View style={styles.topBar}>
+          <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
+          <View style={styles.topBarRight}>
+            <View style={styles.langRow}>
+              {(["en", "am", "om"] as Lang[]).map((code) => {
+                const active = lang === code;
+                return (
+                  <Pressable
+                    key={code}
+                    onPress={() => setLang(code)}
+                    style={({ pressed }) => [
+                      styles.langBtn,
+                      active ? styles.langBtnActive : null,
+                      pressed ? { opacity: 0.8 } : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.langText,
+                        active ? styles.langTextActive : null,
+                      ]}
+                    >
+                      {LANG_LABELS[code]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              onPress={handleDeleteHistory}
+              style={({ pressed }) => [
+                styles.clearBtn,
+                pressed ? { opacity: 0.75 } : null,
+              ]}
+            >
+              <MaterialIcons name="delete-outline" size={18} color="#FCA5A5" />
+              <Text style={styles.clearBtnText}>Clear</Text>
+            </Pressable>
+          </View>
+        </View>
         <ThemedText style={styles.welcomeMsg}>
-          👋 Welcome! Ask me anything about first aid or emergencies.
+          {UI[lang].welcomeMessage}
         </ThemedText>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -114,7 +176,7 @@ export default function ChatbotPage() {
           <View style={styles.inputBar}>
             <TextInput
               style={styles.input}
-              placeholder="Type your message..."
+              placeholder={UI[lang].inputPlaceholder}
               placeholderTextColor="#94A3B8"
               value={inputText}
               onChangeText={setInputText}
@@ -157,8 +219,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1E293B",
     borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 14,
     alignItems: "stretch",
     justifyContent: "flex-start",
     shadowColor: "#020617",
@@ -171,9 +234,66 @@ const styles = StyleSheet.create({
     color: "#BFDBFE",
     fontSize: 14,
     fontWeight: "800",
-    marginBottom: 12,
+    marginBottom: 14,
     textAlign: "center",
     letterSpacing: 0.2,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  topBarTitle: {
+    color: "#93C5FD",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0.2,
+  },
+  langRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  langBtn: {
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#0B1220",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  langBtnActive: {
+    borderColor: "#2563EB",
+    backgroundColor: "#1E3A8A",
+  },
+  langText: {
+    color: "#93C5FD",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  langTextActive: {
+    color: "#DBEAFE",
+  },
+  clearBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "#7F1D1D",
+    backgroundColor: "#3F1212",
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  clearBtnText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontWeight: "800",
   },
   userMsg: {
     alignSelf: "flex-end",
@@ -198,8 +318,9 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    marginTop: 10,
+    marginTop: 12,
     gap: 8,
+    paddingTop: 8,
   },
   input: {
     flex: 1,

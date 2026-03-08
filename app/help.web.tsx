@@ -442,11 +442,7 @@ export default function HelpScreen() {
               variant="primary"
               fullWidth
               leftIcon={
-                <MaterialIcons
-                  name="help-outline"
-                  size={18}
-                  color={isDark ? "#E6E9EC" : "#11181C"}
-                />
+                <MaterialIcons name="help-outline" size={18} color="#E2E8F0" />
               }
               style={[styles.actionBtn, styles.helpPrimary]}
             />
@@ -455,14 +451,10 @@ export default function HelpScreen() {
             <AppButton
               label="Direct"
               onPress={() => setDirectOpen(true)}
-              variant="secondary"
+              variant="primary"
               fullWidth
               leftIcon={
-                <MaterialIcons
-                  name="phone-in-talk"
-                  size={18}
-                  color={isDark ? "#E6E9EC" : "#11181C"}
-                />
+                <MaterialIcons name="phone-in-talk" size={18} color="#E2E8F0" />
               }
               style={[styles.actionBtn, styles.directPrimary]}
             />
@@ -958,13 +950,13 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   helpPrimary: {
-    backgroundColor: "#DC2626",
-    borderColor: "#DC2626",
+    backgroundColor: "#0F172A",
+    borderColor: "#1E293B",
     borderWidth: 1,
   },
   directPrimary: {
-    backgroundColor: "#DC2626",
-    borderColor: "#DC2626",
+    backgroundColor: "#0F172A",
+    borderColor: "#1E293B",
     borderWidth: 1,
   },
   cleanBtn: {

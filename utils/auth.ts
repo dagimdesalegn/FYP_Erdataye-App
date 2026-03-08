@@ -70,21 +70,36 @@ const upsertProfileWithRetry = async (
   return { error: null };
 };
 
-const phoneToAuthEmail = (phone: string): string => {
+/**
+ * Convert any phone input to a fake email for Supabase email auth.
+ * Example: +251912345678 → 251912345678@phone.erdataya.app
+ * This avoids needing Twilio / SMS provider for phone auth.
+ */
+const toAuthEmail = (phone: string): string => {
   let digits = phone.replace(/[^0-9]/g, "");
-  // 09XXXXXXXX -> 2519XXXXXXXX
   if (digits.startsWith("0") && digits.length === 10) {
     digits = "251" + digits.substring(1);
   }
-  // 9XXXXXXXX -> 2519XXXXXXXX
   if (digits.length === 9 && digits.startsWith("9")) {
     digits = "251" + digits;
   }
   return `${digits}@phone.erdataya.app`;
 };
 
+/** Convert any phone format to Ethiopian format: 0912345678 */
+const toEthiopianPhone = (phone: string): string => {
+  let digits = phone.replace(/[^0-9]/g, "");
+  if (digits.startsWith("251") && digits.length === 12) {
+    digits = "0" + digits.substring(3);
+  }
+  if (digits.length === 9 && digits.startsWith("9")) {
+    digits = "0" + digits;
+  }
+  return digits;
+};
+
 /**
- * Update auth login identifier (email-like phone login) for an existing user.
+ * Update auth phone for an existing user.
  * This keeps sign-in phone number in sync after profile phone changes.
  */
 export const updateAuthLoginPhone = async (
@@ -102,7 +117,7 @@ export const updateAuthLoginPhone = async (
       };
     }
 
-    const authEmail = phoneToAuthEmail(phone);
+    const authEmail = toAuthEmail(phone);
 
     const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
       method: "PUT",
@@ -114,7 +129,7 @@ export const updateAuthLoginPhone = async (
       body: JSON.stringify({
         email: authEmail,
         email_confirm: true,
-        user_metadata: { phone },
+        user_metadata: { phone: toEthiopianPhone(phone) },
       }),
     });
 
@@ -142,18 +157,16 @@ export const updateAuthLoginPhone = async (
 
 /**
  * Sign up a new user with role (patient, driver, or admin)
- * @param email User email
+ * @param phone User phone number (E.164 format)
  * @param password User password (minimum 6 characters)
  * @param role User role: 'patient', 'driver', or 'admin'
  * @param fullName User full name
- * @param phone User phone number
  */
 export const signUp = async (
-  email: string,
+  phone: string,
   password: string,
   role: UserRole = "patient",
   fullName: string = "",
-  phone: string = "",
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     // Validate role – only patient and driver can register through the app
@@ -167,12 +180,14 @@ export const signUp = async (
       };
     }
 
+    const authEmail = toAuthEmail(phone);
+    const ethPhone = toEthiopianPhone(phone);
+
     // Use Admin API with service role key to bypass rate limits
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
 
     let userId: string | null = null;
-    let userEmail: string = email;
     let adminCreated = false;
 
     if (supabaseUrl && serviceRoleKey) {
@@ -185,17 +200,15 @@ export const signUp = async (
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email,
+            email: authEmail,
             password,
             email_confirm: true,
-            phone: phone || undefined,
-            user_metadata: { full_name: fullName, phone, role },
+            user_metadata: { full_name: fullName, phone: ethPhone, role },
           }),
         });
         const adminData = await adminRes.json();
         if (adminData.id) {
           userId = adminData.id;
-          userEmail = adminData.email || email;
           adminCreated = true;
           console.log(
             "User created via Admin API (rate limit bypassed):",
@@ -218,12 +231,12 @@ export const signUp = async (
     // Fallback to standard signup if admin API not available
     if (!adminCreated) {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: authEmail,
         password,
         options: {
           data: {
             full_name: fullName,
-            phone,
+            phone: ethPhone,
             role,
           },
         },
@@ -246,13 +259,12 @@ export const signUp = async (
         return {
           user: null,
           error: new Error(
-            "This email is already registered. Please sign in instead.",
+            "This phone number is already registered. Please sign in instead.",
           ) as AuthError,
         };
       }
 
       userId = data.user.id;
-      userEmail = data.user.email || email;
     }
 
     if (!userId) {
@@ -266,13 +278,13 @@ export const signUp = async (
 
     const resolvedRole = role;
 
-    // Create profile in profiles table
+    // Create profile in profiles table (store Ethiopian phone format: 0912345678)
     try {
       const profileData = buildProfilePayload({
         id: userId,
         role: resolvedRole,
         fullName,
-        phone,
+        phone: ethPhone,
       });
 
       const { error: profileError } = await upsertProfileWithRetry(profileData);
@@ -307,13 +319,13 @@ export const signUp = async (
       id: userId,
       role: resolvedRole,
       fullName,
-      phone,
+      phone: ethPhone,
     };
 
     // Auto sign-in if created via admin API
     if (adminCreated) {
       try {
-        await supabase.auth.signInWithPassword({ email, password });
+        await supabase.auth.signInWithPassword({ email: authEmail, password });
       } catch (e) {
         console.warn("Auto sign-in after admin create failed:", e);
       }
@@ -328,15 +340,15 @@ export const signUp = async (
 };
 
 /**
- * Sign in user with email and password.
- * Uses the GoTrue token endpoint with the service-role key to bypass
- * Supabase per-IP / per-user rate limits (the same approach used in signUp).
+ * Sign in user with phone and password.
+ * Internally converts phone to fake email for Supabase email auth.
  */
 export const signIn = async (
-  email: string,
+  phone: string,
   password: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
+    const authEmail = toAuthEmail(phone);
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
 
@@ -354,7 +366,7 @@ export const signIn = async (
               apikey: serviceRoleKey,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({ email, password }),
+            body: JSON.stringify({ email: authEmail, password }),
           },
         );
 
@@ -372,7 +384,7 @@ export const signIn = async (
           if (!sessionError && sessionData.session) {
             authUser = sessionData.user ?? sessionData.session.user;
             adminSignedIn = true;
-            console.log("Signed in via Admin API (rate limit bypassed)");
+            console.log("Signed in via token endpoint (rate limit bypassed)");
           }
         } else if (!tokenRes.ok) {
           // Real credential / validation error → surface immediately
@@ -388,7 +400,7 @@ export const signIn = async (
         }
       } catch (adminErr) {
         console.warn(
-          "Admin API sign-in error, falling back to standard:",
+          "Token endpoint sign-in error, falling back to standard:",
           adminErr,
         );
       }
@@ -397,7 +409,7 @@ export const signIn = async (
     // ── Fallback to standard signInWithPassword ───────────────────
     if (!adminSignedIn) {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: authEmail,
         password,
       });
 

@@ -11,7 +11,7 @@ import {
     StyleSheet,
     TextInput,
     useWindowDimensions,
-    View
+    View,
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -72,29 +72,15 @@ export default function RegisterScreen() {
     ambulanceType: "standard" as "standard" | "advanced" | "icu",
   });
 
-  /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
-  const phoneToAuthEmail = (phone: string): string => {
-    let digits = phone.replace(/[^0-9]/g, "");
-    if (digits.startsWith("0") && digits.length === 10)
-      digits = "251" + digits.substring(1);
-    if (digits.length === 9 && digits.startsWith("9")) digits = "251" + digits;
-    return digits + "@phone.erdataya.app";
-  };
-
   const validatePhone = (phone: string): boolean => {
-    const digits = phone.replace(/[^0-9]/g, "");
-    if (digits.length === 10 && digits.startsWith("0")) return true;
-    if (digits.length === 9 && digits.startsWith("9")) return true;
-    if (digits.length === 12 && digits.startsWith("251")) return true;
-    return false;
+    // phone is 9 digits after +251 (e.g. "912345678")
+    return phone.length === 9 && phone.startsWith("9");
   };
 
   const formatPhoneForDB = (phone: string): string => {
-    let digits = phone.replace(/[^0-9]/g, "");
-    if (digits.startsWith("0") && digits.length === 10)
-      digits = "251" + digits.substring(1);
-    if (digits.length === 9 && digits.startsWith("9")) digits = "251" + digits;
-    return "+" + digits;
+    // Store as Ethiopian format: 0912345678
+    const digits = phone.replace(/[^0-9]/g, "");
+    return "0" + digits;
   };
 
   const handleChange = (key: string, value: string) => {
@@ -106,9 +92,13 @@ export default function RegisterScreen() {
         return next;
       });
     }
-    // Phone fields: digits only
+    // Phone fields: digits only, max 9 digits, strip leading 0 or 251
     if (key === "phone" || key === "contact") {
-      const cleaned = value.replace(/[^0-9]/g, "");
+      let cleaned = value.replace(/[^0-9]/g, "");
+      if (cleaned.startsWith("251") && cleaned.length > 9)
+        cleaned = cleaned.substring(3);
+      if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
+      if (cleaned.length > 9) cleaned = cleaned.substring(0, 9);
       setForm({ ...form, [key]: cleaned });
       return;
     }
@@ -131,7 +121,7 @@ export default function RegisterScreen() {
     if (!form.phone) {
       errors.phone = "Please enter your phone number";
     } else if (!validatePhone(form.phone)) {
-      errors.phone = "Invalid phone number (e.g. 0912345678)";
+      errors.phone = "Enter 9 digits starting with 9 (e.g. 912345678)";
     }
 
     // Password validation
@@ -147,7 +137,7 @@ export default function RegisterScreen() {
       form.contact &&
       !validatePhone(form.contact)
     ) {
-      errors.contact = "Invalid phone number (e.g. 0912345678)";
+      errors.contact = "Enter 9 digits starting with 9 (e.g. 912345678)";
     }
 
     // Driver-specific validation
@@ -174,7 +164,6 @@ export default function RegisterScreen() {
     console.log("performSignup called");
     setLoading(true);
     try {
-      const authEmail = phoneToAuthEmail(form.phone);
       const dbPhone = formatPhoneForDB(form.phone);
       const emergencyContactPhone =
         userRole === "patient" && form.contact
@@ -182,18 +171,17 @@ export default function RegisterScreen() {
           : "";
 
       console.log("Starting signup with:", {
-        authEmail,
+        phone: "+251" + form.phone,
         fullName: form.fullName,
         role: userRole,
       });
 
-      // Sign up user with role
+      // Sign up user with role (send E.164 phone for auth, Ethiopian format for profile)
       const { user, error } = await signUp(
-        authEmail,
+        "+251" + form.phone,
         form.password,
         userRole,
         form.fullName.trim(),
-        dbPhone,
       );
 
       console.log("Signup result:", { user, error });
@@ -445,13 +433,18 @@ export default function RegisterScreen() {
                     color={fieldErrors.phone ? "#DC2626" : textSecondary}
                     style={styles.inputIcon}
                   />
+                  <ThemedText
+                    style={[styles.phonePrefix, { color: textPrimary }]}
+                  >
+                    +251
+                  </ThemedText>
                   <TextInput
                     style={[styles.input, { color: textPrimary }]}
-                    placeholder="09XXXXXXXX"
+                    placeholder="912345678"
                     placeholderTextColor={placeholderColor}
                     keyboardType="phone-pad"
                     autoCapitalize="none"
-                    maxLength={10}
+                    maxLength={9}
                     value={form.phone}
                     onChangeText={(t) => handleChange("phone", t)}
                     returnKeyType="next"
@@ -569,12 +562,17 @@ export default function RegisterScreen() {
                       color={fieldErrors.contact ? "#DC2626" : textSecondary}
                       style={styles.inputIcon}
                     />
+                    <ThemedText
+                      style={[styles.phonePrefix, { color: textPrimary }]}
+                    >
+                      +251
+                    </ThemedText>
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="09XXXXXXXX"
+                      placeholder="912345678"
                       placeholderTextColor={placeholderColor}
                       keyboardType="phone-pad"
-                      maxLength={10}
+                      maxLength={9}
                       value={form.contact}
                       onChangeText={(t) => handleChange("contact", t)}
                       editable={!loading}
@@ -1012,6 +1010,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   inputIcon: { marginRight: 6 },
+  phonePrefix: {
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    marginRight: 4,
+  },
   input: {
     flex: 1,
     fontSize: 13,

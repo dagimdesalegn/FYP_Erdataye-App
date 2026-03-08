@@ -11,7 +11,7 @@ import {
     StyleSheet,
     TextInput,
     useWindowDimensions,
-    View
+    View,
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -68,36 +68,23 @@ export default function LoginScreen() {
         return next;
       });
     }
-    // For phone field – digits only
+    // For phone field – digits only, max 9 digits (after +251)
     if (key === "phone") {
-      const cleaned = value.replace(/[^0-9]/g, "");
+      let cleaned = value.replace(/[^0-9]/g, "");
+      // Strip leading 0 or 251 if user pastes full number
+      if (cleaned.startsWith("251") && cleaned.length > 9)
+        cleaned = cleaned.substring(3);
+      if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
+      if (cleaned.length > 9) cleaned = cleaned.substring(0, 9);
       setForm({ ...form, [key]: cleaned });
       return;
     }
     setForm({ ...form, [key]: value });
   };
 
-  /** Normalise an Ethiopian phone to the email-like identifier used by auth. */
-  const phoneToAuthEmail = (phone: string): string => {
-    let digits = phone.replace(/[^0-9]/g, "");
-    // 09XXXXXXXX → 2519XXXXXXXX
-    if (digits.startsWith("0") && digits.length === 10) {
-      digits = "251" + digits.substring(1);
-    }
-    // 9XXXXXXXX → 2519XXXXXXXX
-    if (digits.length === 9 && digits.startsWith("9")) {
-      digits = "251" + digits;
-    }
-    return digits + "@phone.erdataya.app";
-  };
-
   const validatePhone = (phone: string): boolean => {
-    const digits = phone.replace(/[^0-9]/g, "");
-    // Accept: 09XXXXXXXX (10), 9XXXXXXXX (9),2519XXXXXX XX (12)
-    if (digits.length === 10 && digits.startsWith("0")) return true;
-    if (digits.length === 9 && digits.startsWith("9")) return true;
-    if (digits.length === 12 && digits.startsWith("251")) return true;
-    return false;
+    // phone here is 9 digits after +251 prefix (e.g. "912345678")
+    return phone.length === 9 && phone.startsWith("9");
   };
 
   const handleLogin = async () => {
@@ -105,7 +92,7 @@ export default function LoginScreen() {
     if (!form.phone) {
       errors.phone = "Please enter your phone number";
     } else if (!validatePhone(form.phone)) {
-      errors.phone = "Invalid phone number (e.g. 0912345678)";
+      errors.phone = "Enter 9 digits starting with 9 (e.g. 912345678)";
     }
     if (!form.password) {
       errors.password = "Please enter your password";
@@ -117,8 +104,7 @@ export default function LoginScreen() {
     setFieldErrors({});
     setLoading(true);
     try {
-      const authEmail = phoneToAuthEmail(form.phone);
-      const { user, error } = await signIn(authEmail, form.password);
+      const { user, error } = await signIn("+251" + form.phone, form.password);
       if (error || !user) {
         setLoading(false);
         if (Platform.OS === "web") {
@@ -273,13 +259,18 @@ export default function LoginScreen() {
                   }
                   style={styles.inputIcon}
                 />
+                <ThemedText
+                  style={[styles.phonePrefix, { color: textPrimary }]}
+                >
+                  +251
+                </ThemedText>
                 <TextInput
                   style={[styles.input, { color: textPrimary }]}
-                  placeholder="09XXXXXXXX"
+                  placeholder="912345678"
                   placeholderTextColor={placeholderColor}
                   keyboardType="phone-pad"
                   autoCapitalize="none"
-                  maxLength={10}
+                  maxLength={9}
                   value={form.phone}
                   onChangeText={(t) => handleChange("phone", t)}
                   returnKeyType="next"
@@ -526,6 +517,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 10 },
+  phonePrefix: {
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    marginRight: 6,
+  },
   input: {
     flex: 1,
     fontSize: 15,
