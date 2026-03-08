@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -16,7 +17,6 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Modal,
     Platform,
@@ -70,6 +70,7 @@ export default function AdminScreen() {
   const colors = Colors[theme];
   const router = useRouter();
   const { user, setUser } = useAppState();
+  const { showError } = useModal();
 
   const [activeTab, setActiveTab] = useState<Tab>("users");
   const [loading, setLoading] = useState(true);
@@ -169,7 +170,9 @@ export default function AdminScreen() {
     if (!logoutErr) {
       setUser(null);
       router.replace("/");
-    } else Alert.alert("Error", "Failed to sign out");
+    } else {
+      showError("Logout Failed", "Failed to sign out");
+    }
   };
 
   const formatDate = (d: string) => {

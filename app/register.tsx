@@ -2,7 +2,6 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
     Animated,
     Image,
     Platform,
@@ -16,6 +15,7 @@ import {
 
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -33,6 +33,7 @@ export default function RegisterScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { setRegistered, setUser } = useAppState();
+  const { showError, showAlert } = useModal();
   const [loading, setLoading] = useState(false);
   const [userRole, setUserRole] = useState<AppRegistrationRole>("patient");
   const { width: windowWidth } = useWindowDimensions();
@@ -164,7 +165,6 @@ export default function RegisterScreen() {
     console.log("performSignup called");
     setLoading(true);
     try {
-      const dbPhone = formatPhoneForDB(form.phone);
       const emergencyContactPhone =
         userRole === "patient" && form.contact
           ? formatPhoneForDB(form.contact)
@@ -188,7 +188,7 @@ export default function RegisterScreen() {
 
       if (error || !user) {
         console.error("Signup error:", error);
-        Alert.alert(
+        showError(
           "Registration Failed",
           error?.message || "Failed to create account",
         );
@@ -220,7 +220,7 @@ export default function RegisterScreen() {
               "Warning: Medical profile creation failed:",
               medicalError?.message,
             );
-            Alert.alert(
+            showAlert(
               "Warning",
               "Account created but medical profile could not be saved. You can update it later in your profile.",
             );
@@ -229,7 +229,7 @@ export default function RegisterScreen() {
           }
         } catch (err) {
           console.warn("Exception creating medical profile:", err);
-          Alert.alert(
+          showAlert(
             "Warning",
             "Account created but medical profile could not be saved. You can update it later in your profile.",
           );
@@ -251,7 +251,7 @@ export default function RegisterScreen() {
               "Warning: Ambulance creation failed:",
               ambError.message,
             );
-            Alert.alert(
+            showAlert(
               "Warning",
               "Account created but ambulance could not be linked. Contact admin.",
             );
@@ -277,7 +277,7 @@ export default function RegisterScreen() {
       }, 600);
     } catch (error) {
       console.error("Registration exception:", error);
-      Alert.alert("Error", `Registration failed: ${error}`);
+      showError("Registration Failed", `Registration failed: ${error}`);
       setLoading(false);
     }
   };

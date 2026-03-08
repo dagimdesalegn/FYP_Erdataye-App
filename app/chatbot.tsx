@@ -1,6 +1,6 @@
 import { useAppState } from "@/components/app-state";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     addChatbotMessage,
     deleteChatbotMessages,
@@ -12,7 +12,6 @@ import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
     FlatList,
     KeyboardAvoidingView,
     Platform,
@@ -26,10 +25,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ChatbotPage() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
+  const { showConfirm } = useModal();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -69,20 +67,13 @@ export default function ChatbotPage() {
 
   const handleDeleteHistory = () => {
     if (!user?.id) return;
-    Alert.alert(
+    showConfirm(
       "Delete chat history",
       "This will permanently remove all your chatbot messages.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            const { success } = await deleteChatbotMessages(user.id);
-            if (success) setMessages([]);
-          },
-        },
-      ],
+      async () => {
+        const { success } = await deleteChatbotMessages(user.id);
+        if (success) setMessages([]);
+      },
     );
   };
 

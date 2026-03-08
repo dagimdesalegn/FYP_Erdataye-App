@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
-import { Colors, Fonts } from "@/constants/theme";
+import { Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     getFirstAidAiResponse,
@@ -189,7 +189,6 @@ export default function FirstAidChatScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const insets = useSafeAreaInsets();
-  const colors = Colors[colorScheme];
   const aiConfigured = isFirstAidAiConfigured();
 
   const [lang, setLang] = useState<Lang>("en");
@@ -205,14 +204,6 @@ export default function FirstAidChatScreen() {
   const textClr = isDark ? "#E6EDF7" : "#0F172A";
   const mutedClr = isDark ? "#7C8DA6" : "#6B7C93";
 
-  // Welcome message
-  const welcomeMessage = (
-    <View style={{ alignItems: "center", marginBottom: 8 }}>
-      <Text style={{ color: "#64748B", fontSize: 13, fontWeight: "600" }}>
-        👋 Welcome! Ask me anything about first aid or emergencies.
-      </Text>
-    </View>
-  );
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);

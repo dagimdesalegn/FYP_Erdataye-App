@@ -2,7 +2,6 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
-    Alert,
     Animated,
     KeyboardAvoidingView,
     Platform,
@@ -16,6 +15,7 @@ import {
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -78,6 +78,7 @@ export default function PatientProfileScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { user, setUser } = useAppState();
+  const { showError } = useModal();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
@@ -129,7 +130,7 @@ export default function PatientProfileScreen() {
       }
     } catch (error) {
       console.error("Error loading patient data:", error);
-      Alert.alert("Error", "Failed to load profile data");
+      showError("Load Failed", "Failed to load profile data");
     } finally {
       setLoading(false);
     }
@@ -161,20 +162,20 @@ export default function PatientProfileScreen() {
 
   const handleSave = async () => {
     if (!user?.id) {
-      Alert.alert("Error", "User not authenticated");
+      showError("Authentication Required", "User not authenticated");
       return;
     }
 
     if (!form.fullName.trim() || form.fullName.trim().length < 2) {
-      Alert.alert(
-        "Error",
+      showError(
+        "Invalid Name",
         "Please enter a valid full name (at least 2 characters)",
       );
       return;
     }
 
     if (!validatePhone(form.phone)) {
-      Alert.alert(
+      showError(
         "Invalid Phone",
         "Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678",
       );
@@ -185,7 +186,7 @@ export default function PatientProfileScreen() {
       form.emergencyContactPhone &&
       !validatePhone(form.emergencyContactPhone)
     ) {
-      Alert.alert(
+      showError(
         "Invalid Phone",
         "Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678",
       );
@@ -255,7 +256,7 @@ export default function PatientProfileScreen() {
       });
     } catch (error) {
       console.error("Error saving profile:", error);
-      Alert.alert("Error", `Failed to save profile: ${error}`);
+      showError("Save Failed", `Failed to save profile: ${error}`);
     } finally {
       setSaving(false);
     }

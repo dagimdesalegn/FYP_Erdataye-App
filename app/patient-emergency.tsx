@@ -2,9 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import {
-    Alert,
     Animated,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -17,6 +15,7 @@ import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -44,6 +43,7 @@ export default function PatientEmergencyScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { user } = useAppState();
+  const { showAlert, showError, showSuccess, showConfirm } = useModal();
   const insets = useSafeAreaInsets();
 
   const [hasActiveEmergency, setHasActiveEmergency] = useState(false);
@@ -160,16 +160,14 @@ export default function PatientEmergencyScreen() {
           status === "en_route"
             ? "An ambulance is now on its way to your location!"
             : "An ambulance has been assigned to your emergency.";
-        if (Platform.OS === "web") window.alert(msg);
-        else Alert.alert("Ambulance Update", msg);
+        showAlert("Ambulance Update", msg);
         router.push(
           `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
         );
       } else if (status === "cancelled") {
         // Ambulance declined / emergency cancelled
         const msg = "Your emergency request was declined. Please try again.";
-        if (Platform.OS === "web") window.alert(msg);
-        else Alert.alert("Emergency Update", msg);
+        showAlert("Emergency Update", msg);
         setHasActiveEmergency(false);
         setActiveEmergencyId(null);
       } else if (status === "completed") {
@@ -178,7 +176,7 @@ export default function PatientEmergencyScreen() {
       }
     });
     return unsub;
-  }, [activeEmergencyId]);
+  }, [activeEmergencyId, router, showAlert]);
 
   const checkActiveEmergency = async () => {
     if (!user?.id) return;
@@ -198,9 +196,7 @@ export default function PatientEmergencyScreen() {
       if (status !== "granted") {
         const msg =
           "Location permission is required to request emergency services";
-        Platform.OS === "web"
-          ? window.alert(msg)
-          : Alert.alert("Permission Denied", msg);
+        showError("Permission Denied", msg);
         return;
       }
 
@@ -216,52 +212,32 @@ export default function PatientEmergencyScreen() {
       console.error("Error getting location:", error);
       const msg =
         "Could not get your location. Please enable location services.";
-      Platform.OS === "web" ? window.alert(msg) : Alert.alert("Error", msg);
+      showError("Location Error", msg);
     }
   };
 
   const handleSOS = async () => {
     if (!user?.id) {
-      if (Platform.OS === "web") {
-        window.alert("You must be logged in to call an ambulance");
-      } else {
-        Alert.alert("Error", "User not authenticated");
-      }
+      showError(
+        "Authentication Required",
+        "You must be logged in to call an ambulance",
+      );
       return;
     }
 
     if (!location) {
-      if (Platform.OS === "web") {
-        window.alert(
-          "Location not available. Please enable location services.",
-        );
-      } else {
-        Alert.alert(
-          "Error",
-          "Location not available. Please enable location services.",
-        );
-      }
+      showError(
+        "Location Required",
+        "Location not available. Please enable location services.",
+      );
       return;
     }
 
     const confirmMsg = `Severity: ${severity}${isForOther && otherPersonName ? `\nFor: ${otherPersonName}` : ""}\n\nAre you sure you want to request emergency ambulance service?`;
 
-    if (Platform.OS === "web") {
-      // window.confirm works reliably on web
-      const confirmed = window.confirm(confirmMsg);
-      if (confirmed) {
-        await createEmergencyRequest();
-      }
-    } else {
-      Alert.alert("Confirm Emergency Call", confirmMsg, [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Call Ambulance",
-          style: "destructive",
-          onPress: () => createEmergencyRequest(),
-        },
-      ]);
-    }
+    showConfirm("Confirm Emergency Call", confirmMsg, () =>
+      createEmergencyRequest(),
+    );
   };
 
   const createEmergencyRequest = async () => {
@@ -292,7 +268,7 @@ export default function PatientEmergencyScreen() {
 
       if (error || !emergency) {
         const msg = `Failed to create emergency: ${error?.message}`;
-        Platform.OS === "web" ? window.alert(msg) : Alert.alert("Error", msg);
+        showError("Emergency Request Failed", msg);
         return;
       }
 
@@ -307,9 +283,7 @@ export default function PatientEmergencyScreen() {
 
       const successMsg =
         "Your emergency request has been sent. Ambulance dispatch is in progress.\n\nStay calm and follow dispatcher instructions.";
-      Platform.OS === "web"
-        ? window.alert(successMsg)
-        : Alert.alert("Emergency Request Sent", successMsg);
+      showSuccess("Emergency Request Sent", successMsg);
 
       // Navigate to tracking screen
       setTimeout(() => {
@@ -318,9 +292,7 @@ export default function PatientEmergencyScreen() {
     } catch (error) {
       console.error("Error creating emergency:", error);
       const errMsg = `Failed to request emergency services: ${error}`;
-      Platform.OS === "web"
-        ? window.alert(errMsg)
-        : Alert.alert("Error", errMsg);
+      showError("Request Failed", errMsg);
     } finally {
       setLoading(false);
     }
@@ -492,7 +464,7 @@ export default function PatientEmergencyScreen() {
               <AppButton
                 label="Call Dispatcher"
                 onPress={() =>
-                  Alert.alert("Dispatcher", "Calling dispatch center...")
+                  showAlert("Dispatcher", "Calling dispatch center...")
                 }
                 variant="secondary"
                 fullWidth

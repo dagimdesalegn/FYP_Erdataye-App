@@ -1,19 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
-import {
-    Alert,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -42,6 +36,7 @@ export default function DriverHomeScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { user, setUser } = useAppState();
+  const { showAlert, showError } = useModal();
 
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading] = useState(false);
@@ -130,12 +125,12 @@ export default function DriverHomeScreen() {
       if (verified) {
         setHasAssignment(true);
         setAssignmentCount(1);
-        Alert.alert("New Emergency", "You have a new emergency assignment");
+        showAlert("New Emergency", "You have a new emergency assignment");
       }
     });
 
     return unsubscribe;
-  }, [user, isAvailable]);
+  }, [user, isAvailable, showAlert]);
 
   // Send location updates when available
   useEffect(() => {
@@ -147,7 +142,7 @@ export default function DriverHomeScreen() {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(
+          showError(
             "Permission Denied",
             "Location access is required for ambulance tracking",
           );
@@ -182,7 +177,7 @@ export default function DriverHomeScreen() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAvailable, user, ambulanceId]);
+  }, [isAvailable, user, ambulanceId, showError]);
 
   const handleLogout = async () => {
     setIsAvailable(false);
@@ -192,7 +187,7 @@ export default function DriverHomeScreen() {
       setUser(null);
       router.replace("/");
     } else {
-      Alert.alert("Error", "Failed to logout");
+      showError("Logout Failed", "Failed to logout");
     }
   };
 
