@@ -104,14 +104,6 @@ export default function HelpScreen() {
       try {
         setLocationLoading(true);
 
-        const servicesEnabled = await Location.hasServicesEnabledAsync();
-        if (!servicesEnabled) {
-          if (!cancelled) {
-            setLocationError("Location services are off. Please enable GPS.");
-          }
-          return;
-        }
-
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           if (!cancelled) {
@@ -152,10 +144,15 @@ export default function HelpScreen() {
         }
       } catch {
         if (!cancelled) {
+          const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
+            () => false,
+          );
           setLocationError(
-            currentLocation
-              ? "Using available location. Waiting for GPS update."
-              : "Unable to read current location.",
+            servicesEnabled
+              ? currentLocation
+                ? "Using available location. Waiting for GPS update."
+                : "Unable to read current location."
+              : "Location services are off. Please enable GPS.",
           );
         }
       } finally {
@@ -213,6 +210,10 @@ export default function HelpScreen() {
   };
 
   const openPatientEmergency = React.useCallback(() => {
+    const locationQuery = currentLocation
+      ? `?lat=${currentLocation.latitude}&lng=${currentLocation.longitude}`
+      : "";
+
     if (!user?.id) {
       router.push("/login");
       return;
@@ -223,8 +224,8 @@ export default function HelpScreen() {
       );
       return;
     }
-    router.push("/patient-emergency");
-  }, [activeEmergencyId, router, user?.id]);
+    router.push(`/patient-emergency${locationQuery}`);
+  }, [activeEmergencyId, currentLocation, router, user?.id]);
 
   const handleForMe = () => {
     setHelpOpen(false);
@@ -233,7 +234,10 @@ export default function HelpScreen() {
 
   const handleForOther = () => {
     setHelpOpen(false);
-    router.push("/patient-emergency?forOther=true");
+    const locationQuery = currentLocation
+      ? `&lat=${currentLocation.latitude}&lng=${currentLocation.longitude}`
+      : "";
+    router.push(`/patient-emergency?forOther=true${locationQuery}`);
   };
 
   const handleCall = (number: string) => {

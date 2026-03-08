@@ -37,8 +37,16 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function PatientEmergencyScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ forOther?: string }>();
+  const params = useLocalSearchParams<{
+    forOther?: string;
+    lat?: string;
+    lng?: string;
+  }>();
   const isForOther = params.forOther === "true";
+  const initialLat = Number(params.lat);
+  const initialLng = Number(params.lng);
+  const hasInitialLocation =
+    Number.isFinite(initialLat) && Number.isFinite(initialLng);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
@@ -51,7 +59,11 @@ export default function PatientEmergencyScreen() {
   const [location, setLocation] = useState<{
     latitude: number;
     longitude: number;
-  } | null>(null);
+  } | null>(
+    hasInitialLocation
+      ? { latitude: initialLat, longitude: initialLng }
+      : null,
+  );
   const [severity, setSeverity] = useState<
     "low" | "medium" | "high" | "critical"
   >("medium");
@@ -192,8 +204,9 @@ export default function PatientEmergencyScreen() {
 
   const requestLocationPermission = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      const currentPermission = await Location.getForegroundPermissionsAsync();
+      if (currentPermission.status !== "granted") {
+        if (location) return;
         const msg =
           "Location permission is required to request emergency services";
         showError("Permission Denied", msg);

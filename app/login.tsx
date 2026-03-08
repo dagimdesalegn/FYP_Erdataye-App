@@ -20,7 +20,6 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
-import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 
 const CARD_MAX_W = 440;
@@ -87,42 +86,6 @@ export default function LoginScreen() {
     return phone.length === 9 && phone.startsWith("9");
   };
 
-  const prefetchLocationForHelp = async (): Promise<
-    { lat: string; lng: string } | undefined
-  > => {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return undefined;
-
-      if (Platform.OS === "android") {
-        try {
-          await Location.enableNetworkProviderAsync();
-        } catch {
-          // Ignore provider dialog cancellation; we'll still try to read location.
-        }
-      }
-
-      const lastKnown = await Location.getLastKnownPositionAsync({
-        maxAge: 1000 * 60 * 10,
-      });
-
-      const current = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        mayShowUserSettingsDialog: true,
-      }).catch(() => null);
-
-      const coords = current?.coords ?? lastKnown?.coords;
-      if (!coords) return undefined;
-
-      return {
-        lat: String(coords.latitude),
-        lng: String(coords.longitude),
-      };
-    } catch {
-      return undefined;
-    }
-  };
-
   const handleLogin = async () => {
     const errors: Record<string, string> = {};
     if (!form.phone) {
@@ -159,13 +122,9 @@ export default function LoginScreen() {
         case "hospital":
           route = "/hospital";
           break;
-        default: {
-          const locationParams = await prefetchLocationForHelp();
-          route = locationParams
-            ? { pathname: "/help", params: locationParams }
-            : "/help";
+        default:
+          route = "/help";
           break;
-        }
       }
       setLoading(false);
       router.replace(route);
