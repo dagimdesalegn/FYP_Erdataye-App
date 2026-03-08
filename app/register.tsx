@@ -268,14 +268,13 @@ export default function RegisterScreen() {
       setRegistered(true);
 
       // Redirect based on role after successful registration
-      setTimeout(() => {
-        console.log("Redirecting based on role:", user.role);
-        setLoading(false);
+      console.log("Redirecting based on role:", user.role);
+      setLoading(false);
 
-        const route = user.role === "driver" ? "/driver-home" : "/help";
-        console.log("Navigating to route:", route);
-        router.replace(route as any);
-      }, 600);
+      const route =
+        user.role === "driver" ? "/driver-home" : "/help";
+      console.log("Navigating to route:", route);
+      router.replace(route as any);
     } catch (error) {
       console.error("Registration exception:", error);
       showError("Registration Failed", `Registration failed: ${error}`);
