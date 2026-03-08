@@ -68,6 +68,7 @@ function ThemedRoot() {
           <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
           <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
           <Stack.Screen name="help" options={{ headerShown: false, title: 'Help' }} />
+          <Stack.Screen name="chatbot" options={{ headerShown: false, title: 'Chatbot' }} />
           {/* Patient Routes */}
           <Stack.Screen name="patient-profile" options={{ headerShown: false, title: 'Patient Profile' }} />
           <Stack.Screen name="patient-emergency" options={{ headerShown: false, title: 'Emergency' }} />
