@@ -1,13 +1,23 @@
-import React, { useEffect, useRef, useState } from "react";
-import { View, StyleSheet, TextInput, Pressable, FlatList, KeyboardAvoidingView, Platform, StatusBar, Text } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useAppState } from "@/components/app-state";
 import { ThemedText } from "@/components/themed-text";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { addChatMessage, getChatHistory } from "@/utils/chat";
 import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
 import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
-import { addChatMessage, getChatHistory } from "@/utils/chat";
-import { useAppState } from "@/components/app-state";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import React, { useEffect, useRef, useState } from "react";
+import {
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ChatbotPage() {
   const colorScheme = useColorScheme();
@@ -24,9 +34,15 @@ export default function ChatbotPage() {
     if (!user?.id) return;
     getChatHistory(user.id).then(({ messages }) => {
       if (messages) {
-        setMessages(messages.map(m => ({ role: "user", text: m.user_message } as Message)).concat(
-          messages.filter(m => m.ai_response).map(m => ({ role: "bot", text: m.ai_response } as Message))
-        ));
+        setMessages(
+          messages
+            .map((m) => ({ role: "user", text: m.user_message }) as Message)
+            .concat(
+              messages
+                .filter((m) => m.ai_response)
+                .map((m) => ({ role: "bot", text: m.ai_response }) as Message),
+            ),
+        );
       }
     });
   }, [user?.id]);
@@ -38,12 +54,12 @@ export default function ChatbotPage() {
   const sendMessage = async () => {
     const trimmed = inputText.trim();
     if (!trimmed || isTyping || !user?.id) return;
-    setMessages(prev => [...prev, { role: "user", text: trimmed }]);
+    setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     setInputText("");
     setIsTyping(true);
     const aiReply = await getFirstAidAiResponse(trimmed, messages, "en");
     const botMsg = aiReply ?? getBotResponse(trimmed, "en");
-    setMessages(prev => [...prev, { role: "bot", text: botMsg.text }]);
+    setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);
     await addChatMessage(user.id, user.id, trimmed, botMsg.text);
     setIsTyping(false);
   };
@@ -67,14 +83,28 @@ export default function ChatbotPage() {
         <ThemedText style={styles.welcomeMsg}>
           👋 Welcome! Ask me anything about first aid or emergencies.
         </ThemedText>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(_, i) => String(i)}
             renderItem={({ item }) => (
-              <View style={item.role === "user" ? styles.userMsg : styles.botMsg}>
-                <Text style={{ color: item.role === "user" ? "#FFFFFF" : "#E5E7EB", fontWeight: "600", fontSize: 14, lineHeight: 20 }}>{item.text}</Text>
+              <View
+                style={item.role === "user" ? styles.userMsg : styles.botMsg}
+              >
+                <Text
+                  style={{
+                    color: item.role === "user" ? "#FFFFFF" : "#E5E7EB",
+                    fontWeight: "600",
+                    fontSize: 14,
+                    lineHeight: 20,
+                  }}
+                >
+                  {item.text}
+                </Text>
               </View>
             )}
             contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
@@ -94,8 +124,16 @@ export default function ChatbotPage() {
               maxLength={500}
               blurOnSubmit={false}
             />
-            <Pressable onPress={handleSubmit} disabled={!inputText.trim() || isTyping} style={styles.sendBtn}>
-              <MaterialIcons name="send" size={20} color={inputText.trim() && !isTyping ? "#FFFFFF" : "#aaa"} />
+            <Pressable
+              onPress={handleSubmit}
+              disabled={!inputText.trim() || isTyping}
+              style={styles.sendBtn}
+            >
+              <MaterialIcons
+                name="send"
+                size={20}
+                color={inputText.trim() && !isTyping ? "#FFFFFF" : "#aaa"}
+              />
             </Pressable>
           </View>
         </KeyboardAvoidingView>

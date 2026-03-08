@@ -1,24 +1,28 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { MaterialIcons } from "@expo/vector-icons";
+import {
+    DarkTheme,
+    DefaultTheme,
+    ThemeProvider,
+} from "@react-navigation/native";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
 
-import { AppStateProvider } from '@/components/app-state';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import * as SystemUI from 'expo-system-ui';
-import React, { useEffect } from 'react';
-import { Platform, View } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppStateProvider } from "@/components/app-state";
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import * as SystemUI from "expo-system-ui";
+import React, { useEffect } from "react";
+import { Platform, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Prevent the splash screen from auto-hiding before fonts load
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export const unstable_settings = {
-  initialRouteName: 'index',
+  initialRouteName: "index",
 };
 
 export default function RootLayout() {
@@ -49,45 +53,102 @@ export default function RootLayout() {
 
 function ThemedRoot() {
   const resolved = useColorScheme();
-  const theme = resolved ?? 'light';
+  const theme = resolved ?? "light";
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      document.title = 'Erdataya Ambulance';
+    if (Platform.OS === "web") {
+      document.title = "Erdataya Ambulance";
     }
-    if (Platform.OS !== 'android') return;
+    if (Platform.OS !== "android") return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);
   }, [theme]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>
-      <ThemeProvider value={resolved === 'dark' ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={resolved === "dark" ? DarkTheme : DefaultTheme}>
         <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false, title: 'Erdataya Ambulance' }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Erdataya Ambulance' }} />
-          <Stack.Screen name="login" options={{ headerShown: false, title: 'Login' }} />
-          <Stack.Screen name="register" options={{ headerShown: false, title: 'Register' }} />
-          <Stack.Screen name="help" options={{ headerShown: false, title: 'Help' }} />
-          <Stack.Screen name="chatbot" options={{ headerShown: false, title: 'Chatbot' }} />
+          <Stack.Screen
+            name="index"
+            options={{ headerShown: false, title: "Erdataya Ambulance" }}
+          />
+          <Stack.Screen
+            name="(tabs)"
+            options={{ headerShown: false, title: "Erdataya Ambulance" }}
+          />
+          <Stack.Screen
+            name="login"
+            options={{ headerShown: false, title: "Login" }}
+          />
+          <Stack.Screen
+            name="register"
+            options={{ headerShown: false, title: "Register" }}
+          />
+          <Stack.Screen
+            name="help"
+            options={{ headerShown: false, title: "Help" }}
+          />
+          <Stack.Screen
+            name="chatbot"
+            options={{ headerShown: false, title: "Chatbot" }}
+          />
           {/* Patient Routes */}
-          <Stack.Screen name="patient-profile" options={{ headerShown: false, title: 'Patient Profile' }} />
-          <Stack.Screen name="patient-emergency" options={{ headerShown: false, title: 'Emergency' }} />
-          <Stack.Screen name="patient-emergency-tracking" options={{ headerShown: false, title: 'Emergency Tracking' }} />
-          <Stack.Screen name="first-aid-chat" options={{ headerShown: false, title: 'First Aid Assistant' }} />
+          <Stack.Screen
+            name="patient-profile"
+            options={{ headerShown: false, title: "Patient Profile" }}
+          />
+          <Stack.Screen
+            name="patient-emergency"
+            options={{ headerShown: false, title: "Emergency" }}
+          />
+          <Stack.Screen
+            name="patient-emergency-tracking"
+            options={{ headerShown: false, title: "Emergency Tracking" }}
+          />
+          <Stack.Screen
+            name="first-aid-chat"
+            options={{ headerShown: false, title: "First Aid Assistant" }}
+          />
           {/* Driver Routes */}
-          <Stack.Screen name="driver-home" options={{ headerShown: false, title: 'Driver Home' }} />
-          <Stack.Screen name="driver-emergency" options={{ headerShown: false, title: 'Emergency Assignment' }} />
-          <Stack.Screen name="driver-patient-info" options={{ headerShown: false, title: 'Patient Information' }} />
-          <Stack.Screen name="driver-emergency-tracking" options={{ headerShown: false, title: 'Emergency Tracking' }} />
+          <Stack.Screen
+            name="driver-home"
+            options={{ headerShown: false, title: "Driver Home" }}
+          />
+          <Stack.Screen
+            name="driver-emergency"
+            options={{ headerShown: false, title: "Emergency Assignment" }}
+          />
+          <Stack.Screen
+            name="driver-patient-info"
+            options={{ headerShown: false, title: "Patient Information" }}
+          />
+          <Stack.Screen
+            name="driver-emergency-tracking"
+            options={{ headerShown: false, title: "Emergency Tracking" }}
+          />
           {/* Admin Route */}
-          <Stack.Screen name="admin" options={{ headerShown: false, title: 'Admin Panel' }} />
+          <Stack.Screen
+            name="admin"
+            options={{ headerShown: false, title: "Admin Panel" }}
+          />
           {/* Hospital & Map Routes */}
-          <Stack.Screen name="hospital" options={{ headerShown: false, title: 'Hospital Dashboard' }} />
-          <Stack.Screen name="map" options={{ headerShown: false, title: 'Live Map' }} />
-          <Stack.Screen name="emergency" options={{ headerShown: false, title: 'Emergency' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen
+            name="hospital"
+            options={{ headerShown: false, title: "Hospital Dashboard" }}
+          />
+          <Stack.Screen
+            name="map"
+            options={{ headerShown: false, title: "Live Map" }}
+          />
+          <Stack.Screen
+            name="emergency"
+            options={{ headerShown: false, title: "Emergency" }}
+          />
+          <Stack.Screen
+            name="modal"
+            options={{ presentation: "modal", title: "Modal" }}
+          />
         </Stack>
-        <StatusBar style={resolved === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={resolved === "dark" ? "light" : "dark"} />
       </ThemeProvider>
     </View>
   );
