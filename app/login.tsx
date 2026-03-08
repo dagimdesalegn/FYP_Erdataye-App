@@ -12,6 +12,7 @@ import {
     View,
 } from "react-native";
 
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
@@ -20,7 +21,6 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { useRouter } from "expo-router";
-import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 
 const CARD_MAX_W = 440;
 

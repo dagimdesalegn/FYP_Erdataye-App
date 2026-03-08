@@ -13,6 +13,7 @@ import {
     View,
 } from "react-native";
 
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
@@ -23,7 +24,6 @@ import { signUp } from "@/utils/auth";
 import { upsertDriverAmbulance } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
-import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 
 const CARD_MAX_W = 420;
 type AppRegistrationRole = "patient" | "driver";
