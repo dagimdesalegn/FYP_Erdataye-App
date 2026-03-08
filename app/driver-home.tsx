@@ -183,7 +183,7 @@ export default function DriverHomeScreen() {
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [isAvailable, user, ambulanceId, showError]);
+  }, [isAvailable, user, ambulanceId, showError, showAlert]);
 
   const handleLogout = async () => {
     setIsAvailable(false);
