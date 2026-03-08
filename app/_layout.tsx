@@ -45,11 +45,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ModalProvider>
-        <AppStateProvider>
+      <AppStateProvider>
+        <ModalProvider>
           <ThemedRoot />
-        </AppStateProvider>
-      </ModalProvider>
+        </ModalProvider>
+      </AppStateProvider>
     </SafeAreaProvider>
   );
 }

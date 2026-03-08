@@ -6,6 +6,7 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import {
     Animated,
     Image,
@@ -122,7 +123,7 @@ export default function HomeScreen() {
               ]}
             >
               <Image
-                source={require("@/assets/images/ambulance-favicon.png")}
+                source={ambulanceFavicon}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
