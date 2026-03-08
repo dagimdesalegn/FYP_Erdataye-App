@@ -326,11 +326,13 @@ export default function HelpScreen() {
             </View>
           </View>
 
-          <FirstAidFab
-            triggerMode="tag"
-            triggerLabel="Ask Chatbot"
-            anchorStyle={styles.chatbotTagAnchor}
-          />
+          <View style={styles.chatTagRow}>
+            <FirstAidFab
+              triggerMode="tag"
+              triggerLabel="Ask Chatbot"
+              anchorStyle={styles.chatbotTagAnchor}
+            />
+          </View>
 
           <View
             style={[
@@ -747,10 +749,13 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 8,
   },
+  chatTagRow: {
+    alignItems: "flex-end",
+    marginBottom: 10,
+  },
   chatbotTagAnchor: {
-    top: 12,
-    right: 12,
-    zIndex: 60,
+    position: "relative",
+    zIndex: 5,
   },
   heroTopRow: {
     flexDirection: "row",
@@ -865,10 +870,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   directPrimary: {
-    backgroundColor: "#10B981",
-    borderColor: "#10B981",
+    backgroundColor: "#DC2626",
+    borderColor: "#DC2626",
     borderWidth: 1,
-    shadowColor: "#10B981",
+    shadowColor: "#DC2626",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 10,

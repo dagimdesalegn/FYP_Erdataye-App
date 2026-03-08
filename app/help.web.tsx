@@ -249,12 +249,6 @@ export default function HelpScreen() {
             },
           ]}
         >
-          {/* Place Ask Chatbot tag in the correct spot, outside of style arrays */}
-          <FirstAidFab
-            triggerMode="tag"
-            triggerLabel="Ask Chatbot"
-            anchorStyle={styles.chatbotTagAnchor}
-          />
           <View style={styles.profileDropdownHeader}>
             <View style={{ flex: 1 }}>
               {profileName || user?.fullName ? (
@@ -343,6 +337,14 @@ export default function HelpScreen() {
             <View style={styles.heroTextCol}>
               <ThemedText style={styles.heroTitle}>Live location</ThemedText>
             </View>
+          </View>
+
+          <View style={styles.chatTagRow}>
+            <FirstAidFab
+              triggerMode="tag"
+              triggerLabel="Ask Chatbot"
+              anchorStyle={styles.chatbotTagAnchor}
+            />
           </View>
 
           <View
@@ -749,7 +751,6 @@ export default function HelpScreen() {
           </View>
         ) : null}
       </View>
-      <FirstAidFab />
     </View>
   );
 }
@@ -774,10 +775,13 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 6,
   },
+  chatTagRow: {
+    alignItems: "flex-end",
+    marginBottom: 10,
+  },
   chatbotTagAnchor: {
-    top: 10,
-    right: 10,
-    zIndex: 60,
+    position: "relative",
+    zIndex: 5,
   },
   heroTopRow: {
     flexDirection: "row",
@@ -959,8 +963,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   directPrimary: {
-    backgroundColor: "#10B981",
-    borderColor: "#10B981",
+    backgroundColor: "#DC2626",
+    borderColor: "#DC2626",
     borderWidth: 1,
   },
   cleanBtn: {
