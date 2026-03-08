@@ -60,9 +60,7 @@ export default function PatientEmergencyScreen() {
     latitude: number;
     longitude: number;
   } | null>(
-    hasInitialLocation
-      ? { latitude: initialLat, longitude: initialLng }
-      : null,
+    hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
   );
   const [severity, setSeverity] = useState<
     "low" | "medium" | "high" | "critical"
