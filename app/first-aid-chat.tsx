@@ -1,15 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,8 +17,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-  getFirstAidAiResponse,
-  isFirstAidAiConfigured,
+    getFirstAidAiResponse,
+    isFirstAidAiConfigured,
 } from "@/utils/first-aid-ai";
 import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";
@@ -36,7 +36,7 @@ function MarkdownText({ text, style }: { text: string; style?: object }) {
           </ThemedText>
         ) : (
           part
-        )
+        ),
       )}
     </ThemedText>
   );
@@ -61,10 +61,16 @@ function MessageBubble({
     >
       {isBot && (
         <View style={styles.avatar}>
-          <MaterialIcons name="local-hospital" size={16} color="#fff" />
+          <MaterialIcons
+            name="local-hospital"
+            size={18}
+            color={isDark ? "#F87171" : "#DC2626"}
+          />
         </View>
       )}
-      <View style={[styles.bubbleContent, !isBot && { alignItems: "flex-end" }]}>
+      <View
+        style={[styles.bubbleContent, !isBot && { alignItems: "flex-end" }]}
+      >
         <View
           style={[
             styles.bubble,
@@ -122,7 +128,7 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
             useNativeDriver: true,
           }),
           Animated.delay(600),
-        ])
+        ]),
       );
     const a1 = animate(dot1, 0);
     const a2 = animate(dot2, 150);
@@ -130,7 +136,11 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
     a1.start();
     a2.start();
     a3.start();
-    return () => { a1.stop(); a2.stop(); a3.stop(); };
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
   }, [dot1, dot2, dot3]);
 
   const dotColor = isDark ? "#64748B" : "#94A3B8";
@@ -138,7 +148,11 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
   return (
     <View style={[styles.bubbleRow, styles.bubbleRowBot]}>
       <View style={styles.avatar}>
-        <MaterialIcons name="local-hospital" size={16} color="#fff" />
+        <MaterialIcons
+          name="local-hospital"
+          size={18}
+          color={isDark ? "#F87171" : "#DC2626"}
+        />
       </View>
       <View
         style={[
@@ -184,13 +198,21 @@ export default function FirstAidChatScreen() {
   const [isTyping, setIsTyping] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  const bg = isDark ? "#0F172A" : "#F8FAFC";
-  const headerBg = isDark ? "#1E293B" : "#FFFFFF";
-  const borderClr = isDark ? "#334155" : "#E2E8F0";
-  const inputBg = isDark ? "#1E293B" : "#FFFFFF";
-  const textClr = isDark ? "#F1F5F9" : "#0F172A";
-  const mutedClr = isDark ? "#64748B" : "#94A3B8";
+  const bg = isDark ? "#0B1220" : "#EEF3F8";
+  const headerBg = isDark ? "#111827" : "#FFFFFF";
+  const borderClr = isDark ? "#293548" : "#D6E0EA";
+  const inputBg = isDark ? "#101B2D" : "#FFFFFF";
+  const textClr = isDark ? "#E6EDF7" : "#0F172A";
+  const mutedClr = isDark ? "#7C8DA6" : "#6B7C93";
 
+  // Welcome message
+  const welcomeMessage = (
+    <View style={{ alignItems: "center", marginBottom: 8 }}>
+      <Text style={{ color: "#64748B", fontSize: 13, fontWeight: "600" }}>
+        👋 Welcome! Ask me anything about first aid or emergencies.
+      </Text>
+    </View>
+  );
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
@@ -208,7 +230,11 @@ export default function FirstAidChatScreen() {
       scrollToBottom();
 
       const fetchReply = async () => {
-        const aiReply = await getFirstAidAiResponse(trimmed, historyForReply, lang);
+        const aiReply = await getFirstAidAiResponse(
+          trimmed,
+          historyForReply,
+          lang,
+        );
         const botMsg: Message = aiReply ?? getBotResponse(trimmed, lang);
         setMessages((prev) => [...prev, botMsg]);
         setIsTyping(false);
@@ -217,11 +243,30 @@ export default function FirstAidChatScreen() {
 
       void fetchReply();
     },
-    [isTyping, messages, scrollToBottom, lang]
+    [isTyping, messages, scrollToBottom, lang],
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <View
+      style={[
+        styles.root,
+        { backgroundColor: bg, maxHeight: 520, minHeight: 420 },
+      ]}
+    >
+      <View pointerEvents="none" style={styles.bgLayer}>
+        <View
+          style={[
+            styles.bgBlobTop,
+            { backgroundColor: isDark ? "#1C2A40" : "#DCE8F5" },
+          ]}
+        />
+        <View
+          style={[
+            styles.bgBlobBottom,
+            { backgroundColor: isDark ? "#152238" : "#E5EEF8" },
+          ]}
+        />
+      </View>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* ── Header ── */}
@@ -278,7 +323,8 @@ export default function FirstAidChatScreen() {
               style={[
                 styles.langChip,
                 {
-                  backgroundColor: l === lang ? "#DC2626" : isDark ? "#334155" : "#F1F5F9",
+                  backgroundColor:
+                    l === lang ? "#DC2626" : isDark ? "#243244" : "#F1F5F9",
                   borderColor: l === lang ? "#DC2626" : borderClr,
                 },
               ]}
@@ -308,7 +354,10 @@ export default function FirstAidChatScreen() {
       >
         <MaterialIcons name="warning-amber" size={16} color="#DC2626" />
         <ThemedText
-          style={[styles.disclaimerText, { color: isDark ? "#FCA5A5" : "#B91C1C" }]}
+          style={[
+            styles.disclaimerText,
+            { color: isDark ? "#FCA5A5" : "#B91C1C" },
+          ]}
         >
           Life-threatening emergency? Call 911 immediately.
         </ThemedText>
@@ -320,6 +369,14 @@ export default function FirstAidChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={0}
       >
+        {/* Welcome message always at top */}
+        <View style={{ alignItems: "center", marginTop: 8, marginBottom: 4 }}>
+          <ThemedText
+            style={{ color: "#DC2626", fontSize: 13, fontWeight: "700" }}
+          >
+            👋 Welcome! Ask me anything about first aid or emergencies.
+          </ThemedText>
+        </View>
         {messages.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
@@ -340,7 +397,9 @@ export default function FirstAidChatScreen() {
             renderItem={({ item }) => (
               <MessageBubble message={item} isDark={isDark} />
             )}
-            ListFooterComponent={isTyping ? <TypingIndicator isDark={isDark} /> : null}
+            ListFooterComponent={
+              isTyping ? <TypingIndicator isDark={isDark} /> : null
+            }
             contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
             onContentSizeChange={scrollToBottom}
             showsVerticalScrollIndicator={false}
@@ -410,27 +469,73 @@ export default function FirstAidChatScreen() {
   );
 }
 
+// ─── Design tokens ──────────────────────────────────────────────────────────
+const SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+};
+
+const RADIUS = {
+  sm: 10,
+  md: 14,
+  lg: 16,
+  xl: 24,
+};
+
+const TYPE = {
+  caption: 11,
+  body: 14,
+  bodyLg: 15,
+  title: 16,
+  hero: 20,
+};
+
 // ─── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  bgLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
+  },
+  bgBlobTop: {
+    position: "absolute",
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    top: -170,
+    right: -95,
+    opacity: 0.65,
+  },
+  bgBlobBottom: {
+    position: "absolute",
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    bottom: -145,
+    left: -80,
+    opacity: 0.6,
+  },
 
   // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.md,
     borderBottomWidth: 1,
-    gap: 12,
+    gap: SPACING.md,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     elevation: 4,
   },
   backBtn: {
     width: 36,
     height: 36,
-    borderRadius: 12,
+    borderRadius: RADIUS.sm,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -438,12 +543,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: SPACING.md,
   },
   headerIcon: {
     width: 40,
     height: 40,
-    borderRadius: 14,
+    borderRadius: RADIUS.md,
     backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
@@ -454,7 +559,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: TYPE.title,
     fontWeight: "800",
     fontFamily: Fonts.sans,
     letterSpacing: -0.3,
@@ -462,11 +567,11 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: SPACING.xs + 1,
     marginTop: 2,
   },
   headerSub: {
-    fontSize: 11,
+    fontSize: TYPE.caption,
     fontWeight: "600",
     fontFamily: Fonts.sans,
   },
@@ -481,13 +586,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   langChip: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
     paddingVertical: 5,
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
     borderWidth: 1,
   },
   langChipText: {
-    fontSize: 11,
+    fontSize: TYPE.caption,
     fontWeight: "800",
     fontFamily: Fonts.sans,
   },
@@ -496,8 +601,8 @@ const styles = StyleSheet.create({
   disclaimer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 10,
     borderBottomWidth: 1,
   },
@@ -514,7 +619,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 40,
-    gap: 12,
+    gap: SPACING.md,
   },
   emptyIcon: {
     width: 80,
@@ -526,13 +631,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: TYPE.hero,
     fontWeight: "800",
     fontFamily: Fonts.sans,
     textAlign: "center",
   },
   emptySub: {
-    fontSize: 14,
+    fontSize: TYPE.body,
     fontWeight: "500",
     fontFamily: Fonts.sans,
     textAlign: "center",
@@ -541,53 +646,48 @@ const styles = StyleSheet.create({
 
   // Messages
   messageList: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: 18,
     gap: 4,
   },
   bubbleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 10,
-    marginBottom: 12,
+    gap: SPACING.sm + 2,
+    marginBottom: SPACING.md,
   },
   bubbleRowBot: { justifyContent: "flex-start" },
   bubbleRowUser: { justifyContent: "flex-end" },
   avatar: {
     width: 32,
     height: 32,
-    borderRadius: 12,
-    backgroundColor: "#DC2626",
+    borderRadius: RADIUS.sm,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
-    shadowColor: "#DC2626",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: "transparent",
   },
   bubbleContent: {
     flex: 1,
-    maxWidth: "85%",
+    maxWidth: "82%",
     gap: 4,
   },
   bubble: {
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
     maxWidth: "100%",
     borderWidth: 1,
   },
   bubbleBot: {
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 8,
   },
   bubbleUser: {
-    borderBottomRightRadius: 4,
+    borderBottomRightRadius: 8,
     alignSelf: "flex-end",
   },
   bubbleText: {
-    fontSize: 14,
+    fontSize: TYPE.body,
     lineHeight: 21,
     fontFamily: Fonts.sans,
   },
@@ -603,33 +703,38 @@ const styles = StyleSheet.create({
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    gap: 10,
-    borderTopWidth: 1,
+    paddingHorizontal: SPACING.md + 2,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm,
+    gap: SPACING.sm + 2,
+    borderTopWidth: 0,
     shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 4,
   },
   inputWrap: {
     flex: 1,
-    borderRadius: 24,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
     overflow: "hidden",
   },
   textInput: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 15,
     paddingVertical: Platform.OS === "ios" ? 12 : 10,
-    fontSize: 15,
+    fontSize: TYPE.bodyLg,
     fontFamily: Fonts.sans,
     maxHeight: 110,
     minHeight: 46,
   },
   sendBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,

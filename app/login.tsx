@@ -2,18 +2,16 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
-  Animated,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  useWindowDimensions,
-  View,
+    Alert,
+    Animated,
+    Image,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    useWindowDimensions,
+    View
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -43,6 +41,7 @@ export default function LoginScreen() {
   // Entrance animation
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(30)).current;
+  const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -198,240 +197,234 @@ export default function LoginScreen() {
         end={{ x: 0.8, y: 1 }}
       />
 
-      <KeyboardAvoidingView
+      <View
         style={[
           styles.flex,
           Platform.OS === "web" && { minHeight: "100vh" as any },
+          { justifyContent: "center", alignItems: "center" },
         ]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            Platform.OS === "web" && { minHeight: "100vh" as any },
-            isSmallScreen && { paddingHorizontal: 8, paddingVertical: 12 },
+        {/* Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+              opacity: fadeIn,
+              transform: [{ translateY: slideUp }],
+              padding: 28,
+              borderRadius: 24,
+              minWidth: 340,
+              maxWidth: 400,
+              width: "100%",
+              boxShadow: "0 4px 24px #0001",
+            },
           ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
         >
-          {/* Card */}
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-                opacity: fadeIn,
-                transform: [{ translateY: slideUp }],
-              },
-              isSmallScreen && {
-                paddingHorizontal: 20,
-                paddingVertical: 24,
-                borderRadius: 18,
-              },
-            ]}
-          >
-            {/* Logo / Header area */}
-            <View style={styles.headerArea}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require("@/assets/images/ambulance-favicon.png")}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-              </View>
+          {/* Logo / Header area */}
+          <View style={styles.headerArea}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/ambulance-favicon.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
+          </View>
 
-            {/* Title */}
-            <ThemedText style={[styles.title, { color: textPrimary }]}>
-              Welcome Back
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              Sign in to access emergency services
-            </ThemedText>
+          {/* Title */}
+          <ThemedText style={[styles.title, { color: textPrimary }]}>
+            Welcome Back
+          </ThemedText>
+          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
+            Sign in to access emergency services
+          </ThemedText>
 
-            {/* Form */}
-            <View style={styles.form}>
-              {/* Phone Number */}
-              <View style={styles.fieldGroup}>
-                <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Phone Number
-                </ThemedText>
-                <View
-                  style={[
-                    styles.inputWrap,
-                    {
-                      backgroundColor: inputBg,
-                      borderColor: fieldErrors.phone
-                        ? "#DC2626"
-                        : focusedField === "phone"
-                          ? inputFocusBorder
-                          : inputBorder,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="phone"
-                    size={18}
-                    color={
-                      fieldErrors.phone
-                        ? "#DC2626"
-                        : focusedField === "phone"
-                          ? "#DC2626"
-                          : textSecondary
-                    }
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: textPrimary }]}
-                    placeholder="09XXXXXXXX"
-                    placeholderTextColor={placeholderColor}
-                    keyboardType="phone-pad"
-                    autoCapitalize="none"
-                    maxLength={10}
-                    value={form.phone}
-                    onChangeText={(t) => handleChange("phone", t)}
-                    onFocus={() => setFocusedField("phone")}
-                    onBlur={() => setFocusedField(null)}
-                    editable={!loading}
-                  />
-                </View>
-                {fieldErrors.phone ? (
-                  <ThemedText style={styles.fieldError}>
-                    {fieldErrors.phone}
-                  </ThemedText>
-                ) : null}
-              </View>
-
-              {/* Password */}
-              <View style={styles.fieldGroup}>
-                <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Password
-                </ThemedText>
-                <View
-                  style={[
-                    styles.inputWrap,
-                    {
-                      backgroundColor: inputBg,
-                      borderColor: fieldErrors.password
-                        ? "#DC2626"
-                        : focusedField === "password"
-                          ? inputFocusBorder
-                          : inputBorder,
-                    },
-                  ]}
-                >
-                  <MaterialIcons
-                    name="lock-outline"
-                    size={18}
-                    color={
-                      fieldErrors.password
-                        ? "#DC2626"
-                        : focusedField === "password"
-                          ? "#DC2626"
-                          : textSecondary
-                    }
-                    style={styles.inputIcon}
-                  />
-                  <TextInput
-                    style={[styles.input, { color: textPrimary }]}
-                    placeholder="Enter your password"
-                    placeholderTextColor={placeholderColor}
-                    secureTextEntry={!showPassword}
-                    value={form.password}
-                    onChangeText={(t) => handleChange("password", t)}
-                    onFocus={() => setFocusedField("password")}
-                    onBlur={() => setFocusedField(null)}
-                    editable={!loading}
-                  />
-                  <Pressable
-                    onPress={() => setShowPassword((p) => !p)}
-                    hitSlop={8}
-                  >
-                    <MaterialIcons
-                      name={showPassword ? "visibility" : "visibility-off"}
-                      size={20}
-                      color={textSecondary}
-                    />
-                  </Pressable>
-                </View>
-                {fieldErrors.password ? (
-                  <ThemedText style={styles.fieldError}>
-                    {fieldErrors.password}
-                  </ThemedText>
-                ) : null}
-              </View>
-
-              <Pressable
-                onPress={handleLogin}
-                disabled={loading}
-                style={({ pressed }) => [
-                  styles.primaryBtn,
-                  pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
-                  loading && { opacity: 0.7 },
+          {/* Form */}
+          <View style={styles.form}>
+            {/* Phone Number */}
+            <View style={styles.fieldGroup}>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>
+                Phone Number
+              </ThemedText>
+              <View
+                style={[
+                  styles.inputWrap,
+                  {
+                    backgroundColor: inputBg,
+                    borderColor: fieldErrors.phone
+                      ? "#DC2626"
+                      : focusedField === "phone"
+                        ? inputFocusBorder
+                        : inputBorder,
+                  },
                 ]}
               >
-                <LinearGradient
-                  colors={["#DC2626", "#B91C1C"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.primaryBtnGradient}
-                >
-                  {loading ? (
-                    <ThemedText style={styles.primaryBtnText}>
-                      Signing In...
-                    </ThemedText>
-                  ) : (
-                    <>
-                      <MaterialIcons name="login" size={20} color="#fff" />
-                      <ThemedText style={styles.primaryBtnText}>
-                        Sign In
-                      </ThemedText>
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
+                <MaterialIcons
+                  name="phone"
+                  size={18}
+                  color={
+                    fieldErrors.phone
+                      ? "#DC2626"
+                      : focusedField === "phone"
+                        ? "#DC2626"
+                        : textSecondary
+                  }
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  style={[styles.input, { color: textPrimary }]}
+                  placeholder="09XXXXXXXX"
+                  placeholderTextColor={placeholderColor}
+                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  maxLength={10}
+                  value={form.phone}
+                  onChangeText={(t) => handleChange("phone", t)}
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  onFocus={() => setFocusedField("phone")}
+                  onBlur={() => setFocusedField(null)}
+                  editable={!loading}
+                />
+              </View>
+              {fieldErrors.phone ? (
+                <ThemedText style={styles.fieldError}>
+                  {fieldErrors.phone}
+                </ThemedText>
+              ) : null}
             </View>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View
-                style={[styles.dividerLine, { backgroundColor: cardBorder }]}
-              />
-              <ThemedText
-                style={[styles.dividerText, { color: textSecondary }]}
-              >
-                or
+            {/* Password */}
+            <View style={styles.fieldGroup}>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>
+                Password
               </ThemedText>
               <View
-                style={[styles.dividerLine, { backgroundColor: cardBorder }]}
-              />
+                style={[
+                  styles.inputWrap,
+                  {
+                    backgroundColor: inputBg,
+                    borderColor: fieldErrors.password
+                      ? "#DC2626"
+                      : focusedField === "password"
+                        ? inputFocusBorder
+                        : inputBorder,
+                  },
+                ]}
+              >
+                <MaterialIcons
+                  name="lock-outline"
+                  size={18}
+                  color={
+                    fieldErrors.password
+                      ? "#DC2626"
+                      : focusedField === "password"
+                        ? "#DC2626"
+                        : textSecondary
+                  }
+                  style={styles.inputIcon}
+                />
+                <TextInput
+                  ref={passwordInputRef}
+                  style={[styles.input, { color: textPrimary }]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={placeholderColor}
+                  secureTextEntry={!showPassword}
+                  value={form.password}
+                  onChangeText={(t) => handleChange("password", t)}
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                  blurOnSubmit
+                  onFocus={() => setFocusedField("password")}
+                  onBlur={() => setFocusedField(null)}
+                  editable={!loading}
+                />
+                <Pressable
+                  onPress={() => setShowPassword((p) => !p)}
+                  hitSlop={8}
+                >
+                  <MaterialIcons
+                    name={showPassword ? "visibility" : "visibility-off"}
+                    size={20}
+                    color={textSecondary}
+                  />
+                </Pressable>
+              </View>
+              {fieldErrors.password ? (
+                <ThemedText style={styles.fieldError}>
+                  {fieldErrors.password}
+                </ThemedText>
+              ) : null}
             </View>
 
-            {/* Create Account */}
             <Pressable
-              onPress={() => !loading && router.push("/register")}
+              onPress={handleLogin}
               disabled={loading}
               style={({ pressed }) => [
-                styles.secondaryBtn,
-                {
-                  borderColor: isDark ? "#1E293B" : "#E2E8F0",
-                  backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-                },
-                pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+                styles.primaryBtn,
+                pressed && { opacity: 0.92, transform: [{ scale: 0.98 }] },
+                loading && { opacity: 0.7 },
               ]}
             >
-              <MaterialIcons name="person-add" size={20} color="#DC2626" />
-              <ThemedText
-                style={[styles.secondaryBtnText, { color: textPrimary }]}
+              <LinearGradient
+                colors={["#DC2626", "#B91C1C"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryBtnGradient}
               >
-                Create Account
-              </ThemedText>
+                {loading ? (
+                  <ThemedText style={styles.primaryBtnText}>
+                    Signing In...
+                  </ThemedText>
+                ) : (
+                  <>
+                    <MaterialIcons name="login" size={20} color="#fff" />
+                    <ThemedText style={styles.primaryBtnText}>
+                      Sign In
+                    </ThemedText>
+                  </>
+                )}
+              </LinearGradient>
             </Pressable>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View
+              style={[styles.dividerLine, { backgroundColor: cardBorder }]}
+            />
+            <ThemedText style={[styles.dividerText, { color: textSecondary }]}>
+              or
+            </ThemedText>
+            <View
+              style={[styles.dividerLine, { backgroundColor: cardBorder }]}
+            />
+          </View>
+
+          {/* Create Account */}
+          <Pressable
+            onPress={() => !loading && router.push("/register")}
+            disabled={loading}
+            style={({ pressed }) => [
+              styles.secondaryBtn,
+              {
+                borderColor: isDark ? "#1E293B" : "#E2E8F0",
+                backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+              },
+              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
+            ]}
+          >
+            <MaterialIcons name="person-add" size={20} color="#DC2626" />
+            <ThemedText
+              style={[styles.secondaryBtnText, { color: textPrimary }]}
+            >
+              Create Account
+            </ThemedText>
+          </Pressable>
+        </Animated.View>
+      </View>
     </View>
   );
 }

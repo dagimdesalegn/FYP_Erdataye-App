@@ -51,7 +51,10 @@ export default function HelpScreen() {
       if (!cancelled && profile) {
         setProfileName(profile.full_name || "");
         // Also sync to app state
-        if (profile.full_name !== user.fullName || profile.phone !== user.phone) {
+        if (
+          profile.full_name !== user.fullName ||
+          profile.phone !== user.phone
+        ) {
           setUser({
             ...user,
             fullName: profile.full_name || user.fullName,
@@ -224,7 +227,6 @@ export default function HelpScreen() {
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
         title="Erdataya Ambulance"
-        announcementHref="/modal"
         onProfilePress={() => setProfileOpen(!profileOpen)}
       />
 
@@ -242,12 +244,17 @@ export default function HelpScreen() {
           style={[
             styles.profileDropdown,
             {
-              top: Math.max(insets.top, 12) + 52,
               backgroundColor: colors.surface,
               borderColor: colors.border,
             },
           ]}
         >
+          {/* Place Ask Chatbot tag in the correct spot, outside of style arrays */}
+          <FirstAidFab
+            triggerMode="tag"
+            triggerLabel="Ask Chatbot"
+            anchorStyle={styles.chatbotTagAnchor}
+          />
           <View style={styles.profileDropdownHeader}>
             <View style={{ flex: 1 }}>
               {profileName || user?.fullName ? (
@@ -766,6 +773,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 20,
     elevation: 6,
+  },
+  chatbotTagAnchor: {
+    top: 10,
+    right: 10,
+    zIndex: 60,
   },
   heroTopRow: {
     flexDirection: "row",

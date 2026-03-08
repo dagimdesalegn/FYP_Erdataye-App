@@ -5,15 +5,13 @@ import {
     Alert,
     Animated,
     Image,
-    KeyboardAvoidingView,
     Platform,
     Pressable,
-    ScrollView,
     StatusBar,
     StyleSheet,
     TextInput,
     useWindowDimensions,
-    View,
+    View
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -44,6 +42,7 @@ export default function RegisterScreen() {
   // Entrance animation
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(30)).current;
+  const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     Animated.parallel([
@@ -368,95 +367,206 @@ export default function RegisterScreen() {
         end={{ x: 0.8, y: 1 }}
       />
 
-      <KeyboardAvoidingView
+      <View
         style={[
           styles.flex,
           Platform.OS === "web" && { minHeight: "100vh" as any },
+          { justifyContent: "center", alignItems: "center" },
         ]}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
       >
-        <ScrollView
-          contentContainerStyle={[
-            isSmallScreen ? styles.scrollMobile : styles.scroll,
-            !isSmallScreen &&
-              Platform.OS === "web" && { minHeight: "100vh" as any },
+        {/* Card */}
+        <Animated.View
+          style={[
+            styles.card,
+            {
+              backgroundColor: cardBg,
+              borderColor: cardBorder,
+              opacity: fadeIn,
+              transform: [{ translateY: slideUp }],
+              padding: 28,
+              borderRadius: 24,
+              minWidth: 340,
+              maxWidth: 400,
+              width: "100%",
+              boxShadow: "0 4px 24px #0001",
+            },
+            isSmallScreen && styles.cardMobile,
           ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          overScrollMode="never"
-          scrollEnabled={false}
         >
-          {/* Card */}
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                backgroundColor: cardBg,
-                borderColor: cardBorder,
-                opacity: fadeIn,
-                transform: [{ translateY: slideUp }],
-              },
-              isSmallScreen && styles.cardMobile,
-            ]}
-          >
-            {/* Logo / Header area */}
-            <View style={styles.headerArea}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require("@/assets/images/ambulance-favicon.png")}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
+          {/* Logo / Header area */}
+          <View style={styles.headerArea}>
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/ambulance-favicon.png")}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
+          </View>
+
+          {/* Header */}
+          <ThemedText style={[styles.title, { color: textPrimary }]}>
+            Create Account
+          </ThemedText>
+          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
+            Register for emergency ambulance assistance.
+          </ThemedText>
+
+          {/* Role Selection */}
+          <View style={styles.roleSection}>
+            <ThemedText style={[styles.roleLabel, { color: textPrimary }]}>
+              I am a:
+            </ThemedText>
+            <View style={styles.roleButtons}>
+              <RoleButton role="patient" label="Patient" icon="favorite" />
+              <RoleButton role="driver" label="Driver" icon="local-shipping" />
+            </View>
+          </View>
+
+          {/* Form - single column on mobile, two columns on desktop */}
+          <View style={styles.form}>
+            <View style={styles.row}>
+              <View style={styles.fieldHalf}>
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Phone Number *
+                </ThemedText>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: fieldErrors.phone ? "#DC2626" : inputBorder,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="phone"
+                    size={16}
+                    color={fieldErrors.phone ? "#DC2626" : textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[styles.input, { color: textPrimary }]}
+                    placeholder="09XXXXXXXX"
+                    placeholderTextColor={placeholderColor}
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    maxLength={10}
+                    value={form.phone}
+                    onChangeText={(t) => handleChange("phone", t)}
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()}
+                    editable={!loading}
+                  />
+                </View>
+                {fieldErrors.phone ? (
+                  <ThemedText style={styles.fieldError}>
+                    {fieldErrors.phone}
+                  </ThemedText>
+                ) : null}
+              </View>
+              <View style={styles.fieldHalf}>
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Password *
+                </ThemedText>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: fieldErrors.password
+                        ? "#DC2626"
+                        : inputBorder,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="lock-outline"
+                    size={16}
+                    color={fieldErrors.password ? "#DC2626" : textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    ref={passwordInputRef}
+                    style={[styles.input, { color: textPrimary }]}
+                    placeholder="Min 6 chars"
+                    placeholderTextColor={placeholderColor}
+                    secureTextEntry
+                    value={form.password}
+                    onChangeText={(t) => handleChange("password", t)}
+                    returnKeyType="done"
+                    onSubmitEditing={handleSubmit}
+                    blurOnSubmit
+                    editable={!loading}
+                  />
+                </View>
+                {fieldErrors.password ? (
+                  <ThemedText style={styles.fieldError}>
+                    {fieldErrors.password}
+                  </ThemedText>
+                ) : null}
               </View>
             </View>
 
-            {/* Header */}
-            <ThemedText style={[styles.title, { color: textPrimary }]}>
-              Create Account
-            </ThemedText>
-            <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              Register for emergency ambulance assistance.
-            </ThemedText>
-
-            {/* Role Selection */}
-            <View style={styles.roleSection}>
-              <ThemedText style={[styles.roleLabel, { color: textPrimary }]}>
-                I am a:
-              </ThemedText>
-              <View style={styles.roleButtons}>
-                <RoleButton role="patient" label="Patient" icon="favorite" />
-                <RoleButton
-                  role="driver"
-                  label="Driver"
-                  icon="local-shipping"
-                />
+            <View style={styles.row}>
+              <View style={styles.fieldHalf}>
+                <ThemedText style={[styles.label, { color: textPrimary }]}>
+                  Full Name *
+                </ThemedText>
+                <View
+                  style={[
+                    styles.inputWrap,
+                    {
+                      backgroundColor: inputBg,
+                      borderColor: fieldErrors.fullName
+                        ? "#DC2626"
+                        : inputBorder,
+                    },
+                  ]}
+                >
+                  <MaterialIcons
+                    name="person-outline"
+                    size={16}
+                    color={fieldErrors.fullName ? "#DC2626" : textSecondary}
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={[styles.input, { color: textPrimary }]}
+                    placeholder="Enter your full name"
+                    placeholderTextColor={placeholderColor}
+                    autoCapitalize="words"
+                    value={form.fullName}
+                    onChangeText={(t) => handleChange("fullName", t)}
+                    editable={!loading}
+                  />
+                </View>
+                {fieldErrors.fullName ? (
+                  <ThemedText style={styles.fieldError}>
+                    {fieldErrors.fullName}
+                  </ThemedText>
+                ) : null}
               </View>
-            </View>
-
-            {/* Form - single column on mobile, two columns on desktop */}
-            <View style={styles.form}>
-              <View style={styles.row}>
+              {/* Emergency Contact input only for patients */}
+              {userRole === "patient" && (
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Phone Number *
+                    Emergency Contact
                   </ThemedText>
                   <View
                     style={[
                       styles.inputWrap,
                       {
                         backgroundColor: inputBg,
-                        borderColor: fieldErrors.phone
+                        borderColor: fieldErrors.contact
                           ? "#DC2626"
                           : inputBorder,
                       },
                     ]}
                   >
                     <MaterialIcons
-                      name="phone"
+                      name="contact-phone"
                       size={16}
-                      color={fieldErrors.phone ? "#DC2626" : textSecondary}
+                      color={fieldErrors.contact ? "#DC2626" : textSecondary}
                       style={styles.inputIcon}
                     />
                     <TextInput
@@ -464,386 +574,259 @@ export default function RegisterScreen() {
                       placeholder="09XXXXXXXX"
                       placeholderTextColor={placeholderColor}
                       keyboardType="phone-pad"
-                      autoCapitalize="none"
                       maxLength={10}
-                      value={form.phone}
-                      onChangeText={(t) => handleChange("phone", t)}
+                      value={form.contact}
+                      onChangeText={(t) => handleChange("contact", t)}
                       editable={!loading}
                     />
                   </View>
-                  {fieldErrors.phone ? (
+                  {fieldErrors.contact ? (
                     <ThemedText style={styles.fieldError}>
-                      {fieldErrors.phone}
+                      {fieldErrors.contact}
                     </ThemedText>
                   ) : null}
                 </View>
-                <View style={styles.fieldHalf}>
-                  <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Password *
-                  </ThemedText>
-                  <View
-                    style={[
-                      styles.inputWrap,
-                      {
-                        backgroundColor: inputBg,
-                        borderColor: fieldErrors.password
-                          ? "#DC2626"
-                          : inputBorder,
-                      },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="lock-outline"
-                      size={16}
-                      color={fieldErrors.password ? "#DC2626" : textSecondary}
-                      style={styles.inputIcon}
-                    />
-                    <TextInput
-                      style={[styles.input, { color: textPrimary }]}
-                      placeholder="Min 6 chars"
-                      placeholderTextColor={placeholderColor}
-                      secureTextEntry
-                      value={form.password}
-                      onChangeText={(t) => handleChange("password", t)}
-                      editable={!loading}
-                    />
-                  </View>
-                  {fieldErrors.password ? (
-                    <ThemedText style={styles.fieldError}>
-                      {fieldErrors.password}
-                    </ThemedText>
-                  ) : null}
-                </View>
-              </View>
+              )}
+            </View>
 
+            {/* Patient-specific fields */}
+            {userRole === "patient" && (
               <View style={styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Full Name *
+                    Blood Type
                   </ThemedText>
                   <View
                     style={[
                       styles.inputWrap,
-                      {
-                        backgroundColor: inputBg,
-                        borderColor: fieldErrors.fullName
-                          ? "#DC2626"
-                          : inputBorder,
-                      },
+                      { backgroundColor: inputBg, borderColor: inputBorder },
                     ]}
                   >
                     <MaterialIcons
-                      name="person-outline"
+                      name="bloodtype"
                       size={16}
-                      color={fieldErrors.fullName ? "#DC2626" : textSecondary}
+                      color={textSecondary}
                       style={styles.inputIcon}
                     />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="Enter your full name"
+                      placeholder="e.g. A+, O-"
                       placeholderTextColor={placeholderColor}
-                      autoCapitalize="words"
-                      value={form.fullName}
-                      onChangeText={(t) => handleChange("fullName", t)}
+                      value={form.bloodType}
+                      onChangeText={(t) => handleChange("bloodType", t)}
                       editable={!loading}
                     />
                   </View>
-                  {fieldErrors.fullName ? (
-                    <ThemedText style={styles.fieldError}>
-                      {fieldErrors.fullName}
-                    </ThemedText>
-                  ) : null}
                 </View>
-                {/* Emergency Contact input only for patients */}
-                {userRole === "patient" && (
+                <View style={styles.fieldHalf}>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>
+                    Allergies
+                  </ThemedText>
+                  <View
+                    style={[
+                      styles.inputWrap,
+                      { backgroundColor: inputBg, borderColor: inputBorder },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="warning-amber"
+                      size={16}
+                      color={textSecondary}
+                      style={styles.inputIcon}
+                    />
+                    <TextInput
+                      style={[styles.input, { color: textPrimary }]}
+                      placeholder="Comma-separated"
+                      placeholderTextColor={placeholderColor}
+                      value={form.allergies}
+                      onChangeText={(t) => handleChange("allergies", t)}
+                      editable={!loading}
+                    />
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Driver-specific fields */}
+            {userRole === "driver" && (
+              <>
+                <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>
-                      Emergency Contact
+                      Ambulance Type *
+                    </ThemedText>
+                    <View style={{ flexDirection: "row", gap: 6 }}>
+                      {(["standard", "advanced", "icu"] as const).map((t) => {
+                        const selected = form.ambulanceType === t;
+                        return (
+                          <Pressable
+                            key={t}
+                            onPress={() => handleChange("ambulanceType", t)}
+                            disabled={loading}
+                            style={[
+                              {
+                                flex: 1,
+                                height: 34,
+                                borderRadius: 8,
+                                borderWidth: 1.5,
+                                borderColor: selected ? "#DC2626" : inputBorder,
+                                backgroundColor: selected
+                                  ? "#DC262610"
+                                  : inputBg,
+                                alignItems: "center",
+                                justifyContent: "center",
+                              },
+                            ]}
+                          >
+                            <ThemedText
+                              style={{
+                                fontSize: 11,
+                                fontWeight: selected ? "800" : "600",
+                                color: selected ? "#DC2626" : textSecondary,
+                                textTransform: "uppercase",
+                                letterSpacing: 0.5,
+                              }}
+                            >
+                              {t === "icu"
+                                ? "ICU"
+                                : t.charAt(0).toUpperCase() + t.slice(1)}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+                <View style={styles.row}>
+                  <View style={styles.fieldHalf}>
+                    <ThemedText style={[styles.label, { color: textPrimary }]}>
+                      Plate Number *
                     </ThemedText>
                     <View
                       style={[
                         styles.inputWrap,
                         {
                           backgroundColor: inputBg,
-                          borderColor: fieldErrors.contact
+                          borderColor: fieldErrors.plateNumber
                             ? "#DC2626"
                             : inputBorder,
                         },
                       ]}
                     >
                       <MaterialIcons
-                        name="contact-phone"
+                        name="directions-car"
                         size={16}
-                        color={fieldErrors.contact ? "#DC2626" : textSecondary}
+                        color={
+                          fieldErrors.plateNumber ? "#DC2626" : textSecondary
+                        }
                         style={styles.inputIcon}
                       />
                       <TextInput
                         style={[styles.input, { color: textPrimary }]}
-                        placeholder="09XXXXXXXX"
+                        placeholder="e.g. AA-12345"
                         placeholderTextColor={placeholderColor}
-                        keyboardType="phone-pad"
-                        maxLength={10}
-                        value={form.contact}
-                        onChangeText={(t) => handleChange("contact", t)}
+                        autoCapitalize="characters"
+                        value={form.plateNumber}
+                        onChangeText={(t) => handleChange("plateNumber", t)}
                         editable={!loading}
                       />
                     </View>
-                    {fieldErrors.contact ? (
+                    {fieldErrors.plateNumber ? (
                       <ThemedText style={styles.fieldError}>
-                        {fieldErrors.contact}
+                        {fieldErrors.plateNumber}
                       </ThemedText>
                     ) : null}
                   </View>
-                )}
-              </View>
-
-              {/* Patient-specific fields */}
-              {userRole === "patient" && (
-                <View style={styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>
-                      Blood Type
+                      Registration No. *
                     </ThemedText>
                     <View
                       style={[
                         styles.inputWrap,
-                        { backgroundColor: inputBg, borderColor: inputBorder },
+                        {
+                          backgroundColor: inputBg,
+                          borderColor: fieldErrors.registrationNumber
+                            ? "#DC2626"
+                            : inputBorder,
+                        },
                       ]}
                     >
                       <MaterialIcons
-                        name="bloodtype"
+                        name="assignment"
                         size={16}
-                        color={textSecondary}
+                        color={
+                          fieldErrors.registrationNumber
+                            ? "#DC2626"
+                            : textSecondary
+                        }
                         style={styles.inputIcon}
                       />
                       <TextInput
                         style={[styles.input, { color: textPrimary }]}
-                        placeholder="e.g. A+, O-"
+                        placeholder="Reg. number"
                         placeholderTextColor={placeholderColor}
-                        value={form.bloodType}
-                        onChangeText={(t) => handleChange("bloodType", t)}
+                        autoCapitalize="characters"
+                        value={form.registrationNumber}
+                        onChangeText={(t) =>
+                          handleChange("registrationNumber", t)
+                        }
                         editable={!loading}
                       />
                     </View>
-                  </View>
-                  <View style={styles.fieldHalf}>
-                    <ThemedText style={[styles.label, { color: textPrimary }]}>
-                      Allergies
-                    </ThemedText>
-                    <View
-                      style={[
-                        styles.inputWrap,
-                        { backgroundColor: inputBg, borderColor: inputBorder },
-                      ]}
-                    >
-                      <MaterialIcons
-                        name="warning-amber"
-                        size={16}
-                        color={textSecondary}
-                        style={styles.inputIcon}
-                      />
-                      <TextInput
-                        style={[styles.input, { color: textPrimary }]}
-                        placeholder="Comma-separated"
-                        placeholderTextColor={placeholderColor}
-                        value={form.allergies}
-                        onChangeText={(t) => handleChange("allergies", t)}
-                        editable={!loading}
-                      />
-                    </View>
+                    {fieldErrors.registrationNumber ? (
+                      <ThemedText style={styles.fieldError}>
+                        {fieldErrors.registrationNumber}
+                      </ThemedText>
+                    ) : null}
                   </View>
                 </View>
-              )}
+              </>
+            )}
 
-              {/* Driver-specific fields */}
-              {userRole === "driver" && (
-                <>
-                  <View style={styles.row}>
-                    <View style={styles.fieldHalf}>
-                      <ThemedText
-                        style={[styles.label, { color: textPrimary }]}
-                      >
-                        Ambulance Type *
-                      </ThemedText>
-                      <View style={{ flexDirection: "row", gap: 6 }}>
-                        {(["standard", "advanced", "icu"] as const).map((t) => {
-                          const selected = form.ambulanceType === t;
-                          return (
-                            <Pressable
-                              key={t}
-                              onPress={() => handleChange("ambulanceType", t)}
-                              disabled={loading}
-                              style={[
-                                {
-                                  flex: 1,
-                                  height: 34,
-                                  borderRadius: 8,
-                                  borderWidth: 1.5,
-                                  borderColor: selected
-                                    ? "#DC2626"
-                                    : inputBorder,
-                                  backgroundColor: selected
-                                    ? "#DC262610"
-                                    : inputBg,
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                },
-                              ]}
-                            >
-                              <ThemedText
-                                style={{
-                                  fontSize: 11,
-                                  fontWeight: selected ? "800" : "600",
-                                  color: selected ? "#DC2626" : textSecondary,
-                                  textTransform: "uppercase",
-                                  letterSpacing: 0.5,
-                                }}
-                              >
-                                {t === "icu"
-                                  ? "ICU"
-                                  : t.charAt(0).toUpperCase() + t.slice(1)}
-                              </ThemedText>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  </View>
-                  <View style={styles.row}>
-                    <View style={styles.fieldHalf}>
-                      <ThemedText
-                        style={[styles.label, { color: textPrimary }]}
-                      >
-                        Plate Number *
-                      </ThemedText>
-                      <View
-                        style={[
-                          styles.inputWrap,
-                          {
-                            backgroundColor: inputBg,
-                            borderColor: fieldErrors.plateNumber
-                              ? "#DC2626"
-                              : inputBorder,
-                          },
-                        ]}
-                      >
-                        <MaterialIcons
-                          name="directions-car"
-                          size={16}
-                          color={
-                            fieldErrors.plateNumber ? "#DC2626" : textSecondary
-                          }
-                          style={styles.inputIcon}
-                        />
-                        <TextInput
-                          style={[styles.input, { color: textPrimary }]}
-                          placeholder="e.g. AA-12345"
-                          placeholderTextColor={placeholderColor}
-                          autoCapitalize="characters"
-                          value={form.plateNumber}
-                          onChangeText={(t) => handleChange("plateNumber", t)}
-                          editable={!loading}
-                        />
-                      </View>
-                      {fieldErrors.plateNumber ? (
-                        <ThemedText style={styles.fieldError}>
-                          {fieldErrors.plateNumber}
-                        </ThemedText>
-                      ) : null}
-                    </View>
-                    <View style={styles.fieldHalf}>
-                      <ThemedText
-                        style={[styles.label, { color: textPrimary }]}
-                      >
-                        Registration No. *
-                      </ThemedText>
-                      <View
-                        style={[
-                          styles.inputWrap,
-                          {
-                            backgroundColor: inputBg,
-                            borderColor: fieldErrors.registrationNumber
-                              ? "#DC2626"
-                              : inputBorder,
-                          },
-                        ]}
-                      >
-                        <MaterialIcons
-                          name="assignment"
-                          size={16}
-                          color={
-                            fieldErrors.registrationNumber
-                              ? "#DC2626"
-                              : textSecondary
-                          }
-                          style={styles.inputIcon}
-                        />
-                        <TextInput
-                          style={[styles.input, { color: textPrimary }]}
-                          placeholder="Reg. number"
-                          placeholderTextColor={placeholderColor}
-                          autoCapitalize="characters"
-                          value={form.registrationNumber}
-                          onChangeText={(t) =>
-                            handleChange("registrationNumber", t)
-                          }
-                          editable={!loading}
-                        />
-                      </View>
-                      {fieldErrors.registrationNumber ? (
-                        <ThemedText style={styles.fieldError}>
-                          {fieldErrors.registrationNumber}
-                        </ThemedText>
-                      ) : null}
-                    </View>
-                  </View>
-                </>
-              )}
-
-              {/* Submit */}
-              <Pressable
-                onPress={handleSubmit}
-                disabled={loading}
-                style={({ pressed }) => [
-                  styles.primaryBtn,
-                  pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
-                  loading && { opacity: 0.7 },
-                ]}
-              >
-                <LinearGradient
-                  colors={["#DC2626", "#B91C1C"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.primaryBtnGradient}
-                >
-                  <MaterialIcons name="person-add" size={18} color="#fff" />
-                  <ThemedText style={styles.primaryBtnText}>
-                    {loading ? "Creating..." : "Create Account"}
-                  </ThemedText>
-                </LinearGradient>
-              </Pressable>
-            </View>
-
-            {/* Already have account */}
-            <View
-              style={[styles.footerDivider, { borderTopColor: cardBorder }]}
-            />
-            <View
-              style={[styles.footer, { paddingBottom: isSmallScreen ? 28 : 0 }]}
+            {/* Submit */}
+            <Pressable
+              onPress={handleSubmit}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.primaryBtn,
+                pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] },
+                loading && { opacity: 0.7 },
+              ]}
             >
-              <ThemedText style={[styles.footerText, { color: textSecondary }]}>
-                Already have an account?
-              </ThemedText>
-              <Pressable
-                onPress={() => !loading && router.replace("/login")}
-                hitSlop={12}
+              <LinearGradient
+                colors={["#DC2626", "#B91C1C"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.primaryBtnGradient}
               >
-                <ThemedText style={styles.footerLink}>Sign In</ThemedText>
-              </Pressable>
-            </View>
-          </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+                <MaterialIcons name="person-add" size={18} color="#fff" />
+                <ThemedText style={styles.primaryBtnText}>
+                  {loading ? "Creating..." : "Create Account"}
+                </ThemedText>
+              </LinearGradient>
+            </Pressable>
+          </View>
+
+          {/* Already have account */}
+          <View
+            style={[styles.footerDivider, { borderTopColor: cardBorder }]}
+          />
+          <View
+            style={[styles.footer, { paddingBottom: isSmallScreen ? 28 : 0 }]}
+          >
+            <ThemedText style={[styles.footerText, { color: textSecondary }]}>
+              Already have an account?
+            </ThemedText>
+            <Pressable
+              onPress={() => !loading && router.replace("/login")}
+              hitSlop={12}
+            >
+              <ThemedText style={styles.footerLink}>Sign In</ThemedText>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
     </View>
   );
 }
