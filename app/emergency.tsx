@@ -27,7 +27,7 @@ import {
 
 export default function EmergencyScreen() {
   const { user } = useAppState();
-  const { showError, showAlert } = useModal();
+  const { showError, showAlert, show: showCustomModal } = useModal();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -44,12 +44,40 @@ export default function EmergencyScreen() {
   >([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Show location permission info modal before requesting
+  const requestLocationWithPrompt = async () => {
+    return new Promise((resolve) => {
+      showCustomModal({
+        title: "📍 Enable Location",
+        message: "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
+        type: "info",
+        actions: [
+          {
+            label: "Enable Location",
+            onPress: async () => {
+              const { status } = await Location.requestForegroundPermissionsAsync();
+              resolve(status === "granted");
+            },
+          },
+          {
+            label: "Cancel",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+        ],
+      });
+    });
+  };
+
   // Get user's current location with high accuracy
   const getUserLocation = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setErrorMsg("Permission to access location was denied");
+      const allowed = await requestLocationWithPrompt();
+      if (!allowed) {
+        showError(
+          "Location Required",
+          "Location access is required to call an ambulance. Please enable it in your device settings.",
+        );
         return null;
       }
 
