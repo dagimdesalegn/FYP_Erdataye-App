@@ -140,11 +140,17 @@ export default function DriverHomeScreen() {
 
     const startLocationTracking = async () => {
       try {
+        // Show pre-permission explanation first
+        showAlert(
+          "🚗 Location Tracking Required",
+          "Patients need to see your real-time location to know when help arrives. This is critical for emergency response.",
+        );
+
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
           showError(
-            "Permission Denied",
-            "Location access is required for ambulance tracking",
+            "Location Tracking Disabled",
+            "Enable location access in your device settings to track ambulance location.",
           );
           setIsAvailable(false);
           return;

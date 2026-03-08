@@ -94,10 +94,16 @@ export default function HelpScreen() {
     const loadCurrentLocation = async () => {
       try {
         setLocationLoading(true);
+        // Show pre-permission explanation
+        showAlert(
+          "📍 Share Your Location?",
+          "Your location helps us route ambulances to you faster and show nearby hospitals. It's only used for emergencies.",
+        );
+
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           if (!cancelled) {
-            setLocationError("Location permission is required.");
+            setLocationError("Enable location in settings to see nearby help.");
             setCurrentLocation(null);
           }
           return;
