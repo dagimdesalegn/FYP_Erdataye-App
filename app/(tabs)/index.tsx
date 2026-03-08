@@ -1,3 +1,4 @@
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import { useAppState } from "@/components/app-state";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -6,7 +7,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import {
     Animated,
     Image,
