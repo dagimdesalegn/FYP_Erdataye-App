@@ -99,111 +99,121 @@ export default function ChatbotPage() {
         ]}
       >
         <View style={styles.centeredBox}>
-        <View style={styles.topBar}>
-          <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
-          <View style={styles.topBarRight}>
-            <View style={styles.langRow}>
-              {(["en", "am", "om"] as Lang[]).map((code) => {
-                const active = lang === code;
-                return (
-                  <Pressable
-                    key={code}
-                    onPress={() => setLang(code)}
-                    style={({ pressed }) => [
-                      styles.langBtn,
-                      active ? styles.langBtnActive : null,
-                      pressed ? { opacity: 0.8 } : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.langText,
-                        active ? styles.langTextActive : null,
+          <View style={styles.topBar}>
+            <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
+            <View style={styles.topBarRight}>
+              <View style={styles.langRow}>
+                {(["en", "am", "om"] as Lang[]).map((code) => {
+                  const active = lang === code;
+                  return (
+                    <Pressable
+                      key={code}
+                      onPress={() => setLang(code)}
+                      style={({ pressed }) => [
+                        styles.langBtn,
+                        active ? styles.langBtnActive : null,
+                        pressed ? { opacity: 0.8 } : null,
                       ]}
                     >
-                      {LANG_LABELS[code]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            <Pressable
-              onPress={handleDeleteHistory}
-              style={({ pressed }) => [
-                styles.clearBtn,
-                pressed ? { opacity: 0.75 } : null,
-              ]}
-            >
-              <MaterialIcons name="delete-outline" size={18} color="#FCA5A5" />
-              <Text style={styles.clearBtnText}>Clear</Text>
-            </Pressable>
-          </View>
-        </View>
-        <ThemedText style={styles.welcomeMsg}>
-          {UI[lang].welcomeMessage}
-        </ThemedText>
-        <View style={{ flex: 1 }}>
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(_, i) => String(i)}
-            renderItem={({ item }) => (
-              <View
-                style={item.role === "user" ? styles.userMsg : styles.botMsg}
-              >
-                <Text
-                  style={{
-                    color: item.role === "user" ? "#FFFFFF" : "#E5E7EB",
-                    fontWeight: "600",
-                    fontSize: 14,
-                    lineHeight: 20,
-                  }}
-                >
-                  {item.text}
-                </Text>
+                      <Text
+                        style={[
+                          styles.langText,
+                          active ? styles.langTextActive : null,
+                        ]}
+                      >
+                        {LANG_LABELS[code]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            )}
-            ListFooterComponent={
-              isTyping ? (
-                <View style={styles.typingBubble}>
-                  <MaterialIcons name="more-horiz" size={18} color="#93C5FD" />
-                  <Text style={styles.typingText}>Assistant is typing...</Text>
-                </View>
-              ) : null
-            }
-            contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-          />
-          <View style={styles.inputBar}>
-            <TextInput
-              style={styles.input}
-              placeholder={UI[lang].inputPlaceholder}
-              placeholderTextColor="#94A3B8"
-              selectionColor="#60A5FA"
-              cursorColor="#60A5FA"
-              keyboardAppearance="dark"
-              value={inputText}
-              onChangeText={setInputText}
-              onSubmitEditing={handleSubmit}
-              returnKeyType="send"
-              multiline={false}
-              maxLength={500}
-              blurOnSubmit={false}
-            />
-            <Pressable
-              onPress={handleSubmit}
-              disabled={!inputText.trim() || isTyping}
-              style={styles.sendBtn}
-            >
-              <MaterialIcons
-                name="send"
-                size={20}
-                color={inputText.trim() && !isTyping ? "#FFFFFF" : "#aaa"}
-              />
-            </Pressable>
+              <Pressable
+                onPress={handleDeleteHistory}
+                style={({ pressed }) => [
+                  styles.clearBtn,
+                  pressed ? { opacity: 0.75 } : null,
+                ]}
+              >
+                <MaterialIcons
+                  name="delete-outline"
+                  size={18}
+                  color="#FCA5A5"
+                />
+                <Text style={styles.clearBtnText}>Clear</Text>
+              </Pressable>
+            </View>
           </View>
-        </View>
+          <ThemedText style={styles.welcomeMsg}>
+            {UI[lang].welcomeMessage}
+          </ThemedText>
+          <View style={{ flex: 1 }}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(_, i) => String(i)}
+              renderItem={({ item }) => (
+                <View
+                  style={item.role === "user" ? styles.userMsg : styles.botMsg}
+                >
+                  <Text
+                    style={{
+                      color: item.role === "user" ? "#FFFFFF" : "#E5E7EB",
+                      fontWeight: "600",
+                      fontSize: 14,
+                      lineHeight: 20,
+                    }}
+                  >
+                    {item.text}
+                  </Text>
+                </View>
+              )}
+              ListFooterComponent={
+                isTyping ? (
+                  <View style={styles.typingBubble}>
+                    <MaterialIcons
+                      name="more-horiz"
+                      size={18}
+                      color="#93C5FD"
+                    />
+                    <Text style={styles.typingText}>
+                      Assistant is typing...
+                    </Text>
+                  </View>
+                ) : null
+              }
+              contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
+              showsVerticalScrollIndicator={false}
+              style={{ flex: 1 }}
+            />
+            <View style={styles.inputBar}>
+              <TextInput
+                style={styles.input}
+                placeholder={UI[lang].inputPlaceholder}
+                placeholderTextColor="#94A3B8"
+                selectionColor="#60A5FA"
+                cursorColor="#60A5FA"
+                keyboardAppearance="dark"
+                value={inputText}
+                onChangeText={setInputText}
+                onSubmitEditing={handleSubmit}
+                returnKeyType="send"
+                multiline={false}
+                maxLength={500}
+                blurOnSubmit={false}
+              />
+              <Pressable
+                onPress={handleSubmit}
+                disabled={!inputText.trim() || isTyping}
+                style={styles.sendBtn}
+              >
+                <MaterialIcons
+                  name="send"
+                  size={20}
+                  color={inputText.trim() && !isTyping ? "#FFFFFF" : "#aaa"}
+                />
+              </Pressable>
+            </View>
+          </View>
         </View>
       </View>
     </KeyboardAvoidingView>
