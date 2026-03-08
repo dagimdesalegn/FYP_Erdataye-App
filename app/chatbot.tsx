@@ -82,17 +82,23 @@ export default function ChatbotPage() {
   };
 
   return (
-    <View
-      style={[
-        styles.root,
-        {
-          paddingTop: Math.max(insets.top, 12),
-          paddingBottom: Math.max(insets.bottom, 12),
-        },
-      ]}
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 18}
     >
-      <StatusBar barStyle="light-content" />
-      <View style={styles.centeredBox}>
+      <StatusBar barStyle="light-content" backgroundColor="#111827" />
+      <View style={styles.fullBg} />
+      <View
+        style={[
+          styles.safeFrame,
+          {
+            paddingTop: Math.max(insets.top, 12),
+            paddingBottom: Math.max(insets.bottom, 12),
+          },
+        ]}
+      >
+        <View style={styles.centeredBox}>
         <View style={styles.topBar}>
           <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
           <View style={styles.topBarRight}>
@@ -136,10 +142,7 @@ export default function ChatbotPage() {
         <ThemedText style={styles.welcomeMsg}>
           {UI[lang].welcomeMessage}
         </ThemedText>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
+        <View style={{ flex: 1 }}>
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -160,6 +163,14 @@ export default function ChatbotPage() {
                 </Text>
               </View>
             )}
+            ListFooterComponent={
+              isTyping ? (
+                <View style={styles.typingBubble}>
+                  <MaterialIcons name="more-horiz" size={18} color="#93C5FD" />
+                  <Text style={styles.typingText}>Assistant is typing...</Text>
+                </View>
+              ) : null
+            }
             contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
             showsVerticalScrollIndicator={false}
             style={{ flex: 1 }}
@@ -169,6 +180,9 @@ export default function ChatbotPage() {
               style={styles.input}
               placeholder={UI[lang].inputPlaceholder}
               placeholderTextColor="#94A3B8"
+              selectionColor="#60A5FA"
+              cursorColor="#60A5FA"
+              keyboardAppearance="dark"
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={handleSubmit}
@@ -189,16 +203,25 @@ export default function ChatbotPage() {
               />
             </Pressable>
           </View>
-        </KeyboardAvoidingView>
+        </View>
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#0B1220",
+    backgroundColor: "#111827",
+    position: "relative",
+  },
+  fullBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#111827",
+  },
+  safeFrame: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -209,17 +232,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
     borderWidth: 1,
     borderColor: "#1E293B",
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 14,
+    borderRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
     alignItems: "stretch",
     justifyContent: "flex-start",
-    shadowColor: "#020617",
+    shadowColor: "#0B1220",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 8,
   },
   welcomeMsg: {
     color: "#BFDBFE",
@@ -306,6 +329,26 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     maxWidth: "80%",
   },
+  typingBubble: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#1F2937",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 2,
+    marginBottom: 6,
+    maxWidth: "70%",
+  },
+  typingText: {
+    color: "#BFDBFE",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -320,10 +363,11 @@ const styles = StyleSheet.create({
     borderColor: "#334155",
     paddingHorizontal: 14,
     paddingVertical: 11,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
     backgroundColor: "#0F172A",
     color: "#F8FAFC",
+    textAlignVertical: "center",
     minHeight: 40,
     maxHeight: 48,
   },
