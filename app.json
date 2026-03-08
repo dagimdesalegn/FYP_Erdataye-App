@@ -21,6 +21,8 @@
       "package": "com.anonymous.erdatayeambulance",
       "versionCode": 2,
       "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
@@ -51,7 +53,14 @@
         }
       ],
       "expo-web-browser",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-location",
+        {
+          "isAndroidForegroundServiceEnabled": false,
+          "locationWhenInUsePermission": "Allow Erdataya Ambulance to access your location while using the app."
+        }
+      ]
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",

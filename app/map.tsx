@@ -22,6 +22,7 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
+  Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -75,20 +76,54 @@ export default function MapScreen() {
 
       setLocationError(null);
 
+      // On Android, prompt the user to enable high-accuracy provider when available.
+      if (Platform.OS === "android") {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {
+          // Non-fatal: location can still work with device GPS/provider settings.
+        }
+      }
+
+      const lastKnown = await Location.getLastKnownPositionAsync({
+        maxAge: 1000 * 60 * 10,
+      });
+      if (lastKnown) {
+        setLocation(lastKnown);
+      }
+
       try {
         const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy:
+            Platform.OS === "android"
+              ? Location.Accuracy.Balanced
+              : Location.Accuracy.High,
+          mayShowUserSettingsDialog: true,
         });
         setLocation(currentLocation);
         return currentLocation;
-      } catch {
-        const lastKnown = await Location.getLastKnownPositionAsync();
+      } catch (positionError) {
         if (lastKnown) {
-          setLocation(lastKnown);
+          setLocationError("Using last known location. Waiting for GPS fix.");
           return lastKnown;
         }
+
+        // Final fallback for devices that fail with stricter accuracy requests.
+        const fallbackLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        }).catch(() => null);
+        if (fallbackLocation) {
+          setLocation(fallbackLocation);
+          setLocationError("GPS signal is weak. Using lower-accuracy location.");
+          return fallbackLocation;
+        }
+
         setLocationError(
-          "Unable to read current location. Try moving outdoors.",
+          `Unable to read current location. ${
+            positionError instanceof Error
+              ? positionError.message
+              : "Try moving outdoors and enabling device location."
+          }`,
         );
         return null;
       }
