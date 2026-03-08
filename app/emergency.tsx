@@ -49,13 +49,15 @@ export default function EmergencyScreen() {
     return new Promise((resolve) => {
       showCustomModal({
         title: "📍 Enable Location",
-        message: "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
+        message:
+          "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
         type: "info",
         actions: [
           {
             label: "Enable Location",
             onPress: async () => {
-              const { status } = await Location.requestForegroundPermissionsAsync();
+              const { status } =
+                await Location.requestForegroundPermissionsAsync();
               resolve(status === "granted");
             },
           },
