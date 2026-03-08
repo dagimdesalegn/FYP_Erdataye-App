@@ -358,7 +358,7 @@ export default function FirstAidChatScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 18}
       >
         {/* Welcome message always at top */}
         <View style={{ alignItems: "center", marginTop: 8, marginBottom: 4 }}>
@@ -423,6 +423,9 @@ export default function FirstAidChatScreen() {
               style={[styles.textInput, { color: textClr }]}
               placeholder={UI[lang].inputPlaceholder}
               placeholderTextColor={mutedClr}
+              selectionColor={isDark ? "#60A5FA" : "#2563EB"}
+              cursorColor={isDark ? "#60A5FA" : "#2563EB"}
+              keyboardAppearance={isDark ? "dark" : "light"}
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={() => sendMessage(inputText)}
@@ -718,7 +721,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: Platform.OS === "ios" ? 12 : 10,
     fontSize: TYPE.bodyLg,
+    fontWeight: "600",
     fontFamily: Fonts.sans,
+    textAlignVertical: "top",
     maxHeight: 110,
     minHeight: 46,
   },
