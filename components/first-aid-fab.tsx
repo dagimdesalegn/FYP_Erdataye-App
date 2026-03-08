@@ -10,16 +10,16 @@ import { getBotResponse, type Message as ChatKbMessage } from '@/utils/first-aid
 import { LANG_LABELS, UI, type Lang } from '@/utils/i18n-first-aid';
 import React, { useCallback, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Animated,
+    Dimensions,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
