@@ -144,9 +144,8 @@ export default function HelpScreen() {
         }
       } catch {
         if (!cancelled) {
-          const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
-            () => false,
-          );
+          const servicesEnabled =
+            await Location.hasServicesEnabledAsync().catch(() => false);
           setLocationError(
             servicesEnabled
               ? currentLocation
