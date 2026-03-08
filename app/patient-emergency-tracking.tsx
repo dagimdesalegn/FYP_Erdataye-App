@@ -2,7 +2,7 @@ import { FirstAidFab } from "@/components/first-aid-fab";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Animated,
     Linking,
@@ -11,6 +11,7 @@ import {
     ScrollView,
     StyleSheet,
     useWindowDimensions,
+    Vibration,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -111,75 +112,7 @@ export default function PatientEmergencyTrackingScreen() {
   const prevStatusRef = useRef<string | null>(null);
   const notifAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    loadData();
-  }, [emergencyId]);
-
-  // Realtime: emergency status changes
-  useEffect(() => {
-    if (!emergencyId || typeof emergencyId !== "string") return;
-    const unsub = subscribeToEmergency(emergencyId, (updated) => {
-      setEmergency(updated);
-    });
-    return unsub;
-  }, [emergencyId]);
-
-  // Polling fallback: check status every 8s in case realtime misses updates
-  useEffect(() => {
-    if (!emergencyId || typeof emergencyId !== "string") return;
-    const interval = setInterval(async () => {
-      try {
-        const { emergency: emerg } = await getEmergencyDetails(emergencyId);
-        if (emerg && emerg.status !== emergency?.status) {
-          setEmergency(emerg);
-        }
-      } catch {}
-    }, 8000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emergencyId, emergency?.status]);
-
-  // Show notification toast when status changes
-  useEffect(() => {
-    if (!emergency?.status) return;
-    const cur = emergency.status;
-    if (prevStatusRef.current && prevStatusRef.current !== cur) {
-      const notif = STATUS_NOTIFICATIONS[cur];
-      if (notif) {
-        setStatusNotification(cur);
-        // Vibrate on mobile for attention
-        try {
-          const { Vibration } = require("react-native");
-          Vibration.vibrate([0, 300, 100, 300]);
-        } catch {}
-        Animated.sequence([
-          Animated.timing(notifAnim, {
-            toValue: 1,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.delay(6000),
-          Animated.timing(notifAnim, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]).start(() => setStatusNotification(null));
-      }
-    }
-    prevStatusRef.current = cur;
-  }, [emergency?.status]);
-
-  // Realtime: ambulance location
-  useEffect(() => {
-    if (!ambulance?.id) return;
-    const unsub = subscribeToAmbulanceLocation(ambulance.id, (lat, lng) => {
-      setAmbulanceCoords({ latitude: lat, longitude: lng });
-    });
-    return unsub;
-  }, [ambulance?.id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
       setError("Invalid emergency ID");
       setLoading(false);
@@ -210,7 +143,73 @@ export default function PatientEmergencyTrackingScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [emergencyId]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  // Realtime: emergency status changes
+  useEffect(() => {
+    if (!emergencyId || typeof emergencyId !== "string") return;
+    const unsub = subscribeToEmergency(emergencyId, (updated) => {
+      setEmergency(updated);
+    });
+    return unsub;
+  }, [emergencyId]);
+
+  // Polling fallback: check status every 8s in case realtime misses updates
+  useEffect(() => {
+    if (!emergencyId || typeof emergencyId !== "string") return;
+    const interval = setInterval(async () => {
+      try {
+        const { emergency: emerg } = await getEmergencyDetails(emergencyId);
+        if (emerg && emerg.status !== emergency?.status) {
+          setEmergency(emerg);
+        }
+      } catch {}
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [emergencyId, emergency?.status]);
+
+  // Show notification toast when status changes
+  useEffect(() => {
+    if (!emergency?.status) return;
+    const cur = emergency.status;
+    if (prevStatusRef.current && prevStatusRef.current !== cur) {
+      const notif = STATUS_NOTIFICATIONS[cur];
+      if (notif) {
+        setStatusNotification(cur);
+        // Vibrate on mobile for attention
+        try {
+          Vibration.vibrate([0, 300, 100, 300]);
+        } catch {}
+        Animated.sequence([
+          Animated.timing(notifAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.delay(6000),
+          Animated.timing(notifAnim, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]).start(() => setStatusNotification(null));
+      }
+    }
+    prevStatusRef.current = cur;
+  }, [emergency?.status, notifAnim]);
+
+  // Realtime: ambulance location
+  useEffect(() => {
+    if (!ambulance?.id) return;
+    const unsub = subscribeToAmbulanceLocation(ambulance.id, (lat, lng) => {
+      setAmbulanceCoords({ latitude: lat, longitude: lng });
+    });
+    return unsub;
+  }, [ambulance?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);

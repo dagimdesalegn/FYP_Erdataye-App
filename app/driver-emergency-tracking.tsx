@@ -2,22 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import {
-    Alert,
-    Linking,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    useWindowDimensions,
-    View,
-} from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -67,8 +59,7 @@ export default function DriverEmergencyTrackingScreen() {
   const colors = Colors[colorScheme];
   const { emergencyId } = useLocalSearchParams();
   const { user } = useAppState();
-  const { width: windowWidth } = useWindowDimensions();
-  const isWide = windowWidth > 600;
+  const { showError, showSuccess } = useModal();
   const insets = useSafeAreaInsets();
 
   const [currentStatus, setCurrentStatus] = useState("assigned");
@@ -218,28 +209,17 @@ export default function DriverEmergencyTrackingScreen() {
       );
       if (error) {
         const msg = "Failed to update status";
-        Platform.OS === "web" ? window.alert(msg) : Alert.alert("Error", msg);
+        showError("Update Failed", msg);
         return;
       }
       setCurrentStatus(newStatus);
       if (newStatus === "completed") {
         const msg = "Emergency marked as completed!";
-        if (Platform.OS === "web") {
-          window.alert(msg);
-          router.replace("/driver-home" as any);
-        } else {
-          Alert.alert("Success", msg, [
-            {
-              text: "Return Home",
-              onPress: () => router.replace("/driver-home" as any),
-            },
-          ]);
-        }
+        showSuccess("Completed", msg);
+        setTimeout(() => router.replace("/driver-home" as any), 1500);
       }
     } catch {
-      Platform.OS === "web"
-        ? window.alert("Failed to update")
-        : Alert.alert("Error", "Failed to update");
+      showError("Update Failed", "Failed to update status");
     } finally {
       setUpdating(false);
     }

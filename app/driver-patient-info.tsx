@@ -1,9 +1,10 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -32,6 +33,7 @@ export default function DriverPatientInfoScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
   const { patientId } = useLocalSearchParams();
+  const { showError } = useModal();
 
   const [patientData, setPatientData] = useState<PatientData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export default function DriverPatientInfoScreen() {
         const { info, error } = await getPatientInfo(patientId as string);
 
         if (error && error.message) {
-          Alert.alert("Error", "Failed to load patient information");
+          showError("Load Failed", "Failed to load patient information");
           return;
         }
 
@@ -54,14 +56,14 @@ export default function DriverPatientInfoScreen() {
         }
       } catch (error) {
         console.error("Error loading patient info:", error);
-        Alert.alert("Error", "Failed to load patient information");
+        showError("Load Failed", "Failed to load patient information");
       } finally {
         setLoading(false);
       }
     };
 
     loadPatientInfo();
-  }, [patientId]);
+  }, [patientId, showError]);
 
   if (loading) {
     return (

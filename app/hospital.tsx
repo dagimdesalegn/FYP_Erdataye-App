@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -20,7 +21,6 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Modal,
     Platform,
@@ -69,6 +69,7 @@ export default function HospitalDashboard() {
   const colors = Colors[theme];
   const router = useRouter();
   const { user, setUser } = useAppState();
+  const { showError, showSuccess } = useModal();
 
   const [emergencies, setEmergencies] = useState<EmergencyWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,12 +134,12 @@ export default function HospitalDashboard() {
       setEmergencies(enriched);
     } catch (error) {
       console.error("Error fetching emergencies:", error);
-      Alert.alert("Error", "Failed to load emergency requests");
+      showError("Load Failed", "Failed to load emergency requests");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [user, showError]);
 
   const updateStatus = async (
     emergencyId: string,
@@ -151,14 +152,14 @@ export default function HospitalDashboard() {
         .eq("id", emergencyId);
 
       if (error) throw error;
-      Alert.alert(
-        "Success",
+      showSuccess(
+        "Status Updated",
         `Status updated to ${newStatus.replace("_", " ")}`,
       );
       fetchEmergencies();
       setModalVisible(false);
     } catch {
-      Alert.alert("Error", "Failed to update status");
+      showError("Update Failed", "Failed to update status");
     }
   };
 
@@ -188,7 +189,9 @@ export default function HospitalDashboard() {
     if (!logoutErr) {
       setUser(null);
       router.replace("/");
-    } else Alert.alert("Error", "Failed to sign out");
+    } else {
+      showError("Logout Failed", "Failed to sign out");
+    }
   };
 
   const formatDateTime = (d: string) => {

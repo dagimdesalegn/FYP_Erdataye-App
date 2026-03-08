@@ -29,7 +29,6 @@ import {
 export default function MapScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const isDark = theme === "dark";
   const colors = Colors[theme];
 
   const [location, setLocation] = useState<Location.LocationObject | null>(

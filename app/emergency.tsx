@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -18,7 +19,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -27,10 +27,10 @@ import {
 
 export default function EmergencyScreen() {
   const { user } = useAppState();
+  const { showError, showAlert } = useModal();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const isDark = theme === "dark";
   const colors = Colors[theme];
   const textColor = colors.text;
   const subText = colors.textMuted;
@@ -67,7 +67,10 @@ export default function EmergencyScreen() {
   // Call emergency
   const handleEmergencyCall = async () => {
     if (!user) {
-      Alert.alert("Error", "You must be logged in to call an ambulance");
+      showError(
+        "Authentication Required",
+        "You must be logged in to call an ambulance",
+      );
       return;
     }
 
@@ -75,8 +78,8 @@ export default function EmergencyScreen() {
     try {
       const currentLocation = await getUserLocation();
       if (!currentLocation) {
-        Alert.alert(
-          "Error",
+        showError(
+          "Location Required",
           "Could not get your location. Please enable location services.",
         );
         setLoading(false);
@@ -95,8 +98,8 @@ export default function EmergencyScreen() {
       );
 
       if (error) {
-        Alert.alert(
-          "Error",
+        showError(
+          "Request Failed",
           `Failed to create emergency request: ${error.message}`,
         );
         setLoading(false);
@@ -128,13 +131,12 @@ export default function EmergencyScreen() {
         setNearbyAmbulances(parsed);
       }
 
-      Alert.alert(
+      showAlert(
         "Emergency Request Sent",
         `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ""}. Help is on the way!` : "\n\nSearching for available ambulances..."}`,
-        [{ text: "OK" }],
       );
     } catch (error) {
-      Alert.alert("Error", `Emergency call failed: ${error}`);
+      showError("Emergency Failed", `Emergency call failed: ${error}`);
     } finally {
       setLoading(false);
     }

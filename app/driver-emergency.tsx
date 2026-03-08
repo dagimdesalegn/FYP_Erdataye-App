@@ -3,9 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
     Linking,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -17,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -58,6 +57,7 @@ export default function DriverEmergencyScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme];
   const { user } = useAppState();
+  const { showAlert, showError, showConfirm } = useModal();
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
@@ -84,8 +84,7 @@ export default function DriverEmergencyScreen() {
         if (error || !asgn) {
           if (!options?.silent) {
             const message = "No active assignment found";
-            if (Platform.OS === "web") window.alert(message);
-            else Alert.alert("Info", message);
+            showAlert("Info", message);
             router.back();
           }
           return;
@@ -121,7 +120,7 @@ export default function DriverEmergencyScreen() {
         }
       }
     },
-    [router, user],
+    [router, user, showAlert],
   );
 
   useEffect(() => {
@@ -146,7 +145,7 @@ export default function DriverEmergencyScreen() {
       );
       if (error) {
         const msg = error.message || "Failed to accept emergency";
-        Platform.OS === "web" ? window.alert(msg) : Alert.alert("Error", msg);
+        showError("Accept Failed", msg);
         return;
       }
       router.replace({
@@ -172,7 +171,7 @@ export default function DriverEmergencyScreen() {
         );
         if (error) {
           const msg = error.message || "Failed to decline";
-          Platform.OS === "web" ? window.alert(msg) : Alert.alert("Error", msg);
+          showError("Decline Failed", msg);
           return;
         }
         router.replace("/driver-home" as any);
@@ -183,15 +182,11 @@ export default function DriverEmergencyScreen() {
       }
     };
 
-    if (Platform.OS === "web") {
-      if (window.confirm("Are you sure you want to decline this emergency?"))
-        doDecline();
-    } else {
-      Alert.alert("Decline Emergency?", "Are you sure?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Decline", style: "destructive", onPress: doDecline },
-      ]);
-    }
+    showConfirm(
+      "Decline Emergency?",
+      "Are you sure you want to decline this emergency?",
+      doDecline,
+    );
   };
 
   // ─── Helpers ──────────────────────────────────────────────

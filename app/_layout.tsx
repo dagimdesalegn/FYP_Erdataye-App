@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
 import { AppStateProvider } from "@/components/app-state";
+import { ModalProvider } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import * as SystemUI from "expo-system-ui";
@@ -44,9 +45,11 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <AppStateProvider>
-        <ThemedRoot />
-      </AppStateProvider>
+      <ModalProvider>
+        <AppStateProvider>
+          <ThemedRoot />
+        </AppStateProvider>
+      </ModalProvider>
     </SafeAreaProvider>
   );
 }

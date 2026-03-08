@@ -2,7 +2,6 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Alert,
     Animated,
     Image,
     Platform,
@@ -10,12 +9,12 @@ import {
     StatusBar,
     StyleSheet,
     TextInput,
-    useWindowDimensions,
     View,
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -30,13 +29,12 @@ export default function LoginScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { setUser, setRegistered } = useAppState();
+  const { showError } = useModal();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ phone: "", password: "" });
-  const { width: windowWidth } = useWindowDimensions();
-  const isSmallScreen = windowWidth < 480;
 
   // Entrance animation
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -107,11 +105,7 @@ export default function LoginScreen() {
       const { user, error } = await signIn("+251" + form.phone, form.password);
       if (error || !user) {
         setLoading(false);
-        if (Platform.OS === "web") {
-          window.alert(error?.message || "Failed to sign in");
-        } else {
-          Alert.alert("Login Failed", error?.message || "Failed to sign in");
-        }
+        showError("Login Failed", error?.message || "Failed to sign in");
         return;
       }
       setUser(user);
@@ -137,11 +131,7 @@ export default function LoginScreen() {
       }, 500);
     } catch (err) {
       setLoading(false);
-      if (Platform.OS === "web") {
-        window.alert(`Login failed: ${String(err)}`);
-      } else {
-        Alert.alert("Error", `Login failed: ${String(err)}`);
-      }
+      showError("Login Failed", `Login failed: ${String(err)}`);
     }
   };
 
