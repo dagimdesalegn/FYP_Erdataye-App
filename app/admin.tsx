@@ -5,27 +5,27 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import {
-  Ambulance,
-  EmergencyRequest,
-  Hospital,
-  normalizeEmergency,
+    Ambulance,
+    EmergencyRequest,
+    Hospital,
+    normalizeEmergency,
 } from "@/utils/emergency";
 import { supabaseAdmin } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    Platform,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 /* ─── Types ───────────────────────────────────────────────────── */
