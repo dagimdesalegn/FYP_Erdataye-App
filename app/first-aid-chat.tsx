@@ -1,16 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    TextInput,
-    View,
+  Animated,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -18,31 +17,15 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    getFirstAidAiResponse,
-    isFirstAidAiConfigured,
+  getFirstAidAiResponse,
+  isFirstAidAiConfigured,
 } from "@/utils/first-aid-ai";
-import {
-    getBotResponse,
-    getWelcomeMessage,
-    Message,
-    QUICK_TOPICS,
-} from "@/utils/first-aid-chatbot";
+import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";
 import { useRouter } from "expo-router";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Simple markdown-to-plain-text bold renderer (renders **text** in bold)
-// ─────────────────────────────────────────────────────────────────────────────
-function MarkdownText({
-  text,
-  style,
-  isDark,
-}: {
-  text: string;
-  style?: object;
-  isDark: boolean;
-}) {
-  // Split by **...** and render alternating plain/bold spans
+// ─── Markdown bold renderer ─────────────────────────────────────────────────
+function MarkdownText({ text, style }: { text: string; style?: object }) {
   const parts = text.split(/\*\*(.*?)\*\*/g);
   return (
     <ThemedText style={style}>
@@ -53,23 +36,19 @@ function MarkdownText({
           </ThemedText>
         ) : (
           part
-        ),
+        )
       )}
     </ThemedText>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Message bubble
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Message bubble ─────────────────────────────────────────────────────────
 function MessageBubble({
   message,
   isDark,
-  onFollowUp,
 }: {
   message: Message;
   isDark: boolean;
-  onFollowUp: (text: string) => void;
 }) {
   const isBot = message.role === "bot";
 
@@ -81,78 +60,47 @@ function MessageBubble({
       ]}
     >
       {isBot && (
-        <View style={[styles.avatar, { backgroundColor: "#DC2626" }]}>
-          <MaterialIcons name="local-hospital" size={14} color="#fff" />
+        <View style={styles.avatar}>
+          <MaterialIcons name="local-hospital" size={16} color="#fff" />
         </View>
       )}
-      <View style={styles.bubbleContent}>
+      <View style={[styles.bubbleContent, !isBot && { alignItems: "flex-end" }]}>
         <View
           style={[
             styles.bubble,
             isBot
               ? [
                   styles.bubbleBot,
-                  isDark ? styles.bubbleBotDark : styles.bubbleBotLight,
+                  {
+                    backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+                    borderColor: isDark ? "#334155" : "#E2E8F0",
+                  },
                 ]
               : [
                   styles.bubbleUser,
-                  isDark ? styles.bubbleUserDark : styles.bubbleUserLight,
+                  {
+                    backgroundColor: "#DC2626",
+                    borderColor: "#B91C1C",
+                  },
                 ],
           ]}
         >
           <MarkdownText
             text={message.text}
-            isDark={isDark}
             style={[
               styles.bubbleText,
               {
-                color: isBot ? (isDark ? "#E2E8F0" : "#0F172A") : "#FFFFFF",
-                fontFamily: Fonts.sans,
+                color: isBot ? (isDark ? "#E2E8F0" : "#1E293B") : "#FFFFFF",
               },
             ]}
           />
         </View>
-
-        {/* Follow-up suggestions */}
-        {isBot &&
-          message.role === "bot" &&
-          message.followUps &&
-          message.followUps.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.followUpRow}
-            >
-              {message.followUps.map((fu) => (
-                <Pressable
-                  key={fu}
-                  onPress={() => onFollowUp(fu)}
-                  style={({ pressed }) => [
-                    styles.followUpChip,
-                    isDark ? styles.followUpChipDark : styles.followUpChipLight,
-                    pressed && { opacity: 0.7, transform: [{ scale: 0.97 }] },
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.followUpText,
-                      { color: isDark ? "#93C5FD" : "#1D4ED8" },
-                    ]}
-                  >
-                    {fu}
-                  </ThemedText>
-                </Pressable>
-              ))}
-            </ScrollView>
-          )}
       </View>
     </View>
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Typing indicator
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Typing indicator ───────────────────────────────────────────────────────
 function TypingIndicator({ isDark }: { isDark: boolean }) {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -174,35 +122,37 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
             useNativeDriver: true,
           }),
           Animated.delay(600),
-        ]),
+        ])
       );
-
     const a1 = animate(dot1, 0);
     const a2 = animate(dot2, 150);
     const a3 = animate(dot3, 300);
     a1.start();
     a2.start();
     a3.start();
-    return () => {
-      a1.stop();
-      a2.stop();
-      a3.stop();
-    };
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
   }, [dot1, dot2, dot3]);
 
   const dotColor = isDark ? "#64748B" : "#94A3B8";
 
   return (
     <View style={[styles.bubbleRow, styles.bubbleRowBot]}>
-      <View style={[styles.avatar, { backgroundColor: "#DC2626" }]}>
-        <MaterialIcons name="local-hospital" size={14} color="#fff" />
+      <View style={styles.avatar}>
+        <MaterialIcons name="local-hospital" size={16} color="#fff" />
       </View>
       <View
         style={[
           styles.bubble,
           styles.bubbleBot,
-          isDark ? styles.bubbleBotDark : styles.bubbleBotLight,
-          styles.typingBubble,
+          {
+            backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
+            borderColor: isDark ? "#334155" : "#E2E8F0",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            paddingHorizontal: 18,
+            paddingVertical: 14,
+          },
         ]}
       >
         {[dot1, dot2, dot3].map((dot, i) => (
@@ -219,9 +169,7 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main chat screen
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Main chat screen ───────────────────────────────────────────────────────
 export default function FirstAidChatScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -231,18 +179,20 @@ export default function FirstAidChatScreen() {
   const aiConfigured = isFirstAidAiConfigured();
 
   const [lang, setLang] = useState<Lang>("en");
-  const [messages, setMessages] = useState<Message[]>([
-    getWelcomeMessage("en"),
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-
   const flatListRef = useRef<FlatList>(null);
 
+  const bg = isDark ? "#0F172A" : "#F8FAFC";
+  const headerBg = isDark ? "#1E293B" : "#FFFFFF";
+  const borderClr = isDark ? "#334155" : "#E2E8F0";
+  const inputBg = isDark ? "#1E293B" : "#FFFFFF";
+  const textClr = isDark ? "#F1F5F9" : "#0F172A";
+  const mutedClr = isDark ? "#64748B" : "#94A3B8";
+
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   }, []);
 
   const sendMessage = useCallback(
@@ -258,12 +208,8 @@ export default function FirstAidChatScreen() {
       scrollToBottom();
 
       const fetchReply = async () => {
-        const aiReply = await getFirstAidAiResponse(
-          trimmed,
-          historyForReply,
-          lang,
-        );
-        const botMsg = aiReply ?? getBotResponse(trimmed, lang);
+        const aiReply = await getFirstAidAiResponse(trimmed, historyForReply, lang);
+        const botMsg: Message = aiReply ?? getBotResponse(trimmed, lang);
         setMessages((prev) => [...prev, botMsg]);
         setIsTyping(false);
         scrollToBottom();
@@ -271,243 +217,171 @@ export default function FirstAidChatScreen() {
 
       void fetchReply();
     },
-    [isTyping, messages, scrollToBottom, lang],
-  );
-
-  const handleFollowUp = useCallback(
-    (text: string) => {
-      sendMessage(text);
-    },
-    [sendMessage],
-  );
-
-  const handleQuickTopic = useCallback(
-    (keywords: string[]) => {
-      sendMessage(keywords[0]);
-    },
-    [sendMessage],
+    [isTyping, messages, scrollToBottom, lang]
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: bg }]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-      {/* Header */}
+      {/* ── Header ── */}
       <View
         style={[
           styles.header,
           {
-            paddingTop: insets.top + 8,
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
+            paddingTop: insets.top + 10,
+            backgroundColor: headerBg,
+            borderBottomColor: borderClr,
+            shadowColor: isDark ? "#000" : "#94A3B8",
           },
         ]}
       >
         <Pressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [
+            styles.backBtn,
+            { backgroundColor: isDark ? "#334155" : "#F1F5F9" },
+            pressed && { opacity: 0.7 },
+          ]}
         >
-          <MaterialIcons name="arrow-back" size={22} color={colors.text} />
+          <MaterialIcons name="arrow-back" size={20} color={textClr} />
         </Pressable>
 
         <View style={styles.headerCenter}>
           <View style={styles.headerIcon}>
-            <MaterialIcons name="local-hospital" size={18} color="#fff" />
+            <MaterialIcons name="local-hospital" size={20} color="#fff" />
           </View>
-          <View>
-            <ThemedText style={styles.headerTitle}>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={[styles.headerTitle, { color: textClr }]}>
               First Aid Assistant
             </ThemedText>
-            <ThemedText style={[styles.headerSub, { color: colors.textMuted }]}>
-              {aiConfigured
-                ? "WHO guidelines | AI enabled"
-                : "WHO guidelines | offline backup mode"}
-            </ThemedText>
+            <View style={styles.statusRow}>
+              <View style={styles.onlineDot} />
+              <ThemedText style={[styles.headerSub, { color: mutedClr }]}>
+                {aiConfigured ? "AI Powered" : "Offline Mode"}
+              </ThemedText>
+            </View>
           </View>
         </View>
 
-        <View style={styles.headerRight}>
-          {/* Language switcher */}
-          <View style={styles.langRow}>
-            {(["en", "am", "om"] as Lang[]).map((l) => (
-              <Pressable
-                key={l}
-                onPress={() => {
-                  if (l !== lang) {
-                    setLang(l);
-                    setMessages([getWelcomeMessage(l)]);
-                  }
-                }}
+        {/* Language pills */}
+        <View style={styles.langRow}>
+          {(["en", "am", "om"] as Lang[]).map((l) => (
+            <Pressable
+              key={l}
+              onPress={() => {
+                if (l !== lang) {
+                  setLang(l);
+                  setMessages([]);
+                }
+              }}
+              style={[
+                styles.langChip,
+                {
+                  backgroundColor: l === lang ? "#DC2626" : isDark ? "#334155" : "#F1F5F9",
+                  borderColor: l === lang ? "#DC2626" : borderClr,
+                },
+              ]}
+            >
+              <ThemedText
                 style={[
-                  styles.langChip,
-                  {
-                    backgroundColor:
-                      l === lang ? "#DC2626" : isDark ? "#1E2028" : "#F1F5F9",
-                    borderColor:
-                      l === lang ? "#DC2626" : isDark ? "#334155" : "#E2E8F0",
-                  },
+                  styles.langChipText,
+                  { color: l === lang ? "#fff" : mutedClr },
                 ]}
               >
-                <ThemedText
-                  style={[
-                    styles.langChipText,
-                    {
-                      color:
-                        l === lang ? "#fff" : isDark ? "#94A3B8" : "#64748B",
-                    },
-                  ]}
-                >
-                  {LANG_LABELS[l]}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </View>
-          <View style={[styles.onlineDot, { backgroundColor: "#10B981" }]} />
+                {LANG_LABELS[l]}
+              </ThemedText>
+            </Pressable>
+          ))}
         </View>
       </View>
 
-      {/* WHO disclaimer banner */}
+      {/* ── Disclaimer ── */}
       <View
         style={[
-          styles.disclaimerBanner,
+          styles.disclaimer,
           {
             backgroundColor: isDark ? "#1C0A0A" : "#FEF2F2",
-            borderColor: isDark ? "#7F1D1D" : "#FECACA",
+            borderBottomColor: isDark ? "#7F1D1D" : "#FECACA",
           },
         ]}
       >
-        <MaterialIcons name="warning" size={14} color="#DC2626" />
+        <MaterialIcons name="warning-amber" size={16} color="#DC2626" />
         <ThemedText
-          style={[
-            styles.disclaimerText,
-            { color: isDark ? "#FCA5A5" : "#B91C1C" },
-          ]}
+          style={[styles.disclaimerText, { color: isDark ? "#FCA5A5" : "#B91C1C" }]}
         >
-          Life-threatening emergency? Call 911 immediately. This chatbot
-          provides guidance only.
+          Life-threatening emergency? Call 911 immediately.
         </ThemedText>
       </View>
 
-      {/* Quick topic pills (shown only at start) */}
-      {messages.length <= 1 && (
-        <View
-          style={[
-            styles.quickTopicsWrap,
-            { borderBottomColor: isDark ? "#1E2028" : "#EEF2F6" },
-          ]}
-        >
-          <ThemedText
-            style={[
-              styles.quickTopicsLabel,
-              { color: isDark ? "#64748B" : "#94A3B8" },
-            ]}
-          >
-            Quick topics
-          </ThemedText>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.quickTopicsScroll}
-          >
-            {QUICK_TOPICS.map((topic) => (
-              <Pressable
-                key={topic.id}
-                onPress={() => handleQuickTopic(topic.keywords)}
-                style={({ pressed }) => [
-                  styles.quickTopicChip,
-                  isDark
-                    ? styles.quickTopicChipDark
-                    : styles.quickTopicChipLight,
-                  pressed && { opacity: 0.75, transform: [{ scale: 0.96 }] },
-                ]}
-              >
-                <MaterialIcons
-                  name={topic.icon as any}
-                  size={14}
-                  color={isDark ? "#F87171" : "#DC2626"}
-                />
-                <ThemedText
-                  style={[
-                    styles.quickTopicText,
-                    { color: isDark ? "#F87171" : "#DC2626" },
-                  ]}
-                >
-                  {topic.label}
-                </ThemedText>
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Message list */}
+      {/* ── Chat area ── */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
-        <View
-          style={[
-            styles.chatPanel,
-            {
-              backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
-              borderColor: isDark ? "#1F2937" : "#E2E8F0",
-            },
-          ]}
-        >
+        {messages.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <MaterialIcons name="local-hospital" size={40} color="#DC2626" />
+            </View>
+            <ThemedText style={[styles.emptyTitle, { color: textClr }]}>
+              {UI[lang].headerTitle}
+            </ThemedText>
+            <ThemedText style={[styles.emptySub, { color: mutedClr }]}>
+              {UI[lang].inputPlaceholder}
+            </ThemedText>
+          </View>
+        ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(_, i) => String(i)}
             renderItem={({ item }) => (
-              <MessageBubble
-                message={item}
-                isDark={isDark}
-                onFollowUp={handleFollowUp}
-              />
+              <MessageBubble message={item} isDark={isDark} />
             )}
-            ListFooterComponent={
-              isTyping ? <TypingIndicator isDark={isDark} /> : null
-            }
-            contentContainerStyle={[
-              styles.messageList,
-              { paddingBottom: 16 + insets.bottom },
-            ]}
+            ListFooterComponent={isTyping ? <TypingIndicator isDark={isDark} /> : null}
+            contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
             onContentSizeChange={scrollToBottom}
             showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
           />
-        </View>
+        )}
 
-        {/* Input bar */}
+        {/* ── Input bar ── */}
         <View
           style={[
             styles.inputBar,
             {
               paddingBottom: Math.max(insets.bottom, 8) + 4,
-              backgroundColor: "transparent",
-              borderTopColor: "transparent",
+              backgroundColor: headerBg,
+              borderTopColor: borderClr,
+              shadowColor: isDark ? "#000" : "#94A3B8",
             },
           ]}
         >
-          <TextInput
+          <View
             style={[
-              styles.textInput,
+              styles.inputWrap,
               {
-                backgroundColor: isDark ? "#1E2028" : "#F1F5F9",
-                color: isDark ? "#E2E8F0" : "#0F172A",
-                borderColor: isDark ? "#334155" : "#CBD5E1",
+                backgroundColor: inputBg,
+                borderColor: borderClr,
               },
             ]}
-            placeholder={UI[lang].inputPlaceholder}
-            placeholderTextColor={isDark ? "#475569" : "#94A3B8"}
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={() => sendMessage(inputText)}
-            returnKeyType="send"
-            multiline
-            maxLength={500}
-            blurOnSubmit={false}
-          />
+          >
+            <TextInput
+              style={[styles.textInput, { color: textClr }]}
+              placeholder={UI[lang].inputPlaceholder}
+              placeholderTextColor={mutedClr}
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={() => sendMessage(inputText)}
+              returnKeyType="send"
+              multiline
+              maxLength={500}
+              blurOnSubmit={false}
+            />
+          </View>
           <Pressable
             onPress={() => sendMessage(inputText)}
             disabled={!inputText.trim() || isTyping}
@@ -518,22 +392,16 @@ export default function FirstAidChatScreen() {
                   inputText.trim() && !isTyping
                     ? "#DC2626"
                     : isDark
-                      ? "#1E2028"
+                      ? "#334155"
                       : "#E2E8F0",
               },
-              pressed && { opacity: 0.8, transform: [{ scale: 0.95 }] },
+              pressed && { opacity: 0.8 },
             ]}
           >
             <MaterialIcons
               name="send"
-              size={18}
-              color={
-                inputText.trim() && !isTyping
-                  ? "#FFFFFF"
-                  : isDark
-                    ? "#475569"
-                    : "#94A3B8"
-              }
+              size={20}
+              color={inputText.trim() && !isTyping ? "#FFFFFF" : mutedClr}
             />
           </Pressable>
         </View>
@@ -542,268 +410,233 @@ export default function FirstAidChatScreen() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Styles
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Styles ─────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
+  root: { flex: 1 },
+
   // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     gap: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 4,
   },
   backBtn: {
-    padding: 4,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerCenter: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#DC2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   headerTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "800",
     fontFamily: Fonts.sans,
+    letterSpacing: -0.3,
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 2,
   },
   headerSub: {
     fontSize: 11,
-    fontWeight: "500",
+    fontWeight: "600",
     fontFamily: Fonts.sans,
-    marginTop: 1,
   },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
+  onlineDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#22C55E",
   },
   langRow: {
     flexDirection: "row",
     gap: 4,
   },
   langChip: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
   },
   langChipText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "800",
     fontFamily: Fonts.sans,
   },
-  onlineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
+
   // Disclaimer
-  disclaimerBanner: {
+  disclaimer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
   },
   disclaimerText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "600",
     fontFamily: Fonts.sans,
     flex: 1,
   },
-  // Quick topics
-  quickTopicsWrap: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    gap: 6,
-  },
-  quickTopicsLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-    paddingHorizontal: 16,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  quickTopicsScroll: {
-    paddingHorizontal: 16,
-    gap: 8,
-    flexDirection: "row",
-  },
-  quickTopicChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  quickTopicChipLight: {
-    backgroundColor: "#FEF2F2",
-    borderColor: "#FECACA",
-  },
-  quickTopicChipDark: {
-    backgroundColor: "#1C0A0A",
-    borderColor: "#7F1D1D",
-  },
-  quickTopicText: {
-    fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-  },
-  // Messages
-  chatPanel: {
+
+  // Empty state
+  emptyState: {
     flex: 1,
-    marginHorizontal: 12,
-    marginTop: 10,
-    borderRadius: 18,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  messageList: {
-    paddingHorizontal: 14,
-    paddingTop: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 40,
     gap: 12,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    textAlign: "center",
+  },
+  emptySub: {
+    fontSize: 14,
+    fontWeight: "500",
+    fontFamily: Fonts.sans,
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  // Messages
+  messageList: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    gap: 4,
   },
   bubbleRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
-    marginBottom: 8,
+    gap: 10,
+    marginBottom: 12,
   },
-  bubbleRowBot: {
-    justifyContent: "flex-start",
-  },
-  bubbleRowUser: {
-    justifyContent: "flex-end",
-  },
+  bubbleRowBot: { justifyContent: "flex-start" },
+  bubbleRowUser: { justifyContent: "flex-end" },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: "#DC2626",
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    shadowColor: "#DC2626",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   bubbleContent: {
     flex: 1,
-    maxWidth: "88%",
-    gap: 6,
+    maxWidth: "85%",
+    gap: 4,
   },
   bubble: {
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     maxWidth: "100%",
     borderWidth: 1,
   },
   bubbleBot: {
     borderBottomLeftRadius: 4,
   },
-  bubbleBotLight: {
-    backgroundColor: "#F1F5F9",
-    borderColor: "#E2E8F0",
-  },
-  bubbleBotDark: {
-    backgroundColor: "#1E2028",
-    borderColor: "#334155",
-  },
   bubbleUser: {
     borderBottomRightRadius: 4,
     alignSelf: "flex-end",
   },
-  bubbleUserLight: {
-    backgroundColor: "#DC2626",
-    borderColor: "#B91C1C",
-  },
-  bubbleUserDark: {
-    backgroundColor: "#991B1B",
-    borderColor: "#7F1D1D",
-  },
   bubbleText: {
-    fontSize: 13.5,
-    lineHeight: 20,
-  },
-  // Follow-up chips
-  followUpRow: {
-    marginTop: 2,
-  },
-  followUpChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginRight: 6,
-  },
-  followUpChipLight: {
-    backgroundColor: "#EFF6FF",
-    borderColor: "#BFDBFE",
-  },
-  followUpChipDark: {
-    backgroundColor: "#0C1A2E",
-    borderColor: "#1E40AF",
-  },
-  followUpText: {
-    fontSize: 11.5,
-    fontWeight: "700",
+    fontSize: 14,
+    lineHeight: 21,
     fontFamily: Fonts.sans,
   },
+
   // Typing indicator
-  typingBubble: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-  },
   typingDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
+
   // Input bar
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     gap: 10,
+    borderTopWidth: 1,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  inputWrap: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    overflow: "hidden",
   },
   textInput: {
-    flex: 1,
-    borderRadius: 20,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === "ios" ? 10 : 8,
-    fontSize: 14,
+    paddingHorizontal: 18,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    fontSize: 15,
     fontFamily: Fonts.sans,
-    maxHeight: 100,
-    minHeight: 44,
+    maxHeight: 110,
+    minHeight: 46,
   },
   sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    shadowColor: "#DC2626",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });
