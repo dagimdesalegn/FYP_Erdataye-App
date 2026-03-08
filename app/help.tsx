@@ -51,7 +51,10 @@ export default function HelpScreen() {
       const { profile } = await getUserProfile(user.id);
       if (!cancelled && profile) {
         setProfileName(profile.full_name || "");
-        if (profile.full_name !== user.fullName || profile.phone !== user.phone) {
+        if (
+          profile.full_name !== user.fullName ||
+          profile.phone !== user.phone
+        ) {
           setUser({
             ...user,
             fullName: profile.full_name || user.fullName,
@@ -209,7 +212,6 @@ export default function HelpScreen() {
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
         title="Erdataya Ambulance"
-        announcementHref="/modal"
         onProfilePress={() => setProfileOpen(!profileOpen)}
       />
 
@@ -323,6 +325,12 @@ export default function HelpScreen() {
               <ThemedText style={styles.heroTitle}>Live location</ThemedText>
             </View>
           </View>
+
+          <FirstAidFab
+            triggerMode="tag"
+            triggerLabel="Ask Chatbot"
+            anchorStyle={styles.chatbotTagAnchor}
+          />
 
           <View
             style={[
@@ -721,7 +729,6 @@ export default function HelpScreen() {
           </View>
         ) : null}
       </View>
-      <FirstAidFab />
     </View>
   );
 }
@@ -739,6 +746,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 24,
     elevation: 8,
+  },
+  chatbotTagAnchor: {
+    top: 12,
+    right: 12,
+    zIndex: 60,
   },
   heroTopRow: {
     flexDirection: "row",
