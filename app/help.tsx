@@ -13,13 +13,14 @@ import { getActiveEmergency, type PatientEmergency } from "@/utils/patient";
 import { getUserProfile } from "@/utils/profile";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import { Linking, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HelpScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const { user, setUser } = useAppState();
@@ -33,12 +34,21 @@ export default function HelpScreen() {
   const [activeEmergencyId, setActiveEmergencyId] = React.useState<
     string | null
   >(null);
+  const initialLat = Number(params.lat);
+  const initialLng = Number(params.lng);
+  const hasInitialLocation =
+    Number.isFinite(initialLat) && Number.isFinite(initialLng);
+
   const [currentLocation, setCurrentLocation] = React.useState<{
     latitude: number;
     longitude: number;
-  } | null>(null);
+  } | null>(
+    hasInitialLocation
+      ? { latitude: initialLat, longitude: initialLng }
+      : null,
+  );
   const [locationError, setLocationError] = React.useState<string | null>(null);
-  const [locationLoading, setLocationLoading] = React.useState(true);
+  const [locationLoading, setLocationLoading] = React.useState(!hasInitialLocation);
   const [profileName, setProfileName] = React.useState<string>(
     user?.fullName || "",
   );
@@ -94,22 +104,45 @@ export default function HelpScreen() {
     const loadCurrentLocation = async () => {
       try {
         setLocationLoading(true);
-        // Show pre-permission explanation
-        showAlert(
-          "📍 Share Your Location?",
-          "Your location helps us route ambulances to you faster and show nearby hospitals. It's only used for emergencies.",
-        );
+
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        if (!servicesEnabled) {
+          if (!cancelled) {
+            setLocationError("Location services are off. Please enable GPS.");
+          }
+          return;
+        }
 
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
           if (!cancelled) {
             setLocationError("Enable location in settings to see nearby help.");
-            setCurrentLocation(null);
           }
           return;
         }
+
+        if (Platform.OS === "android") {
+          try {
+            await Location.enableNetworkProviderAsync();
+          } catch {
+            // Ignore provider prompt cancellation; GPS may still resolve.
+          }
+        }
+
+        const lastKnown = await Location.getLastKnownPositionAsync({
+          maxAge: 1000 * 60 * 10,
+        });
+        if (!cancelled && lastKnown) {
+          setCurrentLocation({
+            latitude: lastKnown.coords.latitude,
+            longitude: lastKnown.coords.longitude,
+          });
+          setLocationError(null);
+        }
+
         const position = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
+          mayShowUserSettingsDialog: true,
         });
         if (!cancelled) {
           setCurrentLocation({
@@ -120,8 +153,11 @@ export default function HelpScreen() {
         }
       } catch {
         if (!cancelled) {
-          setLocationError("Unable to read current location.");
-          setCurrentLocation(null);
+          setLocationError(
+            currentLocation
+              ? "Using available location. Waiting for GPS update."
+              : "Unable to read current location.",
+          );
         }
       } finally {
         if (!cancelled) setLocationLoading(false);
