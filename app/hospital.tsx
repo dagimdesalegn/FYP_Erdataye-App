@@ -899,7 +899,7 @@ const infoStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   bg: { flex: 1 },
   scrollOuter: { flex: 1 },
-  scrollContent: { paddingBottom: 60 },
+  scrollContent: { paddingTop: 16, paddingBottom: 60 },
   container: {
     paddingHorizontal: 16,
     maxWidth: 900,
