@@ -172,7 +172,7 @@ export default function EmergencyScreen() {
 
   useEffect(() => {
     getUserLocation();
-  }, []);
+  }, [getUserLocation]);
 
   return (
     <ThemedView style={styles.container}>
