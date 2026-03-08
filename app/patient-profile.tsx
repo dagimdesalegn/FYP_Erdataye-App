@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import {
     Alert,
     Animated,
@@ -27,8 +27,8 @@ import {
     updateUserProfile,
     upsertMedicalProfile,
 } from "@/utils/profile";
-import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 
 interface PatientProfileForm {
   fullName: string;
@@ -95,7 +95,7 @@ export default function PatientProfileScreen() {
   useFocusEffect(
     React.useCallback(() => {
       void loadPatientData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id]),
   );
 
@@ -156,11 +156,7 @@ export default function PatientProfileScreen() {
 
   const formatPhoneForDB = (phone: string): string => {
     if (!phone) return "";
-    let digits = phone.replace(/[^0-9]/g, "");
-    if (digits.startsWith("0") && digits.length === 10)
-      digits = "251" + digits.substring(1);
-    if (digits.length === 9 && digits.startsWith("9")) digits = "251" + digits;
-    return "+" + digits;
+    return phone.replace(/[^0-9]/g, "");
   };
 
   const handleSave = async () => {
