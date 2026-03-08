@@ -22,7 +22,7 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
-  Platform,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -114,7 +114,9 @@ export default function MapScreen() {
         }).catch(() => null);
         if (fallbackLocation) {
           setLocation(fallbackLocation);
-          setLocationError("GPS signal is weak. Using lower-accuracy location.");
+          setLocationError(
+            "GPS signal is weak. Using lower-accuracy location.",
+          );
           return fallbackLocation;
         }
 

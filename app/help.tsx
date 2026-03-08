@@ -43,12 +43,11 @@ export default function HelpScreen() {
     latitude: number;
     longitude: number;
   } | null>(
-    hasInitialLocation
-      ? { latitude: initialLat, longitude: initialLng }
-      : null,
+    hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
   );
   const [locationError, setLocationError] = React.useState<string | null>(null);
-  const [locationLoading, setLocationLoading] = React.useState(!hasInitialLocation);
+  const [locationLoading, setLocationLoading] =
+    React.useState(!hasInitialLocation);
   const [profileName, setProfileName] = React.useState<string>(
     user?.fullName || "",
   );
