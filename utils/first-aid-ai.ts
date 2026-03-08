@@ -1,15 +1,17 @@
 import type { BotMessage, Message } from './first-aid-chatbot';
-import { type Lang, MIN_REPLY_FOLLOWUPS, SYSTEM_PROMPTS } from './i18n-first-aid';
+import { type Lang, SYSTEM_PROMPTS } from './i18n-first-aid';
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'openai/gpt-4o-mini';
+const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+const DEEPSEEK_MODEL = 'deepseek-chat';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const isFirstAidAiConfigured = (): boolean =>
-  Boolean((process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? '').trim());
+const getApiKey = (): string =>
+  (process.env.EXPO_PUBLIC_DEEPSEEK_API_KEY ?? '').trim();
 
-const toOpenRouterRole = (role: Message['role']): 'assistant' | 'user' =>
+export const isFirstAidAiConfigured = (): boolean => Boolean(getApiKey());
+
+const toChatRole = (role: Message['role']): 'assistant' | 'user' =>
   role === 'bot' ? 'assistant' : 'user';
 
 export const getFirstAidAiResponse = async (
@@ -17,33 +19,29 @@ export const getFirstAidAiResponse = async (
   history: Message[],
   lang: Lang = 'en'
 ): Promise<BotMessage | null> => {
-  const apiKey = (process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ?? '').trim();
-  const model = (process.env.EXPO_PUBLIC_OPENROUTER_MODEL ?? DEFAULT_MODEL).trim();
-
+  const apiKey = getApiKey();
   if (!apiKey) return null;
 
   const contextMessages = history.slice(-8).map((msg) => ({
-    role: toOpenRouterRole(msg.role),
+    role: toChatRole(msg.role),
     content: msg.text,
   }));
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 18000);
+  const timeout = setTimeout(() => controller.abort(), 25000);
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(OPENROUTER_API_URL, {
+    const response = await fetch(DEEPSEEK_API_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://erdataya.app',
-        'X-Title': 'Erdataya First Aid Assistant',
       },
       body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        max_tokens: 500,
+        model: DEEPSEEK_MODEL,
+        temperature: 0.3,
+        max_tokens: 600,
         messages: [
           { role: 'system', content: SYSTEM_PROMPTS[lang].trim() },
           ...contextMessages,
@@ -55,7 +53,7 @@ export const getFirstAidAiResponse = async (
 
     if (!response.ok) {
       const errText = await response.text().catch(() => '');
-      console.warn(`OpenRouter error ${response.status}: ${errText}`);
+      console.warn(`DeepSeek error ${response.status}: ${errText}`);
       return null;
     }
 
@@ -73,10 +71,9 @@ export const getFirstAidAiResponse = async (
     return {
       role: 'bot',
       text: replyText,
-      followUps: MIN_REPLY_FOLLOWUPS[lang],
     };
   } catch (error) {
-    console.warn('OpenRouter request failed:', error);
+    console.warn('DeepSeek request failed:', error);
     return null;
   } finally {
     clearTimeout(timeout);
