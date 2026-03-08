@@ -20,6 +20,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { useRouter } from "expo-router";
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 
 const CARD_MAX_W = 440;
 
@@ -202,7 +203,7 @@ export default function LoginScreen() {
           <View style={styles.headerArea}>
             <View style={styles.logoContainer}>
               <Image
-                source={require("@/assets/images/ambulance-favicon.png")}
+                source={ambulanceFavicon}
                 style={styles.logoImage}
                 resizeMode="contain"
               />

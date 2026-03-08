@@ -23,6 +23,7 @@ import { signUp } from "@/utils/auth";
 import { upsertDriverAmbulance } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
+import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 
 const CARD_MAX_W = 420;
 type AppRegistrationRole = "patient" | "driver";
@@ -385,7 +386,7 @@ export default function RegisterScreen() {
           <View style={styles.headerArea}>
             <View style={styles.logoContainer}>
               <Image
-                source={require("@/assets/images/ambulance-favicon.png")}
+                source={ambulanceFavicon}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
