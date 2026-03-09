@@ -16,12 +16,12 @@ import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
-  AppState,
-  Linking,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
+    AppState,
+    Linking,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -227,8 +227,9 @@ export default function HelpScreen() {
         setLocationError(null);
       } catch {
         if (!mounted) return;
-        const servicesEnabled =
-          await Location.hasServicesEnabledAsync().catch(() => false);
+        const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
+          () => false,
+        );
         if (!servicesEnabled) {
           setLocationError("Location services are off. Please enable GPS.");
         }
@@ -282,8 +283,15 @@ export default function HelpScreen() {
 
   const mapSummaryText = React.useMemo(() => {
     if (mapLocation) {
-      const coordText = formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
-      if (mapLocation.sourceLabel === "Current device location" && locationAccuracyMeters) {
+      const coordText = formatCoords(
+        mapLocation.latitude,
+        mapLocation.longitude,
+        6,
+      );
+      if (
+        mapLocation.sourceLabel === "Current device location" &&
+        locationAccuracyMeters
+      ) {
         return `${coordText} · GPS accuracy ±${locationAccuracyMeters}m`;
       }
       return coordText;
