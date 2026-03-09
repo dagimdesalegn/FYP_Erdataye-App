@@ -202,7 +202,9 @@ export const getFirstAidAiResponse = async (
           if (replyText) break;
         } else {
           const errText = await response.text().catch(() => "");
-          console.warn(`OpenRouter error ${response.status} (${model}): ${errText}`);
+          console.warn(
+            `OpenRouter error ${response.status} (${model}): ${errText}`,
+          );
         }
       }
     }
