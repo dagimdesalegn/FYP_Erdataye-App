@@ -15,7 +15,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { Linking, Platform, Pressable, StyleSheet, View } from "react-native";
+import {
+  AppState,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HelpScreen() {
@@ -45,6 +52,9 @@ export default function HelpScreen() {
   } | null>(
     hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
   );
+  const [locationAccuracyMeters, setLocationAccuracyMeters] = React.useState<
+    number | null
+  >(null);
   const [locationError, setLocationError] = React.useState<string | null>(null);
   const [locationLoading, setLocationLoading] =
     React.useState(!hasInitialLocation);
@@ -100,6 +110,22 @@ export default function HelpScreen() {
 
   React.useEffect(() => {
     let cancelled = false;
+    let subscription: Location.LocationSubscription | null = null;
+
+    const applyCoords = (coords: Location.LocationObjectCoords) => {
+      if (cancelled) return;
+      setCurrentLocation({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+      setLocationAccuracyMeters(
+        typeof coords.accuracy === "number"
+          ? Math.round(Math.max(coords.accuracy, 0))
+          : null,
+      );
+      setLocationError(null);
+    };
+
     const loadCurrentLocation = async () => {
       try {
         setLocationLoading(true);
@@ -123,25 +149,26 @@ export default function HelpScreen() {
         const lastKnown = await Location.getLastKnownPositionAsync({
           maxAge: 1000 * 60 * 10,
         });
-        if (!cancelled && lastKnown) {
-          setCurrentLocation({
-            latitude: lastKnown.coords.latitude,
-            longitude: lastKnown.coords.longitude,
-          });
-          setLocationError(null);
+        if (lastKnown) {
+          applyCoords(lastKnown.coords);
         }
 
         const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.Highest,
           mayShowUserSettingsDialog: true,
         });
-        if (!cancelled) {
-          setCurrentLocation({
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          });
-          setLocationError(null);
-        }
+        applyCoords(position.coords);
+
+        // Keep refining location after login so the live map stays accurate.
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Highest,
+            timeInterval: 2500,
+            distanceInterval: 1,
+            mayShowUserSettingsDialog: true,
+          },
+          (next) => applyCoords(next.coords),
+        );
       } catch {
         if (!cancelled) {
           const servicesEnabled =
@@ -161,6 +188,68 @@ export default function HelpScreen() {
     void loadCurrentLocation();
     return () => {
       cancelled = true;
+      subscription?.remove();
+    };
+  }, []);
+
+  React.useEffect(() => {
+    let mounted = true;
+    let lastState = AppState.currentState;
+
+    const refreshLocationOnResume = async () => {
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status !== "granted") return;
+
+        if (Platform.OS === "android") {
+          try {
+            await Location.enableNetworkProviderAsync();
+          } catch {
+            // Ignore provider prompt cancellation on resume.
+          }
+        }
+
+        const fresh = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+          mayShowUserSettingsDialog: true,
+        });
+
+        if (!mounted) return;
+        setCurrentLocation({
+          latitude: fresh.coords.latitude,
+          longitude: fresh.coords.longitude,
+        });
+        setLocationAccuracyMeters(
+          typeof fresh.coords.accuracy === "number"
+            ? Math.round(Math.max(fresh.coords.accuracy, 0))
+            : null,
+        );
+        setLocationError(null);
+      } catch {
+        if (!mounted) return;
+        const servicesEnabled =
+          await Location.hasServicesEnabledAsync().catch(() => false);
+        if (!servicesEnabled) {
+          setLocationError("Location services are off. Please enable GPS.");
+        }
+      }
+    };
+
+    const appStateSubscription = AppState.addEventListener(
+      "change",
+      (nextState) => {
+        const wasBackgrounded =
+          lastState === "background" || lastState === "inactive";
+        if (wasBackgrounded && nextState === "active") {
+          void refreshLocationOnResume();
+        }
+        lastState = nextState;
+      },
+    );
+
+    return () => {
+      mounted = false;
+      appStateSubscription.remove();
     };
   }, []);
 
@@ -192,12 +281,17 @@ export default function HelpScreen() {
   }, [mapLocation]);
 
   const mapSummaryText = React.useMemo(() => {
-    if (mapLocation)
-      return formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
+    if (mapLocation) {
+      const coordText = formatCoords(mapLocation.latitude, mapLocation.longitude, 6);
+      if (mapLocation.sourceLabel === "Current device location" && locationAccuracyMeters) {
+        return `${coordText} · GPS accuracy ±${locationAccuracyMeters}m`;
+      }
+      return coordText;
+    }
     if (locationLoading) return "Getting your current location...";
     if (locationError) return locationError;
     return "No active location is available yet.";
-  }, [locationError, locationLoading, mapLocation]);
+  }, [locationAccuracyMeters, locationError, locationLoading, mapLocation]);
 
   const openInGoogleMaps = () => {
     if (!mapLocation) return;
