@@ -1136,9 +1136,33 @@ const HEALTH_ONLY_RESPONSES: Record<Lang, BotMessage> = {
   },
 };
 
+const ASSISTANT_META_RESPONSES: Record<Lang, BotMessage> = {
+  en: {
+    role: "bot",
+    text: "I am your WHO-based First Aid Assistant. I can guide you through emergency first aid steps for CPR, choking, bleeding, burns, stroke, shock, poisoning, and similar health emergencies.",
+    followUps: ["CPR steps", "Choking first aid", "Bleeding control"],
+  },
+  am: {
+    role: "bot",
+    text: "እኔ በWHO መመሪያ ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ። CPR፣ መታፈን፣ ደም መፍሰስ፣ ቃጠሎ፣ ስትሮክ እና ተመሳሳይ የጤና አደጋዎች ላይ ደረጃ በደረጃ መመሪያ እሰጣለሁ።",
+    followUps: ["CPR ደረጃዎች", "መታፈን እርዳታ", "ደም መፍሰስ መቆጣጠር"],
+  },
+  om: {
+    role: "bot",
+    text: "Ani Gargaaraa Gargaarsa Jalqabaa WHO irratti hundaa'e dha. CPR, ukkaamfamuu, dhiiguu, gubachuu, istirookii fi balaa fayyaa wal-fakkaatan irratti tarkaanfii tarkaanfiidhaan isin qajeelcha.",
+    followUps: ["Tarkaanfii CPR", "Gargaarsa ukkaamfamuu", "Dhiiguu to'achuu"],
+  },
+};
+
 function isHealthRelatedQuery(input: string): boolean {
   const lower = input.toLowerCase().trim();
   return HEALTH_SCOPE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
+function isAssistantMetaQuery(input: string): boolean {
+  return /\b(who are you|who r u|who are u|what are you|what can you do|what happened to you|what happened to u|about you|your role)\b/i.test(
+    input,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1291,6 +1315,11 @@ export function getBotResponse(
     )
   ) {
     return EMERGENCY_RESPONSES[lang];
+  }
+
+  // Allow harmless assistant-identity follow-ups after greetings.
+  if (isAssistantMetaQuery(lower)) {
+    return ASSISTANT_META_RESPONSES[lang];
   }
 
   // Health scope guard: keep the chatbot focused on health and first aid only.
