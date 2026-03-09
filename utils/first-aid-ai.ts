@@ -5,6 +5,24 @@ const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 const GEMINI_MODEL = "gemini-2.0-flash";
 
+const HEALTH_SCOPE_KEYWORDS = [
+  "first aid", "medical", "health", "emergency", "injury", "pain", "bleed", "burn", "fracture", "stroke", "seizure",
+  "poison", "allergy", "choking", "cpr", "heart", "breath", "shock", "wound", "fever", "vomit", "diarrhea", "unconscious",
+  "ሕክምና", "ጤና", "ድንገተኛ", "እርዳታ", "ደም", "ቃጠሎ", "ስብራት", "ስትሮክ",
+  "fayyaa", "gargaarsa", "hatattama", "dhiiguu", "gubachuu", "istirookii", "ukkaamfamuu",
+];
+
+const HEALTH_ONLY_TEXT: Record<Lang, string> = {
+  en: "I can only answer health and first aid questions.",
+  am: "እኔ መመለስ የምችለው ስለ ጤና እና ስለ መጀመሪያ እርዳታ ጥያቄዎች ብቻ ነው።",
+  om: "Ani gaaffii fayyaa fi gargaarsa jalqabaa qofa deebisa.",
+};
+
+const isHealthRelatedQuery = (input: string): boolean => {
+  const lower = input.toLowerCase().trim();
+  return HEALTH_SCOPE_KEYWORDS.some((kw) => lower.includes(kw));
+};
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const getApiKey = (): string =>
@@ -22,6 +40,13 @@ export const getFirstAidAiResponse = async (
 ): Promise<BotMessage | null> => {
   const apiKey = getApiKey();
   if (!apiKey) return null;
+
+  if (!isHealthRelatedQuery(userInput)) {
+    return {
+      role: "bot",
+      text: HEALTH_ONLY_TEXT[lang],
+    };
+  }
 
   const contextMessages = history.slice(-8).map((msg) => ({
     role: toChatRole(msg.role),
@@ -42,7 +67,7 @@ export const getFirstAidAiResponse = async (
       body: JSON.stringify({
         model: GEMINI_MODEL,
         temperature: 0.3,
-        max_tokens: 600,
+        max_tokens: 350,
         messages: [
           { role: "system", content: SYSTEM_PROMPTS[lang].trim() },
           ...contextMessages,

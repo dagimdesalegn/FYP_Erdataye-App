@@ -24,6 +24,8 @@ import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";
 import { useRouter } from "expo-router";
 
+const MIN_TYPING_MS = 1200;
+
 // ─── Markdown bold renderer ─────────────────────────────────────────────────
 function MarkdownText({ text, style }: { text: string; style?: object }) {
   const parts = text.split(/\*\*(.*?)\*\*/g);
@@ -221,15 +223,25 @@ export default function FirstAidChatScreen() {
       scrollToBottom();
 
       const fetchReply = async () => {
-        const aiReply = await getFirstAidAiResponse(
-          trimmed,
-          historyForReply,
-          lang,
-        );
-        const botMsg: Message = aiReply ?? getBotResponse(trimmed, lang);
-        setMessages((prev) => [...prev, botMsg]);
-        setIsTyping(false);
-        scrollToBottom();
+        const typingStartedAt = Date.now();
+        try {
+          const aiReply = await getFirstAidAiResponse(
+            trimmed,
+            historyForReply,
+            lang,
+          );
+          const botMsg: Message = aiReply ?? getBotResponse(trimmed, lang);
+
+          const elapsed = Date.now() - typingStartedAt;
+          if (elapsed < MIN_TYPING_MS) {
+            await new Promise((resolve) => setTimeout(resolve, MIN_TYPING_MS - elapsed));
+          }
+
+          setMessages((prev) => [...prev, botMsg]);
+          scrollToBottom();
+        } finally {
+          setIsTyping(false);
+        }
       };
 
       void fetchReply();

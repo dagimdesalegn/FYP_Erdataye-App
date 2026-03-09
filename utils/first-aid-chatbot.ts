@@ -868,6 +868,36 @@ Maaloo gaaffii keessan barreessaa.`,
 
 const fallbackIndices: Record<Lang, number> = { en: 0, am: 0, om: 0 };
 
+const HEALTH_SCOPE_KEYWORDS = [
+  'first aid', 'medical', 'health', 'emergency', 'injury', 'pain', 'bleed', 'burn', 'fracture', 'stroke', 'seizure',
+  'poison', 'allergy', 'choking', 'cpr', 'heart', 'breath', 'shock', 'wound', 'fever', 'vomit', 'diarrhea', 'unconscious',
+  'ሕክምና', 'ጤና', 'ድንገተኛ', 'እርዳታ', 'ደም', 'ቃጠሎ', 'ስብራት', 'ስትሮክ',
+  'fayyaa', 'gargaarsa', 'hatattama', 'dhiiguu', 'gubachuu', 'istirookii', 'ukkaamfamuu',
+];
+
+const HEALTH_ONLY_RESPONSES: Record<Lang, BotMessage> = {
+  en: {
+    role: 'bot',
+    text: 'I can only answer health and first aid questions. Please ask about symptoms, injuries, or emergency care.',
+    followUps: ['CPR steps', 'Choking first aid', 'Bleeding control'],
+  },
+  am: {
+    role: 'bot',
+    text: 'እኔ መመለስ የምችለው ስለ ጤና እና ስለ መጀመሪያ እርዳታ ጥያቄዎች ብቻ ነው። እባክዎ ስለ ምልክቶች፣ ጉዳቶች ወይም አደጋ ጊዜ እርዳታ ይጠይቁ።',
+    followUps: ['CPR ደረጃዎች', 'መታፈን እርዳታ', 'ደም መፍሰስ መቆጣጠር'],
+  },
+  om: {
+    role: 'bot',
+    text: 'Ani gaaffii fayyaa fi gargaarsa jalqabaa qofa deebisa. Mee waa ee mallattoo, miidhaa, yookiin gargaarsa hatattamaa gaafadhaa.',
+    followUps: ['Tarkaanfii CPR', 'Gargaarsa ukkaamfamuu', 'Dhiiguu to achuu'],
+  },
+};
+
+function isHealthRelatedQuery(input: string): boolean {
+  const lower = input.toLowerCase().trim();
+  return HEALTH_SCOPE_KEYWORDS.some((kw) => lower.includes(kw));
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main response function
 // ─────────────────────────────────────────────────────────────────────────────
@@ -876,38 +906,38 @@ const fallbackIndices: Record<Lang, number> = { en: 0, am: 0, om: 0 };
 const GREETINGS: Record<Lang, BotMessage> = {
   en: {
     role: 'bot',
-    text: `👋 **Hello! I'm your First Aid Assistant, powered by WHO guidelines.**
+    text: `**Hello. I am your First Aid Assistant, powered by WHO guidelines.**
 
-I can guide you through emergency first aid procedures. Ask me about:
+I provide clear emergency first aid guidance. Ask me about:
 • CPR, choking, severe bleeding
 • Burns, fractures, stroke, shock
 • Poisoning, allergic reactions, seizures
 
-💡 *For immediate life-threatening emergencies, call 911 first, then use this chatbot for step-by-step guidance.*`,
+For life-threatening emergencies, call 911 first, then use this chatbot for step-by-step guidance.`,
     followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling bleeding'],
   },
   am: {
     role: 'bot',
-    text: `👋 **ሰላም! እኔ በWHO መመሪያዎች ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ።**
+    text: `**ሰላም! እኔ በWHO መመሪያዎች ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ።**
 
 በድንገተኛ የመጀመሪያ እርዳታ ሂደቶች ልመራዎት እችላለሁ። ስለ እነዚህ ይጠይቁኝ፡
 • CPR፣ መታፈን፣ ከባድ ደም መፍሰስ
 • ቃጠሎ፣ ስብራት፣ ስትሮክ፣ ሾክ
 • መመረዝ፣ አለርጂ፣ መንቀጥቀጥ
 
-💡 *ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ መጀመሪያ 911 ይደውሉ።*`,
+ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ መጀመሪያ 911 ይደውሉ።`,
     followUps: ['CPR እንዴት ይደረጋል?', 'የስትሮክ ምልክቶች', 'ደም መፍሰስ መቆጣጠር'],
   },
   om: {
     role: 'bot',
-    text: `👋 **Akkam! Ani Gargaaraa Gargaarsa Jalqabaa qajeelfama WHO irratti hundaa'e dha.**
+    text: `**Akkam! Ani Gargaaraa Gargaarsa Jalqabaa qajeelfama WHO irratti hundaa'e dha.**
 
 Adeemsa gargaarsa jalqabaa hatattamaa keessatti isin qajeelchuu nan danda'a. Waa'ee kanneenii na gaafadhaa:
 • CPR, ukkaamfamuu, dhiiguu cimaa
 • Gubachuu, caccabsuu, istirookii, shookii
 • Summaa'uu, alarjii, hollachuu
 
-💡 *Balaa lubbuu balaa irra buusuuf, dursa 911 bilbiladhaa.*`,
+Balaa lubbuu balaa irra buusuuf, dursa 911 bilbiladhaa.`,
     followUps: ['CPR akkamiin hojjatama?', 'Mallattoo istirookii', 'Dhiiguu to\'achuu'],
   },
 };
@@ -993,6 +1023,11 @@ export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage
     return EMERGENCY_RESPONSES[lang];
   }
 
+  // Health scope guard: keep the chatbot focused on health and first aid only.
+  if (!isHealthRelatedQuery(lower)) {
+    return HEALTH_ONLY_RESPONSES[lang];
+  }
+
   // Search the knowledge base (English KB — for non-English, the AI handles translation)
   for (const entry of KB) {
     const matched = entry.keywords.some((kw) => lower.includes(kw));
@@ -1026,7 +1061,7 @@ export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage
 const WELCOME_MESSAGES: Record<Lang, BotMessage> = {
   en: {
     role: 'bot',
-    text: `👋 **Welcome to the Erdataya First Aid Chatbot!**
+    text: `**Welcome to the Erdataya First Aid Chatbot.**
 
 I provide first aid guidance based on **World Health Organization (WHO)** guidelines and Ethiopian Ministry of Health protocols.
 
@@ -1047,7 +1082,7 @@ I can help you with:
   },
   am: {
     role: 'bot',
-    text: `👋 **እንኳን ወደ Erdataya የመጀመሪያ እርዳታ ቻትቦት በደህና መጡ!**
+    text: `**እንኳን ወደ Erdataya የመጀመሪያ እርዳታ ቻትቦት በደህና መጡ!**
 
 በ**የዓለም ጤና ድርጅት (WHO)** መመሪያዎች እና በኢትዮጵያ ጤና ሚኒስቴር ፕሮቶኮሎች ላይ ተመስርቼ የመጀመሪያ እርዳታ መመሪያ እሰጣለሁ።
 
@@ -1068,7 +1103,7 @@ I can help you with:
   },
   om: {
     role: 'bot',
-    text: `👋 **Baga gara Chatbot Gargaarsa Jalqabaa Erdataya nagaan dhuftan!**
+    text: `**Baga gara Chatbot Gargaarsa Jalqabaa Erdataya nagaan dhuftan!**
 
 Qajeelfama **Dhaabbata Fayyaa Addunyaa (WHO)** fi Pirootokoolii Ministeera Fayyaa Itoophiyaa irratti hundaa'uudhaan qajeelfama gargaarsa jalqabaa nan kenna.
 
