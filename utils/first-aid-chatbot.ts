@@ -8,7 +8,7 @@
  * (dial 911) immediately in life-threatening situations.
  */
 
-import type { Lang } from './i18n-first-aid';
+import type { Lang } from "./i18n-first-aid";
 
 export interface ChatTopic {
   id: string;
@@ -18,13 +18,13 @@ export interface ChatTopic {
 }
 
 export interface BotMessage {
-  role: 'bot';
+  role: "bot";
   text: string;
   followUps?: string[];
 }
 
 export interface UserMessage {
-  role: 'user';
+  role: "user";
   text: string;
 }
 
@@ -34,14 +34,34 @@ export type Message = BotMessage | UserMessage;
 // Quick-access topic suggestions shown on chat start
 // ─────────────────────────────────────────────────────────────────────────────
 export const QUICK_TOPICS: ChatTopic[] = [
-  { id: 'cpr', label: 'CPR', keywords: ['cpr'], icon: 'favorite' },
-  { id: 'bleeding', label: 'Bleeding', keywords: ['bleed'], icon: 'water-drop' },
-  { id: 'choking', label: 'Choking', keywords: ['chok'], icon: 'air' },
-  { id: 'burns', label: 'Burns', keywords: ['burn'], icon: 'local-fire-department' },
-  { id: 'stroke', label: 'Stroke', keywords: ['stroke'], icon: 'psychology' },
-  { id: 'fracture', label: 'Fracture', keywords: ['fractur', 'broken bone'], icon: 'accessibility' },
-  { id: 'poisoning', label: 'Poisoning', keywords: ['poison'], icon: 'warning' },
-  { id: 'shock', label: 'Shock', keywords: ['shock'], icon: 'flash-on' },
+  { id: "cpr", label: "CPR", keywords: ["cpr"], icon: "favorite" },
+  {
+    id: "bleeding",
+    label: "Bleeding",
+    keywords: ["bleed"],
+    icon: "water-drop",
+  },
+  { id: "choking", label: "Choking", keywords: ["chok"], icon: "air" },
+  {
+    id: "burns",
+    label: "Burns",
+    keywords: ["burn"],
+    icon: "local-fire-department",
+  },
+  { id: "stroke", label: "Stroke", keywords: ["stroke"], icon: "psychology" },
+  {
+    id: "fracture",
+    label: "Fracture",
+    keywords: ["fractur", "broken bone"],
+    icon: "accessibility",
+  },
+  {
+    id: "poisoning",
+    label: "Poisoning",
+    keywords: ["poison"],
+    icon: "warning",
+  },
+  { id: "shock", label: "Shock", keywords: ["shock"], icon: "flash-on" },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,7 +76,16 @@ interface KBEntry {
 const KB: KBEntry[] = [
   // ── CPR / Cardiac Arrest ────────────────────────────────────────────────
   {
-    keywords: ['cpr', 'cardiac arrest', 'heart attack', 'heart stop', 'not breathing', 'unconscious', 'no pulse', 'resuscitat'],
+    keywords: [
+      "cpr",
+      "cardiac arrest",
+      "heart attack",
+      "heart stop",
+      "not breathing",
+      "unconscious",
+      "no pulse",
+      "resuscitat",
+    ],
     response: `🫀 **CPR (Cardiopulmonary Resuscitation) — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY before starting CPR.**
@@ -76,12 +105,16 @@ const KB: KBEntry[] = [
 8. **Continue** until: professional help arrives, an AED is available, the person shows signs of life, or you are too exhausted to continue.
 
 ⚠️ *This information follows WHO Basic Emergency Care (BEC) guidelines. Professional training is strongly recommended.*`,
-    followUps: ['How to use an AED?', 'CPR for children', 'How do I know if CPR is working?'],
+    followUps: [
+      "How to use an AED?",
+      "CPR for children",
+      "How do I know if CPR is working?",
+    ],
   },
 
   // ── AED ─────────────────────────────────────────────────────────────────
   {
-    keywords: ['aed', 'defibrillat'],
+    keywords: ["aed", "defibrillat"],
     response: `⚡ **Using an AED (Automated External Defibrillator)**
 
 **CALL 911 FIRST. Continue CPR until the AED is ready.**
@@ -96,12 +129,18 @@ const KB: KBEntry[] = [
 7. **If no shock advised** — resume CPR immediately.
 
 Keep the AED on and follow voice prompts. It will guide you automatically.`,
-    followUps: ['Back to CPR steps', 'CPR for children'],
+    followUps: ["Back to CPR steps", "CPR for children"],
   },
 
   // ── CPR Children ─────────────────────────────────────────────────────────
   {
-    keywords: ['cpr child', 'infant cpr', 'baby cpr', 'child resuscitat', 'pediatric cpr'],
+    keywords: [
+      "cpr child",
+      "infant cpr",
+      "baby cpr",
+      "child resuscitat",
+      "pediatric cpr",
+    ],
     response: `👶 **CPR for Children (1–8 years) & Infants (under 1 year)**
 
 **CALL 911 FIRST.**
@@ -119,12 +158,20 @@ Keep the AED on and follow voice prompts. It will guide you automatically.`,
 • 30 compressions → 2 very gentle puffs (enough to see chest rise).
 
 Give 5 initial rescue breaths before starting compressions for children/infants, if you are trained.`,
-    followUps: ['Adult CPR steps', 'Choking in children'],
+    followUps: ["Adult CPR steps", "Choking in children"],
   },
 
   // ── Severe Bleeding ──────────────────────────────────────────────────────
   {
-    keywords: ['bleed', 'haemorrhag', 'hemorrhag', 'blood loss', 'cut', 'wound', 'lacerat'],
+    keywords: [
+      "bleed",
+      "haemorrhag",
+      "hemorrhag",
+      "blood loss",
+      "cut",
+      "wound",
+      "lacerat",
+    ],
     response: `🩸 **Controlling Severe Bleeding — WHO Guidelines**
 
 **CALL 911 for life-threatening bleeding.**
@@ -140,12 +187,12 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 8. **Monitor** for signs of shock: pale/cold/clammy skin, rapid weak pulse, confusion.
 
 ⚠️ *Do NOT remove an embedded object from a wound — apply pressure around it instead.*`,
-    followUps: ['Signs of shock', 'Wound care & infection', 'Nosebleed'],
+    followUps: ["Signs of shock", "Wound care & infection", "Nosebleed"],
   },
 
   // ── Nosebleed ────────────────────────────────────────────────────────────
   {
-    keywords: ['nosebleed', 'nose bleed', 'epistaxis'],
+    keywords: ["nosebleed", "nose bleed", "epistaxis"],
     response: `👃 **Nosebleed First Aid**
 
 1. **Sit upright** and **lean slightly forward** (not backward — avoids swallowing blood).
@@ -159,12 +206,18 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 • Caused by a head injury.
 • There is a large amount of blood loss.
 • The person is on blood thinners.`,
-    followUps: ['Controlling severe bleeding', 'Head injury'],
+    followUps: ["Controlling severe bleeding", "Head injury"],
   },
 
   // ── Choking ─────────────────────────────────────────────────────────────
   {
-    keywords: ['chok', 'airway obstruct', 'can\'t breathe', 'heimlich', 'foreign body airway'],
+    keywords: [
+      "chok",
+      "airway obstruct",
+      "can't breathe",
+      "heimlich",
+      "foreign body airway",
+    ],
     response: `🫁 **Choking — WHO/ILCOR Guidelines**
 
 **CALL 911 if the person cannot cough, speak, or breathe.**
@@ -185,12 +238,18 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 **Infants (under 1 year):**
 • 5 back blows (face-down on your forearm).
 • 5 chest thrusts (2 fingers on lower half of breastbone, face-up on your forearm).`,
-    followUps: ['CPR steps', 'Choking in infants'],
+    followUps: ["CPR steps", "Choking in infants"],
   },
 
   // ── Burns ────────────────────────────────────────────────────────────────
   {
-    keywords: ['burn', 'scald', 'fire injury', 'thermal injury', 'chemical burn'],
+    keywords: [
+      "burn",
+      "scald",
+      "fire injury",
+      "thermal injury",
+      "chemical burn",
+    ],
     response: `🔥 **Burns First Aid — WHO Guidelines**
 
 **CALL 911 for large, deep, or chemical burns.**
@@ -214,12 +273,20 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 • Caused by chemicals, electricity, or inhalation.
 
 **Electrical burns:** Always seek emergency care — internal damage may not be visible.`,
-    followUps: ['Wound care & infection', 'Signs of shock'],
+    followUps: ["Wound care & infection", "Signs of shock"],
   },
 
   // ── Stroke ───────────────────────────────────────────────────────────────
   {
-    keywords: ['stroke', 'brain attack', 'facial droop', 'face drooping', 'arm weakness', 'slurred speech', 'fast sign'],
+    keywords: [
+      "stroke",
+      "brain attack",
+      "facial droop",
+      "face drooping",
+      "arm weakness",
+      "slurred speech",
+      "fast sign",
+    ],
     response: `🧠 **Stroke Recognition & First Aid — WHO/FAST**
 
 **⏱️ Time is brain! CALL 911 IMMEDIATELY.**
@@ -241,12 +308,19 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 6. Note the exact time symptoms started — critical for treatment decisions.
 
 ⚠️ *Clot-busting treatments work best within 4.5 hours of symptom onset. Speed saves lives.*`,
-    followUps: ['Recovery position', 'CPR steps'],
+    followUps: ["Recovery position", "CPR steps"],
   },
 
   // ── Heart Attack ─────────────────────────────────────────────────────────
   {
-    keywords: ['heart attack', 'myocardial infarct', 'mi ', 'chest pain', 'chest tightness', 'chest pressure'],
+    keywords: [
+      "heart attack",
+      "myocardial infarct",
+      "mi ",
+      "chest pain",
+      "chest tightness",
+      "chest pressure",
+    ],
     response: `❤️ **Heart Attack First Aid — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY.**
@@ -266,12 +340,19 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 7. **Do NOT** leave the person alone.
 
 ⚠️ *Do not give aspirin if they're already taking blood thinners, are under 16, or have aspirin allergy.*`,
-    followUps: ['CPR steps', 'Signs of shock'],
+    followUps: ["CPR steps", "Signs of shock"],
   },
 
   // ── Fractures / Broken Bones ────────────────────────────────────────────
   {
-    keywords: ['fractur', 'broken bone', 'broken arm', 'broken leg', 'sprain', 'dislocat'],
+    keywords: [
+      "fractur",
+      "broken bone",
+      "broken arm",
+      "broken leg",
+      "sprain",
+      "dislocat",
+    ],
     response: `🦴 **Fractures & Broken Bones — WHO First Aid**
 
 **CALL 911 for open fractures, spine injuries, or loss of sensation.**
@@ -293,12 +374,20 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 • Open fractures (bone visible or wound near fracture).
 • Suspected spine, pelvis, or femur fractures.
 • Numbness, tingling, or loss of movement below the injury.`,
-    followUps: ['Signs of shock', 'Wound care & infection'],
+    followUps: ["Signs of shock", "Wound care & infection"],
   },
 
   // ── Poisoning ────────────────────────────────────────────────────────────
   {
-    keywords: ['poison', 'overdos', 'toxic', 'ingested', 'swallow chemical', 'drug overdose', 'alcohol overdose'],
+    keywords: [
+      "poison",
+      "overdos",
+      "toxic",
+      "ingested",
+      "swallow chemical",
+      "drug overdose",
+      "alcohol overdose",
+    ],
     response: `☠️ **Poisoning First Aid — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY. Also contact your local Poison Control Centre.**
@@ -319,12 +408,22 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 **Ethiopia Poison Helpline:** Contact St. Paul's Hospital or Black Lion Hospital.
 
 ⚠️ *Keep all medications locked away from children.*`,
-    followUps: ['CPR steps', 'Recovery position', 'Signs of shock'],
+    followUps: ["CPR steps", "Recovery position", "Signs of shock"],
   },
 
   // ── Anaphylaxis / Allergic Reaction ────────────────────────────────────
   {
-    keywords: ['anaphylax', 'allergic reaction', 'epipen', 'adrenalin', 'epinephrine', 'bee sting', 'swollen throat', 'hives', 'urticaria'],
+    keywords: [
+      "anaphylax",
+      "allergic reaction",
+      "epipen",
+      "adrenalin",
+      "epinephrine",
+      "bee sting",
+      "swollen throat",
+      "hives",
+      "urticaria",
+    ],
     response: `🐝 **Anaphylaxis (Severe Allergic Reaction) — WHO First Aid**
 
 **CALL 911 IMMEDIATELY — Anaphylaxis is life-threatening.**
@@ -340,12 +439,19 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 6. **Antihistamines** are NOT a substitute for epinephrine — they work too slowly.
 
 ⚠️ *Even if symptoms improve after EpiPen, always go to the emergency room — a biphasic reaction can occur hours later.*`,
-    followUps: ['CPR steps', 'Signs of shock'],
+    followUps: ["CPR steps", "Signs of shock"],
   },
 
   // ── Diabetic Emergency ───────────────────────────────────────────────────
   {
-    keywords: ['diabet', 'hypoglyc', 'low blood sugar', 'insulin shock', 'blood sugar', 'glucose'],
+    keywords: [
+      "diabet",
+      "hypoglyc",
+      "low blood sugar",
+      "insulin shock",
+      "blood sugar",
+      "glucose",
+    ],
     response: `🍬 **Diabetic Emergency — WHO First Aid**
 
 **Hypoglycaemia (Low Blood Sugar) — most common diabetic emergency:**
@@ -370,12 +476,19 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 **Hyperglycaemia (High Blood Sugar)** — develops slowly over hours/days:
 • Signs: excessive thirst, frequent urination, confusion, fruity breath.
 • Seek medical care; administer prescribed insulin only if advised by doctor.`,
-    followUps: ['Recovery position', 'Signs of shock'],
+    followUps: ["Recovery position", "Signs of shock"],
   },
 
   // ── Shock ────────────────────────────────────────────────────────────────
   {
-    keywords: ['shock', 'pale skin', 'cold clammy', 'rapid weak pulse', 'blood pressure drop', 'hypovolemic'],
+    keywords: [
+      "shock",
+      "pale skin",
+      "cold clammy",
+      "rapid weak pulse",
+      "blood pressure drop",
+      "hypovolemic",
+    ],
     response: `⚡ **Signs of Shock & First Aid — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY — Shock is life-threatening.**
@@ -399,12 +512,21 @@ Give 5 initial rescue breaths before starting compressions for children/infants,
 8. **Start CPR** if they stop breathing.
 
 **Types:** Hypovolaemic (blood/fluid loss), septic (infection), anaphylactic (allergy), cardiogenic (heart failure), neurogenic (spinal injury).`,
-    followUps: ['Controlling severe bleeding', 'CPR steps', 'Recovery position'],
+    followUps: [
+      "Controlling severe bleeding",
+      "CPR steps",
+      "Recovery position",
+    ],
   },
 
   // ── Recovery Position ─────────────────────────────────────────────────────
   {
-    keywords: ['recovery position', 'unconscious breathing', 'lateral position', 'semi-prone'],
+    keywords: [
+      "recovery position",
+      "unconscious breathing",
+      "lateral position",
+      "semi-prone",
+    ],
     response: `🛌 **Recovery Position — WHO First Aid**
 
 Use for an **unconscious person who is BREATHING** (do not use if spine injury suspected).
@@ -420,12 +542,12 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 8. **Monitor breathing** continuously until help arrives.
 
 ⚠️ *If breathing stops, roll them onto their back and start CPR immediately.*`,
-    followUps: ['CPR steps', 'Signs of shock'],
+    followUps: ["CPR steps", "Signs of shock"],
   },
 
   // ── Drowning / Near Drowning ─────────────────────────────────────────────
   {
-    keywords: ['drown', 'near drown', 'submersion', 'water rescue'],
+    keywords: ["drown", "near drown", "submersion", "water rescue"],
     response: `🌊 **Drowning First Aid — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY.**
@@ -443,12 +565,19 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 6. **All drowning victims** need hospital evaluation even if they seem OK — secondary drowning can occur hours later.
 
 ⚠️ *Even a brief submersion requires medical evaluation.*`,
-    followUps: ['CPR steps', 'Recovery position'],
+    followUps: ["CPR steps", "Recovery position"],
   },
 
   // ── Head Injury ───────────────────────────────────────────────────────────
   {
-    keywords: ['head injury', 'head trauma', 'concussion', 'skull', 'brain injury', 'hit on head'],
+    keywords: [
+      "head injury",
+      "head trauma",
+      "concussion",
+      "skull",
+      "brain injury",
+      "hit on head",
+    ],
     response: `🤕 **Head Injury First Aid — WHO Guidelines**
 
 **CALL 911 for severe head injuries.**
@@ -467,12 +596,12 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 **Concussion monitoring (mild):**
 • Rest for 24–48 hours.
 • Seek urgent care if: confusion worsens, repeated vomiting, seizure, slurred speech, or worsening headache.`,
-    followUps: ['Recovery position', 'CPR steps'],
+    followUps: ["Recovery position", "CPR steps"],
   },
 
   // ── Seizures / Epilepsy ───────────────────────────────────────────────────
   {
-    keywords: ['seizure', 'epilepsy', 'convulsion', 'fit', 'epileptic'],
+    keywords: ["seizure", "epilepsy", "convulsion", "fit", "epileptic"],
     response: `⚡ **Seizures / Convulsions — WHO First Aid**
 
 **CALL 911 if:** First-ever seizure, lasts more than 5 minutes, person doesn't regain consciousness, or injury occurs.
@@ -497,12 +626,21 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 • Second seizure follows quickly.
 • Person does not wake up.
 • Injury occurred during seizure.`,
-    followUps: ['Recovery position', 'CPR steps'],
+    followUps: ["Recovery position", "CPR steps"],
   },
 
   // ── Wound Care / Infection ───────────────────────────────────────────────
   {
-    keywords: ['wound care', 'wound clean', 'infect', 'antisept', 'dressing', 'bandage', 'minor cut', 'clean wound'],
+    keywords: [
+      "wound care",
+      "wound clean",
+      "infect",
+      "antisept",
+      "dressing",
+      "bandage",
+      "minor cut",
+      "clean wound",
+    ],
     response: `🩹 **Wound Care & Infection Prevention — WHO Guidelines**
 
 **For minor cuts and wounds:**
@@ -522,12 +660,20 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 • Wound does not begin healing after a few days.
 
 **Tetanus:** Seek medical advice about tetanus vaccination for deep or dirty wounds.`,
-    followUps: ['Controlling severe bleeding', 'Burns first aid'],
+    followUps: ["Controlling severe bleeding", "Burns first aid"],
   },
 
   // ── Heatstroke / Heat Exhaustion ──────────────────────────────────────────
   {
-    keywords: ['heatstroke', 'heat stroke', 'heat exhaustion', 'overheating', 'heat cramp', 'sunstroke', 'hyperthermia'],
+    keywords: [
+      "heatstroke",
+      "heat stroke",
+      "heat exhaustion",
+      "overheating",
+      "heat cramp",
+      "sunstroke",
+      "hyperthermia",
+    ],
     response: `☀️ **Heatstroke & Heat Exhaustion — WHO First Aid**
 
 **Heatstroke is an emergency — CALL 911 IMMEDIATELY.**
@@ -553,12 +699,19 @@ Use for an **unconscious person who is BREATHING** (do not use if spine injury s
 4. Do NOT give fluids to unconscious person.
 5. Place in recovery position if unconscious and breathing.
 6. Monitor until emergency services arrive.`,
-    followUps: ['Recovery position', 'Signs of shock'],
+    followUps: ["Recovery position", "Signs of shock"],
   },
 
   // ── Hypothermia / Frostbite ────────────────────────────────────────────────
   {
-    keywords: ['hypothermia', 'frostbite', 'cold exposure', 'freezing', 'cold injury', 'frost'],
+    keywords: [
+      "hypothermia",
+      "frostbite",
+      "cold exposure",
+      "freezing",
+      "cold injury",
+      "frost",
+    ],
     response: `🥶 **Hypothermia & Frostbite — WHO First Aid**
 
 **CALL 911 for severe hypothermia or large-area frostbite.**
@@ -581,12 +734,20 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 5. Cover with loose, sterile bandage.
 6. Do NOT pop blisters.
 7. Seek medical care promptly.`,
-    followUps: ['Signs of shock', 'Recovery position'],
+    followUps: ["Signs of shock", "Recovery position"],
   },
 
   // ── Eye Injury ────────────────────────────────────────────────────────────
   {
-    keywords: ['eye injury', 'chemical eye', 'eye burn', 'foreign body eye', 'object in eye', 'eye pain', 'vision loss'],
+    keywords: [
+      "eye injury",
+      "chemical eye",
+      "eye burn",
+      "foreign body eye",
+      "object in eye",
+      "eye pain",
+      "vision loss",
+    ],
     response: `👁️ **Eye Injury First Aid — WHO Guidelines**
 
 **CALL 911 or go to an emergency department for serious eye injuries.**
@@ -610,12 +771,12 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 3. Seek emergency care immediately.
 
 **Blunt trauma (black eye):** Apply a wrapped cold pack for 10–15 minutes. Seek care if: severe pain, vision change, blood in eye, or double vision.`,
-    followUps: ['Wound care & infection'],
+    followUps: ["Wound care & infection"],
   },
 
   // ── Snake Bite ─────────────────────────────────────────────────────────────
   {
-    keywords: ['snake', 'snakebite', 'snake bite', 'venom', 'venomous'],
+    keywords: ["snake", "snakebite", "snake bite", "venom", "venomous"],
     response: `🐍 **Snakebite First Aid — WHO Guidelines**
 
 **CALL 911 or go to hospital IMMEDIATELY. Antivenom must be given by medical professionals.**
@@ -631,12 +792,19 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 8. Transport urgently to hospital — the priority is antivenom.
 
 **In Ethiopia:** Black Lion Hospital (Addis Ababa) and St. Paul's Hospital have antivenom supplies.`,
-    followUps: ['Signs of shock', 'Wound care & infection'],
+    followUps: ["Signs of shock", "Wound care & infection"],
   },
 
   // ── Fainting / Syncope ────────────────────────────────────────────────────
   {
-    keywords: ['faint', 'syncop', 'pass out', 'collapse', 'dizzy', 'light-headed'],
+    keywords: [
+      "faint",
+      "syncop",
+      "pass out",
+      "collapse",
+      "dizzy",
+      "light-headed",
+    ],
     response: `😵 **Fainting (Syncope) — WHO First Aid**
 
 **If someone is about to faint:**
@@ -658,12 +826,19 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 • Accompanied by chest pain, palpitations, or shortness of breath.
 • Occurred during exertion.
 • Person is pregnant.`,
-    followUps: ['Recovery position', 'CPR steps', 'Signs of shock'],
+    followUps: ["Recovery position", "CPR steps", "Signs of shock"],
   },
 
   // ── Asthma Attack ─────────────────────────────────────────────────────────
   {
-    keywords: ['asthma', 'inhaler', 'wheez', 'bronchospasm', 'can\'t breathe asthma', 'breathing attack'],
+    keywords: [
+      "asthma",
+      "inhaler",
+      "wheez",
+      "bronchospasm",
+      "can't breathe asthma",
+      "breathing attack",
+    ],
     response: `🫁 **Asthma Attack — WHO First Aid**
 
 **CALL 911 if severe or Blue inhaler isn't helping.**
@@ -683,12 +858,19 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 **If no inhaler is available:** Keep them upright, calm, focused on slow breaths. Seek emergency care immediately.
 
 ⚠️ *Do NOT use a preventer inhaler (usually brown/purple) to relieve an acute attack.*`,
-    followUps: ['CPR steps', 'Signs of shock'],
+    followUps: ["CPR steps", "Signs of shock"],
   },
 
   // ── Spinal Injury ─────────────────────────────────────────────────────────
   {
-    keywords: ['spinal', 'spine', 'neck injury', 'back injury', 'paralysis', 'do not move'],
+    keywords: [
+      "spinal",
+      "spine",
+      "neck injury",
+      "back injury",
+      "paralysis",
+      "do not move",
+    ],
     response: `🦴 **Suspected Spinal Injury — WHO Guidelines**
 
 **CALL 911 IMMEDIATELY. Incorrect movement can cause permanent paralysis.**
@@ -709,12 +891,20 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 7. Do NOT remove helmets unless airway is blocked.
 
 ⚠️ *Moving a person with a spinal injury incorrectly is a leading cause of preventable paralysis.*`,
-    followUps: ['CPR steps', 'Recovery position'],
+    followUps: ["CPR steps", "Recovery position"],
   },
 
   // ── Pregnancy Emergency ────────────────────────────────────────────────────
   {
-    keywords: ['pregnant', 'pregnancy emergency', 'labour', 'childbirth', 'miscarriage', 'preeclampsia', 'eclampsia'],
+    keywords: [
+      "pregnant",
+      "pregnancy emergency",
+      "labour",
+      "childbirth",
+      "miscarriage",
+      "preeclampsia",
+      "eclampsia",
+    ],
     response: `🤰 **Pregnancy Emergency — WHO First Aid**
 
 **CALL 911 IMMEDIATELY for any serious pregnancy emergency.**
@@ -737,12 +927,17 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 • Call 911 immediately.
 
 ⚠️ *All pregnancy emergencies require urgent professional care.*`,
-    followUps: ['Seizures', 'Controlling severe bleeding'],
+    followUps: ["Seizures", "Controlling severe bleeding"],
   },
 
   // ── General First Aid Kit ─────────────────────────────────────────────────
   {
-    keywords: ['first aid kit', 'what should i have', 'emergency supplies', 'first aid box'],
+    keywords: [
+      "first aid kit",
+      "what should i have",
+      "emergency supplies",
+      "first aid box",
+    ],
     response: `🧰 **WHO-Recommended First Aid Kit Contents**
 
 **Basic First Aid Kit (Home/Personal):**
@@ -768,12 +963,19 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 **If known medical conditions exist:** Include prescribed medications (e.g., EpiPen for allergy, reliever inhaler for asthma, glucose tablets for diabetes).
 
 💡 *Check and replenish your kit every 6 months.*`,
-    followUps: ['What is CPR?', 'Wound care & infection'],
+    followUps: ["What is CPR?", "Wound care & infection"],
   },
 
   // ── Emergency contact info ─────────────────────────────────────────────────
   {
-    keywords: ['emergency number', 'call ambulance', 'ethiopian emergency', '911', '907', 'contact emergency'],
+    keywords: [
+      "emergency number",
+      "call ambulance",
+      "ethiopian emergency",
+      "911",
+      "907",
+      "contact emergency",
+    ],
     response: `📞 **Ethiopian Emergency Numbers**
 
 • **🚑 Ambulance (Erdataya):** Use this app to dispatch immediately
@@ -785,12 +987,19 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 • **🧪 Poison Control:** Contact Black Lion or St. Paul's Hospital
 
 **Tip:** If using this app, press the **Help** button on the home screen to dispatch an ambulance directly. The system will share your GPS location automatically.`,
-    followUps: ['How to use this app', 'CPR steps'],
+    followUps: ["How to use this app", "CPR steps"],
   },
 
   // ── How to use the app ────────────────────────────────────────────────────
   {
-    keywords: ['how to use', 'how do i', 'app help', 'use erdataya', 'request ambulance', 'call ambulance app'],
+    keywords: [
+      "how to use",
+      "how do i",
+      "app help",
+      "use erdataya",
+      "request ambulance",
+      "call ambulance app",
+    ],
     response: `📱 **How to Use the Erdataya Ambulance App**
 
 1. **Log in** with your phone number and password.
@@ -802,7 +1011,7 @@ Signs: Cold, numb, white/grey/yellow skin on fingers, toes, ears, nose.
 7. You'll see real-time updates on the **Emergency Status** screen showing your ambulance ETA.
 
 💡 *Keep your phone screen on while waiting so you can see updates.*`,
-    followUps: ['Ethiopian emergency numbers', 'What is CPR?'],
+    followUps: ["Ethiopian emergency numbers", "What is CPR?"],
   },
 ];
 
@@ -869,27 +1078,61 @@ Maaloo gaaffii keessan barreessaa.`,
 const fallbackIndices: Record<Lang, number> = { en: 0, am: 0, om: 0 };
 
 const HEALTH_SCOPE_KEYWORDS = [
-  'first aid', 'medical', 'health', 'emergency', 'injury', 'pain', 'bleed', 'burn', 'fracture', 'stroke', 'seizure',
-  'poison', 'allergy', 'choking', 'cpr', 'heart', 'breath', 'shock', 'wound', 'fever', 'vomit', 'diarrhea', 'unconscious',
-  'ሕክምና', 'ጤና', 'ድንገተኛ', 'እርዳታ', 'ደም', 'ቃጠሎ', 'ስብራት', 'ስትሮክ',
-  'fayyaa', 'gargaarsa', 'hatattama', 'dhiiguu', 'gubachuu', 'istirookii', 'ukkaamfamuu',
+  "first aid",
+  "medical",
+  "health",
+  "emergency",
+  "injury",
+  "pain",
+  "bleed",
+  "burn",
+  "fracture",
+  "stroke",
+  "seizure",
+  "poison",
+  "allergy",
+  "choking",
+  "cpr",
+  "heart",
+  "breath",
+  "shock",
+  "wound",
+  "fever",
+  "vomit",
+  "diarrhea",
+  "unconscious",
+  "ሕክምና",
+  "ጤና",
+  "ድንገተኛ",
+  "እርዳታ",
+  "ደም",
+  "ቃጠሎ",
+  "ስብራት",
+  "ስትሮክ",
+  "fayyaa",
+  "gargaarsa",
+  "hatattama",
+  "dhiiguu",
+  "gubachuu",
+  "istirookii",
+  "ukkaamfamuu",
 ];
 
 const HEALTH_ONLY_RESPONSES: Record<Lang, BotMessage> = {
   en: {
-    role: 'bot',
-    text: 'I can only answer health and first aid questions. Please ask about symptoms, injuries, or emergency care.',
-    followUps: ['CPR steps', 'Choking first aid', 'Bleeding control'],
+    role: "bot",
+    text: "I can only answer health and first aid questions. Please ask about symptoms, injuries, or emergency care.",
+    followUps: ["CPR steps", "Choking first aid", "Bleeding control"],
   },
   am: {
-    role: 'bot',
-    text: 'እኔ መመለስ የምችለው ስለ ጤና እና ስለ መጀመሪያ እርዳታ ጥያቄዎች ብቻ ነው። እባክዎ ስለ ምልክቶች፣ ጉዳቶች ወይም አደጋ ጊዜ እርዳታ ይጠይቁ።',
-    followUps: ['CPR ደረጃዎች', 'መታፈን እርዳታ', 'ደም መፍሰስ መቆጣጠር'],
+    role: "bot",
+    text: "እኔ መመለስ የምችለው ስለ ጤና እና ስለ መጀመሪያ እርዳታ ጥያቄዎች ብቻ ነው። እባክዎ ስለ ምልክቶች፣ ጉዳቶች ወይም አደጋ ጊዜ እርዳታ ይጠይቁ።",
+    followUps: ["CPR ደረጃዎች", "መታፈን እርዳታ", "ደም መፍሰስ መቆጣጠር"],
   },
   om: {
-    role: 'bot',
-    text: 'Ani gaaffii fayyaa fi gargaarsa jalqabaa qofa deebisa. Mee waa ee mallattoo, miidhaa, yookiin gargaarsa hatattamaa gaafadhaa.',
-    followUps: ['Tarkaanfii CPR', 'Gargaarsa ukkaamfamuu', 'Dhiiguu to achuu'],
+    role: "bot",
+    text: "Ani gaaffii fayyaa fi gargaarsa jalqabaa qofa deebisa. Mee waa ee mallattoo, miidhaa, yookiin gargaarsa hatattamaa gaafadhaa.",
+    followUps: ["Tarkaanfii CPR", "Gargaarsa ukkaamfamuu", "Dhiiguu to achuu"],
   },
 };
 
@@ -905,7 +1148,7 @@ function isHealthRelatedQuery(input: string): boolean {
 // Greeting responses per language
 const GREETINGS: Record<Lang, BotMessage> = {
   en: {
-    role: 'bot',
+    role: "bot",
     text: `**Hello. I am your First Aid Assistant, powered by WHO guidelines.**
 
 I provide clear emergency first aid guidance. Ask me about:
@@ -914,10 +1157,14 @@ I provide clear emergency first aid guidance. Ask me about:
 • Poisoning, allergic reactions, seizures
 
 For life-threatening emergencies, call 911 first, then use this chatbot for step-by-step guidance.`,
-    followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling bleeding'],
+    followUps: [
+      "How to perform CPR?",
+      "Signs of a stroke",
+      "Controlling bleeding",
+    ],
   },
   am: {
-    role: 'bot',
+    role: "bot",
     text: `**ሰላም! እኔ በWHO መመሪያዎች ላይ የተመሰረተ የመጀመሪያ እርዳታ ረዳት ነኝ።**
 
 በድንገተኛ የመጀመሪያ እርዳታ ሂደቶች ልመራዎት እችላለሁ። ስለ እነዚህ ይጠይቁኝ፡
@@ -926,10 +1173,10 @@ For life-threatening emergencies, call 911 first, then use this chatbot for step
 • መመረዝ፣ አለርጂ፣ መንቀጥቀጥ
 
 ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ መጀመሪያ 911 ይደውሉ።`,
-    followUps: ['CPR እንዴት ይደረጋል?', 'የስትሮክ ምልክቶች', 'ደም መፍሰስ መቆጣጠር'],
+    followUps: ["CPR እንዴት ይደረጋል?", "የስትሮክ ምልክቶች", "ደም መፍሰስ መቆጣጠር"],
   },
   om: {
-    role: 'bot',
+    role: "bot",
     text: `**Akkam! Ani Gargaaraa Gargaarsa Jalqabaa qajeelfama WHO irratti hundaa'e dha.**
 
 Adeemsa gargaarsa jalqabaa hatattamaa keessatti isin qajeelchuu nan danda'a. Waa'ee kanneenii na gaafadhaa:
@@ -938,37 +1185,45 @@ Adeemsa gargaarsa jalqabaa hatattamaa keessatti isin qajeelchuu nan danda'a. Waa
 • Summaa'uu, alarjii, hollachuu
 
 Balaa lubbuu balaa irra buusuuf, dursa 911 bilbiladhaa.`,
-    followUps: ['CPR akkamiin hojjatama?', 'Mallattoo istirookii', 'Dhiiguu to\'achuu'],
+    followUps: [
+      "CPR akkamiin hojjatama?",
+      "Mallattoo istirookii",
+      "Dhiiguu to'achuu",
+    ],
   },
 };
 
 const THANK_RESPONSES: Record<Lang, BotMessage> = {
   en: {
-    role: 'bot',
+    role: "bot",
     text: `You're welcome! 🙏 Stay safe. Remember — in a life-threatening emergency, always **call 911** immediately and use this chatbot for step-by-step guidance while help is on the way.
 
 Is there anything else I can help you with?`,
-    followUps: ['CPR steps', 'Ethiopian emergency numbers', 'First aid kit'],
+    followUps: ["CPR steps", "Ethiopian emergency numbers", "First aid kit"],
   },
   am: {
-    role: 'bot',
+    role: "bot",
     text: `እባክዎን! 🙏 ጥንቃቄ ያድርጉ። ያስታውሱ — ሕይወትን አደጋ ላይ ለሚጥል ድንገተኛ ሁኔታ፣ ሁልጊዜ ወዲያውኑ **911 ይደውሉ**።
 
 ሌላ ልረዳዎት የምችለው ነገር አለ?`,
-    followUps: ['CPR ደረጃዎች', 'የኢትዮጵያ ድንገተኛ ቁጥሮች', 'የመጀመሪያ እርዳታ ኪት'],
+    followUps: ["CPR ደረጃዎች", "የኢትዮጵያ ድንገተኛ ቁጥሮች", "የመጀመሪያ እርዳታ ኪት"],
   },
   om: {
-    role: 'bot',
+    role: "bot",
     text: `Kabajamaa! 🙏 Nagaan turaa. Yaadadhaa — balaa lubbuu balaa irra buusuuf, yeroo hunda battaluma **911 bilbiladhaa**.
 
 Waan biraa isin gargaaruu danda'u jiraa?`,
-    followUps: ['Tarkaanfii CPR', 'Lakkoofsa balaa hatattamaa Itoophiyaa', 'Saanduqa gargaarsa jalqabaa'],
+    followUps: [
+      "Tarkaanfii CPR",
+      "Lakkoofsa balaa hatattamaa Itoophiyaa",
+      "Saanduqa gargaarsa jalqabaa",
+    ],
   },
 };
 
 const EMERGENCY_RESPONSES: Record<Lang, BotMessage> = {
   en: {
-    role: 'bot',
+    role: "bot",
     text: `🚨 **CALL 911 NOW!**
 
 While waiting for help, you can:
@@ -977,10 +1232,10 @@ While waiting for help, you can:
 • **Place in recovery position** if unconscious but breathing.
 
 What specific situation are you dealing with?`,
-    followUps: ['CPR steps', 'Controlling bleeding', 'Recovery position'],
+    followUps: ["CPR steps", "Controlling bleeding", "Recovery position"],
   },
   am: {
-    role: 'bot',
+    role: "bot",
     text: `🚨 **አሁኑኑ 911 ይደውሉ!**
 
 እርዳታ እየጠበቁ ሳሉ፡
@@ -989,10 +1244,10 @@ What specific situation are you dealing with?`,
 • ንቃተ ህሊና ያጣ ግን የሚተነፍስ ከሆነ **በማገገሚያ ቦታ ያስቀምጡ**።
 
 ምን ዓይነት ሁኔታ ነው ያጋጠመዎት?`,
-    followUps: ['CPR ደረጃዎች', 'ደም መፍሰስ መቆጣጠር', 'የማገገሚያ ቦታ'],
+    followUps: ["CPR ደረጃዎች", "ደም መፍሰስ መቆጣጠር", "የማገገሚያ ቦታ"],
   },
   om: {
-    role: 'bot',
+    role: "bot",
     text: `🚨 **AMMA 911 BILBILADHAA!**
 
 Gargaarsa osoo eeggatanii:
@@ -1001,25 +1256,40 @@ Gargaarsa osoo eeggatanii:
 • Yoo of wallaalee garuu hafuursisaa jiraate **bakka dandamachuu kaa'aa**.
 
 Haalli addaa maaltu isinitti dhufe?`,
-    followUps: ['Tarkaanfii CPR', 'Dhiiguu to\'achuu', 'Bakka dandamachuu'],
+    followUps: ["Tarkaanfii CPR", "Dhiiguu to'achuu", "Bakka dandamachuu"],
   },
 };
 
-export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage {
+export function getBotResponse(
+  userInput: string,
+  lang: Lang = "en",
+): BotMessage {
   const lower = userInput.toLowerCase().trim();
 
   // Greetings — support all three languages
-  if (/^(hi|hello|hey|good morning|good afternoon|good evening|salam|selam|ሰላም|akkam|nagaa|ashamaa)\b/i.test(lower)) {
+  if (
+    /^(hi|hello|hey|good morning|good afternoon|good evening|salam|selam|ሰላም|akkam|nagaa|ashamaa)\b/i.test(
+      lower,
+    )
+  ) {
     return GREETINGS[lang];
   }
 
   // Thank you — support all three languages
-  if (/\b(thank|thanks|thx|appreciated|helpful|አመሰግናለሁ|እናመሰግናለን|galatoomaa|galatoomi)\b/i.test(lower)) {
+  if (
+    /\b(thank|thanks|thx|appreciated|helpful|አመሰግናለሁ|እናመሰግናለን|galatoomaa|galatoomi)\b/i.test(
+      lower,
+    )
+  ) {
     return THANK_RESPONSES[lang];
   }
 
   // Emergency trigger words — support all three languages
-  if (/\b(dying|dead|no pulse|not breathing|unconscious|emergency|critical|help me|እርዳታ|ሞት|ድንገተኛ|hatattama|du'a|gargaarsa)\b/i.test(lower)) {
+  if (
+    /\b(dying|dead|no pulse|not breathing|unconscious|emergency|critical|help me|እርዳታ|ሞት|ድንገተኛ|hatattama|du'a|gargaarsa)\b/i.test(
+      lower,
+    )
+  ) {
     return EMERGENCY_RESPONSES[lang];
   }
 
@@ -1033,7 +1303,7 @@ export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage
     const matched = entry.keywords.some((kw) => lower.includes(kw));
     if (matched) {
       return {
-        role: 'bot',
+        role: "bot",
         text: entry.response,
         followUps: entry.followUps,
       };
@@ -1045,13 +1315,24 @@ export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage
   const idx = fallbackIndices[lang] % responses.length;
   fallbackIndices[lang] += 1;
   return {
-    role: 'bot',
+    role: "bot",
     text: responses[idx],
-    followUps: lang === 'am'
-      ? ['CPR ደረጃዎች', 'ደም መፍሰስ መቆጣጠር', 'ስትሮክ ማወቅ', 'የኢትዮጵያ ድንገተኛ ቁጥሮች']
-      : lang === 'om'
-      ? ['Tarkaanfii CPR', 'Dhiiguu to\'achuu', 'Istirookii adda baasuu', 'Lakkoofsa balaa hatattamaa Itoophiyaa']
-      : ['CPR steps', 'Controlling bleeding', 'Stroke recognition', 'Ethiopian emergency numbers'],
+    followUps:
+      lang === "am"
+        ? ["CPR ደረጃዎች", "ደም መፍሰስ መቆጣጠር", "ስትሮክ ማወቅ", "የኢትዮጵያ ድንገተኛ ቁጥሮች"]
+        : lang === "om"
+          ? [
+              "Tarkaanfii CPR",
+              "Dhiiguu to'achuu",
+              "Istirookii adda baasuu",
+              "Lakkoofsa balaa hatattamaa Itoophiyaa",
+            ]
+          : [
+              "CPR steps",
+              "Controlling bleeding",
+              "Stroke recognition",
+              "Ethiopian emergency numbers",
+            ],
   };
 }
 
@@ -1060,7 +1341,7 @@ export function getBotResponse(userInput: string, lang: Lang = 'en'): BotMessage
 // ─────────────────────────────────────────────────────────────────────────────
 const WELCOME_MESSAGES: Record<Lang, BotMessage> = {
   en: {
-    role: 'bot',
+    role: "bot",
     text: `**Welcome to the Erdataya First Aid Chatbot.**
 
 I provide first aid guidance based on **World Health Organization (WHO)** guidelines and Ethiopian Ministry of Health protocols.
@@ -1078,10 +1359,15 @@ I can help you with:
 **How to start:** Type your question below, or tap one of the quick topics.
 
 ⚠️ *Disclaimer: This chatbot provides general first aid information. It is NOT a substitute for professional medical care. In a life-threatening emergency, CALL 911 immediately.*`,
-    followUps: ['How to perform CPR?', 'Signs of a stroke', 'Controlling a nosebleed', 'Emergency contacts'],
+    followUps: [
+      "How to perform CPR?",
+      "Signs of a stroke",
+      "Controlling a nosebleed",
+      "Emergency contacts",
+    ],
   },
   am: {
-    role: 'bot',
+    role: "bot",
     text: `**እንኳን ወደ Erdataya የመጀመሪያ እርዳታ ቻትቦት በደህና መጡ!**
 
 በ**የዓለም ጤና ድርጅት (WHO)** መመሪያዎች እና በኢትዮጵያ ጤና ሚኒስቴር ፕሮቶኮሎች ላይ ተመስርቼ የመጀመሪያ እርዳታ መመሪያ እሰጣለሁ።
@@ -1099,10 +1385,15 @@ I can help you with:
 **ለመጀመር:** ከዚህ በታች ጥያቄዎን ይተይቡ።
 
 ⚠️ *ማስጠንቀቂያ: ይህ ቻትቦት አጠቃላይ የመጀመሪያ ​​እርዳታ መረጃ ብቻ ይሰጣል። ለሕይወት አደጋ ፣ ወዲያውኑ 911 ይደውሉ።*`,
-    followUps: ['CPR እንዴት ይደረጋል?', 'የስትሮክ ምልክቶች', 'የአፍንጫ ደም መፍሰስ', 'የድንገተኛ ቁጥሮች'],
+    followUps: [
+      "CPR እንዴት ይደረጋል?",
+      "የስትሮክ ምልክቶች",
+      "የአፍንጫ ደም መፍሰስ",
+      "የድንገተኛ ቁጥሮች",
+    ],
   },
   om: {
-    role: 'bot',
+    role: "bot",
     text: `**Baga gara Chatbot Gargaarsa Jalqabaa Erdataya nagaan dhuftan!**
 
 Qajeelfama **Dhaabbata Fayyaa Addunyaa (WHO)** fi Pirootokoolii Ministeera Fayyaa Itoophiyaa irratti hundaa'uudhaan qajeelfama gargaarsa jalqabaa nan kenna.
@@ -1120,10 +1411,15 @@ Waan isin gargaaruu danda'u:
 **Jalqabuuf:** Gaaffii keessan armaan gaditti barreessaa.
 
 ⚠️ *Hubachiisa: Chatbot kun odeeffannoo gargaarsa jalqabaa waliigalaa qofa kenna. Balaa lubbuu yoo ta'e, battaluma 911 bilbiladhaa.*`,
-    followUps: ['CPR akkamiin hojjatama?', 'Mallattoo istirookii', 'Dhiiguu funyaanii', 'Lakkoofsa balaa hatattamaa'],
+    followUps: [
+      "CPR akkamiin hojjatama?",
+      "Mallattoo istirookii",
+      "Dhiiguu funyaanii",
+      "Lakkoofsa balaa hatattamaa",
+    ],
   },
 };
 
-export function getWelcomeMessage(lang: Lang = 'en'): BotMessage {
+export function getWelcomeMessage(lang: Lang = "en"): BotMessage {
   return WELCOME_MESSAGES[lang];
 }
