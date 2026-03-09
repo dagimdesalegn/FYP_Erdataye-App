@@ -68,7 +68,9 @@ export default function ChatbotPage() {
 
       const elapsed = Date.now() - typingStartedAt;
       if (elapsed < MIN_TYPING_MS) {
-        await new Promise((resolve) => setTimeout(resolve, MIN_TYPING_MS - elapsed));
+        await new Promise((resolve) =>
+          setTimeout(resolve, MIN_TYPING_MS - elapsed),
+        );
       }
 
       setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);

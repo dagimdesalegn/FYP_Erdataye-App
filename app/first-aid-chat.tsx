@@ -234,7 +234,9 @@ export default function FirstAidChatScreen() {
 
           const elapsed = Date.now() - typingStartedAt;
           if (elapsed < MIN_TYPING_MS) {
-            await new Promise((resolve) => setTimeout(resolve, MIN_TYPING_MS - elapsed));
+            await new Promise((resolve) =>
+              setTimeout(resolve, MIN_TYPING_MS - elapsed),
+            );
           }
 
           setMessages((prev) => [...prev, botMsg]);
