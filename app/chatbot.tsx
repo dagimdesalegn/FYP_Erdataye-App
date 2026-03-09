@@ -24,6 +24,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+const MIN_TYPING_MS = 1200;
+
 export default function ChatbotPage() {
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
@@ -56,13 +58,24 @@ export default function ChatbotPage() {
     setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
     setInputText("");
     setIsTyping(true);
-    await addChatbotMessage(user.id, "user", trimmed);
+    const typingStartedAt = Date.now();
 
-    const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
-    const botMsg = aiReply ?? getBotResponse(trimmed, lang);
-    setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);
-    await addChatbotMessage(user.id, "bot", botMsg.text);
-    setIsTyping(false);
+    try {
+      await addChatbotMessage(user.id, "user", trimmed);
+
+      const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
+      const botMsg = aiReply ?? getBotResponse(trimmed, lang);
+
+      const elapsed = Date.now() - typingStartedAt;
+      if (elapsed < MIN_TYPING_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_TYPING_MS - elapsed));
+      }
+
+      setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);
+      await addChatbotMessage(user.id, "bot", botMsg.text);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleDeleteHistory = () => {
