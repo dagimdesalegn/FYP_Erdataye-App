@@ -109,10 +109,17 @@ export default function PatientProfileScreen() {
       // Get profile
       const { profile } = await getUserProfile(user.id);
       if (profile) {
+        // Convert +251XXXXXXXXX to 0XXXXXXXXX for display
+        let displayPhone = profile.phone || "";
+        if (displayPhone.startsWith("+251")) {
+          displayPhone = "0" + displayPhone.slice(4);
+        } else if (displayPhone.startsWith("251")) {
+          displayPhone = "0" + displayPhone.slice(3);
+        }
         setForm((prev) => ({
           ...prev,
           fullName: profile.full_name || "",
-          phone: profile.phone || "",
+          phone: displayPhone,
         }));
       }
 
