@@ -7,7 +7,7 @@ import {
     getChatbotMessages,
 } from "@/utils/chat";
 import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
-import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
+import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
@@ -64,7 +64,7 @@ export default function ChatbotPage() {
       await addChatbotMessage(user.id, "user", trimmed);
 
       const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
-      const botMsg = aiReply ?? getBotResponse(trimmed, lang);
+      const botMsg = aiReply ?? { role: "bot" as const, text: "Sorry, I couldn't reach the AI service right now. Please check your connection and try again." };
 
       const elapsed = Date.now() - typingStartedAt;
       if (elapsed < MIN_TYPING_MS) {

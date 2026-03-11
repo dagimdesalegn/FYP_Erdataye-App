@@ -11,7 +11,7 @@
  */
 
 import { assignAmbulance, findNearestAmbulance, parsePostGISPoint, toPostGISPoint } from './emergency';
-import { supabase, supabaseAdmin } from './supabase';
+import { supabase } from './supabase';
 
 // ─── Interfaces aligned with actual DB schema ────────────────────────
 
@@ -144,7 +144,7 @@ export const getActiveEmergency = async (
   patientId: string
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -172,7 +172,7 @@ export const getPatientEmergencies = async (
   limit: number = 50
 ): Promise<{ emergencies: PatientEmergency[]; error: Error | null }> => {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -204,7 +204,7 @@ export const getEmergencyDetails = async (
 }> => {
   try {
     // Get emergency
-    const { data: emergencyData, error: emergencyError } = await supabaseAdmin
+    const { data: emergencyData, error: emergencyError } = await supabase
       .from('emergency_requests')
       .select('*')
       .eq('id', emergencyId)
@@ -220,7 +220,7 @@ export const getEmergencyDetails = async (
     let ambulance: AmbulanceInfo | null = null;
 
     try {
-      const { data } = await supabaseAdmin
+      const { data } = await supabase
         .from('emergency_assignments')
         .select('*')
         .eq('emergency_id', emergencyId)
@@ -235,7 +235,7 @@ export const getEmergencyDetails = async (
     // Get ambulance from assignment or directly from emergency_requests
     const ambulanceId = assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
     if (ambulanceId) {
-      const { data: ambulanceData } = await supabaseAdmin
+      const { data: ambulanceData } = await supabase
         .from('ambulances')
         .select('*')
         .eq('id', ambulanceId)
@@ -266,7 +266,7 @@ export const updateEmergencyStatus = async (
   status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('emergency_requests')
       .update({
         status,
@@ -278,19 +278,19 @@ export const updateEmergencyStatus = async (
 
     // When cancelled, also mark assignments and free ambulance
     if (status === 'cancelled' || status === 'completed') {
-      await supabaseAdmin
+      await supabase
         .from('emergency_assignments')
         .update({ status: 'completed' })
         .eq('emergency_id', emergencyId)
         .in('status', ['pending', 'accepted']);
 
-      const { data: assignments } = await supabaseAdmin
+      const { data: assignments } = await supabase
         .from('emergency_assignments')
         .select('ambulance_id')
         .eq('emergency_id', emergencyId);
       if (assignments) {
         for (const a of assignments) {
-          await supabaseAdmin
+          await supabase
             .from('ambulances')
             .update({ is_available: true })
             .eq('id', a.ambulance_id);

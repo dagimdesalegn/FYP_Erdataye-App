@@ -110,7 +110,6 @@ export default function HelpScreen() {
 
   React.useEffect(() => {
     let cancelled = false;
-    let subscription: Location.LocationSubscription | null = null;
 
     const applyCoords = (coords: Location.LocationObjectCoords) => {
       if (cancelled) return;
@@ -158,17 +157,6 @@ export default function HelpScreen() {
           mayShowUserSettingsDialog: true,
         });
         applyCoords(position.coords);
-
-        // Keep refining location after login so the live map stays accurate.
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Highest,
-            timeInterval: 2500,
-            distanceInterval: 1,
-            mayShowUserSettingsDialog: true,
-          },
-          (next) => applyCoords(next.coords),
-        );
       } catch {
         if (!cancelled) {
           const servicesEnabled =
@@ -188,7 +176,6 @@ export default function HelpScreen() {
     void loadCurrentLocation();
     return () => {
       cancelled = true;
-      subscription?.remove();
     };
   }, []);
 
@@ -393,7 +380,13 @@ export default function HelpScreen() {
               <ThemedText
                 style={[styles.profileEmail, { color: colors.textMuted }]}
               >
-                {user?.phone ?? "Not signed in"}
+                {user?.phone
+                  ? user.phone.startsWith("+")
+                    ? user.phone
+                    : user.phone.startsWith("0")
+                      ? "+251" + user.phone.slice(1)
+                      : "+251" + user.phone
+                  : "Not signed in"}
               </ThemedText>
             </View>
             <Pressable

@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabase';
+import { supabase } from './supabase';
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
@@ -216,7 +216,7 @@ export const getPatientEmergencies = async (
   patientId: string
 ): Promise<{ requests: EmergencyRequest[] | null; error: Error | null }> => {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('emergency_requests')
       .select('*')
       .eq('patient_id', patientId)
@@ -298,8 +298,8 @@ export const assignAmbulance = async (
   try {
     const now = new Date().toISOString();
 
-    // 1. Update emergency request (use admin to bypass RLS)
-    const { error } = await supabaseAdmin
+    // 1. Update emergency request
+    const { error } = await supabase
       .from('emergency_requests')
       .update({
         assigned_ambulance_id: ambulanceId,
@@ -311,7 +311,7 @@ export const assignAmbulance = async (
     if (error) throw error;
 
     // 2. Insert into emergency_assignments (triggers driver realtime subscription)
-    const { error: assignError } = await supabaseAdmin
+    const { error: assignError } = await supabase
       .from('emergency_assignments')
       .insert({
         emergency_id: emergencyId,
@@ -325,7 +325,7 @@ export const assignAmbulance = async (
     }
 
     // 3. Mark ambulance as unavailable
-    await supabaseAdmin
+    await supabase
       .from('ambulances')
       .update({ is_available: false, updated_at: now })
       .eq('id', ambulanceId);
@@ -344,7 +344,7 @@ export const updateEmergencyStatus = async (
   status: EmergencyRequest['status']
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from('emergency_requests')
       .update({
         status,
@@ -357,20 +357,20 @@ export const updateEmergencyStatus = async (
     // When completed/cancelled, also mark assignments and free ambulance
     if (status === 'completed' || status === 'cancelled') {
       // Mark assignments as completed
-      await supabaseAdmin
+      await supabase
         .from('emergency_assignments')
         .update({ status: 'completed' })
         .eq('emergency_id', emergencyId)
         .in('status', ['pending', 'accepted']);
 
       // Re-enable ambulance availability
-      const { data: assignments } = await supabaseAdmin
+      const { data: assignments } = await supabase
         .from('emergency_assignments')
         .select('ambulance_id')
         .eq('emergency_id', emergencyId);
       if (assignments) {
         for (const a of assignments) {
-          await supabaseAdmin
+          await supabase
             .from('ambulances')
             .update({ is_available: true })
             .eq('id', a.ambulance_id);

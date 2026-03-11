@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from './supabase';
+import { supabase } from './supabase';
 
 import { toPostGISPoint } from './emergency';
 
@@ -152,8 +152,7 @@ export const upsertDriverAmbulance = async (
   try {
     const now = new Date().toISOString();
 
-    // Use service-role client to bypass RLS during registration
-    const db = supabaseAdmin;
+    const db = supabase;
 
     // Check if an ambulance with this vehicle_number already exists
     const { data: existing } = await db
@@ -238,8 +237,7 @@ export const getDriverAssignment = async (
     if (ambulanceError) throw ambulanceError;
     if (!ambulanceId) return { assignment: null, error: null };
 
-    // Use supabaseAdmin to bypass RLS so emergency_requests join works
-    const db = supabaseAdmin;
+    const db = supabase;
 
     let data: any = null;
     let error: any = null;
@@ -352,14 +350,14 @@ export const acceptEmergency = async (
   try {
     // Update assignment status (non-blocking — table may not exist for fallback path)
     try {
-      await supabaseAdmin
+      await supabase
         .from('emergency_assignments')
         .update({ status: 'accepted' })
         .eq('id', assignmentId);
     } catch { /* ignore if table missing */ }
 
     // Update emergency status to 'en_route' (driver is now heading to patient)
-    const { error: emergencyError } = await supabaseAdmin
+    const { error: emergencyError } = await supabase
       .from('emergency_requests')
       .update({ status: 'en_route', updated_at: new Date().toISOString() })
       .eq('id', emergencyId);
@@ -386,7 +384,7 @@ export const declineEmergency = async (
   try {
     // Try emergency_assignments table first
     try {
-      await supabaseAdmin
+      await supabase
         .from('emergency_assignments')
         .update({ status: 'declined' })
         .eq('id', assignmentId);
@@ -395,7 +393,7 @@ export const declineEmergency = async (
     // Cancel the emergency request
     // Use emergencyId if provided (normal path), otherwise assignmentId (fallback path where they're the same)
     const erId = emergencyId || assignmentId;
-    await supabaseAdmin
+    await supabase
       .from('emergency_requests')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', erId);
@@ -418,7 +416,7 @@ export const getDriverStats = async (
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
     if (ambErr || !ambulanceId) return { active: 0, completed: 0, error: ambErr };
 
-    const db = supabaseAdmin;
+    const db = supabase;
 
     // Active = assigned + en_route + at_scene + transporting + at_hospital
     const { count: active } = await db
@@ -449,7 +447,7 @@ export const updateEmergencyStatus = async (
   status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const db = supabaseAdmin;
+    const db = supabase;
     const now = new Date().toISOString();
 
     const { error } = await db
@@ -531,7 +529,7 @@ export const getDriverHistory = async (
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
     if (ambErr || !ambulanceId) return { history: [], error: ambErr };
 
-    const db = supabaseAdmin;
+    const db = supabase;
     const { data, error } = await db
       .from('emergency_requests')
       .select('*')
@@ -559,8 +557,7 @@ export const getPatientInfo = async (
       return { info: null, error: new Error('Patient ID required') };
     }
 
-    // Use supabaseAdmin to bypass RLS for profile reads
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', patientId)
@@ -573,7 +570,7 @@ export const getPatientInfo = async (
     // Fetch medical profile separately (no FK relationship)
     let medicalProfiles: any[] = [];
     try {
-      const { data: medData } = await supabaseAdmin
+      const { data: medData } = await supabase
         .from('medical_profiles')
         .select('*')
         .eq('user_id', patientId);
@@ -608,7 +605,7 @@ export const getPatientInfoLegacy = async (
 }> => {
   try {
     // Get profile
-    const { data: profileData, error: profileError } = await supabaseAdmin
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', patientId)
@@ -619,7 +616,7 @@ export const getPatientInfoLegacy = async (
     }
 
     // Get medical profile
-    const { data: medicalData, error: medicalError } = await supabaseAdmin
+    const { data: medicalData, error: medicalError } = await supabase
       .from('medical_profiles')
       .select('*')
       .eq('user_id', patientId)
@@ -688,7 +685,7 @@ export const subscribeToAssignments = (
       return;
     }
 
-    subscription = supabaseAdmin
+    subscription = supabase
       .channel(`assignments:${ambulanceId}`)
       .on(
         'postgres_changes',
@@ -722,7 +719,7 @@ export const subscribeToEmergencyStatus = (
   emergencyId: string,
   onUpdate: (status: string) => void
 ) => {
-  const subscription = supabaseAdmin
+  const subscription = supabase
     .channel(`emergency:${emergencyId}`)
     .on(
       'postgres_changes',

@@ -15,7 +15,7 @@ import {
     MedicalProfile,
     UserProfile,
 } from "@/utils/profile";
-import { supabaseAdmin } from "@/utils/supabase";
+import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -92,7 +92,7 @@ export default function HospitalDashboard() {
   const fetchEmergencies = useCallback(async () => {
     try {
       // Build query - scope to hospital if linked
-      let query = supabaseAdmin
+      let query = supabase
         .from("emergency_requests")
         .select("*")
         .order("created_at", { ascending: false });
@@ -114,7 +114,7 @@ export default function HospitalDashboard() {
       const enriched = await Promise.all(
         emergencyData.map(async (raw) => {
           const emergency = normalizeEmergency(raw);
-          const { data: profile } = await supabaseAdmin
+          const { data: profile } = await supabase
             .from("profiles")
             .select("*")
             .eq("id", emergency.patient_id)
@@ -146,7 +146,7 @@ export default function HospitalDashboard() {
     newStatus: EmergencyRequest["status"],
   ) => {
     try {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from("emergency_requests")
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq("id", emergencyId);
@@ -165,7 +165,7 @@ export default function HospitalDashboard() {
 
   useEffect(() => {
     fetchEmergencies();
-    const channel = supabaseAdmin
+    const channel = supabase
       .channel("hospital_emergency_updates")
       .on(
         "postgres_changes",

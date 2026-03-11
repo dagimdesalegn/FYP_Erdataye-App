@@ -11,7 +11,7 @@ import {
     Hospital,
     normalizeEmergency,
 } from "@/utils/emergency";
-import { supabaseAdmin } from "@/utils/supabase";
+import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -99,19 +99,19 @@ export default function AdminScreen() {
     try {
       const [profileRes, emergencyRes, ambulanceRes, hospitalRes] =
         await Promise.all([
-          supabaseAdmin
+          supabase
             .from("profiles")
             .select("*")
             .order("created_at", { ascending: false }),
-          supabaseAdmin
+          supabase
             .from("emergency_requests")
             .select("*")
             .order("created_at", { ascending: false }),
-          supabaseAdmin
+          supabase
             .from("ambulances")
             .select("*")
             .order("created_at", { ascending: false }),
-          supabaseAdmin
+          supabase
             .from("hospitals")
             .select("*")
             .order("created_at", { ascending: false }),
@@ -131,7 +131,7 @@ export default function AdminScreen() {
 
   useEffect(() => {
     fetchAll();
-    const channel = supabaseAdmin
+    const channel = supabase
       .channel("admin_realtime")
       .on(
         "postgres_changes",

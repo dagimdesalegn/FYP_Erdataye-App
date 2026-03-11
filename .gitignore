@@ -43,3 +43,7 @@ app-example
 /ios
 /android
 /.md
+# Backend
+backend/venv/
+backend/**/__pycache__/
+__pycache__/

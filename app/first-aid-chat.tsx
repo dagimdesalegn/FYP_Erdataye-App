@@ -20,28 +20,17 @@ import {
     getFirstAidAiResponse,
     isFirstAidAiConfigured,
 } from "@/utils/first-aid-ai";
-import { getBotResponse, type Message } from "@/utils/first-aid-chatbot";
+import { type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";
 import { useRouter } from "expo-router";
 
 const MIN_TYPING_MS = 1200;
 
-// ─── Markdown bold renderer ─────────────────────────────────────────────────
+// ─── Plain text renderer (no markdown) ──────────────────────────────────────
 function MarkdownText({ text, style }: { text: string; style?: object }) {
-  const parts = text.split(/\*\*(.*?)\*\*/g);
-  return (
-    <ThemedText style={style}>
-      {parts.map((part, i) =>
-        i % 2 === 1 ? (
-          <ThemedText key={i} style={[style, { fontWeight: "800" }]}>
-            {part}
-          </ThemedText>
-        ) : (
-          part
-        ),
-      )}
-    </ThemedText>
-  );
+  // Strip any asterisks from the text
+  const clean = text.replace(/\*+/g, "");
+  return <ThemedText style={style}>{clean}</ThemedText>;
 }
 
 // ─── Message bubble ─────────────────────────────────────────────────────────
@@ -230,7 +219,7 @@ export default function FirstAidChatScreen() {
             historyForReply,
             lang,
           );
-          const botMsg: Message = aiReply ?? getBotResponse(trimmed, lang);
+          const botMsg: Message = aiReply ?? { role: "bot" as const, text: "Sorry, I couldn't reach the AI service right now. Please try again shortly." };
 
           const elapsed = Date.now() - typingStartedAt;
           if (elapsed < MIN_TYPING_MS) {

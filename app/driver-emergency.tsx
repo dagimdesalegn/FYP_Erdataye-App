@@ -34,7 +34,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
-import { supabaseAdmin } from "@/utils/supabase";
+import { supabase } from "@/utils/supabase";
 
 interface MedicalProfile {
   blood_type?: string;
@@ -102,7 +102,7 @@ export default function DriverEmergencyScreen() {
         // Load driver's ambulance location
         const { ambulanceId } = await getDriverAmbulanceId(user.id);
         if (ambulanceId) {
-          const { data } = await supabaseAdmin
+          const { data } = await supabase
             .from("ambulances")
             .select("last_known_location")
             .eq("id", ambulanceId)
