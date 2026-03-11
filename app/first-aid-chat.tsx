@@ -1,15 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    TextInput,
-    View,
+  Animated,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,8 +17,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    getFirstAidAiResponse,
-    isFirstAidAiConfigured,
+  getFirstAidAiResponse,
+  isFirstAidAiConfigured,
 } from "@/utils/first-aid-ai";
 import { type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";

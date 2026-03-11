@@ -2,14 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
-    Animated,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    View,
+  Animated,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 import { AppButton } from "@/components/app-button";
@@ -22,10 +22,10 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { updateAuthLoginPhone } from "@/utils/auth";
 import {
-    getMedicalProfile,
-    getUserProfile,
-    updateUserProfile,
-    upsertMedicalProfile,
+  getMedicalProfile,
+  getUserProfile,
+  updateUserProfile,
+  upsertMedicalProfile,
 } from "@/utils/profile";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
