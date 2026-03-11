@@ -21,7 +21,7 @@ const toChatRole = (role: Message["role"]): "assistant" | "user" =>
 export const getFirstAidAiResponse = async (
   userInput: string,
   history: Message[],
-  _lang: Lang = "en",
+  lang: Lang = "en",
 ): Promise<BotMessage | null> => {
   if (!BACKEND_URL) return null;
 
@@ -41,6 +41,7 @@ export const getFirstAidAiResponse = async (
       body: JSON.stringify({
         message: userInput,
         history: contextMessages,
+        lang: lang,
       }),
       signal: controller.signal,
     });

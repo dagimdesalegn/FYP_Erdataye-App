@@ -61,6 +61,7 @@ class HistoryMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     history: list[HistoryMessage] = Field(default_factory=list, max_length=20)
+    lang: str = Field(default="en", pattern="^(en|am|om)$")
 
 
 class ChatResponse(BaseModel):
@@ -79,7 +80,12 @@ async def chat(req: ChatRequest) -> ChatResponse:
     Send a user message and optional conversation history.
     Returns an AI-generated WHO-grounded first aid response plus follow-up suggestions.
     """
-    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    lang_instruction = {
+        "en": "Respond in English.",
+        "am": "Respond in Amharic (አማርኛ).",
+        "om": "Respond in Afaan Oromoo.",
+    }.get(req.lang, "Respond in English.")
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT + "\n" + lang_instruction}]
 
     # Keep last 20 history entries to bound token usage
     for entry in req.history[-20:]:
