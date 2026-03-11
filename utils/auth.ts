@@ -1,5 +1,8 @@
 import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
-import { supabase, supabaseAdmin } from "./supabase";
+import { supabase } from "./supabase";
+
+const BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
 export type UserRole = "patient" | "driver" | "admin" | "hospital";
 
@@ -52,7 +55,7 @@ const upsertProfileWithRetry = async (
   retries: number = 2,
 ) => {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const { error } = await supabaseAdmin
+    const { error } = await supabase
       .from("profiles")
       .upsert(payload, { onConflict: "id" });
     if (!error) {
@@ -86,67 +89,48 @@ const toAuthEmail = (phone: string): string => {
   return `${digits}@phone.erdataya.app`;
 };
 
-/** Convert any phone format to Ethiopian format: 0912345678 */
+/** Convert any phone format to E.164: +251912345678 */
 const toEthiopianPhone = (phone: string): string => {
   let digits = phone.replace(/[^0-9]/g, "");
-  if (digits.startsWith("251") && digits.length === 12) {
-    digits = "0" + digits.substring(3);
+  // 0912345678 → 251912345678
+  if (digits.startsWith("0") && digits.length === 10) {
+    digits = "251" + digits.substring(1);
   }
+  // 912345678 → 251912345678
   if (digits.length === 9 && digits.startsWith("9")) {
-    digits = "0" + digits;
+    digits = "251" + digits;
   }
-  return digits;
+  return "+" + digits;
 };
 
 /**
  * Update auth phone for an existing user.
- * This keeps sign-in phone number in sync after profile phone changes.
+ * Routes through the Python backend so the service-role key stays server-side.
  */
 export const updateAuthLoginPhone = async (
   userId: string,
   phone: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      return {
-        success: false,
-        error: new Error("Missing Supabase service-role configuration"),
-      };
-    }
-
     const authEmail = toAuthEmail(phone);
+    const ethPhone = toEthiopianPhone(phone);
 
-    const res = await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}`, {
-      method: "PUT",
-      headers: {
-        apikey: serviceRoleKey,
-        Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
-      },
+    const res = await fetch(`${BACKEND_URL}/auth/update-phone`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        user_id: userId,
+        phone: ethPhone,
         email: authEmail,
-        email_confirm: true,
-        user_metadata: { phone: toEthiopianPhone(phone) },
       }),
     });
 
     if (!res.ok) {
-      let msg = `Failed to update auth login (${res.status})`;
-      try {
-        const body = await res.json();
-        msg =
-          body?.msg ||
-          body?.message ||
-          body?.error_description ||
-          body?.error ||
-          msg;
-      } catch {
-        // ignore JSON parse failure
-      }
-      return { success: false, error: new Error(msg) };
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: new Error(body?.detail || `Failed to update auth login (${res.status})`),
+      };
     }
 
     return { success: true, error: null };
@@ -156,11 +140,8 @@ export const updateAuthLoginPhone = async (
 };
 
 /**
- * Sign up a new user with role (patient, driver, or admin)
- * @param phone User phone number (E.164 format)
- * @param password User password (minimum 6 characters)
- * @param role User role: 'patient', 'driver', or 'admin'
- * @param fullName User full name
+ * Sign up a new user with role (patient, driver, or admin).
+ * Routes through the Python backend so the service-role key stays server-side.
  */
 export const signUp = async (
   phone: string,
@@ -169,8 +150,6 @@ export const signUp = async (
   fullName: string = "",
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    // Validate role – only patient and driver can register through the app
-    // Admin and hospital accounts are created via the Supabase dashboard
     if (!["patient", "driver"].includes(role)) {
       return {
         user: null,
@@ -183,153 +162,45 @@ export const signUp = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
-    // Use Admin API with service role key to bypass rate limits
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-
-    let userId: string | null = null;
-    let adminCreated = false;
-
-    if (supabaseUrl && serviceRoleKey) {
-      try {
-        const adminRes = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
-          method: "POST",
-          headers: {
-            apikey: serviceRoleKey,
-            Authorization: `Bearer ${serviceRoleKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: authEmail,
-            password,
-            email_confirm: true,
-            user_metadata: { full_name: fullName, phone: ethPhone, role },
-          }),
-        });
-        const adminData = await adminRes.json();
-        if (adminData.id) {
-          userId = adminData.id;
-          adminCreated = true;
-          console.log(
-            "User created via Admin API (rate limit bypassed):",
-            userId,
-          );
-        } else {
-          console.warn(
-            "Admin API failed, falling back to standard signup:",
-            adminData.message || adminData.msg,
-          );
-        }
-      } catch (adminErr) {
-        console.warn(
-          "Admin API error, falling back to standard signup:",
-          adminErr,
-        );
-      }
-    }
-
-    // Fallback to standard signup if admin API not available
-    if (!adminCreated) {
-      const { data, error } = await supabase.auth.signUp({
+    // Create account via backend (service-role key stays server-side)
+    const res = await fetch(`${BACKEND_URL}/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         email: authEmail,
         password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone: ethPhone,
-            role,
-          },
-        },
-      });
-
-      if (error) {
-        console.error("Supabase signup error:", error);
-        return { user: null, error };
-      }
-
-      if (!data.user) {
-        console.error("No user returned from signup");
-        return {
-          user: null,
-          error: new Error("No user returned from signup") as AuthError,
-        };
-      }
-
-      if (isObfuscatedExistingSignupUser(data.user, data.session ?? null)) {
-        return {
-          user: null,
-          error: new Error(
-            "This phone number is already registered. Please sign in instead.",
-          ) as AuthError,
-        };
-      }
-
-      userId = data.user.id;
-    }
-
-    if (!userId) {
-      return {
-        user: null,
-        error: new Error("Failed to create user") as AuthError,
-      };
-    }
-
-    console.log("Signup successful, user created:", userId);
-
-    const resolvedRole = role;
-
-    // Create profile in profiles table (store Ethiopian phone format: 0912345678)
-    try {
-      const profileData = buildProfilePayload({
-        id: userId,
-        role: resolvedRole,
-        fullName,
+        full_name: fullName,
         phone: ethPhone,
-      });
+        role,
+      }),
+    });
 
-      const { error: profileError } = await upsertProfileWithRetry(profileData);
+    const resBody = await res.json();
 
-      if (profileError) {
-        if (profileError.code === "23503") {
-          // In some projects auth.users insert is not yet visible right after signUp.
-          // Continue; profile will be re-attempted on sign-in.
-          console.warn(
-            "Profile insert deferred due FK timing:",
-            profileError.message,
-          );
-        } else {
-          console.error("Profile upsert error:", profileError);
-          return {
-            user: null,
-            error: new Error(
-              `Database error: ${profileError.message}`,
-            ) as AuthError,
-          };
-        }
-      }
-    } catch (profileErr) {
-      console.error("Exception creating profile:", profileErr);
+    if (!res.ok || !resBody.user_id) {
+      const detail = resBody?.detail ?? "Registration failed. Please try again.";
       return {
         user: null,
-        error: new Error(`Database error: ${String(profileErr)}`) as AuthError,
+        error: new Error(detail) as AuthError,
       };
+    }
+
+    const userId = resBody.user_id;
+    console.log("User created via backend:", userId);
+
+    // Auto sign-in so the client has an authenticated session
+    try {
+      await supabase.auth.signInWithPassword({ email: authEmail, password });
+    } catch (e) {
+      console.warn("Auto sign-in after backend create failed:", e);
     }
 
     const user: AuthUser = {
       id: userId,
-      role: resolvedRole,
+      role,
       fullName,
       phone: ethPhone,
     };
-
-    // Auto sign-in if created via admin API
-    if (adminCreated) {
-      try {
-        await supabase.auth.signInWithPassword({ email: authEmail, password });
-      } catch (e) {
-        console.warn("Auto sign-in after admin create failed:", e);
-      }
-    }
 
     return { user, error: null };
   } catch (error) {
@@ -341,7 +212,7 @@ export const signUp = async (
 
 /**
  * Sign in user with phone and password.
- * Internally converts phone to fake email for Supabase email auth.
+ * Routes through the Python backend so the service-role key stays server-side.
  */
 export const signIn = async (
   phone: string,
@@ -349,88 +220,43 @@ export const signIn = async (
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     const authEmail = toAuthEmail(phone);
-    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
 
-    let authUser: any = null;
-    let adminSignedIn = false;
+    // Authenticate via backend (service-role key stays server-side)
+    const res = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: authEmail, password }),
+    });
 
-    // ── Try Admin / service-role token endpoint first ──────────────
-    if (supabaseUrl && serviceRoleKey) {
-      try {
-        const tokenRes = await fetch(
-          `${supabaseUrl}/auth/v1/token?grant_type=password`,
-          {
-            method: "POST",
-            headers: {
-              apikey: serviceRoleKey,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ email: authEmail, password }),
-          },
-        );
+    const tokenData = await res.json();
 
-        const tokenData = await tokenRes.json();
-
-        if (tokenData.access_token && tokenData.refresh_token) {
-          // Hydrate the Supabase client session so all subsequent
-          // queries use the authenticated user context.
-          const { data: sessionData, error: sessionError } =
-            await supabase.auth.setSession({
-              access_token: tokenData.access_token,
-              refresh_token: tokenData.refresh_token,
-            });
-
-          if (!sessionError && sessionData.session) {
-            authUser = sessionData.user ?? sessionData.session.user;
-            adminSignedIn = true;
-            console.log("Signed in via token endpoint (rate limit bypassed)");
-          }
-        } else if (!tokenRes.ok) {
-          // Real credential / validation error → surface immediately
-          const errMsg =
-            tokenData.error_description ||
-            tokenData.msg ||
-            tokenData.error ||
-            "Invalid login credentials";
-          return {
-            user: null,
-            error: new Error(errMsg) as AuthError,
-          };
-        }
-      } catch (adminErr) {
-        console.warn(
-          "Token endpoint sign-in error, falling back to standard:",
-          adminErr,
-        );
-      }
+    if (!res.ok || !tokenData.access_token) {
+      const errMsg =
+        tokenData.detail ??
+        tokenData.error_description ??
+        "Invalid login credentials";
+      return { user: null, error: new Error(errMsg) as AuthError };
     }
 
-    // ── Fallback to standard signInWithPassword ───────────────────
-    if (!adminSignedIn) {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password,
+    // Hydrate the Supabase client session with the tokens from backend
+    const { data: sessionData, error: sessionError } =
+      await supabase.auth.setSession({
+        access_token: tokenData.access_token,
+        refresh_token: tokenData.refresh_token,
       });
 
-      if (error) {
-        return { user: null, error };
-      }
-
-      if (!data.user) {
-        return {
-          user: null,
-          error: new Error("No user returned from signin") as AuthError,
-        };
-      }
-
-      authUser = data.user;
+    if (sessionError || !sessionData.session) {
+      return {
+        user: null,
+        error: sessionError ?? (new Error("Failed to set session") as AuthError),
+      };
     }
 
-    // ── Profile resolution (shared path) ──────────────────────────
+    const authUser = sessionData.user ?? sessionData.session.user;
+
+    // ── Profile resolution ──────────────────────────────────────
     const roleFromMetadata = getRoleFromMetadata(authUser.user_metadata?.role);
 
-    // Read existing profile from DB (single query for both heal-check and data)
     let dbFullName = "";
     let dbPhone = "";
     let profileExists = false;
@@ -451,8 +277,7 @@ export const signIn = async (
       console.warn("Could not read profile from DB on sign-in:", e);
     }
 
-    // Only create a profile row if one doesn't exist (heal missing rows).
-    // Do NOT upsert over an existing row – that would overwrite user-edited data.
+    // Heal missing profile rows
     if (!profileExists) {
       const profilePayload = buildProfilePayload({
         id: authUser.id,
@@ -465,7 +290,6 @@ export const signIn = async (
       if (upsertProfileError && upsertProfileError.code !== "23503") {
         console.error("Profile ensure error on sign in:", upsertProfileError);
       }
-      // Use the values we just inserted
       dbFullName = String(authUser.user_metadata?.full_name || "");
       dbPhone = String(authUser.user_metadata?.phone || "");
     }

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Modal, StyleSheet, View } from 'react-native';
+import { Animated, Modal, Platform, StyleSheet, View } from 'react-native';
 import { ThemedText } from './themed-text';
 
 interface LoadingModalProps {
@@ -67,52 +67,63 @@ export const LoadingModal = ({
   const textColor = isDark ? '#ECEDEE' : '#0F172A';
   const subTextColor = isDark ? '#94A3B8' : '#64748B';
 
-  return (
-    <Modal visible={visible} transparent statusBarTranslucent>
-      <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
-        <View style={[styles.container, { backgroundColor: bgColor }]}>
-          {/* Loading Spinner Container */}
-          <View style={styles.spinnerContainer}>
-            {/* Outer Pulsing Ring */}
-            <Animated.View
-              style={[
-                styles.pulseRing,
-                {
-                  opacity: pulseOpacity,
-                  transform: [{ scale: pulseScale }],
-                },
-              ]}
-            />
-            
-            {/* Middle Static Ring */}
-            <View style={styles.staticRing} />
-            
-            {/* Rotating Spinner */}
-            <Animated.View
-              style={[
-                styles.spinner,
-                {
-                  transform: [{ rotate: spin }],
-                },
-              ]}>
-              <View style={styles.spinnerDot} />
-            </Animated.View>
-            
-            {/* Center Circle */}
-            <View style={styles.centerCircle} />
-          </View>
+  if (!visible) return null;
 
-          {/* Message */}
-          <ThemedText style={[styles.message, { color: textColor }]}>
-            {message}
-          </ThemedText>
-
-          {/* Loading Progress Text */}
-          <ThemedText style={[styles.progressText, { color: subTextColor }]}>
-            Please wait while we set up your account...
-          </ThemedText>
+  const content = (
+    <View style={[styles.overlay, { backgroundColor: 'rgba(0,0,0,0.5)' }]}>
+      <View style={[styles.container, { backgroundColor: bgColor }]}>
+        {/* Loading Spinner Container */}
+        <View style={styles.spinnerContainer}>
+          {/* Outer Pulsing Ring */}
+          <Animated.View
+            style={[
+              styles.pulseRing,
+              {
+                opacity: pulseOpacity,
+                transform: [{ scale: pulseScale }],
+              },
+            ]}
+          />
+          
+          {/* Middle Static Ring */}
+          <View style={styles.staticRing} />
+          
+          {/* Rotating Spinner */}
+          <Animated.View
+            style={[
+              styles.spinner,
+              {
+                transform: [{ rotate: spin }],
+              },
+            ]}>
+            <View style={styles.spinnerDot} />
+          </Animated.View>
+          
+          {/* Center Circle */}
+          <View style={styles.centerCircle} />
         </View>
+
+        {/* Message */}
+        <ThemedText style={[styles.message, { color: textColor }]}>
+          {message}
+        </ThemedText>
+
+        {/* Loading Progress Text */}
+        <ThemedText style={[styles.progressText, { color: subTextColor }]}>
+          Please wait while we set up your account...
+        </ThemedText>
       </View>
+    </View>
+  );
+
+  // On web, <Modal> has z-index/scroll issues — use absolute overlay instead
+  if (Platform.OS === 'web') {
+    return <View style={StyleSheet.absoluteFill} pointerEvents="auto">{content}</View>;
+  }
+
+  return (
+    <Modal visible transparent statusBarTranslucent>
+      {content}
     </Modal>
   );
 };

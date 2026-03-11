@@ -1,15 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
-
-// Service-role client for tables with RLS enabled (e.g. medical_profiles)
-const getServiceClient = () => {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-  if (url && serviceKey) {
-    return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  }
-  return supabase; // fallback to anon client
-};
 
 export interface UserProfile {
   id: string;
@@ -93,18 +82,17 @@ export const getMedicalProfile = async (userId: string): Promise<{
   error: Error | null;
 }> => {
   try {
-    const client = getServiceClient();
-    const { data, error } = await client
+    const { data, error } = await supabase
       .from('medical_profiles')
       .select('*')
       .eq('user_id', userId)
       .single();
 
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       throw error;
     }
 
-    return { profile: data as MedicalProfile, error: null };
+    return { profile: (data as MedicalProfile) ?? null, error: null };
   } catch (error) {
     return { profile: null, error: error as Error };
   }
@@ -118,50 +106,26 @@ export const upsertMedicalProfile = async (
   medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const client = getServiceClient();
     const now = new Date().toISOString();
-    
-    // Map to actual DB column names
-    const profilePayload: any = {
-      user_id: userId,
-      blood_type: medicalData.blood_type,
-      allergies: medicalData.allergies,
-      medical_conditions: medicalData.medical_conditions || '',
-      emergency_contact_name: medicalData.emergency_contact_name,
-      emergency_contact_phone: medicalData.emergency_contact_phone,
-      updated_at: now,
-    };
-
-    // Check if record exists
-    const { data: existing } = await client
+    const { error } = await supabase
       .from('medical_profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
+      .upsert(
+        {
+          user_id: userId,
+          blood_type: medicalData.blood_type,
+          allergies: medicalData.allergies,
+          medical_conditions: medicalData.medical_conditions || '',
+          emergency_contact_name: medicalData.emergency_contact_name,
+          emergency_contact_phone: medicalData.emergency_contact_phone,
+          updated_at: now,
+        },
+        { onConflict: 'user_id' }
+      );
 
-    let result;
-    if (existing) {
-      // Update existing record
-      result = await client.from('medical_profiles')
-        .update(profilePayload)
-        .eq('user_id', userId);
-    } else {
-      // Insert new record
-      result = await client.from('medical_profiles')
-        .insert({ ...profilePayload, created_at: now });
-    }
-    
-    const { error } = result;
+    if (error) throw error;
 
-    if (error) {
-      console.error('Medical profile upsert error:', error);
-      throw error;
-    }
-
-    console.log('Medical profile upserted successfully');
     return { success: true, error: null };
   } catch (error) {
-    console.error('Medical profile upsert exception:', error);
     return { success: false, error: error as Error };
   }
 };
