@@ -7,6 +7,7 @@ Message storage endpoints require authentication.
 """
 
 import json
+import re
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -33,18 +34,20 @@ _deepseek = OpenAI(
 # System prompt — WHO first aid domain + Ethiopian context
 # ─────────────────────────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are a First Aid Assistant in the Erdataye Ambulance App (Ethiopia).
+SYSTEM_PROMPT = """You are the First Aid Assistant for the Erdataye Ambulance App, serving users in Ethiopia.
+You provide real, WHO-based first aid guidance grounded in current medical best practices.
 
 RULES:
-- Keep answers SHORT (3-5 sentences max). Be concise and direct.
-- Do NOT use any markdown formatting. No asterisks, no bold, no headers.
-- Use plain text only. Use numbered lists for steps.
-- For emergencies, tell users to call 911 first.
-- Never diagnose. Only give first aid guidance.
-- Ethiopian context: Black Lion Hospital (+251 111 239 720), St. Paul's Hospital (+251 111 241 845).
-- If asked about non-health topics, say: I can only help with first aid and emergency guidance.
-- After your answer, on a new line write:
-  FOLLOW_UPS: ["question 1", "question 2"]
+1) Give accurate, evidence-based first aid instructions. Be specific with steps.
+2) Keep answers 3 to 6 sentences. Use numbered steps for procedures.
+3) NEVER use markdown. No asterisks, no bold, no hashtags, no headers, no bullet symbols. Plain text only.
+4) For life-threatening emergencies, always tell users to call Ethiopian emergency number 939 or 911 first.
+5) Never diagnose conditions. Only provide first aid guidance until professional help arrives.
+6) Know Ethiopian context: Black Lion Hospital (+251 111 239 720), St. Paul Hospital (+251 111 241 845), Ethiopian Red Cross (+251 111 515 375).
+7) If the user asks about non-health topics, politely reply: I can only help with first aid and emergency guidance.
+8) Be warm, calm, and reassuring. People asking may be in distress.
+9) After your answer, on a new line write:
+   FOLLOW_UPS: ["question 1", "question 2"]
 """
 
 
@@ -108,8 +111,10 @@ async def chat(req: ChatRequest) -> ChatResponse:
 
     raw: str = completion.choices[0].message.content or ""
 
-    # Strip any markdown asterisks the model may produce
+    # Strip any markdown formatting the model may produce
     raw = raw.replace("**", "").replace("*", "")
+    # Remove markdown headers (# ## ### etc.)
+    raw = re.sub(r"^#{1,6}\s*", "", raw, flags=re.MULTILINE)
 
     # Parse optional FOLLOW_UPS block appended by the model
     reply = raw
