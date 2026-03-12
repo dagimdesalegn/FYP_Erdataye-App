@@ -4,8 +4,10 @@ import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
     Image,
+    KeyboardAvoidingView,
     Platform,
     Pressable,
+    ScrollView,
     StatusBar,
     StyleSheet,
     TextInput,
@@ -112,11 +114,12 @@ export default function RegisterScreen() {
 
     const errors: Record<string, string> = {};
 
-    // Full Name validation
+    // Full Name validation (must be at least two words)
+    const nameParts = form.fullName.trim().split(/\s+/);
     if (!form.fullName.trim()) {
       errors.fullName = "Please enter your full name";
-    } else if (form.fullName.trim().length < 2) {
-      errors.fullName = "Name must be at least 2 characters";
+    } else if (nameParts.length < 2 || nameParts.some((p) => p.length < 2)) {
+      errors.fullName = "Enter first and last name (e.g. Abebe Kebede)";
     }
 
     // Phone validation
@@ -131,6 +134,14 @@ export default function RegisterScreen() {
       errors.password = "Please enter a password";
     } else if (form.password.length < 6) {
       errors.password = "Password must be at least 6 characters";
+    }
+
+    // Blood type validation (optional, but must match valid types if given)
+    if (userRole === "patient" && form.bloodType.trim()) {
+      const validBloodTypes = ["a+", "a-", "b+", "b-", "ab+", "ab-", "o+", "o-", "a", "b", "ab", "o"];
+      if (!validBloodTypes.includes(form.bloodType.trim().toLowerCase())) {
+        errors.bloodType = "Valid types: A+, A-, B+, B-, AB+, AB-, O+, O-";
+      }
     }
 
     // Emergency contact validation (optional but must be valid if provided, only for patients)
@@ -354,12 +365,18 @@ export default function RegisterScreen() {
         end={{ x: 0.8, y: 1 }}
       />
 
-      <View
-        style={[
-          styles.flex,
-          Platform.OS === "web" && { minHeight: "100vh" as any },
-          { justifyContent: "center", alignItems: "center" },
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+      <ScrollView
+        contentContainerStyle={[
+          isSmallScreen ? styles.scrollMobile : styles.scroll,
         ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bounces
+        overScrollMode="always"
       >
         {/* Card */}
         <Animated.View
@@ -410,9 +427,9 @@ export default function RegisterScreen() {
             </View>
           </View>
 
-          {/* Form - single column on mobile, two columns on desktop */}
+          {/* Form */}
           <View style={styles.form}>
-            <View style={styles.row}>
+            <View style={isSmallScreen ? styles.rowMobile : styles.row}>
               <View style={styles.fieldHalf}>
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
                   Phone Number *
@@ -500,7 +517,7 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            <View style={styles.row}>
+            <View style={isSmallScreen ? styles.rowMobile : styles.row}>
               <View style={styles.fieldHalf}>
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
                   Full Name *
@@ -588,7 +605,7 @@ export default function RegisterScreen() {
 
             {/* Patient-specific fields */}
             {userRole === "patient" && (
-              <View style={styles.row}>
+              <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
                     Blood Type
@@ -609,11 +626,18 @@ export default function RegisterScreen() {
                       style={[styles.input, { color: textPrimary }]}
                       placeholder="e.g. A+, O-"
                       placeholderTextColor={placeholderColor}
+                      autoCapitalize="characters"
+                      maxLength={3}
                       value={form.bloodType}
                       onChangeText={(t) => handleChange("bloodType", t)}
                       editable={!loading}
                     />
                   </View>
+                  {fieldErrors.bloodType ? (
+                    <ThemedText style={styles.fieldError}>
+                      {fieldErrors.bloodType}
+                    </ThemedText>
+                  ) : null}
                 </View>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
@@ -647,7 +671,7 @@ export default function RegisterScreen() {
             {/* Driver-specific fields */}
             {userRole === "driver" && (
               <>
-                <View style={styles.row}>
+                <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>
                       Ambulance Type *
@@ -694,7 +718,7 @@ export default function RegisterScreen() {
                     </View>
                   </View>
                 </View>
-                <View style={styles.row}>
+                <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>
                       Plate Number *
@@ -823,7 +847,8 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
         </Animated.View>
-      </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

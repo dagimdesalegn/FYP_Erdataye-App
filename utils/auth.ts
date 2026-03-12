@@ -126,7 +126,7 @@ export const updateAuthLoginPhone = async (
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
+      const body = await res.text().then((t) => { try { return JSON.parse(t); } catch { return {}; } });
       return {
         success: false,
         error: new Error(body?.detail || `Failed to update auth login (${res.status})`),
@@ -175,7 +175,13 @@ export const signUp = async (
       }),
     });
 
-    const resBody = await res.json();
+    let resBody: any;
+    try {
+      const text = await res.text();
+      resBody = text ? JSON.parse(text) : {};
+    } catch {
+      resBody = {};
+    }
 
     if (!res.ok || !resBody.user_id) {
       const detail = resBody?.detail ?? "Registration failed. Please try again.";
@@ -228,7 +234,13 @@ export const signIn = async (
       body: JSON.stringify({ email: authEmail, password }),
     });
 
-    const tokenData = await res.json();
+    let tokenData: any;
+    try {
+      const text = await res.text();
+      tokenData = text ? JSON.parse(text) : {};
+    } catch {
+      tokenData = {};
+    }
 
     if (!res.ok || !tokenData.access_token) {
       const errMsg =
