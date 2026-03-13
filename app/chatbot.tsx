@@ -11,6 +11,7 @@ import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
+import { Animated, Easing } from "react-native";
 import {
     FlatList,
     KeyboardAvoidingView,
@@ -33,6 +34,7 @@ export default function ChatbotPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [typingAnim] = useState(new Animated.Value(0));
   const [lang, setLang] = useState<Lang>("en");
   const flatListRef = useRef<FlatList>(null);
 
@@ -50,7 +52,28 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
-  }, [messages, isTyping]);
+    if (isTyping) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(typingAnim, {
+            toValue: 1,
+            duration: 600,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(typingAnim, {
+            toValue: 0,
+            duration: 600,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      typingAnim.stopAnimation();
+      typingAnim.setValue(0);
+    }
+  }, [isTyping]);
 
   const sendMessage = async () => {
     const trimmed = inputText.trim();
@@ -167,8 +190,13 @@ export default function ChatbotPage() {
               data={messages}
               keyExtractor={(_, i) => String(i)}
               renderItem={({ item }) => (
-                <View
-                  style={item.role === "user" ? styles.userMsg : styles.botMsg}
+                <Animated.View
+                  style={[
+                    item.role === "user" ? styles.userMsg : styles.botMsg,
+                    item.role === "bot"
+                      ? { opacity: 1, transform: [{ scale: 1 }] }
+                      : undefined,
+                  ]}
                 >
                   <Text
                     style={{
@@ -180,20 +208,38 @@ export default function ChatbotPage() {
                   >
                     {item.text}
                   </Text>
-                </View>
+                </Animated.View>
               )}
               ListFooterComponent={
                 isTyping ? (
-                  <View style={styles.typingBubble}>
+                  <Animated.View
+                    style={[
+                      styles.typingBubble,
+                      {
+                        opacity: typingAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0.7, 1],
+                        }),
+                        transform: [
+                          {
+                            scale: typingAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [0.98, 1.08],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
                     <MaterialIcons
                       name="more-horiz"
-                      size={18}
+                      size={22}
                       color="#93C5FD"
                     />
                     <Text style={styles.typingText}>
-                      Assistant is typing...
+                      {UI[lang].typingIndicator} {UI[lang].headerStatus}
                     </Text>
-                  </View>
+                  </Animated.View>
                 ) : null
               }
               contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
