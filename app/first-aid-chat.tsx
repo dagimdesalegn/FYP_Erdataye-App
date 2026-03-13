@@ -1,15 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,8 +17,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-  getFirstAidAiResponse,
-  isFirstAidAiConfigured,
+    getFirstAidAiResponse,
+    isFirstAidAiConfigured,
 } from "@/utils/first-aid-ai";
 import { type Message } from "@/utils/first-aid-chatbot";
 import { type Lang, LANG_LABELS, UI } from "@/utils/i18n-first-aid";
@@ -138,7 +138,14 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
   const dotColor = isDark ? "#64748B" : "#94A3B8";
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 10 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 10,
+      }}
+    >
       {[dot1, dot2, dot3].map((dot, i) => (
         <Animated.View
           key={i}
@@ -201,7 +208,10 @@ export default function FirstAidChatScreen() {
             historyForReply,
             lang,
           );
-          const botMsg: Message = aiReply ?? { role: "bot" as const, text: "Sorry, I couldn't reach the AI service right now. Please try again shortly." };
+          const botMsg: Message = aiReply ?? {
+            role: "bot" as const,
+            text: "Sorry, I couldn't reach the AI service right now. Please try again shortly.",
+          };
 
           const elapsed = Date.now() - typingStartedAt;
           if (elapsed < MIN_TYPING_MS) {
@@ -271,7 +281,12 @@ export default function FirstAidChatScreen() {
           onPress={() => router.back()}
           style={({ pressed }) => [
             styles.backBtn,
-            { backgroundColor: isDark ? "#334155" : "#F1F5F9", position: "absolute", right: 10, top: insets.top + 10 },
+            {
+              backgroundColor: isDark ? "#334155" : "#F1F5F9",
+              position: "absolute",
+              right: 10,
+              top: insets.top + 10,
+            },
             pressed && { opacity: 0.7 },
           ]}
         >
