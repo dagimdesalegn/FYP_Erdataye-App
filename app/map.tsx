@@ -280,8 +280,8 @@ export default function MapScreen() {
         )}
 
         {location && (
-          <ThemedText style={[styles.locationText, { color: subText }]}>
-            📍 Your location: {userLat.toFixed(5)}, {userLng.toFixed(5)}
+          <ThemedText style={[styles.locationText, { color: subText }]}> 
+            📍 Live location map
           </ThemedText>
         )}
 

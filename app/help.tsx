@@ -270,23 +270,12 @@ export default function HelpScreen() {
 
   const mapSummaryText = React.useMemo(() => {
     if (mapLocation) {
-      const coordText = formatCoords(
-        mapLocation.latitude,
-        mapLocation.longitude,
-        6,
-      );
-      if (
-        mapLocation.sourceLabel === "Current device location" &&
-        locationAccuracyMeters
-      ) {
-        return `${coordText} · GPS accuracy ±${locationAccuracyMeters}m`;
-      }
-      return coordText;
+      return "Live location map";
     }
     if (locationLoading) return "Getting your current location...";
     if (locationError) return locationError;
     return "No active location is available yet.";
-  }, [locationAccuracyMeters, locationError, locationLoading, mapLocation]);
+  }, [locationLoading, locationError, mapLocation]);
 
   const openInGoogleMaps = () => {
     if (!mapLocation) return;
@@ -442,30 +431,8 @@ export default function HelpScreen() {
           { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 },
         ]}
       >
-        <ThemedView style={[styles.hero, { borderColor: colors.border }]}>
-          <View style={styles.heroTopRow}>
-            <View
-              style={[
-                styles.heroIconWrap,
-                {
-                  backgroundColor: isDark
-                    ? "rgba(220,38,38,0.18)"
-                    : "rgba(220,38,38,0.12)",
-                },
-              ]}
-            >
-              <MaterialIcons
-                name="location-on"
-                size={22}
-                color={isDark ? "#FCA5A5" : "#DC2626"}
-              />
-            </View>
-            <View style={styles.heroTextCol}>
-              <ThemedText style={styles.heroTitle}>Live location</ThemedText>
-            </View>
-          </View>
-
-          <View style={styles.chatTagRow}>
+        <ThemedView style={[styles.hero, { borderColor: colors.border }]}> 
+          <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
             <FirstAidFab
               triggerMode="tag"
               triggerLabel="Ask Chatbot"
@@ -493,43 +460,17 @@ export default function HelpScreen() {
                     />
                     <View>
                       <ThemedText style={styles.mapMetaLabel}>
-                        {mapLocation.sourceLabel}
-                      </ThemedText>
-                      <ThemedText
-                        style={[
-                          styles.mapMetaValue,
-                          { color: colors.textMuted },
-                        ]}
-                      >
-                        {mapSummaryText}
+                        Current location of your device
                       </ThemedText>
                     </View>
                   </View>
-                  <Pressable
-                    onPress={openInGoogleMaps}
-                    style={({ pressed }) => [
-                      styles.openMapBtn,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="directions"
-                      size={16}
-                      color={colors.text}
-                    />
-                    <ThemedText
-                      style={[styles.openMapText, { color: colors.text }]}
-                    >
-                      Directions
-                    </ThemedText>
-                  </Pressable>
                 </View>
                 <View style={styles.mapFrameWrap}>
                   {mapEmbedUrl ? (
                     <HtmlMapView
                       html={mapEmbedUrl}
                       style={{ flex: 1 }}
-                      title="Live location map"
+                      title="Current location of your device"
                     />
                   ) : null}
                 </View>
@@ -547,7 +488,7 @@ export default function HelpScreen() {
                     { color: isDark ? "#A3AAB3" : "#64748B" },
                   ]}
                 >
-                  {mapSummaryText}
+                  Current location of your device
                 </ThemedText>
               </View>
             )}
