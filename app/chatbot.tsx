@@ -11,9 +11,8 @@ import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, Easing } from "react-native";
 import {
-    FlatList,
+    Animated, Easing, FlatList,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -21,7 +20,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -67,7 +66,7 @@ export default function ChatbotPage() {
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       typingAnim.stopAnimation();
@@ -87,7 +86,10 @@ export default function ChatbotPage() {
       await addChatbotMessage(user.id, "user", trimmed);
 
       const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
-      const botMsg = aiReply ?? { role: "bot" as const, text: "Sorry, I couldn't reach the AI service right now. Please check your connection and try again." };
+      const botMsg = aiReply ?? {
+        role: "bot" as const,
+        text: "Sorry, I couldn't reach the AI service right now. Please check your connection and try again.",
+      };
 
       const elapsed = Date.now() - typingStartedAt;
       if (elapsed < MIN_TYPING_MS) {
