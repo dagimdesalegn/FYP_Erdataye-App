@@ -99,6 +99,7 @@ function MessageBubble({
 
 // ─── Typing indicator ───────────────────────────────────────────────────────
 function TypingIndicator({ isDark }: { isDark: boolean }) {
+  // Simple three-dot motion only, no text
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
   const dot3 = useRef(new Animated.Value(0)).current;
@@ -137,39 +138,20 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
   const dotColor = isDark ? "#64748B" : "#94A3B8";
 
   return (
-    <View style={[styles.bubbleRow, styles.bubbleRowBot]}>
-      <View style={styles.avatar}>
-        <MaterialIcons
-          name="local-hospital"
-          size={18}
-          color={isDark ? "#F87171" : "#DC2626"}
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 10 }}>
+      {[dot1, dot2, dot3].map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            marginHorizontal: 3,
+            backgroundColor: dotColor,
+            transform: [{ translateY: dot }],
+          }}
         />
-      </View>
-      <View
-        style={[
-          styles.bubble,
-          styles.bubbleBot,
-          {
-            backgroundColor: isDark ? "#1E293B" : "#F1F5F9",
-            borderColor: isDark ? "#334155" : "#E2E8F0",
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 5,
-            paddingHorizontal: 18,
-            paddingVertical: 14,
-          },
-        ]}
-      >
-        {[dot1, dot2, dot3].map((dot, i) => (
-          <Animated.View
-            key={i}
-            style={[
-              styles.typingDot,
-              { backgroundColor: dotColor, transform: [{ translateY: dot }] },
-            ]}
-          />
-        ))}
-      </View>
+      ))}
     </View>
   );
 }
@@ -284,6 +266,16 @@ export default function FirstAidChatScreen() {
           ]}
         >
           <MaterialIcons name="arrow-back" size={20} color={textClr} />
+        </Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.backBtn,
+            { backgroundColor: isDark ? "#334155" : "#F1F5F9", position: "absolute", right: 10, top: insets.top + 10 },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <MaterialIcons name="close" size={22} color={textClr} />
         </Pressable>
 
         <View style={styles.headerCenter}>

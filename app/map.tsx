@@ -261,22 +261,13 @@ export default function MapScreen() {
         />
       </View>
 
-      {/* Controls: Refresh + Open in Google Maps */}
+      {/* Controls: Refresh only (directions removed) */}
       <View style={styles.controls}>
         <Pressable
           style={[styles.controlBtn, { backgroundColor: accentColor }]}
           onPress={fetchAllData}
         >
           <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
-        </Pressable>
-        <Pressable
-          style={[
-            styles.controlBtn,
-            { backgroundColor: "#10B981", marginTop: 10 },
-          ]}
-          onPress={openInGoogleMaps}
-        >
-          <MaterialIcons name="directions" size={24} color="#FFFFFF" />
         </Pressable>
       </View>
 
@@ -289,9 +280,8 @@ export default function MapScreen() {
         )}
 
         {location && (
-          <ThemedText style={[styles.locationText, { color: subText }]}>
-            📍 Your location: {formatCoords(userLat, userLng)}
-            {accuracy != null && ` • Accuracy: ${accuracy.toFixed(0)}m`}
+          <ThemedText style={[styles.locationText, { color: subText }]}> 
+            📍 Your location: {userLat.toFixed(5)}, {userLng.toFixed(5)}
           </ThemedText>
         )}
 
