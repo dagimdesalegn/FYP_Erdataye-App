@@ -257,28 +257,15 @@ export default function FirstAidChatScreen() {
 
       {/* ── Header ── */}
       <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 10,
-            backgroundColor: headerBg,
-            borderBottomColor: borderClr,
-            shadowColor: isDark ? "#000" : "#94A3B8",
-          },
-        ]}
+        style={[styles.header, {
+          paddingTop: insets.top + 10,
+          backgroundColor: headerBg,
+          borderBottomColor: borderClr,
+          shadowColor: isDark ? "#000" : "#94A3B8",
+        }]}
       >
         <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backBtn,
-            { backgroundColor: isDark ? "#334155" : "#F1F5F9" },
-            pressed && { opacity: 0.7 },
-          ]}
-        >
-          <MaterialIcons name="arrow-back" size={20} color={textClr} />
-        </Pressable>
-        <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.push('/help')}
           style={({ pressed }) => [
             styles.backBtn,
             {
@@ -289,6 +276,7 @@ export default function FirstAidChatScreen() {
             },
             pressed && { opacity: 0.7 },
           ]}
+          accessibilityLabel="Close chatbot"
         >
           <MaterialIcons name="close" size={22} color={textClr} />
         </Pressable>

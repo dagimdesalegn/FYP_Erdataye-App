@@ -11,6 +11,7 @@ import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "expo-router";
 import {
     Animated, Easing, FlatList,
     KeyboardAvoidingView,
@@ -27,6 +28,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 const MIN_TYPING_MS = 1200;
 
 export default function ChatbotPage() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
   const { showConfirm } = useModal();
@@ -141,45 +143,57 @@ export default function ChatbotPage() {
         <View style={styles.centeredBox}>
           <View style={styles.topBar}>
             <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
-            <View style={styles.topBarRight}>
-              <View style={styles.langRow}>
-                {(["en", "am", "om"] as Lang[]).map((code) => {
-                  const active = lang === code;
-                  return (
-                    <Pressable
-                      key={code}
-                      onPress={() => setLang(code)}
-                      style={({ pressed }) => [
-                        styles.langBtn,
-                        active ? styles.langBtnActive : null,
-                        pressed ? { opacity: 0.8 } : null,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.langText,
-                          active ? styles.langTextActive : null,
+            <View style={styles.topBarRightContainer}>
+              <View style={styles.topBarRightRow}>
+                <View style={styles.langRow}>
+                  {(["en", "am", "om"] as Lang[]).map((code) => {
+                    const active = lang === code;
+                    return (
+                      <Pressable
+                        key={code}
+                        onPress={() => setLang(code)}
+                        style={({ pressed }) => [
+                          styles.langBtn,
+                          active ? styles.langBtnActive : null,
+                          pressed ? { opacity: 0.8 } : null,
                         ]}
                       >
-                        {LANG_LABELS[code]}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+                        <Text
+                          style={[
+                            styles.langText,
+                            active ? styles.langTextActive : null,
+                          ]}
+                        >
+                          {LANG_LABELS[code]}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Pressable
+                  onPress={handleDeleteHistory}
+                  style={({ pressed }) => [
+                    styles.clearBtn,
+                    pressed ? { opacity: 0.75 } : null,
+                  ]}
+                >
+                  <MaterialIcons
+                    name="delete-outline"
+                    size={18}
+                    color="#FCA5A5"
+                  />
+                  <Text style={styles.clearBtnText}>Clear</Text>
+                </Pressable>
               </View>
               <Pressable
-                onPress={handleDeleteHistory}
+                onPress={() => router.push('/help')}
                 style={({ pressed }) => [
-                  styles.clearBtn,
-                  pressed ? { opacity: 0.75 } : null,
+                  styles.closeBtn,
+                  pressed ? { opacity: 0.7 } : null,
                 ]}
+                accessibilityLabel="Close chatbot"
               >
-                <MaterialIcons
-                  name="delete-outline"
-                  size={18}
-                  color="#FCA5A5"
-                />
-                <Text style={styles.clearBtnText}>Clear</Text>
+                <MaterialIcons name="close" size={22} color="#FCA5A5" />
               </Pressable>
             </View>
           </View>
@@ -214,34 +228,13 @@ export default function ChatbotPage() {
               )}
               ListFooterComponent={
                 isTyping ? (
-                  <Animated.View
-                    style={[
-                      styles.typingBubble,
-                      {
-                        opacity: typingAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.7, 1],
-                        }),
-                        transform: [
-                          {
-                            scale: typingAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [0.98, 1.08],
-                            }),
-                          },
-                        ],
-                      },
-                    ]}
-                  >
-                    <MaterialIcons
-                      name="more-horiz"
-                      size={22}
-                      color="#93C5FD"
-                    />
-                    <Text style={styles.typingText}>
-                      {UI[lang].typingIndicator} {UI[lang].headerStatus}
-                    </Text>
-                  </Animated.View>
+                  <View style={{ alignItems: "center", marginVertical: 8 }}>
+                    <View style={{ flexDirection: "row" }}>
+                      <Animated.View style={[styles.dot, { opacity: typingAnim }]} />
+                      <Animated.View style={[styles.dot, { opacity: typingAnim, marginLeft: 4 }]} />
+                      <Animated.View style={[styles.dot, { opacity: typingAnim, marginLeft: 4 }]} />
+                    </View>
+                  </View>
                 ) : null
               }
               contentContainerStyle={{ paddingBottom: 16, paddingTop: 8 }}
@@ -284,6 +277,29 @@ export default function ChatbotPage() {
 }
 
 const styles = StyleSheet.create({
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#93C5FD',
+  },
+  topBarRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flex: 1,
+    position: 'relative',
+  },
+  topBarRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  closeBtn: {
+    padding: 4,
+    marginLeft: 16,
+    alignSelf: 'flex-start',
+  },
   root: {
     flex: 1,
     backgroundColor: "#111827",
