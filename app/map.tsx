@@ -280,7 +280,7 @@ export default function MapScreen() {
         )}
 
         {location && (
-          <ThemedText style={[styles.locationText, { color: subText }]}> 
+          <ThemedText style={[styles.locationText, { color: subText }]}>
             📍 Live location map
           </ThemedText>
         )}
