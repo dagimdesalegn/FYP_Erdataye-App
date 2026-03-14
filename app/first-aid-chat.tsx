@@ -257,15 +257,18 @@ export default function FirstAidChatScreen() {
 
       {/* ── Header ── */}
       <View
-        style={[styles.header, {
-          paddingTop: insets.top + 10,
-          backgroundColor: headerBg,
-          borderBottomColor: borderClr,
-          shadowColor: isDark ? "#000" : "#94A3B8",
-        }]}
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 10,
+            backgroundColor: headerBg,
+            borderBottomColor: borderClr,
+            shadowColor: isDark ? "#000" : "#94A3B8",
+          },
+        ]}
       >
         <Pressable
-          onPress={() => router.push('/help')}
+          onPress={() => router.push("/help")}
           style={({ pressed }) => [
             styles.backBtn,
             {

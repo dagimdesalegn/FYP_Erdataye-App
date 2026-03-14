@@ -8,7 +8,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
-import { buildMapHtml, formatCoords } from "@/utils/emergency";
+import { buildMapHtml } from "@/utils/emergency";
 import { getActiveEmergency, type PatientEmergency } from "@/utils/patient";
 import { getUserProfile } from "@/utils/profile";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -431,8 +431,15 @@ export default function HelpScreen() {
           { paddingTop: 54, paddingBottom: Math.max(insets.bottom, 14) + 14 },
         ]}
       >
-        <ThemedView style={[styles.hero, { borderColor: colors.border }]}> 
-          <View style={{ flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 8 }}>
+        <ThemedView style={[styles.hero, { borderColor: colors.border }]}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
             <FirstAidFab
               triggerMode="tag"
               triggerLabel="Ask Chatbot"
