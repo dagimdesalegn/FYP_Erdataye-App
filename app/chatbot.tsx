@@ -2,26 +2,28 @@ import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import {
-    addChatbotMessage,
-    deleteChatbotMessages,
-    getChatbotMessages,
+  addChatbotMessage,
+  deleteChatbotMessages,
+  getChatbotMessages,
 } from "@/utils/chat";
 import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
 import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated, Easing, FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    View
+  Animated,
+  Easing,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -186,7 +188,7 @@ export default function ChatbotPage() {
                 </Pressable>
               </View>
               <Pressable
-                onPress={() => router.push('/help')}
+                onPress={() => router.push("/help")}
                 style={({ pressed }) => [
                   styles.closeBtn,
                   pressed ? { opacity: 0.7 } : null,
@@ -230,9 +232,21 @@ export default function ChatbotPage() {
                 isTyping ? (
                   <View style={{ alignItems: "center", marginVertical: 8 }}>
                     <View style={{ flexDirection: "row" }}>
-                      <Animated.View style={[styles.dot, { opacity: typingAnim }]} />
-                      <Animated.View style={[styles.dot, { opacity: typingAnim, marginLeft: 4 }]} />
-                      <Animated.View style={[styles.dot, { opacity: typingAnim, marginLeft: 4 }]} />
+                      <Animated.View
+                        style={[styles.dot, { opacity: typingAnim }]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.dot,
+                          { opacity: typingAnim, marginLeft: 4 },
+                        ]}
+                      />
+                      <Animated.View
+                        style={[
+                          styles.dot,
+                          { opacity: typingAnim, marginLeft: 4 },
+                        ]}
+                      />
                     </View>
                   </View>
                 ) : null
@@ -281,24 +295,24 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#93C5FD',
+    backgroundColor: "#93C5FD",
   },
   topBarRightContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
     flex: 1,
-    position: 'relative',
+    position: "relative",
   },
   topBarRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   closeBtn: {
     padding: 4,
     marginLeft: 16,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   root: {
     flex: 1,
