@@ -180,6 +180,8 @@ export default function FirstAidChatScreen() {
   const bg = isDark ? "#0B1220" : "#EEF3F8";
   const headerBg = isDark ? "#111827" : "#FFFFFF";
   const borderClr = isDark ? "#293548" : "#D6E0EA";
+  // Always use the main chat background for the input bar to prevent black bar
+  const inputBarBg = bg;
   const inputBg = isDark ? "#101B2D" : "#FFFFFF";
   const textClr = isDark ? "#E6EDF7" : "#0F172A";
   const mutedClr = isDark ? "#7C8DA6" : "#6B7C93";
@@ -405,7 +407,7 @@ export default function FirstAidChatScreen() {
             styles.inputBar,
             {
               paddingBottom: Math.max(insets.bottom, 8) + 4,
-              backgroundColor: headerBg,
+              backgroundColor: inputBarBg,
               borderTopColor: borderClr,
               shadowColor: isDark ? "#000" : "#94A3B8",
             },

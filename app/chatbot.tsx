@@ -2,9 +2,9 @@ import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import {
-  addChatbotMessage,
-  deleteChatbotMessages,
-  getChatbotMessages,
+    addChatbotMessage,
+    deleteChatbotMessages,
+    getChatbotMessages,
 } from "@/utils/chat";
 import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
 import type { Message } from "@/utils/first-aid-chatbot";
@@ -13,17 +13,17 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Easing,
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Animated,
+    Easing,
+    FlatList,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -458,6 +458,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 8,
     paddingTop: 8,
+    backgroundColor: "#111827", // Match the main background, remove black bar
   },
   input: {
     flex: 1,
