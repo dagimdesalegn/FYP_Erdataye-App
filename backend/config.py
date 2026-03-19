@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # ── DeepSeek ──────────────────────────────────────────────────────────────
     deepseek_api_key: str
 
+    # ── Staff provisioning ───────────────────────────────────────────────────
+    # Optional secret used by /auth/register-staff. If empty, backend falls
+    # back to SUPABASE_SERVICE_ROLE_KEY for compatibility.
+    staff_provisioning_key: str = ""
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     allowed_origins: str = (
         "http://localhost:8081,http://localhost:19006,exp://localhost:8081"
