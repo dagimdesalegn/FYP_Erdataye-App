@@ -764,15 +764,35 @@ export default function PatientEmergencyTrackingScreen() {
             )}
 
             {assignment?.pickup_eta_minutes && (
-              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}>
+              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}> 
                 <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
                 <ThemedText style={styles.etaText}>
                   ETA: {assignment.pickup_eta_minutes} min
                 </ThemedText>
               </View>
             )}
-            {/* Chatbot icon inside box */}
+            {/* Call Driver button and chatbot icon inside box */}
             <View style={{ alignItems: "center", marginTop: 24 }}>
+              {assignment && assignment.driver_phone && typeof assignment.driver_phone === "string" && assignment.driver_phone.trim() !== "" && (
+                <Pressable
+                  onPress={() => Linking.openURL(`tel:${assignment.driver_phone}`)}
+                  style={{
+                    marginBottom: 12,
+                    backgroundColor: "#0EA5E9",
+                    borderRadius: 24,
+                    paddingHorizontal: 32,
+                    paddingVertical: 14,
+                    elevation: 4,
+                    flexDirection: "row",
+                    alignItems: "center",
+                  }}
+                >
+                  <MaterialIcons name="phone" size={22} color="#FFF" />
+                  <ThemedText style={{ color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>
+                    Call Driver
+                  </ThemedText>
+                </Pressable>
+              )}
               <FirstAidFab anchorStyle={{ marginBottom: 8 }} />
               <View
                 style={{
