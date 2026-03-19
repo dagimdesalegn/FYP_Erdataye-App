@@ -11,7 +11,7 @@ import {
     StyleSheet,
     useWindowDimensions,
     Vibration,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -24,7 +24,7 @@ import {
     buildDriverPatientMapHtml,
     buildMapHtml,
     calculateDistance,
-    parsePostGISPoint
+    parsePostGISPoint,
 } from "@/utils/emergency";
 import {
     getEmergencyDetails,
@@ -447,30 +447,25 @@ export default function PatientEmergencyTrackingScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, 16) },
+          { paddingTop: Math.max(insets.top, 32) }, // Increased top margin for mobile
         ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header Row: Back + Title ─────────────────── */}
-        <View style={styles.headerRow}>
+        {/* ── Header Row: Centered Back + Refresh ─────────────── */}
+        <View style={styles.headerRowCustom}>
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => [
-              styles.backBtn,
-              {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.1)"
-                  : "rgba(0,0,0,0.05)",
-              },
+              styles.headerIconBtn,
               pressed && { opacity: 0.6 },
             ]}
           >
             <MaterialIcons
               name="arrow-back"
-              size={20}
+              size={28}
               color={isDark ? "#E2E8F0" : "#334155"}
             />
           </Pressable>
@@ -485,31 +480,19 @@ export default function PatientEmergencyTrackingScreen() {
           <Pressable
             onPress={onRefresh}
             style={({ pressed }) => [
-              styles.backBtn,
-              {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.1)"
-                  : "rgba(0,0,0,0.05)",
-              },
+              styles.headerIconBtn,
               pressed && { opacity: 0.6 },
             ]}
           >
             <MaterialIcons
               name="refresh"
-              size={20}
+              size={28}
               color={isDark ? "#E2E8F0" : "#334155"}
             />
           </Pressable>
         </View>
 
-        <View style={styles.tagRow}>
-          <MaterialIcons name="auto-awesome" size={18} color="#0EA5E9" />
-          <ThemedText
-            style={[styles.tagText, { color: isDark ? "#E2E8F0" : "#0F172A" }]}
-          >
-            Help is on the way—drivers see your request in real time.
-          </ThemedText>
-        </View>
+        {/* Removed tag text for cleaner UI */}
 
         {/* ── Status Banner ─────────────────────────────── */}
         <LinearGradient
@@ -764,7 +747,7 @@ export default function PatientEmergencyTrackingScreen() {
             )}
 
             {assignment?.pickup_eta_minutes && (
-              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}> 
+              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}>
                 <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
                 <ThemedText style={styles.etaText}>
                   ETA: {assignment.pickup_eta_minutes} min
@@ -773,26 +756,38 @@ export default function PatientEmergencyTrackingScreen() {
             )}
             {/* Call Driver button and chatbot icon inside box */}
             <View style={{ alignItems: "center", marginTop: 24 }}>
-              {assignment && assignment.driver_phone && typeof assignment.driver_phone === "string" && assignment.driver_phone.trim() !== "" && (
-                <Pressable
-                  onPress={() => Linking.openURL(`tel:${assignment.driver_phone}`)}
-                  style={{
-                    marginBottom: 12,
-                    backgroundColor: "#0EA5E9",
-                    borderRadius: 24,
-                    paddingHorizontal: 32,
-                    paddingVertical: 14,
-                    elevation: 4,
-                    flexDirection: "row",
-                    alignItems: "center",
-                  }}
-                >
-                  <MaterialIcons name="phone" size={22} color="#FFF" />
-                  <ThemedText style={{ color: "#FFF", fontWeight: "bold", fontSize: 16, marginLeft: 8 }}>
-                    Call Driver
-                  </ThemedText>
-                </Pressable>
-              )}
+              {assignment &&
+                assignment.driver_phone &&
+                typeof assignment.driver_phone === "string" &&
+                assignment.driver_phone.trim() !== "" && (
+                  <Pressable
+                    onPress={() =>
+                      Linking.openURL(`tel:${assignment.driver_phone}`)
+                    }
+                    style={{
+                      marginBottom: 12,
+                      backgroundColor: "#0EA5E9",
+                      borderRadius: 24,
+                      paddingHorizontal: 32,
+                      paddingVertical: 14,
+                      elevation: 4,
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <MaterialIcons name="phone" size={22} color="#FFF" />
+                    <ThemedText
+                      style={{
+                        color: "#FFF",
+                        fontWeight: "bold",
+                        fontSize: 16,
+                        marginLeft: 8,
+                      }}
+                    >
+                      Call Driver
+                    </ThemedText>
+                  </Pressable>
+                )}
               <FirstAidFab anchorStyle={{ marginBottom: 8 }} />
               <View
                 style={{
@@ -843,6 +838,23 @@ export default function PatientEmergencyTrackingScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
+    headerRowCustom: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+      gap: 24,
+      marginTop: 32, // Increased top margin for visibility
+    },
+    headerIconBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "rgba(0,0,0,0.05)",
+      marginHorizontal: 4,
+    },
   root: { flex: 1, overflow: "hidden" },
   heroGlow: {
     position: "absolute",
