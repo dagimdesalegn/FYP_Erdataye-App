@@ -766,164 +766,39 @@ export default function PatientEmergencyTrackingScreen() {
             )}
 
             {assignment?.pickup_eta_minutes && (
-              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}>
+              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}> 
                 <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
                 <ThemedText style={styles.etaText}>
                   ETA: {assignment.pickup_eta_minutes} min
                 </ThemedText>
               </View>
             )}
+            {/* Chatbot icon inside box */}
+            <View style={{ alignItems: "center", marginTop: 24 }}>
+              <FirstAidFab anchorStyle={{ marginBottom: 8 }} />
+              <View style={{
+                backgroundColor: "#FEE2E2",
+                borderRadius: 16,
+                paddingHorizontal: 18,
+                paddingVertical: 6,
+                marginBottom: 16,
+                marginTop: 4,
+              }}>
+                <ThemedText style={{
+                  color: "#DC2626",
+                  fontWeight: "bold",
+                  fontSize: 16,
+                  letterSpacing: 0.5,
+                  textAlign: "center",
+                }}>
+                  Ask Chatbot
+                </ThemedText>
+              </View>
+            </View>
           </View>
         )}
 
-        {/* ── Emergency Details ─────────────────────────── */}
-        <View
-          style={[
-            styles.infoCard,
-            styles.cardElevated,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconCircle, { backgroundColor: "#FEE2E2" }]}>
-              <MaterialIcons name="emergency" size={20} color="#DC2626" />
-            </View>
-            <ThemedText
-              style={[
-                styles.cardHeading,
-                { color: isDark ? "#E2E8F0" : "#1E293B" },
-              ]}
-            >
-              Emergency Details
-            </ThemedText>
-          </View>
-
-          <View style={styles.detailRow}>
-            <View
-              style={[
-                styles.detailIcon,
-                { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
-              ]}
-            >
-              <MaterialIcons name="place" size={16} color="#DC2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
-                Your Location
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.detailValue,
-                  { color: isDark ? "#F1F5F9" : "#0F172A", fontSize: 13 },
-                ]}
-              >
-                {formatCoords(patientCoords.latitude, patientCoords.longitude)}
-              </ThemedText>
-            </View>
-          </View>
-
-          {emergency.description && (
-            <View
-              style={[
-                styles.descBox,
-                {
-                  backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-                  borderColor: cardBorder,
-                },
-              ]}
-            >
-              <MaterialIcons name="description" size={16} color={subtleText} />
-              <ThemedText
-                style={[
-                  styles.descText,
-                  { color: isDark ? "#CBD5E1" : "#475569" },
-                ]}
-              >
-                {emergency.description}
-              </ThemedText>
-            </View>
-          )}
-        </View>
-
-        {/* ── Quick Actions ──────────────────────────────── */}
-        <View
-          style={[
-            styles.actionsContainer,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-          ]}
-        >
-          <View style={styles.actionsRow}>
-            <Pressable
-              onPress={() => Linking.openURL("tel:911")}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: "#FEE2E2" }]}>
-                <MaterialIcons name="phone" size={20} color="#DC2626" />
-              </View>
-              <ThemedText
-                style={[
-                  styles.actionLabel,
-                  { color: isDark ? "#E2E8F0" : "#1E293B" },
-                ]}
-              >
-                Call 911
-              </ThemedText>
-            </Pressable>
-
-            {patientCoords.latitude ? (
-              <Pressable
-                onPress={() => {
-                  const url = `https://www.google.com/maps?q=${patientCoords.latitude},${patientCoords.longitude}`;
-                  Linking.openURL(url);
-                }}
-                style={({ pressed }) => [
-                  styles.actionBtn,
-                  { backgroundColor: cardBg, borderColor: cardBorder },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <View
-                  style={[styles.actionIcon, { backgroundColor: "#E0F2FE" }]}
-                >
-                  <MaterialIcons name="map" size={20} color="#0EA5E9" />
-                </View>
-                <ThemedText
-                  style={[
-                    styles.actionLabel,
-                    { color: isDark ? "#E2E8F0" : "#1E293B" },
-                  ]}
-                >
-                  Maps
-                </ThemedText>
-              </Pressable>
-            ) : null}
-
-            <Pressable
-              onPress={() => router.push("/help" as any)}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: "#ECFDF5" }]}>
-                <MaterialIcons name="support-agent" size={20} color="#059669" />
-              </View>
-              <ThemedText
-                style={[
-                  styles.actionLabel,
-                  { color: isDark ? "#E2E8F0" : "#1E293B" },
-                ]}
-              >
-                Help
-              </ThemedText>
-            </Pressable>
-          </View>
-        </View>
+        {/* ...existing code... */}
 
         {/* Go Home if completed */}
         {isCompleted && (
@@ -939,7 +814,7 @@ export default function PatientEmergencyTrackingScreen() {
           </Pressable>
         )}
       </ScrollView>
-      <FirstAidFab />
+      {/* ...existing code... */}
     </View>
   );
 }
