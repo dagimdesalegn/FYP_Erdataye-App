@@ -42,7 +42,6 @@ function MessageBubble({
   isDark: boolean;
 }) {
   const isBot = message.role === "bot";
-
   return (
     <View
       style={[
@@ -59,9 +58,7 @@ function MessageBubble({
           />
         </View>
       )}
-      <View
-        style={[styles.bubbleContent, !isBot && { alignItems: "flex-end" }]}
-      >
+      <View style={[styles.bubbleContent, !isBot && { alignItems: "flex-end" }]}> 
         <View
           style={[
             styles.bubble,
@@ -238,23 +235,9 @@ export default function FirstAidChatScreen() {
     <View
       style={[
         styles.root,
-        { backgroundColor: bg, maxHeight: 520, minHeight: 420 },
+        { backgroundColor: bg, flex: 1 },
       ]}
     >
-      <View pointerEvents="none" style={styles.bgLayer}>
-        <View
-          style={[
-            styles.bgBlobTop,
-            { backgroundColor: isDark ? "#1C2A40" : "#DCE8F5" },
-          ]}
-        />
-        <View
-          style={[
-            styles.bgBlobBottom,
-            { backgroundColor: isDark ? "#152238" : "#E5EEF8" },
-          ]}
-        />
-      </View>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
       {/* ── Header ── */}
@@ -359,7 +342,7 @@ export default function FirstAidChatScreen() {
 
       {/* ── Chat area ── */}
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: bg }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 18}
       >
@@ -372,33 +355,35 @@ export default function FirstAidChatScreen() {
           </ThemedText>
         </View>
         {messages.length === 0 ? (
-          <View style={styles.emptyState}>
+          <View style={[styles.emptyState, { backgroundColor: bg }]}> 
             <View style={styles.emptyIcon}>
               <MaterialIcons name="local-hospital" size={40} color="#DC2626" />
             </View>
-            <ThemedText style={[styles.emptyTitle, { color: textClr }]}>
+            <ThemedText style={[styles.emptyTitle, { color: textClr }]}> 
               {UI[lang].headerTitle}
             </ThemedText>
-            <ThemedText style={[styles.emptySub, { color: mutedClr }]}>
+            <ThemedText style={[styles.emptySub, { color: mutedClr }]}> 
               {UI[lang].inputPlaceholder}
             </ThemedText>
           </View>
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(_, i) => String(i)}
-            renderItem={({ item }) => (
-              <MessageBubble message={item} isDark={isDark} />
-            )}
-            ListFooterComponent={
-              isTyping ? <TypingIndicator isDark={isDark} /> : null
-            }
-            contentContainerStyle={[styles.messageList, { paddingBottom: 16 }]}
-            onContentSizeChange={scrollToBottom}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-          />
+          <View style={{ flex: 1, backgroundColor: bg }}>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(_, i) => String(i)}
+              renderItem={({ item }) => (
+                <MessageBubble message={item} isDark={isDark} />
+              )}
+              ListFooterComponent={
+                isTyping ? <TypingIndicator isDark={isDark} /> : null
+              }
+                contentContainerStyle={[styles.messageList, { paddingBottom: 16, backgroundColor: bg }]}
+              onContentSizeChange={scrollToBottom}
+              showsVerticalScrollIndicator={false}
+                style={{ flex: 1, backgroundColor: bg }}
+            />
+          </View>
         )}
 
         {/* ── Input bar ── */}
