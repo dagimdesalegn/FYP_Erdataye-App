@@ -151,9 +151,7 @@ export const upsertDriverAmbulance = async (
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
-
     const db = supabase;
-
     // Check if an ambulance with this vehicle_number already exists
     const { data: existing } = await db
       .from('ambulances')
@@ -218,10 +216,20 @@ export const upsertDriverAmbulance = async (
         .single();
     }
 
-    if (insertResult.error) throw insertResult.error;
+    if (insertResult.error) {
+      // Enhanced error handling for RLS violations
+      if (insertResult.error.code === '42501' && insertResult.error.message.includes('row-level security')) {
+        console.error('Ambulance creation failed due to RLS policy:', insertResult.error);
+        alert('Ambulance creation failed due to security policy. Please contact admin to enable ambulance creation for drivers.');
+      } else {
+        console.error('Error upserting driver ambulance:', insertResult.error);
+      }
+      return { ambulanceId: null, error: insertResult.error };
+    }
     return { ambulanceId: insertResult.data?.id ?? null, error: null };
   } catch (error) {
     console.error('Error upserting driver ambulance:', error);
+    alert('Ambulance creation failed. Please contact admin.');
     return { ambulanceId: null, error: error as Error };
   }
 };
