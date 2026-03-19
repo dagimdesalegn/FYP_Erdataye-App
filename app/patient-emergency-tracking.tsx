@@ -5,14 +5,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     Animated,
-    Linking,
     Pressable,
     RefreshControl,
     ScrollView,
     StyleSheet,
     useWindowDimensions,
     Vibration,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,8 +24,7 @@ import {
     buildDriverPatientMapHtml,
     buildMapHtml,
     calculateDistance,
-    formatCoords,
-    parsePostGISPoint,
+    parsePostGISPoint
 } from "@/utils/emergency";
 import {
     getEmergencyDetails,
@@ -766,7 +764,7 @@ export default function PatientEmergencyTrackingScreen() {
             )}
 
             {assignment?.pickup_eta_minutes && (
-              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}> 
+              <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}>
                 <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
                 <ThemedText style={styles.etaText}>
                   ETA: {assignment.pickup_eta_minutes} min
@@ -776,21 +774,25 @@ export default function PatientEmergencyTrackingScreen() {
             {/* Chatbot icon inside box */}
             <View style={{ alignItems: "center", marginTop: 24 }}>
               <FirstAidFab anchorStyle={{ marginBottom: 8 }} />
-              <View style={{
-                backgroundColor: "#FEE2E2",
-                borderRadius: 16,
-                paddingHorizontal: 18,
-                paddingVertical: 6,
-                marginBottom: 16,
-                marginTop: 4,
-              }}>
-                <ThemedText style={{
-                  color: "#DC2626",
-                  fontWeight: "bold",
-                  fontSize: 16,
-                  letterSpacing: 0.5,
-                  textAlign: "center",
-                }}>
+              <View
+                style={{
+                  backgroundColor: "#FEE2E2",
+                  borderRadius: 16,
+                  paddingHorizontal: 18,
+                  paddingVertical: 6,
+                  marginBottom: 16,
+                  marginTop: 4,
+                }}
+              >
+                <ThemedText
+                  style={{
+                    color: "#DC2626",
+                    fontWeight: "bold",
+                    fontSize: 16,
+                    letterSpacing: 0.5,
+                    textAlign: "center",
+                  }}
+                >
                   Ask Chatbot
                 </ThemedText>
               </View>
