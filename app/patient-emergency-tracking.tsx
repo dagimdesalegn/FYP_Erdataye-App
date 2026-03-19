@@ -838,23 +838,23 @@ export default function PatientEmergencyTrackingScreen() {
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    headerRowCustom: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 24,
-      gap: 24,
-      marginTop: 32, // Increased top margin for visibility
-    },
-    headerIconBtn: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "rgba(0,0,0,0.05)",
-      marginHorizontal: 4,
-    },
+  headerRowCustom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+    gap: 24,
+    marginTop: 32, // Increased top margin for visibility
+  },
+  headerIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.05)",
+    marginHorizontal: 4,
+  },
   root: { flex: 1, overflow: "hidden" },
   heroGlow: {
     position: "absolute",
