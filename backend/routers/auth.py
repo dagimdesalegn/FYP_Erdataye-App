@@ -15,9 +15,10 @@ import re
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
+from config import settings
 from services.supabase import auth_create_user, auth_refresh, auth_sign_in, auth_update_user, db_upsert
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -62,6 +63,34 @@ class RegisterResponse(BaseModel):
     message: str
 
 
+
+class RegisterStaffRequest(BaseModel):
+    phone: str = Field(..., min_length=9, max_length=16, description="Unique phone number for admin/hospital account")
+    password: str = Field(..., min_length=6, max_length=72)
+    full_name: str = Field(..., min_length=1, max_length=100)
+    role: Literal["admin", "hospital"]
+    hospital_id: str | None = Field(default=None, description="Optional hospital link")
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("full_name cannot be blank")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def normalise_phone(cls, v: str) -> str:
+        digits = re.sub(r"[^0-9]", "", v)
+        if not (9 <= len(digits) <= 15):
+            raise ValueError("Phone must be 9–15 digits")
+        if digits.startswith("0") and len(digits) == 10:
+            digits = "251" + digits[1:]
+        if len(digits) == 9 and digits.startswith("9"):
+            digits = "251" + digits
+        return "+" + digits
+
 class LoginRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=1)
@@ -76,6 +105,64 @@ class TokenResponse(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+async def _create_user_with_profile(
+    *,
+    email: str,
+    password: str,
+    full_name: str,
+    phone: str,
+    role: Literal["patient", "driver", "admin", "hospital"],
+    hospital_id: str | None = None,
+) -> RegisterResponse:
+    user_metadata = {
+        "full_name": full_name,
+        "phone": phone,
+        "role": role,
+    }
+    if hospital_id:
+        user_metadata["hospital_id"] = hospital_id
+
+    user_data, code = await auth_create_user(
+        email=email,
+        password=password,
+        user_metadata=user_metadata,
+    )
+
+    if code not in (200, 201) or not user_data.get("id"):
+        detail: str = (
+            user_data.get("msg")
+            or user_data.get("message")
+            or user_data.get("error_description")
+            or "Registration failed. Please try again."
+        )
+        if code == 422 or "already" in detail.lower() or "exists" in detail.lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An account with this identifier already exists.",
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+    user_id: str = user_data["id"]
+    now = datetime.now(timezone.utc).isoformat()
+
+    profile_payload = {
+        "id": user_id,
+        "role": role,
+        "full_name": full_name,
+        "phone": phone,
+        "updated_at": now,
+    }
+    if hospital_id:
+        profile_payload["hospital_id"] = hospital_id
+
+    await db_upsert("profiles", profile_payload, on_conflict="id")
+
+    return RegisterResponse(
+        user_id=user_id,
+        message="Account created successfully. Please sign in.",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -96,49 +183,43 @@ async def register(req: RegisterRequest) -> RegisterResponse:
     - Profile row is created in the `profiles` table
     - Service-role key never leaves this server
     """
-    user_data, code = await auth_create_user(
+    return await _create_user_with_profile(
         email=req.email,
         password=req.password,
-        user_metadata={
-            "full_name": req.full_name,
-            "phone": req.phone,
-            "role": req.role,
-        },
+        full_name=req.full_name,
+        phone=req.phone,
+        role=req.role,
     )
 
-    if code not in (200, 201) or not user_data.get("id"):
-        detail: str = (
-            user_data.get("msg")
-            or user_data.get("message")
-            or user_data.get("error_description")
-            or "Registration failed. Please try again."
+
+@router.post(
+    "/register-staff",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create admin or hospital account (secured provisioning endpoint)",
+)
+async def register_staff(
+    req: RegisterStaffRequest,
+    x_setup_key: str | None = Header(default=None, alias="X-Setup-Key"),
+) -> RegisterResponse:
+    expected_key = settings.staff_provisioning_key or settings.supabase_service_role_key
+
+    if not x_setup_key or x_setup_key != expected_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid setup key.",
         )
-        if code == 422 or "already" in detail.lower() or "exists" in detail.lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="An account with this identifier already exists.",
-            )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
-    user_id: str = user_data["id"]
-    now = datetime.now(timezone.utc).isoformat()
-
-    # Upsert profile row — non-fatal if it fails (auth user was created)
-    await db_upsert(
-        "profiles",
-        {
-            "id": user_id,
-            "role": req.role,
-            "full_name": req.full_name,
-            "phone": req.phone,
-            "updated_at": now,
-        },
-        on_conflict="id",
-    )
-
-    return RegisterResponse(
-        user_id=user_id,
-        message="Account created successfully. Please sign in.",
+    # Generate pseudo-email for Supabase compatibility
+    digits = re.sub(r"[^0-9]", "", req.phone)
+    pseudo_email = f"{digits}@erdataye.local"
+    return await _create_user_with_profile(
+        email=pseudo_email,
+        password=req.password,
+        full_name=req.full_name,
+        phone=req.phone,
+        role=req.role,
+        hospital_id=req.hospital_id,
     )
 
 

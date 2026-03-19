@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import auth, chat, profiles
+from routers import auth, chat, ops, profiles
 from services.supabase import close_client
 
 
@@ -72,6 +72,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(profiles.router)
 app.include_router(chat.router)
+app.include_router(ops.router)
 
 
 # ── Health probe ─────────────────────────────────────────────────────────────
