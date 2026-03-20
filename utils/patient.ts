@@ -55,6 +55,8 @@ export interface EmergencyAssignment {
   completed_at?: string;
   notes?: string;
   status?: string;
+  driver_phone?: string;
+  driver_contact?: string;
 }
 
 export interface AmbulanceInfo {
@@ -65,6 +67,9 @@ export interface AmbulanceInfo {
   is_available: boolean;
   hospital_id?: string;
   last_known_location?: string;
+  phone?: string;
+  phone_number?: string;
+  driver_phone?: string;
 }
 
 export interface HospitalInfo {
@@ -241,6 +246,45 @@ export const getEmergencyDetails = async (
         .maybeSingle();
 
       ambulance = ambulanceData as AmbulanceInfo | null;
+
+      // Resolve assigned driver's phone from profiles when not present on ambulance.
+      const driverId = (ambulanceData as any)?.current_driver_id;
+      if (driverId) {
+        const { data: driverProfile } = await supabase
+          .from("profiles")
+          .select("phone")
+          .eq("id", driverId)
+          .maybeSingle();
+
+        const resolvedPhone =
+          typeof driverProfile?.phone === "string"
+            ? driverProfile.phone.trim()
+            : "";
+
+        if (resolvedPhone) {
+          ambulance = {
+            ...(ambulanceData as any),
+            driver_phone: resolvedPhone,
+            phone: (ambulanceData as any)?.phone ?? resolvedPhone,
+            phone_number:
+              (ambulanceData as any)?.phone_number ?? resolvedPhone,
+          } as AmbulanceInfo;
+
+          if (assignmentData) {
+            assignmentData = {
+              ...assignmentData,
+              driver_phone:
+                assignmentData.driver_phone ??
+                assignmentData.driver_contact ??
+                resolvedPhone,
+              driver_contact:
+                assignmentData.driver_contact ??
+                assignmentData.driver_phone ??
+                resolvedPhone,
+            };
+          }
+        }
+      }
     }
 
     return {

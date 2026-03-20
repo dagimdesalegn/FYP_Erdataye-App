@@ -303,7 +303,8 @@ export default function PatientProfileScreen() {
 
       {/* Success Notification (centered) */}
       {successVisible && (
-        <View style={styles.successOverlay} pointerEvents="none">
+        <View style={[styles.successOverlay, { pointerEvents: "none" }]}
+        >
           <Animated.View
             style={[
               styles.successBanner,

@@ -4,7 +4,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
     Animated,
+  Linking,
+  Platform,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -109,6 +112,15 @@ export default function PatientEmergencyTrackingScreen() {
   );
   const prevStatusRef = useRef<string | null>(null);
   const notifAnim = useRef(new Animated.Value(0)).current;
+  const [animatedAmbulanceCoords, setAnimatedAmbulanceCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const animatedCoordsRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const movementTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
@@ -209,10 +221,90 @@ export default function PatientEmergencyTrackingScreen() {
     return unsub;
   }, [ambulance?.id]);
 
+  // Smooth transition of ambulance marker between live updates.
+  useEffect(() => {
+    if (!ambulanceCoords) return;
+
+    const target = ambulanceCoords;
+    const current = animatedCoordsRef.current;
+
+    if (!current) {
+      animatedCoordsRef.current = target;
+      setAnimatedAmbulanceCoords(target);
+      return;
+    }
+
+    const samePoint =
+      Math.abs(current.latitude - target.latitude) < 0.000001 &&
+      Math.abs(current.longitude - target.longitude) < 0.000001;
+    if (samePoint) return;
+
+    if (movementTimerRef.current) {
+      clearInterval(movementTimerRef.current);
+      movementTimerRef.current = null;
+    }
+
+    const steps = 12;
+    const intervalMs = 100;
+    const from = current;
+    let step = 0;
+
+    movementTimerRef.current = setInterval(() => {
+      step += 1;
+      const t = Math.min(step / steps, 1);
+      const next = {
+        latitude: from.latitude + (target.latitude - from.latitude) * t,
+        longitude: from.longitude + (target.longitude - from.longitude) * t,
+      };
+
+      animatedCoordsRef.current = next;
+      setAnimatedAmbulanceCoords(next);
+
+      if (t >= 1 && movementTimerRef.current) {
+        clearInterval(movementTimerRef.current);
+        movementTimerRef.current = null;
+      }
+    }, intervalMs);
+
+    return () => {
+      if (movementTimerRef.current) {
+        clearInterval(movementTimerRef.current);
+        movementTimerRef.current = null;
+      }
+    };
+  }, [ambulanceCoords]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const onCallDriver = async () => {
+    const driverPhoneRaw =
+      assignment?.driver_phone ??
+      assignment?.driver_contact ??
+      ambulance?.driver_phone ??
+      ambulance?.phone_number ??
+      ambulance?.phone;
+    const driverPhone =
+      typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+
+    if (!driverPhone) {
+      Alert.alert("Unavailable", "Driver phone number is not available yet.");
+      return;
+    }
+    try {
+      const telUrl = `tel:${driverPhone}`;
+      const canOpen = await Linking.canOpenURL(telUrl);
+      if (!canOpen) {
+        Alert.alert("Call Failed", "This device cannot place a phone call.");
+        return;
+      }
+      await Linking.openURL(telUrl);
+    } catch {
+      Alert.alert("Call Failed", "Unable to start the phone call.");
+    }
   };
 
   // ─── Status styling ───────────────────────────────────
@@ -233,21 +325,6 @@ export default function PatientEmergencyTrackingScreen() {
           label: "Ambulance Dispatched",
         };
       case "en_route":
-        return {
-          color: "#06B6D4",
-          bg: "#CFFAFE",
-          icon: "directions-car" as const,
-          label: "Ambulance En Route",
-        };
-      case "arrived":
-      case "at_scene":
-        return {
-          color: "#10B981",
-          bg: "#D1FAE5",
-          icon: "place" as const,
-          label: "Ambulance Arrived",
-        };
-      case "transporting":
         return {
           color: "#8B5CF6",
           bg: "#EDE9FE",
@@ -335,12 +412,12 @@ export default function PatientEmergencyTrackingScreen() {
   };
 
   let distanceText = "";
-  if (ambulanceCoords && patientCoords.latitude) {
+  if (animatedAmbulanceCoords && patientCoords.latitude) {
     const km = calculateDistance(
       patientCoords.latitude,
       patientCoords.longitude,
-      ambulanceCoords.latitude,
-      ambulanceCoords.longitude,
+      animatedAmbulanceCoords.latitude,
+      animatedAmbulanceCoords.longitude,
     );
     distanceText =
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
@@ -348,10 +425,10 @@ export default function PatientEmergencyTrackingScreen() {
 
   // Map: show both patient + ambulance with CORRECT labels for patient view
   const mapHtml =
-    ambulanceCoords && patientCoords.latitude
+    animatedAmbulanceCoords && patientCoords.latitude
       ? buildDriverPatientMapHtml(
-          ambulanceCoords.latitude,
-          ambulanceCoords.longitude,
+          animatedAmbulanceCoords.latitude,
+          animatedAmbulanceCoords.longitude,
           patientCoords.latitude,
           patientCoords.longitude,
           {
@@ -373,6 +450,15 @@ export default function PatientEmergencyTrackingScreen() {
   const statusGradientColors: [string, string] = isDark
     ? [st.color + "40", colors.background]
     : [st.color + "30", colors.surfaceMuted];
+  const driverPhoneRaw =
+    assignment?.driver_phone ??
+    assignment?.driver_contact ??
+    ambulance?.driver_phone ??
+    ambulance?.phone_number ??
+    ambulance?.phone;
+  const driverPhone =
+    typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+  const canCallDriver = !isCompleted && driverPhone.length > 0;
 
   // Status flow steps
   const statusSteps = [
@@ -404,8 +490,7 @@ export default function PatientEmergencyTrackingScreen() {
             ? ["rgba(14,165,233,0.15)", "#020617", "transparent"]
             : ["rgba(14,165,233,0.2)", "#F8FAFC", "transparent"]
         }
-        style={styles.heroGlow}
-        pointerEvents="none"
+        style={[styles.heroGlow, { pointerEvents: "none" }]}
       />
       {/* Floating notification toast */}
       {statusNotification && (
@@ -444,54 +529,67 @@ export default function PatientEmergencyTrackingScreen() {
         </Animated.View>
       )}
 
+      <View
+        style={[
+          styles.fixedTopNav,
+          {
+            top: Math.max(insets.top, 10),
+            backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+            borderColor: isDark ? "#334155" : "#E2E8F0",
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.fixedNavBtn,
+            { backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(2,6,23,0.06)" },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <MaterialIcons
+            name="arrow-back"
+            size={22}
+            color={isDark ? "#E2E8F0" : "#334155"}
+          />
+        </Pressable>
+
+        <ThemedText
+          style={[
+            styles.fixedNavTitle,
+            { color: isDark ? "#F1F5F9" : "#0F172A" },
+          ]}
+          numberOfLines={1}
+        >
+          Emergency Status
+        </ThemedText>
+
+        <Pressable
+          onPress={onRefresh}
+          style={({ pressed }) => [
+            styles.fixedNavBtn,
+            { backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(2,6,23,0.06)" },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <MaterialIcons
+            name="refresh"
+            size={22}
+            color={isDark ? "#E2E8F0" : "#334155"}
+          />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, 32) }, // Increased top margin for mobile
+          { paddingTop: Math.max(insets.top, 16) + 88 },
         ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header Row: Centered Back + Refresh ─────────────── */}
-        <View style={styles.headerRowCustom}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.headerIconBtn,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={28}
-              color={isDark ? "#E2E8F0" : "#334155"}
-            />
-          </Pressable>
-          <ThemedText
-            style={[
-              styles.headerTitle,
-              { color: isDark ? "#F1F5F9" : "#0F172A" },
-            ]}
-          >
-            Emergency Status
-          </ThemedText>
-          <Pressable
-            onPress={onRefresh}
-            style={({ pressed }) => [
-              styles.headerIconBtn,
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons
-              name="refresh"
-              size={28}
-              color={isDark ? "#E2E8F0" : "#334155"}
-            />
-          </Pressable>
-        </View>
-
         {/* Removed tag text for cleaner UI */}
 
         {/* ── Status Banner ─────────────────────────────── */}
@@ -614,7 +712,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                {ambulanceCoords ? "Live Tracking" : "Your Location"}
+                {animatedAmbulanceCoords ? "Live Tracking" : "Your Location"}
               </ThemedText>
               {distanceText ? (
                 <View style={styles.distBadge}>
@@ -645,7 +743,7 @@ export default function PatientEmergencyTrackingScreen() {
                   You
                 </ThemedText>
               </View>
-              {ambulanceCoords && (
+              {animatedAmbulanceCoords && (
                 <View style={styles.legendItem}>
                   <View
                     style={[styles.legendDot, { backgroundColor: "#0EA5E9" }]}
@@ -756,61 +854,33 @@ export default function PatientEmergencyTrackingScreen() {
             )}
             {/* Call Driver button and chatbot icon inside box */}
             <View style={{ alignItems: "center", marginTop: 24 }}>
-              {assignment &&
-                assignment.driver_phone &&
-                typeof assignment.driver_phone === "string" &&
-                assignment.driver_phone.trim() !== "" && (
-                  <Pressable
-                    onPress={() =>
-                      Linking.openURL(`tel:${assignment.driver_phone}`)
-                    }
-                    style={{
-                      marginBottom: 12,
-                      backgroundColor: "#0EA5E9",
-                      borderRadius: 24,
-                      paddingHorizontal: 32,
-                      paddingVertical: 14,
-                      elevation: 4,
-                      flexDirection: "row",
-                      alignItems: "center",
-                    }}
-                  >
-                    <MaterialIcons name="phone" size={22} color="#FFF" />
-                    <ThemedText
-                      style={{
-                        color: "#FFF",
-                        fontWeight: "bold",
-                        fontSize: 16,
-                        marginLeft: 8,
-                      }}
-                    >
-                      Call Driver
-                    </ThemedText>
-                  </Pressable>
-                )}
-              <FirstAidFab anchorStyle={{ marginBottom: 8 }} />
-              <View
+              <Pressable
+                disabled={!canCallDriver}
+                onPress={onCallDriver}
                 style={{
-                  backgroundColor: "#FEE2E2",
-                  borderRadius: 16,
-                  paddingHorizontal: 18,
-                  paddingVertical: 6,
-                  marginBottom: 16,
-                  marginTop: 4,
+                  marginBottom: 12,
+                  backgroundColor: canCallDriver ? "#0EA5E9" : "#94A3B8",
+                  borderRadius: 24,
+                  paddingHorizontal: 32,
+                  paddingVertical: 14,
+                  elevation: 4,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  opacity: canCallDriver ? 1 : 0.85,
                 }}
               >
+                <MaterialIcons name="phone" size={22} color="#FFF" />
                 <ThemedText
                   style={{
-                    color: "#DC2626",
+                    color: "#FFF",
                     fontWeight: "bold",
                     fontSize: 16,
-                    letterSpacing: 0.5,
-                    textAlign: "center",
+                    marginLeft: 8,
                   }}
                 >
-                  Ask Chatbot
+                  {canCallDriver ? "Call Driver" : "Driver Phone Unavailable"}
                 </ThemedText>
-              </View>
+              </Pressable>
             </View>
           </View>
         )}
@@ -831,29 +901,57 @@ export default function PatientEmergencyTrackingScreen() {
           </Pressable>
         )}
       </ScrollView>
-      {/* ...existing code... */}
+
+      <View
+        style={[
+          styles.fabDock,
+          { bottom: Math.max(insets.bottom, 12) + 8 },
+        ]}
+      >
+        <FirstAidFab />
+      </View>
     </View>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  headerRowCustom: {
+  fixedTopNav: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    zIndex: 30,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-    gap: 24,
-    marginTop: 32, // Increased top margin for visibility
+    gap: 10,
+    ...(Platform.select({
+      web: { boxShadow: "0px 2px 8px rgba(0,0,0,0.16)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.16,
+        shadowRadius: 8,
+      },
+    }) as object),
+    elevation: 7,
   },
-  headerIconBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  fixedNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.05)",
-    marginHorizontal: 4,
+  },
+  fixedNavTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
   },
   root: { flex: 1, overflow: "hidden" },
   heroGlow: {
@@ -883,10 +981,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 18,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    ...(Platform.select({
+      web: { boxShadow: "0px 6px 12px rgba(0,0,0,0.35)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+    }) as object),
     elevation: 12,
     maxWidth: 600,
     alignSelf: "center" as any,
@@ -971,10 +1074,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   statusBannerElevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 17,
+    ...(Platform.select({
+      web: { boxShadow: "0px 8px 17px rgba(0,0,0,0.25)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 17,
+      },
+    }) as object),
     elevation: 10,
   },
   statusLabel: { fontSize: 17, fontWeight: "800", fontFamily: Fonts.sans },
@@ -1029,10 +1137,15 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   cardElevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
+    ...(Platform.select({
+      web: { boxShadow: "0px 10px 18px rgba(0,0,0,0.2)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+      },
+    }) as object),
     elevation: 10,
   },
 
@@ -1181,10 +1294,15 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 8,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    ...(Platform.select({
+      web: { boxShadow: "0px 12px 16px rgba(0,0,0,0.18)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+      },
+    }) as object),
     elevation: 10,
   },
   actionsRow: {
@@ -1225,5 +1343,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     fontFamily: Fonts.sans,
+  },
+  fabDock: {
+    position: "absolute",
+    right: 14,
+    zIndex: 40,
   },
 });
