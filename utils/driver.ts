@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 
+import { backendGet } from "./api";
 import { toPostGISPoint } from "./emergency";
 
 export interface AmbulanceAssignment {
@@ -22,6 +23,27 @@ export interface AmbulanceAssignment {
 const isMissingColumnError = (error: any, column: string): boolean => {
   const message = String(error?.message ?? "").toLowerCase();
   return error?.code === "42703" && message.includes(column.toLowerCase());
+};
+
+const toPhoneCandidates = (phone?: string | null): string[] => {
+  const raw = String(phone ?? "")
+    .trim()
+    .replace(/[\s()-]/g, "");
+  if (!raw) return [];
+
+  const digits = raw.replace(/[^\d+]/g, "");
+  const local = digits.startsWith("+251")
+    ? `0${digits.slice(4)}`
+    : digits.startsWith("251")
+      ? `0${digits.slice(3)}`
+      : digits.startsWith("0")
+        ? digits
+        : digits.length === 9
+          ? `0${digits}`
+          : digits;
+  const intl = local.startsWith("0") ? `+251${local.slice(1)}` : `+${digits}`;
+
+  return Array.from(new Set([raw, digits, local, local.replace(/^0/, ""), intl]));
 };
 
 export interface AmbulanceDetails {
@@ -291,11 +313,11 @@ export const getDriverAssignment = async (
     if (!error && data && data.emergency_requests) {
       const erStatus = data.emergency_requests.status;
       if (erStatus === "completed" || erStatus === "cancelled") {
-        // Also mark this assignment as completed in the DB
+        // Close this assignment with a DB-valid terminal value
         await db
           .from("emergency_assignments")
           .update({
-            status: "completed",
+            status: "declined",
             completed_at: new Date().toISOString(),
           })
           .eq("id", data.id);
@@ -315,7 +337,7 @@ export const getDriverAssignment = async (
           await db
             .from("emergency_assignments")
             .update({
-              status: "completed",
+              status: "declined",
               completed_at: new Date().toISOString(),
             })
             .eq("id", data.id);
@@ -526,11 +548,11 @@ export const updateEmergencyStatus = async (
 
     if (error) throw error;
 
-    // When completing/cancelling, also mark associated assignment as completed
+    // When completing/cancelling, close associated assignment with valid status
     if (status === "completed" || status === "cancelled") {
       await db
         .from("emergency_assignments")
-        .update({ status: "completed", completed_at: now })
+        .update({ status: "declined", completed_at: now })
         .eq("emergency_id", emergencyId)
         .in("status", ["pending", "accepted"]);
 
@@ -617,6 +639,7 @@ export const getDriverHistory = async (
 
 export const getPatientInfo = async (
   patientId: string,
+  emergencyId?: string,
 ): Promise<{
   info: any | null;
   error: Error | null;
@@ -626,32 +649,113 @@ export const getPatientInfo = async (
       return { info: null, error: new Error("Patient ID required") };
     }
 
+    // Preferred path: backend service-role endpoint bypasses client-side RLS limits.
+    try {
+      const path = emergencyId
+        ? `/ops/patient-context?patient_id=${encodeURIComponent(patientId)}&emergency_id=${encodeURIComponent(emergencyId)}`
+        : `/ops/patient-context?patient_id=${encodeURIComponent(patientId)}`;
+      const backendInfo = await backendGet<any>(path);
+      if (backendInfo?.id) {
+        return {
+          info: {
+            id: backendInfo.id,
+            full_name: backendInfo.full_name ?? "Unknown Patient",
+            phone: backendInfo.phone ?? "N/A",
+            medical_profiles: backendInfo.medical_profiles ?? [],
+          },
+          error: null,
+        };
+      }
+    } catch {
+      // Fall back to direct Supabase reads below.
+    }
+
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", patientId)
-      .single();
+      .maybeSingle();
 
-    if (profileError && profileError.code !== "PGRST116") {
-      throw profileError;
-    }
+    if (profileError && profileError.code !== "PGRST116") throw profileError;
 
-    // Fetch medical profile separately (no FK relationship)
     let medicalProfiles: any[] = [];
+
+    // Preferred path: medical_profiles.user_id references profile id.
     try {
-      const { data: medData } = await supabase
+      const { data } = await supabase
         .from("medical_profiles")
         .select("*")
-        .eq("user_id", patientId);
-      if (medData) medicalProfiles = medData;
+        .eq("user_id", patientId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (data && data.length > 0) medicalProfiles = data;
     } catch {
-      // medical_profiles table may not exist — ignore
+      // ignore and continue fallback paths
+    }
+
+    // Fallback path: some datasets use medical_profiles.id as patient id.
+    if (medicalProfiles.length === 0) {
+      try {
+        const { data } = await supabase
+          .from("medical_profiles")
+          .select("*")
+          .eq("id", patientId)
+          .limit(1);
+        if (data && data.length > 0) medicalProfiles = data;
+      } catch {
+        // ignore and continue
+      }
+    }
+
+    // Fallback path: resolve profile IDs by phone and query medical_profiles.user_id.
+    const phoneCandidates = toPhoneCandidates(profileData?.phone);
+    if (medicalProfiles.length === 0 && phoneCandidates.length > 0) {
+      try {
+        const { data: profileRows } = await supabase
+          .from("profiles")
+          .select("id")
+          .in("phone", phoneCandidates)
+          .limit(5);
+
+        const ids = (profileRows || []).map((p: any) => p.id).filter(Boolean);
+        if (ids.length > 0) {
+          const { data } = await supabase
+            .from("medical_profiles")
+            .select("*")
+            .in("user_id", ids)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (data && data.length > 0) medicalProfiles = data;
+        }
+      } catch {
+        // ignore and continue
+      }
+    }
+
+    // Final fallback: emergency contact phone mapping in legacy rows.
+    if (medicalProfiles.length === 0 && phoneCandidates.length > 0) {
+      for (const p of phoneCandidates) {
+        try {
+          const { data } = await supabase
+            .from("medical_profiles")
+            .select("*")
+            .eq("emergency_contact_phone", p)
+            .order("updated_at", { ascending: false })
+            .limit(1);
+          if (data && data.length > 0) {
+            medicalProfiles = data;
+            break;
+          }
+        } catch {
+          // ignore and try next
+        }
+      }
     }
 
     const info = {
       id: profileData?.id,
-      full_name: profileData?.full_name,
-      phone: profileData?.phone,
+      full_name: profileData?.full_name ?? "Unknown Patient",
+      phone: profileData?.phone ?? "N/A",
       medical_profiles: medicalProfiles,
     };
 
@@ -722,24 +826,37 @@ export const subscribeToEmergencyStatus = (
   emergencyId: string,
   onUpdate: (status: string) => void,
 ) => {
-  const subscription = supabase
-    .channel(`emergency:${emergencyId}`)
+  const channel = supabase
+    .channel(`emergency:${emergencyId}:${Date.now()}`)
     .on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "emergency_requests",
         filter: `id=eq.${emergencyId}`,
       },
       (payload: any) => {
+        if (!payload?.new?.status) return;
         console.log("Emergency status updated:", payload.new.status);
         onUpdate(payload.new.status);
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status !== "SUBSCRIBED") return;
+
+      // Ensure initial status is synced even if realtime event was missed.
+      void supabase
+        .from("emergency_requests")
+        .select("status")
+        .eq("id", emergencyId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.status) onUpdate(data.status);
+        });
+    });
 
   return () => {
-    subscription.unsubscribe();
+    void supabase.removeChannel(channel);
   };
 };

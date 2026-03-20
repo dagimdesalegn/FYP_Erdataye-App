@@ -30,10 +30,13 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
+  cancelEmergencyWithinWindow,
     getEmergencyDetails,
+  getEmergencyCancelWindowState,
     subscribeToAmbulanceLocation,
     subscribeToEmergency,
 } from "@/utils/patient";
+import { useAppState } from "@/components/app-state";
 
 /* ─── Status notification messages (patient-facing) ───── */
 const STATUS_NOTIFICATIONS: Record<
@@ -96,6 +99,7 @@ export default function PatientEmergencyTrackingScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
+  const { user } = useAppState();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -121,6 +125,7 @@ export default function PatientEmergencyTrackingScreen() {
     longitude: number;
   } | null>(null);
   const movementTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
@@ -164,6 +169,15 @@ export default function PatientEmergencyTrackingScreen() {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const unsub = subscribeToEmergency(emergencyId, (updated) => {
       setEmergency(updated);
+      // Also refresh assignment/ambulance details (phone, vehicle, ETA) on live status updates.
+      void getEmergencyDetails(emergencyId).then(({ assignment, ambulance }) => {
+        setAssignment(assignment);
+        setAmbulance(ambulance);
+        if (ambulance?.last_known_location) {
+          const parsed = parsePostGISPoint(ambulance.last_known_location);
+          if (parsed) setAmbulanceCoords(parsed);
+        }
+      });
     });
     return unsub;
   }, [emergencyId]);
@@ -173,9 +187,16 @@ export default function PatientEmergencyTrackingScreen() {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const interval = setInterval(async () => {
       try {
-        const { emergency: emerg } = await getEmergencyDetails(emergencyId);
-        if (emerg && emerg.status !== emergency?.status) {
-          setEmergency(emerg);
+        const { emergency: emerg, assignment: assign, ambulance: amb } =
+          await getEmergencyDetails(emergencyId);
+        if (emerg && emerg.status !== emergency?.status) setEmergency(emerg);
+        if (assign) setAssignment(assign);
+        if (amb) {
+          setAmbulance(amb);
+          if (amb.last_known_location) {
+            const parsed = parsePostGISPoint(amb.last_known_location);
+            if (parsed) setAmbulanceCoords(parsed);
+          }
         }
       } catch {}
     }, 8000);
@@ -281,14 +302,36 @@ export default function PatientEmergencyTrackingScreen() {
   };
 
   const onCallDriver = async () => {
-    const driverPhoneRaw =
+    let driverPhoneRaw =
       assignment?.driver_phone ??
       assignment?.driver_contact ??
       ambulance?.driver_phone ??
       ambulance?.phone_number ??
       ambulance?.phone;
-    const driverPhone =
+
+    let driverPhone =
       typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+
+    // Fallback: force refresh details once before showing unavailable.
+    if (!driverPhone && typeof emergencyId === "string") {
+      try {
+        const { assignment: latestAssignment, ambulance: latestAmbulance } =
+          await getEmergencyDetails(emergencyId);
+        if (latestAssignment) setAssignment(latestAssignment);
+        if (latestAmbulance) setAmbulance(latestAmbulance);
+
+        driverPhoneRaw =
+          latestAssignment?.driver_phone ??
+          latestAssignment?.driver_contact ??
+          latestAmbulance?.driver_phone ??
+          latestAmbulance?.phone_number ??
+          latestAmbulance?.phone;
+        driverPhone =
+          typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+      } catch {
+        // no-op, fallback alert will be shown below
+      }
+    }
 
     if (!driverPhone) {
       Alert.alert("Unavailable", "Ambulance phone number is not available yet.");
@@ -305,6 +348,59 @@ export default function PatientEmergencyTrackingScreen() {
     } catch {
       Alert.alert("Call Failed", "Unable to start the phone call.");
     }
+  };
+
+  useEffect(() => {
+    if (!emergency?.created_at) {
+      setCancelRemainingSeconds(0);
+      return;
+    }
+    const updateCountdown = () => {
+      const { remainingSeconds } = getEmergencyCancelWindowState(
+        emergency.created_at,
+        3,
+      );
+      setCancelRemainingSeconds(remainingSeconds);
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [emergency?.created_at]);
+
+  const onCancelEmergency = () => {
+    if (!emergencyId || typeof emergencyId !== "string" || !user?.id) return;
+
+    Alert.alert(
+      "Cancel Emergency",
+      "You can cancel only within 3 minutes from request creation. Continue?",
+      [
+        { text: "No", style: "cancel" },
+        {
+          text: "Yes, Cancel",
+          style: "destructive",
+          onPress: async () => {
+            const { success, error } = await cancelEmergencyWithinWindow(
+              emergencyId,
+              user.id,
+              3,
+            );
+            if (!success) {
+              Alert.alert(
+                "Cancellation Failed",
+                error?.message || "Unable to cancel emergency request.",
+              );
+              return;
+            }
+            Alert.alert(
+              "Emergency Cancelled",
+              "Your request has been cancelled successfully.",
+              [{ text: "OK", onPress: () => router.replace("/help" as any) }],
+            );
+          },
+        },
+      ],
+    );
   };
 
   // ─── Status styling ───────────────────────────────────
@@ -447,6 +543,8 @@ export default function PatientEmergencyTrackingScreen() {
   const subtleText = colors.textMuted;
   const isCompleted =
     emergency.status === "completed" || emergency.status === "cancelled";
+  const canCancelByWindow =
+    cancelRemainingSeconds > 0 && ["pending", "assigned"].includes(emergency.status);
   const statusGradientColors: [string, string] = isDark
     ? [st.color + "40", colors.background]
     : [st.color + "30", colors.surfaceMuted];
@@ -879,6 +977,39 @@ export default function PatientEmergencyTrackingScreen() {
                   }}
                 >
                   {canCallDriver ? "Call Ambulance" : "Ambulance Phone Unavailable"}
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                disabled={!canCancelByWindow}
+                onPress={onCancelEmergency}
+                style={{
+                  marginBottom: 6,
+                  backgroundColor: canCancelByWindow ? "#EF4444" : "#94A3B8",
+                  borderRadius: 22,
+                  paddingHorizontal: 22,
+                  paddingVertical: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  opacity: canCancelByWindow ? 1 : 0.82,
+                }}
+              >
+                <MaterialIcons name="cancel" size={18} color="#FFF" />
+                <ThemedText
+                  style={{
+                    color: "#FFF",
+                    fontWeight: "800",
+                    fontSize: 14,
+                    marginLeft: 7,
+                  }}
+                >
+                  {canCancelByWindow
+                    ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
+                    : ["en_route", "at_scene", "arrived", "transporting", "at_hospital"].includes(
+                          emergency.status,
+                        )
+                      ? "Cancellation Closed (Ambulance Accepted)"
+                      : "Cancellation Window Closed"}
                 </ThemedText>
               </Pressable>
             </View>

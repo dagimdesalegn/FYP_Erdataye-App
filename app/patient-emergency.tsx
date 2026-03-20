@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Animated,
     Pressable,
@@ -28,7 +28,9 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
+  cancelEmergencyWithinWindow,
     createEmergency,
+  getEmergencyCancelWindowState,
     getActiveEmergency,
     subscribeToEmergency,
 } from "@/utils/patient";
@@ -72,11 +74,41 @@ export default function PatientEmergencyScreen() {
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(
     null,
   );
+  const [activeEmergencyStatus, setActiveEmergencyStatus] = useState<string | null>(
+    null,
+  );
+  const [activeEmergencyCreatedAt, setActiveEmergencyCreatedAt] = useState<
+    string | null
+  >(null);
+  const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
   const [nearbyAmbulances, setNearbyAmbulances] = useState<
-    { lat: number; lng: number; label: string; distance: string }[]
+    {
+      lat: number;
+      lng: number;
+      label: string;
+      distance: string;
+      distanceKm: number;
+    }[]
   >([]);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
+
+  const nearestDistanceKm = useMemo(() => {
+    if (nearbyAmbulances.length === 0) return null;
+    return nearbyAmbulances.reduce((min, a) => Math.min(min, a.distanceKm), Infinity);
+  }, [nearbyAmbulances]);
+
+  const estimatedArrivalMinutes = useMemo(() => {
+    if (nearestDistanceKm === null || !Number.isFinite(nearestDistanceKm)) {
+      return null;
+    }
+    // Simple urban estimate: ~35 km/h average + 1 minute dispatch overhead.
+    return Math.max(2, Math.round((nearestDistanceKm / 35) * 60 + 1));
+  }, [nearestDistanceKm]);
+
+  const canCancelByWindow =
+    cancelRemainingSeconds > 0 &&
+    ["pending", "assigned"].includes(activeEmergencyStatus || "pending");
 
   useEffect(() => {
     checkActiveEmergency();
@@ -149,6 +181,7 @@ export default function PatientEmergencyScreen() {
                   : `${dist.toFixed(1)}km`
                 : "",
             distanceRaw: dist ?? 999,
+            distanceKm: dist ?? 999,
           };
         })
         .filter(Boolean)
@@ -164,6 +197,7 @@ export default function PatientEmergencyScreen() {
     if (!activeEmergencyId) return;
     const unsub = subscribeToEmergency(activeEmergencyId, (updated) => {
       const status = updated?.status;
+      setActiveEmergencyStatus(status ?? null);
       if (status === "en_route" || status === "assigned") {
         // Ambulance accepted → show notification and go to tracking
         const msg =
@@ -180,9 +214,18 @@ export default function PatientEmergencyScreen() {
         showAlert("Emergency Update", msg);
         setHasActiveEmergency(false);
         setActiveEmergencyId(null);
+        setActiveEmergencyCreatedAt(null);
+        setActiveEmergencyStatus(null);
       } else if (status === "completed") {
         setHasActiveEmergency(false);
         setActiveEmergencyId(null);
+        setActiveEmergencyCreatedAt(null);
+        setActiveEmergencyStatus(null);
+      } else {
+        const prettyStatus = String(status || "pending")
+          .replaceAll("_", " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        showAlert("Live Status Update", `Emergency status: ${prettyStatus}`);
       }
     });
     return unsub;
@@ -194,11 +237,34 @@ export default function PatientEmergencyScreen() {
     if (emergency) {
       setHasActiveEmergency(true);
       setActiveEmergencyId(emergency.id);
+      setActiveEmergencyCreatedAt(emergency.created_at || null);
+      setActiveEmergencyStatus(emergency.status || "pending");
     } else {
       setHasActiveEmergency(false);
       setActiveEmergencyId(null);
+      setActiveEmergencyCreatedAt(null);
+      setActiveEmergencyStatus(null);
     }
   };
+
+  useEffect(() => {
+    if (!activeEmergencyCreatedAt) {
+      setCancelRemainingSeconds(0);
+      return;
+    }
+
+    const refreshWindow = () => {
+      const { remainingSeconds } = getEmergencyCancelWindowState(
+        activeEmergencyCreatedAt,
+        3,
+      );
+      setCancelRemainingSeconds(remainingSeconds);
+    };
+
+    refreshWindow();
+    const timer = setInterval(refreshWindow, 1000);
+    return () => clearInterval(timer);
+  }, [activeEmergencyCreatedAt]);
 
   const requestLocationPermission = async () => {
     try {
@@ -285,6 +351,8 @@ export default function PatientEmergencyScreen() {
 
       setHasActiveEmergency(true);
       setActiveEmergencyId(emergency.id);
+      setActiveEmergencyCreatedAt(emergency.created_at || new Date().toISOString());
+      setActiveEmergencyStatus(emergency.status || "pending");
 
       // Clear form
       setDescription("");
@@ -322,6 +390,44 @@ export default function PatientEmergencyScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+  };
+
+  const handleCancelEmergency = () => {
+    if (!user?.id || !activeEmergencyId) return;
+
+    showConfirm(
+      "Cancel Emergency",
+      "You can cancel only within 3 minutes from request creation. Do you want to cancel now?",
+      async () => {
+        setLoading(true);
+        try {
+          const { success, error } = await cancelEmergencyWithinWindow(
+            activeEmergencyId,
+            user.id,
+            3,
+          );
+
+          if (!success) {
+            showError(
+              "Cancellation Failed",
+              error?.message || "Unable to cancel this emergency request.",
+            );
+            return;
+          }
+
+          setHasActiveEmergency(false);
+          setActiveEmergencyId(null);
+          setActiveEmergencyCreatedAt(null);
+          setActiveEmergencyStatus(null);
+          showSuccess(
+            "Emergency Cancelled",
+            "Your emergency request has been cancelled successfully.",
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+    );
   };
 
   const SeverityButton = ({
@@ -453,6 +559,16 @@ export default function PatientEmergencyScreen() {
                 Your emergency request is in progress
               </ThemedText>
 
+              <View style={styles.liveStatusRow}>
+                <MaterialIcons name="sync" size={14} color="#0EA5E9" />
+                <ThemedText style={styles.liveStatusLabel}>Live Status:</ThemedText>
+                <ThemedText style={styles.liveStatusValue}>
+                  {String(activeEmergencyStatus || "pending")
+                    .replaceAll("_", " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                </ThemedText>
+              </View>
+
               <View style={styles.infoCard}>
                 <MaterialIcons name="info" size={20} color="#0EA5E9" />
                 <ThemedText style={styles.infoText}>
@@ -480,6 +596,32 @@ export default function PatientEmergencyScreen() {
                 variant="secondary"
                 fullWidth
                 style={styles.secondaryBtn}
+              />
+
+              <AppButton
+                label={
+                  canCancelByWindow
+                    ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
+                    : ["en_route", "at_scene", "arrived", "transporting", "at_hospital"].includes(
+                          String(activeEmergencyStatus || ""),
+                        )
+                      ? "Cancellation Closed (Ambulance Accepted)"
+                      : "Cancellation Window Closed"
+                }
+                onPress={handleCancelEmergency}
+                variant="ghost"
+                disabled={!canCancelByWindow || loading}
+                fullWidth
+                style={[
+                  styles.secondaryBtn,
+                  {
+                    borderColor: "#EF4444",
+                    backgroundColor:
+                      canCancelByWindow
+                        ? "rgba(239,68,68,0.08)"
+                        : "rgba(148,163,184,0.08)",
+                  },
+                ]}
               />
             </>
           ) : (
@@ -528,6 +670,30 @@ export default function PatientEmergencyScreen() {
                           : "Searching for ambulances..."}
                       </ThemedText>
                     </View>
+                    {nearbyAmbulances.length > 0 && (
+                      <View style={styles.routeMetaRow}>
+                        <ThemedText
+                          style={[
+                            styles.routeHint,
+                            { color: colors.textMuted, marginBottom: 0 },
+                          ]}
+                        >
+                          Route preview: nearest ambulance to your location
+                        </ThemedText>
+                        {estimatedArrivalMinutes !== null && (
+                          <View style={styles.etaBadge}>
+                            <MaterialIcons
+                              name="schedule"
+                              size={13}
+                              color="#0369A1"
+                            />
+                            <ThemedText style={styles.etaText}>
+                              ETA {estimatedArrivalMinutes} min
+                            </ThemedText>
+                          </View>
+                        )}
+                      </View>
+                    )}
                     {nearbyAmbulances.slice(0, 3).map((amb, idx) => (
                       <View
                         key={idx}
@@ -785,6 +951,30 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
   },
+  liveStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "rgba(14,165,233,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(14,165,233,0.24)",
+  },
+  liveStatusLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    color: "#0369A1",
+  },
+  liveStatusValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    color: "#0F172A",
+  },
   section: {
     marginBottom: 24,
     paddingBottom: 20,
@@ -944,5 +1134,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: Fonts.sans,
     fontStyle: "italic",
+  },
+  routeHint: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+    lineHeight: 16,
+  },
+  routeMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 8,
+  },
+  etaBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(14,165,233,0.14)",
+    borderWidth: 1,
+    borderColor: "rgba(14,165,233,0.35)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  etaText: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    fontWeight: "700",
+    color: "#0369A1",
   },
 });

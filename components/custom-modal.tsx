@@ -117,6 +117,12 @@ export function CustomModal({
           <View
             style={[styles.accentBar, { backgroundColor: autoIconColor }]}
           />
+          <View
+            style={[
+              styles.glowOrb,
+              { backgroundColor: `${autoIconColor}1F` },
+            ]}
+          />
           <View style={styles.headerRow}>
             <View
               style={[
@@ -214,17 +220,25 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    maxWidth: 440,
+    maxWidth: 560,
     borderRadius: 22,
     borderWidth: 1,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 22,
-    elevation: 8,
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  glowOrb: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    top: -88,
+    right: -44,
   },
   accentBar: {
     position: "absolute",
@@ -248,39 +262,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   title: {
-    fontSize: 19,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
     letterSpacing: Platform.OS === "ios" ? 0.2 : 0,
   },
   message: {
-    fontSize: 15,
-    lineHeight: 23,
-    marginTop: 2,
+    fontSize: 14,
+    lineHeight: 24,
+    marginTop: 6,
   },
   actions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: 12,
-    marginTop: 20,
+    marginTop: 24,
   },
   btn: {
-    minWidth: 98,
-    paddingHorizontal: 16,
-    paddingVertical: 11.5,
-    borderRadius: 13,
+    minWidth: 120,
+    paddingHorizontal: 22,
+    paddingVertical: 14,
+    borderRadius: 16,
     alignItems: "center",
+    justifyContent: "center",
   },
   cancel: {
     borderWidth: 1,
   },
   confirm: {
     backgroundColor: "#2563EB",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
   cancelText: {
-    fontWeight: "600",
+    fontWeight: "700",
+    fontSize: 15,
   },
   confirmText: {
     color: "#FFFFFF",
-    fontWeight: "700",
+    fontWeight: "800",
+    fontSize: 16,
   },
 });

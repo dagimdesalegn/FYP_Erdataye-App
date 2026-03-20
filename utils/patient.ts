@@ -18,6 +18,8 @@ import {
 } from "./emergency";
 import { supabase } from "./supabase";
 
+const EMERGENCY_CANCEL_WINDOW_MINUTES = 3;
+
 // ─── Interfaces aligned with actual DB schema ────────────────────────
 
 export interface PatientEmergency {
@@ -93,6 +95,13 @@ const normalizeEmergency = (raw: any): PatientEmergency => {
     created_at: raw?.created_at ?? new Date().toISOString(),
     updated_at: raw?.updated_at ?? raw?.created_at ?? new Date().toISOString(),
   } as PatientEmergency;
+};
+
+const firstNonEmptyPhone = (...values: any[]): string => {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+  return "";
 };
 
 // ─── CRUD functions ──────────────────────────────────────────────────
@@ -247,42 +256,73 @@ export const getEmergencyDetails = async (
 
       ambulance = ambulanceData as AmbulanceInfo | null;
 
-      // Resolve assigned driver's phone from profiles when not present on ambulance.
-      const driverId = (ambulanceData as any)?.current_driver_id;
-      if (driverId) {
-        const { data: driverProfile } = await supabase
-          .from("profiles")
-          .select("phone")
-          .eq("id", driverId)
-          .maybeSingle();
+      // Resolve ambulance/driver phone robustly across multiple schema variants.
+      let resolvedPhone = firstNonEmptyPhone(
+        (assignmentData as any)?.driver_phone,
+        (assignmentData as any)?.driver_contact,
+        (ambulanceData as any)?.driver_phone,
+        (ambulanceData as any)?.phone_number,
+        (ambulanceData as any)?.phone,
+      );
 
-        const resolvedPhone =
-          typeof driverProfile?.phone === "string"
-            ? driverProfile.phone.trim()
-            : "";
+      if (!resolvedPhone) {
+        const candidateIds = Array.from(
+          new Set(
+            [
+              (ambulanceData as any)?.current_driver_id,
+              (ambulanceData as any)?.driver_id,
+              (ambulanceData as any)?.user_id,
+              (ambulanceData as any)?.driver_user_id,
+              (assignmentData as any)?.driver_id,
+              (assignmentData as any)?.assigned_driver_id,
+              (assignmentData as any)?.user_id,
+              emergencyData?.assigned_ambulance_id,
+            ]
+              .map((v) => String(v ?? "").trim())
+              .filter((v) => v.length > 0),
+          ),
+        );
 
-        if (resolvedPhone) {
-          ambulance = {
-            ...(ambulanceData as any),
-            driver_phone: resolvedPhone,
-            phone: (ambulanceData as any)?.phone ?? resolvedPhone,
-            phone_number:
-              (ambulanceData as any)?.phone_number ?? resolvedPhone,
-          } as AmbulanceInfo;
+        if (candidateIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, phone, role")
+            .in("id", candidateIds)
+            .limit(10);
 
-          if (assignmentData) {
-            assignmentData = {
-              ...assignmentData,
-              driver_phone:
-                assignmentData.driver_phone ??
-                assignmentData.driver_contact ??
-                resolvedPhone,
-              driver_contact:
-                assignmentData.driver_contact ??
-                assignmentData.driver_phone ??
-                resolvedPhone,
-            };
-          }
+          resolvedPhone =
+            firstNonEmptyPhone(
+              ...(profiles || [])
+                .map((p: any) => p.phone),
+            ) || "";
+        }
+      }
+
+      if (resolvedPhone) {
+        ambulance = {
+          ...(ambulanceData as any),
+          driver_phone: resolvedPhone,
+          phone: firstNonEmptyPhone((ambulanceData as any)?.phone, resolvedPhone),
+          phone_number: firstNonEmptyPhone(
+            (ambulanceData as any)?.phone_number,
+            resolvedPhone,
+          ),
+        } as AmbulanceInfo;
+
+        if (assignmentData) {
+          assignmentData = {
+            ...assignmentData,
+            driver_phone: firstNonEmptyPhone(
+              assignmentData.driver_phone,
+              assignmentData.driver_contact,
+              resolvedPhone,
+            ),
+            driver_contact: firstNonEmptyPhone(
+              assignmentData.driver_contact,
+              assignmentData.driver_phone,
+              resolvedPhone,
+            ),
+          };
         }
       }
     }
@@ -336,11 +376,11 @@ export const updateEmergencyStatus = async (
 
     if (error) throw error;
 
-    // When cancelled, also mark assignments and free ambulance
+    // When terminal, close assignments and free ambulance
     if (status === "cancelled" || status === "completed") {
       await supabase
         .from("emergency_assignments")
-        .update({ status: "completed" })
+        .update({ status: "declined", completed_at: new Date().toISOString() })
         .eq("emergency_id", emergencyId)
         .in("status", ["pending", "accepted"]);
 
@@ -365,6 +405,110 @@ export const updateEmergencyStatus = async (
   }
 };
 
+export const getEmergencyCancelWindowState = (
+  createdAt: string,
+  maxMinutes: number = EMERGENCY_CANCEL_WINDOW_MINUTES,
+) => {
+  const createdMs = new Date(createdAt).getTime();
+  const deadlineMs = createdMs + maxMinutes * 60 * 1000;
+  const remainingMs = Math.max(0, deadlineMs - Date.now());
+  const remainingSeconds = Math.ceil(remainingMs / 1000);
+  return {
+    canCancel: remainingMs > 0,
+    remainingSeconds,
+  };
+};
+
+/**
+ * Patient cancellation guardrail:
+ * - only the same patient can cancel
+ * - only within first N minutes (default 3)
+ * - only while request is non-terminal
+ */
+export const cancelEmergencyWithinWindow = async (
+  emergencyId: string,
+  patientId: string,
+  maxMinutes: number = EMERGENCY_CANCEL_WINDOW_MINUTES,
+): Promise<{ success: boolean; error: Error | null; remainingSeconds: number }> => {
+  try {
+    const { data, error } = await supabase
+      .from("emergency_requests")
+      .select("id, patient_id, status, created_at")
+      .eq("id", emergencyId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) {
+      return {
+        success: false,
+        error: new Error("Emergency request not found."),
+        remainingSeconds: 0,
+      };
+    }
+
+    if (data.patient_id !== patientId) {
+      return {
+        success: false,
+        error: new Error("You are not allowed to cancel this emergency request."),
+        remainingSeconds: 0,
+      };
+    }
+
+    if (["completed", "cancelled"].includes(String(data.status))) {
+      return {
+        success: false,
+        error: new Error("This emergency request is already closed."),
+        remainingSeconds: 0,
+      };
+    }
+
+    const status = String(data.status || "pending");
+    if (!["pending", "assigned"].includes(status)) {
+      return {
+        success: false,
+        error: new Error(
+          "Cancellation is closed because an ambulance already accepted this request.",
+        ),
+        remainingSeconds: 0,
+      };
+    }
+
+    const { canCancel, remainingSeconds } = getEmergencyCancelWindowState(
+      data.created_at,
+      maxMinutes,
+    );
+    if (!canCancel) {
+      return {
+        success: false,
+        error: new Error(
+          `Cancellation window expired. You can only cancel within ${maxMinutes} minutes.`,
+        ),
+        remainingSeconds: 0,
+      };
+    }
+
+    const { success, error: statusError } = await updateEmergencyStatus(
+      emergencyId,
+      "cancelled",
+    );
+    if (!success || statusError) {
+      return {
+        success: false,
+        error: statusError ?? new Error("Failed to cancel emergency request."),
+        remainingSeconds,
+      };
+    }
+
+    return { success: true, error: null, remainingSeconds: 0 };
+  } catch (error) {
+    return {
+      success: false,
+      error: error as Error,
+      remainingSeconds: 0,
+    };
+  }
+};
+
 /**
  * Subscribe to emergency status updates
  */
@@ -372,12 +516,12 @@ export const subscribeToEmergency = (
   emergencyId: string,
   onUpdate: (emergency: PatientEmergency) => void,
 ) => {
-  const subscription = supabase
-    .channel(`emergency_status:${emergencyId}`)
+  const channel = supabase
+    .channel(`emergency_status:${emergencyId}:${Date.now()}`)
     .on(
       "postgres_changes",
       {
-        event: "UPDATE",
+        event: "*",
         schema: "public",
         table: "emergency_requests",
         filter: `id=eq.${emergencyId}`,
@@ -388,10 +532,22 @@ export const subscribeToEmergency = (
         }
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      if (status !== "SUBSCRIBED") return;
+
+      // Immediate sync prevents stale UI when subscription attaches late.
+      void supabase
+        .from("emergency_requests")
+        .select("*")
+        .eq("id", emergencyId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) onUpdate(normalizeEmergency(data));
+        });
+    });
 
   return () => {
-    supabase.removeChannel(subscription);
+    void supabase.removeChannel(channel);
   };
 };
 

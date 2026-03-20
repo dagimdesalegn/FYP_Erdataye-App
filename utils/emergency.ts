@@ -57,8 +57,35 @@ export function buildDriverPatientMapHtml(
 export function buildPatientRequestMapHtml(
   patientLat: number,
   patientLng: number,
-  _ambulances: { lat: number; lng: number; label?: string }[],
+  ambulances: { lat: number; lng: number; label?: string }[],
 ): string {
+  // Show a routed preview from the nearest available ambulance to patient.
+  if (ambulances.length > 0) {
+    let nearest = ambulances[0];
+    let bestDistance = calculateDistance(
+      patientLat,
+      patientLng,
+      nearest.lat,
+      nearest.lng,
+    );
+
+    for (let i = 1; i < ambulances.length; i += 1) {
+      const candidate = ambulances[i];
+      const candidateDistance = calculateDistance(
+        patientLat,
+        patientLng,
+        candidate.lat,
+        candidate.lng,
+      );
+      if (candidateDistance < bestDistance) {
+        nearest = candidate;
+        bestDistance = candidateDistance;
+      }
+    }
+
+    return `https://maps.google.com/maps?saddr=${nearest.lat},${nearest.lng}&daddr=${patientLat},${patientLng}&dirflg=d&output=embed`;
+  }
+
   return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&output=embed`;
 }
 
@@ -158,6 +185,14 @@ export interface Hospital {
   created_at: string;
 }
 
+export interface DispatchRecommendation {
+  ambulanceId: string | null;
+  hospitalId: string | null;
+  distanceKm: number | null;
+  score: number | null;
+  error: Error | null;
+}
+
 // ─── Normalizers ─────────────────────────────────────────────────────
 
 /** Normalize a raw emergency_requests row into our EmergencyRequest interface. */
@@ -252,6 +287,19 @@ export const findNearestAmbulance = async (
   distanceKm: number | null;
   error: Error | null;
 }> => {
+  const ranked = await recommendBestDispatch(
+    latitude,
+    longitude,
+    maxRadiusKm,
+  );
+  if (!ranked.error && ranked.ambulanceId) {
+    return {
+      ambulanceId: ranked.ambulanceId,
+      distanceKm: ranked.distanceKm,
+      error: null,
+    };
+  }
+
   try {
     // Attempt server-side PostGIS lookup first
     const { data, error: rpcError } = await supabase.rpc(
@@ -314,6 +362,140 @@ export const findNearestAmbulance = async (
 };
 
 /**
+ * Recommend the best dispatch candidate using a weighted score.
+ * Score balances:
+ * - Ambulance distance to patient (closer is better)
+ * - Hospital active emergency load (lighter load is better)
+ * - Hospital fleet capacity (higher capacity is better)
+ */
+export const recommendBestDispatch = async (
+  latitude: number,
+  longitude: number,
+  maxRadiusKm: number = 50,
+): Promise<DispatchRecommendation> => {
+  try {
+    const [allAmbulancesRes, activeEmergenciesRes] = await Promise.all([
+      supabase
+        .from("ambulances")
+        .select("id, hospital_id, is_available, last_known_location"),
+      supabase
+        .from("emergency_requests")
+        .select("hospital_id, status")
+        .not("status", "in", "(completed,cancelled)"),
+    ]);
+
+    if (allAmbulancesRes.error) throw allAmbulancesRes.error;
+    if (activeEmergenciesRes.error) throw activeEmergenciesRes.error;
+
+    const allAmbulances = (allAmbulancesRes.data ?? []) as Array<{
+      id: string;
+      hospital_id?: string | null;
+      is_available?: boolean;
+      last_known_location?: string | null;
+    }>;
+
+    const activeEmergencies = (activeEmergenciesRes.data ?? []) as Array<{
+      hospital_id?: string | null;
+      status: string;
+    }>;
+
+    const availableAmbulances = allAmbulances.filter(
+      (a) => a.is_available === true,
+    );
+
+    if (availableAmbulances.length === 0) {
+      return {
+        ambulanceId: null,
+        hospitalId: null,
+        distanceKm: null,
+        score: null,
+        error: new Error("No available ambulances"),
+      };
+    }
+
+    const hospitalFleetCount = new Map<string, number>();
+    for (const a of allAmbulances) {
+      const h = a.hospital_id ?? "unassigned";
+      hospitalFleetCount.set(h, (hospitalFleetCount.get(h) ?? 0) + 1);
+    }
+
+    const hospitalActiveCount = new Map<string, number>();
+    for (const e of activeEmergencies) {
+      const h = e.hospital_id ?? "unassigned";
+      hospitalActiveCount.set(h, (hospitalActiveCount.get(h) ?? 0) + 1);
+    }
+
+    let best: {
+      ambulanceId: string;
+      hospitalId: string | null;
+      distanceKm: number;
+      score: number;
+    } | null = null;
+
+    for (const amb of availableAmbulances) {
+      const loc = parsePostGISPoint(amb.last_known_location);
+      if (!loc) continue;
+
+      const distanceKm = calculateDistance(
+        latitude,
+        longitude,
+        loc.latitude,
+        loc.longitude,
+      );
+      if (distanceKm > maxRadiusKm) continue;
+
+      const hospitalId = amb.hospital_id ?? null;
+      const hKey = hospitalId ?? "unassigned";
+      const fleet = Math.max(hospitalFleetCount.get(hKey) ?? 1, 1);
+      const active = hospitalActiveCount.get(hKey) ?? 0;
+
+      const distanceScore = Math.max(0, 100 - distanceKm * 2);
+      const loadRatio = Math.min(active / fleet, 2);
+      const loadScore = Math.max(0, 100 - loadRatio * 50);
+      const capacityScore = Math.min(100, fleet * 10);
+
+      const score =
+        distanceScore * 0.6 + loadScore * 0.3 + capacityScore * 0.1;
+
+      if (!best || score > best.score) {
+        best = {
+          ambulanceId: amb.id,
+          hospitalId,
+          distanceKm,
+          score,
+        };
+      }
+    }
+
+    if (!best) {
+      return {
+        ambulanceId: null,
+        hospitalId: null,
+        distanceKm: null,
+        score: null,
+        error: new Error(`No ambulances within ${maxRadiusKm}km`),
+      };
+    }
+
+    return {
+      ambulanceId: best.ambulanceId,
+      hospitalId: best.hospitalId,
+      distanceKm: Math.round(best.distanceKm * 10) / 10,
+      score: Math.round(best.score * 100) / 100,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      ambulanceId: null,
+      hospitalId: null,
+      distanceKm: null,
+      score: null,
+      error: error as Error,
+    };
+  }
+};
+
+/**
  * Assign ambulance to emergency request.
  * - Updates emergency_requests.assigned_ambulance_id & status
  * - Inserts a row into emergency_assignments so drivers are notified via realtime
@@ -325,12 +507,55 @@ export const assignAmbulance = async (
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
+    let assignmentNotes: string | null = null;
+
+    const { data: emergencyRow } = await supabase
+      .from("emergency_requests")
+      .select("patient_id")
+      .eq("id", emergencyId)
+      .maybeSingle();
+
+    const patientId = emergencyRow?.patient_id as string | undefined;
+    if (patientId) {
+      const { data: medRows } = await supabase
+        .from("medical_profiles")
+        .select(
+          "blood_type,allergies,medical_conditions,emergency_contact_name,emergency_contact_phone,updated_at",
+        )
+        .eq("user_id", patientId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      const bestMed = (medRows || [])[0];
+
+      if (bestMed) {
+        assignmentNotes = JSON.stringify({
+          medical_snapshot: {
+            blood_type: bestMed.blood_type || "",
+            allergies: bestMed.allergies || "",
+            medical_conditions: bestMed.medical_conditions || "",
+            emergency_contact_name: bestMed.emergency_contact_name || "",
+            emergency_contact_phone: bestMed.emergency_contact_phone || "",
+            updated_at: bestMed.updated_at || null,
+          },
+        });
+      }
+    }
+
+    const { data: ambulanceRow } = await supabase
+      .from("ambulances")
+      .select("hospital_id")
+      .eq("id", ambulanceId)
+      .maybeSingle();
+
+    const hospitalId = ambulanceRow?.hospital_id ?? null;
 
     // 1. Update emergency request
     const { error } = await supabase
       .from("emergency_requests")
       .update({
         assigned_ambulance_id: ambulanceId,
+        hospital_id: hospitalId,
         status: "assigned",
         updated_at: now,
       })
@@ -346,6 +571,7 @@ export const assignAmbulance = async (
         ambulance_id: ambulanceId,
         status: "pending",
         assigned_at: now,
+        notes: assignmentNotes,
       });
 
     if (assignError) {
@@ -385,16 +611,31 @@ export const updateEmergencyStatus = async (
 
     if (error) throw error;
 
-    // When completed/cancelled, also mark assignments and free ambulance
-    if (status === "completed" || status === "cancelled") {
-      // Mark assignments as completed
+    // When cancelled, close assignments with a valid status
+    if (status === "cancelled") {
       await supabase
         .from("emergency_assignments")
-        .update({ status: "completed" })
+        .update({ status: "declined", completed_at: new Date().toISOString() })
         .eq("emergency_id", emergencyId)
         .in("status", ["pending", "accepted"]);
 
       // Re-enable ambulance availability
+      const { data: assignments } = await supabase
+        .from("emergency_assignments")
+        .select("ambulance_id")
+        .eq("emergency_id", emergencyId);
+      if (assignments) {
+        for (const a of assignments) {
+          await supabase
+            .from("ambulances")
+            .update({ is_available: true })
+            .eq("id", a.ambulance_id);
+        }
+      }
+    }
+
+    // When completed, only re-enable ambulance (do not force assignment status)
+    if (status === "completed") {
       const { data: assignments } = await supabase
         .from("emergency_assignments")
         .select("ambulance_id")

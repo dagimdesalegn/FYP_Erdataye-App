@@ -128,7 +128,10 @@ export default function DriverEmergencyTrackingScreen() {
 
           // Get patient info
           if (emergData.patient_id) {
-            const { info } = await getPatientInfo(emergData.patient_id);
+            const { info } = await getPatientInfo(
+              emergData.patient_id,
+              emergencyId as string,
+            );
             if (info) setPatientInfo(info);
           }
         }

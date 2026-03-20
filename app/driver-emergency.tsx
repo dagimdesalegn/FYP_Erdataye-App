@@ -221,7 +221,10 @@ export default function DriverEmergencyScreen() {
         // Load patient info
         const pid = asgn.emergency_requests?.patient_id || "";
         if (pid) {
-          const { info } = await getPatientInfo(pid);
+          const { info } = await getPatientInfo(
+            pid,
+            asgn.emergency_id || asgn.emergency_requests?.id,
+          );
           if (info) {
             // Always prefer latest DB profile for conditions/contact/blood/allergies.
             const medData = await fetchLatestMedicalProfile(
@@ -229,10 +232,32 @@ export default function DriverEmergencyScreen() {
               info.phone,
               info.full_name,
             );
+
+            const scoreMedical = (row: any) => {
+              if (!row) return 0;
+              const values = [
+                row.blood_type,
+                row.allergies,
+                row.medical_conditions,
+                row.emergency_contact_name,
+                row.emergency_contact_phone,
+              ];
+              return values.reduce(
+                (acc, v) => acc + (typeof v === "string" && v.trim() ? 1 : 0),
+                0,
+              );
+            };
+
+            const candidateA = medData[0] ?? null;
+            const candidateB = info.medical_profiles?.[0] ?? null;
+            const bestMedical =
+              scoreMedical(candidateA) >= scoreMedical(candidateB)
+                ? candidateA
+                : candidateB;
+
             setPatientInfo({
               ...info,
-              medical_profiles:
-                medData.length > 0 ? medData : (info.medical_profiles ?? []),
+              medical_profiles: bestMedical ? [bestMedical] : [],
             });
           } else {
             // Fallback if patient info query misses but assignment has a patient id.
@@ -448,7 +473,19 @@ export default function DriverEmergencyScreen() {
         ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
         : null;
 
-  const med = patientInfo?.medical_profiles?.[0];
+  const medFromProfile = patientInfo?.medical_profiles?.[0];
+  let medFromAssignment: any = null;
+  try {
+    const rawNotes = assignment?.notes;
+    if (typeof rawNotes === "string" && rawNotes.trim()) {
+      const parsed = JSON.parse(rawNotes);
+      medFromAssignment = parsed?.medical_snapshot ?? null;
+    }
+  } catch {
+    medFromAssignment = null;
+  }
+
+  const med = medFromAssignment || medFromProfile;
 
   // ─── UI ───────────────────────────────────────────────────
   const cardBg = colors.surface;

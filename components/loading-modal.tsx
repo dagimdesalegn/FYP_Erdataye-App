@@ -118,7 +118,7 @@ export const LoadingModal = ({
 
   // On web, <Modal> has z-index/scroll issues — use absolute overlay instead
   if (Platform.OS === 'web') {
-    return <View style={StyleSheet.absoluteFill} pointerEvents="auto">{content}</View>;
+    return <View style={[StyleSheet.absoluteFill, { pointerEvents: 'auto' }]}>{content}</View>;
   }
 
   return (
