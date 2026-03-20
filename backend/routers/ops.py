@@ -581,6 +581,32 @@ async def hospital_fleet(
 
     role = str(profile.get("role") or "").lower()
     effective_hospital_id = hospital_id if role == "admin" and hospital_id else profile.get("hospital_id")
+
+    # Some legacy hospital accounts may miss hospital_id linkage in metadata/profile.
+    # Recover by matching hospital phone/name from auth metadata.
+    if role == "hospital" and not effective_hospital_id:
+        metadata = current_user.get("user_metadata") or {}
+        phone = str(metadata.get("phone") or "").strip()
+        name = str(metadata.get("full_name") or "").strip()
+
+        if phone:
+            by_phone_rows, by_phone_code = await db_select(
+                "hospitals",
+                {"phone": phone},
+                columns="id,name,phone",
+            )
+            if by_phone_code in (200, 206) and by_phone_rows:
+                effective_hospital_id = str(by_phone_rows[0].get("id") or "")
+
+        if not effective_hospital_id and name:
+            by_name_rows, by_name_code = await db_select(
+                "hospitals",
+                {"name": name},
+                columns="id,name,phone",
+            )
+            if by_name_code in (200, 206) and by_name_rows:
+                effective_hospital_id = str(by_name_rows[0].get("id") or "")
+
     if not effective_hospital_id:
         raise HTTPException(status_code=400, detail="hospital_id is required")
 
