@@ -63,6 +63,22 @@ class TriageOutput(BaseModel):
     recommendations: list[str]
 
 
+class HospitalFleetInsight(BaseModel):
+    hospital_id: str
+    hospital_name: str
+    hospital_phone: str | None
+    total_ambulances: int
+    available_ambulances: int
+    busy_ambulances: int
+    active_emergencies: int
+    readiness_score: float
+
+
+class FleetIntelligenceResponse(BaseModel):
+    generated_at: str
+    hospitals: list[HospitalFleetInsight]
+
+
 @router.get(
     "/summary",
     response_model=OpsSummary,
@@ -208,4 +224,82 @@ async def triage_score(payload: TriageInput) -> TriageOutput:
         priority=priority,
         recommended_dispatch_minutes=dispatch,
         recommendations=recommendations,
+    )
+
+
+@router.get(
+    "/fleet-intelligence",
+    response_model=FleetIntelligenceResponse,
+    summary="Hospital and ambulance readiness intelligence",
+)
+async def fleet_intelligence() -> FleetIntelligenceResponse:
+    hospitals, hosp_code = await db_select(
+        "hospitals",
+        {},
+        columns="id,name,phone",
+    )
+    ambulances, amb_code = await db_select(
+        "ambulances",
+        {},
+        columns="id,hospital_id,is_available",
+    )
+    emergencies, eme_code = await db_select(
+        "emergency_requests",
+        {},
+        columns="id,hospital_id,status",
+    )
+
+    codes = [hosp_code, amb_code, eme_code]
+    if any(code not in (200, 206) for code in codes):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not load fleet intelligence from database.",
+        )
+
+    insights: list[HospitalFleetInsight] = []
+    for hospital in hospitals:
+        hospital_id = str(hospital.get("id", ""))
+        hospital_ambulances = [
+            a for a in ambulances if str(a.get("hospital_id", "")) == hospital_id
+        ]
+        total = len(hospital_ambulances)
+        available = sum(1 for a in hospital_ambulances if bool(a.get("is_available")))
+        busy = max(total - available, 0)
+
+        active_emergencies = sum(
+            1
+            for e in emergencies
+            if str(e.get("hospital_id", "")) == hospital_id
+            and e.get("status") not in ("completed", "cancelled")
+        )
+
+        if total == 0:
+            readiness_score = 0.0
+        else:
+            readiness_score = round(
+                ((available / total) * 70.0)
+                + (max(0, 1 - (active_emergencies / max(total, 1))) * 30.0),
+                2,
+            )
+
+        insights.append(
+            HospitalFleetInsight(
+                hospital_id=hospital_id,
+                hospital_name=str(hospital.get("name") or "Unknown Hospital"),
+                hospital_phone=(
+                    str(hospital.get("phone")) if hospital.get("phone") else None
+                ),
+                total_ambulances=total,
+                available_ambulances=available,
+                busy_ambulances=busy,
+                active_emergencies=active_emergencies,
+                readiness_score=readiness_score,
+            )
+        )
+
+    insights.sort(key=lambda x: x.readiness_score, reverse=True)
+
+    return FleetIntelligenceResponse(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        hospitals=insights,
     )
