@@ -160,10 +160,18 @@ export const updateAuthLoginPhone = async (
     });
 
     if (!res.ok) {
-      const body = await res.text().then((t) => { try { return JSON.parse(t); } catch { return {}; } });
+      const body = await res.text().then((t) => {
+        try {
+          return JSON.parse(t);
+        } catch {
+          return {};
+        }
+      });
       return {
         success: false,
-        error: new Error(body?.detail || `Failed to update auth login (${res.status})`),
+        error: new Error(
+          body?.detail || `Failed to update auth login (${res.status})`,
+        ),
       };
     }
 
@@ -237,7 +245,8 @@ export const signUp = async (
     }
 
     if (!res.ok || !resBody.user_id) {
-      const detail = resBody?.detail ?? "Registration failed. Please try again.";
+      const detail =
+        resBody?.detail ?? "Registration failed. Please try again.";
 
       // If backend/auth says "already exists", re-check profile table and show a clear DB-driven message.
       if (
@@ -333,7 +342,8 @@ export const signIn = async (
     if (sessionError || !sessionData.session) {
       return {
         user: null,
-        error: sessionError ?? (new Error("Failed to set session") as AuthError),
+        error:
+          sessionError ?? (new Error("Failed to set session") as AuthError),
       };
     }
 

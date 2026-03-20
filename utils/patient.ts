@@ -10,15 +10,29 @@
  *   hospitals: name, address, location (geometry), phone
  */
 
-import { assignAmbulance, findNearestAmbulance, parsePostGISPoint, toPostGISPoint } from './emergency';
-import { supabase } from './supabase';
+import {
+    assignAmbulance,
+    findNearestAmbulance,
+    parsePostGISPoint,
+    toPostGISPoint,
+} from "./emergency";
+import { supabase } from "./supabase";
 
 // ─── Interfaces aligned with actual DB schema ────────────────────────
 
 export interface PatientEmergency {
   id: string;
   patient_id: string;
-  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled';
+  status:
+    | "pending"
+    | "assigned"
+    | "en_route"
+    | "at_scene"
+    | "arrived"
+    | "transporting"
+    | "at_hospital"
+    | "completed"
+    | "cancelled";
   emergency_type: string;
   description?: string;
   assigned_ambulance_id?: string;
@@ -67,10 +81,10 @@ const normalizeEmergency = (raw: any): PatientEmergency => {
   const parsed = parsePostGISPoint(raw?.patient_location);
   return {
     ...raw,
-    emergency_type: raw?.emergency_type ?? 'medical',
+    emergency_type: raw?.emergency_type ?? "medical",
     latitude: parsed?.latitude ?? 0,
     longitude: parsed?.longitude ?? 0,
-    status: (raw?.status ?? 'pending') as PatientEmergency['status'],
+    status: (raw?.status ?? "pending") as PatientEmergency["status"],
     created_at: raw?.created_at ?? new Date().toISOString(),
     updated_at: raw?.updated_at ?? raw?.created_at ?? new Date().toISOString(),
   } as PatientEmergency;
@@ -91,22 +105,24 @@ export const createEmergency = async (
   patientId: string,
   latitude: number,
   longitude: number,
-  emergencyType: string = 'medical',
-  description?: string
+  emergencyType: string = "medical",
+  description?: string,
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
     if (!patientId || latitude === undefined || longitude === undefined) {
-      throw new Error('Missing required fields: patientId, latitude, longitude');
+      throw new Error(
+        "Missing required fields: patientId, latitude, longitude",
+      );
     }
 
     const timestamp = new Date().toISOString();
     const { data, error } = await supabase
-      .from('emergency_requests')
+      .from("emergency_requests")
       .insert({
         patient_id: patientId,
         patient_location: toPostGISPoint(latitude, longitude),
         emergency_type: emergencyType,
-        status: 'pending',
+        status: "pending",
         description: description || null,
         created_at: timestamp,
         updated_at: timestamp,
@@ -120,19 +136,23 @@ export const createEmergency = async (
 
     // Auto-assign nearest ambulance (best-effort, non-blocking)
     try {
-      const { ambulanceId } = await findNearestAmbulance(latitude, longitude, 50);
+      const { ambulanceId } = await findNearestAmbulance(
+        latitude,
+        longitude,
+        50,
+      );
       if (ambulanceId && emergency) {
         await assignAmbulance(emergency.id, ambulanceId);
         emergency.assigned_ambulance_id = ambulanceId;
-        emergency.status = 'assigned';
+        emergency.status = "assigned";
       }
     } catch (assignErr) {
-      console.warn('Auto-assign ambulance skipped:', assignErr);
+      console.warn("Auto-assign ambulance skipped:", assignErr);
     }
 
     return { emergency, error: null };
   } catch (error) {
-    console.error('Error creating emergency:', error);
+    console.error("Error creating emergency:", error);
     return { emergency: null, error: error as Error };
   }
 };
@@ -141,15 +161,15 @@ export const createEmergency = async (
  * Get patient's current active emergency
  */
 export const getActiveEmergency = async (
-  patientId: string
+  patientId: string,
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
-      .from('emergency_requests')
-      .select('*')
-      .eq('patient_id', patientId)
-      .not('status', 'in', '(completed,cancelled)')
-      .order('created_at', { ascending: false })
+      .from("emergency_requests")
+      .select("*")
+      .eq("patient_id", patientId)
+      .not("status", "in", "(completed,cancelled)")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -159,7 +179,7 @@ export const getActiveEmergency = async (
 
     return { emergency: data ? normalizeEmergency(data) : null, error: null };
   } catch (error) {
-    console.error('Error fetching active emergency:', error);
+    console.error("Error fetching active emergency:", error);
     return { emergency: null, error: error as Error };
   }
 };
@@ -168,7 +188,7 @@ export const getActiveEmergency = async (
  * Get emergency details with assignment and ambulance info
  */
 export const getEmergencyDetails = async (
-  emergencyId: string
+  emergencyId: string,
 ): Promise<{
   emergency: PatientEmergency | null;
   assignment: EmergencyAssignment | null;
@@ -178,14 +198,19 @@ export const getEmergencyDetails = async (
   try {
     // Get emergency
     const { data: emergencyData, error: emergencyError } = await supabase
-      .from('emergency_requests')
-      .select('*')
-      .eq('id', emergencyId)
+      .from("emergency_requests")
+      .select("*")
+      .eq("id", emergencyId)
       .maybeSingle();
 
     if (emergencyError) throw emergencyError;
     if (!emergencyData) {
-      return { emergency: null, assignment: null, ambulance: null, error: new Error('Emergency not found') };
+      return {
+        emergency: null,
+        assignment: null,
+        ambulance: null,
+        error: new Error("Emergency not found"),
+      };
     }
 
     // Get assignment (with fallback if emergency_assignments table is missing)
@@ -194,10 +219,10 @@ export const getEmergencyDetails = async (
 
     try {
       const { data } = await supabase
-        .from('emergency_assignments')
-        .select('*')
-        .eq('emergency_id', emergencyId)
-        .order('assigned_at', { ascending: false })
+        .from("emergency_assignments")
+        .select("*")
+        .eq("emergency_id", emergencyId)
+        .order("assigned_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       assignmentData = data;
@@ -206,12 +231,13 @@ export const getEmergencyDetails = async (
     }
 
     // Get ambulance from assignment or directly from emergency_requests
-    const ambulanceId = assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
+    const ambulanceId =
+      assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
     if (ambulanceId) {
       const { data: ambulanceData } = await supabase
-        .from('ambulances')
-        .select('*')
-        .eq('id', ambulanceId)
+        .from("ambulances")
+        .select("*")
+        .eq("id", ambulanceId)
         .maybeSingle();
 
       ambulance = ambulanceData as AmbulanceInfo | null;
@@ -220,14 +246,22 @@ export const getEmergencyDetails = async (
     return {
       emergency: emergencyData ? normalizeEmergency(emergencyData) : null,
       assignment: assignmentData
-        ? ({ ...assignmentData, status: assignmentData.status ?? 'pending' } as EmergencyAssignment)
+        ? ({
+            ...assignmentData,
+            status: assignmentData.status ?? "pending",
+          } as EmergencyAssignment)
         : null,
       ambulance,
       error: null,
     };
   } catch (error) {
-    console.error('Error fetching emergency details:', error);
-    return { emergency: null, assignment: null, ambulance: null, error: error as Error };
+    console.error("Error fetching emergency details:", error);
+    return {
+      emergency: null,
+      assignment: null,
+      ambulance: null,
+      error: error as Error,
+    };
   }
 };
 
@@ -236,44 +270,53 @@ export const getEmergencyDetails = async (
  */
 export const updateEmergencyStatus = async (
   emergencyId: string,
-  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
+  status:
+    | "pending"
+    | "assigned"
+    | "en_route"
+    | "at_scene"
+    | "arrived"
+    | "transporting"
+    | "at_hospital"
+    | "completed"
+    | "cancelled",
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('emergency_requests')
+      .from("emergency_requests")
       .update({
         status,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', emergencyId);
+      .eq("id", emergencyId);
 
     if (error) throw error;
 
     // When cancelled, also mark assignments and free ambulance
-    if (status === 'cancelled' || status === 'completed') {
+    if (status === "cancelled" || status === "completed") {
       await supabase
-        .from('emergency_assignments')
-        .update({ status: 'completed' })
-        .eq('emergency_id', emergencyId)
-        .in('status', ['pending', 'accepted']);
+        .from("emergency_assignments")
+        .update({ status: "completed" })
+        .eq("emergency_id", emergencyId)
+        .in("status", ["pending", "accepted"]);
 
       const { data: assignments } = await supabase
-        .from('emergency_assignments')
-        .select('ambulance_id')
-        .eq('emergency_id', emergencyId);
+        .from("emergency_assignments")
+        .select("ambulance_id")
+        .eq("emergency_id", emergencyId);
       if (assignments) {
         for (const a of assignments) {
           await supabase
-            .from('ambulances')
+            .from("ambulances")
             .update({ is_available: true })
-            .eq('id', a.ambulance_id);
+            .eq("id", a.ambulance_id);
         }
       }
     }
 
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error updating emergency status:', error);
+    console.error("Error updating emergency status:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -283,23 +326,23 @@ export const updateEmergencyStatus = async (
  */
 export const subscribeToEmergency = (
   emergencyId: string,
-  onUpdate: (emergency: PatientEmergency) => void
+  onUpdate: (emergency: PatientEmergency) => void,
 ) => {
   const subscription = supabase
     .channel(`emergency_status:${emergencyId}`)
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'emergency_requests',
+        event: "UPDATE",
+        schema: "public",
+        table: "emergency_requests",
         filter: `id=eq.${emergencyId}`,
       },
       (payload: any) => {
         if (payload.new) {
           onUpdate(normalizeEmergency(payload.new));
         }
-      }
+      },
     )
     .subscribe();
 
@@ -314,16 +357,16 @@ export const subscribeToEmergency = (
  */
 export const subscribeToAmbulanceLocation = (
   ambulanceId: string,
-  onUpdate: (latitude: number, longitude: number) => void
+  onUpdate: (latitude: number, longitude: number) => void,
 ) => {
   const subscription = supabase
     .channel(`ambulance_loc:${ambulanceId}`)
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ambulances',
+        event: "UPDATE",
+        schema: "public",
+        table: "ambulances",
         filter: `id=eq.${ambulanceId}`,
       },
       (payload: any) => {
@@ -331,7 +374,7 @@ export const subscribeToAmbulanceLocation = (
         if (parsed) {
           onUpdate(parsed.latitude, parsed.longitude);
         }
-      }
+      },
     )
     .subscribe();
 

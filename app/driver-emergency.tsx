@@ -65,7 +65,9 @@ const toPhoneCandidates = (raw?: string): string[] => {
 
   const intl = local.startsWith("0") ? `+251${local.slice(1)}` : `+${digits}`;
 
-  return Array.from(new Set([raw, digits, local, local.replace(/^0/, ""), intl]));
+  return Array.from(
+    new Set([raw, digits, local, local.replace(/^0/, ""), intl]),
+  );
 };
 
 export default function DriverEmergencyScreen() {
@@ -89,102 +91,111 @@ export default function DriverEmergencyScreen() {
     longitude: number;
   } | null>(null);
 
-  const fetchLatestMedicalProfile = useCallback(async (
-    patientId: string,
-    patientPhone?: string,
-    patientName?: string,
-  ) => {
-    const columns =
-      "blood_type,allergies,medical_conditions,emergency_contact_name,emergency_contact_phone,updated_at";
+  const fetchLatestMedicalProfile = useCallback(
+    async (patientId: string, patientPhone?: string, patientName?: string) => {
+      const columns =
+        "blood_type,allergies,medical_conditions,emergency_contact_name,emergency_contact_phone,updated_at";
 
-    try {
-      // Preferred path: medical_profiles.user_id references patient user id.
-      const { data, error } = await supabase
-        .from("medical_profiles")
-        .select(columns)
-        .eq("user_id", patientId)
-        .order("updated_at", { ascending: false })
-        .limit(1);
+      try {
+        // Preferred path: medical_profiles.user_id references patient user id.
+        const { data, error } = await supabase
+          .from("medical_profiles")
+          .select(columns)
+          .eq("user_id", patientId)
+          .order("updated_at", { ascending: false })
+          .limit(1);
 
-      if (!error && data && data.length > 0) {
-        return data as MedicalProfile[];
-      }
+        if (!error && data && data.length > 0) {
+          return data as MedicalProfile[];
+        }
 
-      // Fallback path: some schemas store patient id as row id.
-      const { data: byId, error: byIdError } = await supabase
-        .from("medical_profiles")
-        .select(columns)
-        .eq("id", patientId)
-        .limit(1);
+        // Fallback path: some schemas store patient id as row id.
+        const { data: byId, error: byIdError } = await supabase
+          .from("medical_profiles")
+          .select(columns)
+          .eq("id", patientId)
+          .limit(1);
 
-      if (!byIdError && byId && byId.length > 0) {
-        return byId as MedicalProfile[];
-      }
+        if (!byIdError && byId && byId.length > 0) {
+          return byId as MedicalProfile[];
+        }
 
-      // Fallback path: resolve profile id by phone, then read medical_profiles.user_id.
-      const phoneCandidates = toPhoneCandidates(patientPhone);
-      if (phoneCandidates.length > 0) {
-        const { data: profileRows, error: profileErr } = await supabase
-          .from("profiles")
-          .select("id, phone")
-          .in("phone", phoneCandidates)
-          .limit(3);
+        // Fallback path: resolve profile id by phone, then read medical_profiles.user_id.
+        const phoneCandidates = toPhoneCandidates(patientPhone);
+        if (phoneCandidates.length > 0) {
+          const { data: profileRows, error: profileErr } = await supabase
+            .from("profiles")
+            .select("id, phone")
+            .in("phone", phoneCandidates)
+            .limit(3);
 
-        if (!profileErr && profileRows && profileRows.length > 0) {
-          const ids = profileRows.map((p: any) => p.id).filter(Boolean);
-          if (ids.length > 0) {
-            const { data: medByResolvedId, error: medByResolvedErr } = await supabase
-              .from("medical_profiles")
-              .select(columns)
-              .in("user_id", ids)
-              .order("updated_at", { ascending: false })
-              .limit(1);
+          if (!profileErr && profileRows && profileRows.length > 0) {
+            const ids = profileRows.map((p: any) => p.id).filter(Boolean);
+            if (ids.length > 0) {
+              const { data: medByResolvedId, error: medByResolvedErr } =
+                await supabase
+                  .from("medical_profiles")
+                  .select(columns)
+                  .in("user_id", ids)
+                  .order("updated_at", { ascending: false })
+                  .limit(1);
 
-            if (!medByResolvedErr && medByResolvedId && medByResolvedId.length > 0) {
-              return medByResolvedId as MedicalProfile[];
+              if (
+                !medByResolvedErr &&
+                medByResolvedId &&
+                medByResolvedId.length > 0
+              ) {
+                return medByResolvedId as MedicalProfile[];
+              }
             }
           }
         }
-      }
 
-      // Last fallback: match rows by emergency-contact fields when linkage is inconsistent.
-      // Useful when medical_profiles.user_id doesn't point to profiles.id in older data.
-      const name = (patientName || "").trim();
-      if (name) {
-        const { data: byName, error: byNameErr } = await supabase
-          .from("medical_profiles")
-          .select(columns)
-          .eq("emergency_contact_name", name)
-          .order("updated_at", { ascending: false })
-          .limit(1);
+        // Last fallback: match rows by emergency-contact fields when linkage is inconsistent.
+        // Useful when medical_profiles.user_id doesn't point to profiles.id in older data.
+        const name = (patientName || "").trim();
+        if (name) {
+          const { data: byName, error: byNameErr } = await supabase
+            .from("medical_profiles")
+            .select(columns)
+            .eq("emergency_contact_name", name)
+            .order("updated_at", { ascending: false })
+            .limit(1);
 
-        if (!byNameErr && byName && byName.length > 0) {
-          return byName as MedicalProfile[];
+          if (!byNameErr && byName && byName.length > 0) {
+            return byName as MedicalProfile[];
+          }
         }
-      }
 
-      const contactPhoneCandidates = toPhoneCandidates(patientPhone).map((p) =>
-        p.replace(/^\+251/, "0").replace(/^251/, "0"),
-      );
-      for (const p of contactPhoneCandidates) {
-        const { data: byContactPhone, error: byContactPhoneErr } = await supabase
-          .from("medical_profiles")
-          .select(columns)
-          .eq("emergency_contact_phone", p)
-          .order("updated_at", { ascending: false })
-          .limit(1);
+        const contactPhoneCandidates = toPhoneCandidates(patientPhone).map(
+          (p) => p.replace(/^\+251/, "0").replace(/^251/, "0"),
+        );
+        for (const p of contactPhoneCandidates) {
+          const { data: byContactPhone, error: byContactPhoneErr } =
+            await supabase
+              .from("medical_profiles")
+              .select(columns)
+              .eq("emergency_contact_phone", p)
+              .order("updated_at", { ascending: false })
+              .limit(1);
 
-        if (!byContactPhoneErr && byContactPhone && byContactPhone.length > 0) {
-          return byContactPhone as MedicalProfile[];
+          if (
+            !byContactPhoneErr &&
+            byContactPhone &&
+            byContactPhone.length > 0
+          ) {
+            return byContactPhone as MedicalProfile[];
+          }
         }
-      }
 
-      return [] as MedicalProfile[];
-    } catch (e) {
-      console.warn("Medical profile fetch fallback failed:", e);
-      return [] as MedicalProfile[];
-    }
-  }, []);
+        return [] as MedicalProfile[];
+      } catch (e) {
+        console.warn("Medical profile fetch fallback failed:", e);
+        return [] as MedicalProfile[];
+      }
+    },
+    [],
+  );
 
   const loadAssignment = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -221,7 +232,7 @@ export default function DriverEmergencyScreen() {
             setPatientInfo({
               ...info,
               medical_profiles:
-                medData.length > 0 ? medData : info.medical_profiles ?? [],
+                medData.length > 0 ? medData : (info.medical_profiles ?? []),
             });
           } else {
             // Fallback if patient info query misses but assignment has a patient id.
@@ -635,7 +646,9 @@ export default function DriverEmergencyScreen() {
                 >
                   <View style={styles.phoneLeft}>
                     <MaterialIcons name="phone" size={17} color="#0EA5E9" />
-                    <ThemedText style={styles.phoneValue}>{patientInfo.phone}</ThemedText>
+                    <ThemedText style={styles.phoneValue}>
+                      {patientInfo.phone}
+                    </ThemedText>
                   </View>
                   <Pressable
                     onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}
@@ -692,7 +705,12 @@ export default function DriverEmergencyScreen() {
                   size={16}
                   color="#DC2626"
                 />
-                <ThemedText style={[styles.medicalInlineTitle, { color: isDark ? "#F8FAFC" : "#0F172A" }]}>
+                <ThemedText
+                  style={[
+                    styles.medicalInlineTitle,
+                    { color: isDark ? "#F8FAFC" : "#0F172A" },
+                  ]}
+                >
                   Medical Profile
                 </ThemedText>
               </View>
@@ -708,11 +726,19 @@ export default function DriverEmergencyScreen() {
                   ]}
                 >
                   <ThemedText
-                    style={[styles.medicalTileLabel, { color: isDark ? "#FCA5A5" : "#B91C1C" }]}
+                    style={[
+                      styles.medicalTileLabel,
+                      { color: isDark ? "#FCA5A5" : "#B91C1C" },
+                    ]}
                   >
                     Blood Type
                   </ThemedText>
-                  <ThemedText style={[styles.medicalTileValue, { color: isDark ? "#FEE2E2" : "#7F1D1D" }]}>
+                  <ThemedText
+                    style={[
+                      styles.medicalTileValue,
+                      { color: isDark ? "#FEE2E2" : "#7F1D1D" },
+                    ]}
+                  >
                     {med?.blood_type || "Not set"}
                   </ThemedText>
                 </View>
@@ -727,12 +753,18 @@ export default function DriverEmergencyScreen() {
                   ]}
                 >
                   <ThemedText
-                    style={[styles.medicalTileLabel, { color: isDark ? "#FCD34D" : "#92400E" }]}
+                    style={[
+                      styles.medicalTileLabel,
+                      { color: isDark ? "#FCD34D" : "#92400E" },
+                    ]}
                   >
                     Allergies
                   </ThemedText>
                   <ThemedText
-                    style={[styles.medicalTileValue, { color: isDark ? "#FEF3C7" : "#78350F" }]}
+                    style={[
+                      styles.medicalTileValue,
+                      { color: isDark ? "#FEF3C7" : "#78350F" },
+                    ]}
                     numberOfLines={2}
                   >
                     {med?.allergies || "None reported"}
@@ -758,7 +790,10 @@ export default function DriverEmergencyScreen() {
                   <ThemedText
                     style={[
                       styles.medicalDetailLabel,
-                      { color: isDark ? "#5EEAD4" : "#0F766E", marginBottom: 0 },
+                      {
+                        color: isDark ? "#5EEAD4" : "#0F766E",
+                        marginBottom: 0,
+                      },
                     ]}
                   >
                     Emergency Contact
@@ -792,7 +827,6 @@ export default function DriverEmergencyScreen() {
                 ) : null}
               </View>
             </View>
-
           </View>
         )}
       </ScrollView>

@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
@@ -6,9 +6,13 @@ import { supabase } from './supabase';
  * Format coordinates as human-readable directional text.
  * e.g. 9.02, 38.75 → "9.0200° N, 38.7500° E"
  */
-export function formatCoords(lat: number, lng: number, decimals: number = 4): string {
-  const ns = lat >= 0 ? 'N' : 'S';
-  const ew = lng >= 0 ? 'E' : 'W';
+export function formatCoords(
+  lat: number,
+  lng: number,
+  decimals: number = 4,
+): string {
+  const ns = lat >= 0 ? "N" : "S";
+  const ew = lng >= 0 ? "E" : "W";
   return `${Math.abs(lat).toFixed(decimals)}° ${ns}, ${Math.abs(lng).toFixed(decimals)}° ${ew}`;
 }
 
@@ -16,7 +20,11 @@ export function formatCoords(lat: number, lng: number, decimals: number = 4): st
  * Build a Google Maps embed URL for a single location marker.
  * Returns a direct URL suitable for iframe src – no CORS issues.
  */
-export function buildMapHtml(lat: number, lng: number, zoom: number = 17): string {
+export function buildMapHtml(
+  lat: number,
+  lng: number,
+  zoom: number = 17,
+): string {
   return `https://maps.google.com/maps?q=${lat},${lng}&z=${zoom}&output=embed`;
 }
 
@@ -27,9 +35,16 @@ export function buildMapHtml(lat: number, lng: number, zoom: number = 17): strin
  * instead of showing the entire world.
  */
 export function buildDriverPatientMapHtml(
-  driverLat: number, driverLng: number,
-  patientLat: number, patientLng: number,
-  _options?: { blueLabel?: string; redLabel?: string; bluePopup?: string; redPopup?: string },
+  driverLat: number,
+  driverLng: number,
+  patientLat: number,
+  patientLng: number,
+  _options?: {
+    blueLabel?: string;
+    redLabel?: string;
+    bluePopup?: string;
+    redPopup?: string;
+  },
 ): string {
   // Use an embedded directions route for better real-world accuracy and framing.
   return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&dirflg=d&output=embed`;
@@ -40,7 +55,8 @@ export function buildDriverPatientMapHtml(
  * Returns a direct URL suitable for iframe src – no CORS issues.
  */
 export function buildPatientRequestMapHtml(
-  patientLat: number, patientLng: number,
+  patientLat: number,
+  patientLng: number,
   _ambulances: { lat: number; lng: number; label?: string }[],
 ): string {
   return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&output=embed`;
@@ -56,16 +72,19 @@ export function toPostGISPoint(latitude: number, longitude: number): string {
  * columns) into { latitude, longitude }.  Also accepts GeoJSON objects.
  */
 export function parsePostGISPoint(
-  geometry: any
+  geometry: any,
 ): { latitude: number; longitude: number } | null {
   if (!geometry) return null;
 
   // GeoJSON object
-  if (typeof geometry === 'object' && geometry.coordinates) {
-    return { longitude: geometry.coordinates[0], latitude: geometry.coordinates[1] };
+  if (typeof geometry === "object" && geometry.coordinates) {
+    return {
+      longitude: geometry.coordinates[0],
+      latitude: geometry.coordinates[1],
+    };
   }
 
-  if (typeof geometry !== 'string') return null;
+  if (typeof geometry !== "string") return null;
 
   try {
     const hex = geometry;
@@ -95,7 +114,16 @@ export function parsePostGISPoint(
 export interface EmergencyRequest {
   id: string;
   patient_id: string;
-  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'arrived' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled';
+  status:
+    | "pending"
+    | "assigned"
+    | "en_route"
+    | "at_scene"
+    | "arrived"
+    | "transporting"
+    | "at_hospital"
+    | "completed"
+    | "cancelled";
   emergency_type: string;
   description: string;
   assigned_ambulance_id?: string;
@@ -137,7 +165,7 @@ export function normalizeEmergency(raw: any): EmergencyRequest {
   const parsed = parsePostGISPoint(raw?.patient_location);
   return {
     ...raw,
-    emergency_type: raw?.emergency_type ?? 'medical',
+    emergency_type: raw?.emergency_type ?? "medical",
     latitude: parsed?.latitude ?? 0,
     longitude: parsed?.longitude ?? 0,
   } as EmergencyRequest;
@@ -148,7 +176,7 @@ function normalizeAmbulance(raw: any): Ambulance {
   return {
     ...raw,
     is_available: raw?.is_available ?? true,
-    current_driver_id: raw?.current_driver_id ?? '',
+    current_driver_id: raw?.current_driver_id ?? "",
   } as Ambulance;
 }
 
@@ -162,17 +190,17 @@ export const createEmergencyRequest = async (
   latitude: number,
   longitude: number,
   description: string,
-  emergencyType: string = 'medical'
+  emergencyType: string = "medical",
 ): Promise<{ request: EmergencyRequest | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
-      .from('emergency_requests')
+      .from("emergency_requests")
       .insert({
         patient_id: patientId,
         patient_location: toPostGISPoint(latitude, longitude),
         description,
         emergency_type: emergencyType,
-        status: 'pending',
+        status: "pending",
       })
       .select()
       .single();
@@ -189,14 +217,14 @@ export const createEmergencyRequest = async (
  * Get all emergency requests for a patient
  */
 export const getPatientEmergencies = async (
-  patientId: string
+  patientId: string,
 ): Promise<{ requests: EmergencyRequest[] | null; error: Error | null }> => {
   try {
     const { data, error } = await supabase
-      .from('emergency_requests')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('created_at', { ascending: false });
+      .from("emergency_requests")
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -218,14 +246,21 @@ export const getPatientEmergencies = async (
 export const findNearestAmbulance = async (
   latitude: number,
   longitude: number,
-  maxRadiusKm: number = 50
-): Promise<{ ambulanceId: string | null; distanceKm: number | null; error: Error | null }> => {
+  maxRadiusKm: number = 50,
+): Promise<{
+  ambulanceId: string | null;
+  distanceKm: number | null;
+  error: Error | null;
+}> => {
   try {
     // Attempt server-side PostGIS lookup first
-    const { data, error: rpcError } = await supabase.rpc('find_nearest_available_ambulance', {
-      patient_location: toPostGISPoint(latitude, longitude),
-      max_radius_km: maxRadiusKm,
-    });
+    const { data, error: rpcError } = await supabase.rpc(
+      "find_nearest_available_ambulance",
+      {
+        patient_location: toPostGISPoint(latitude, longitude),
+        max_radius_km: maxRadiusKm,
+      },
+    );
 
     if (!rpcError && data) {
       return { ambulanceId: data as string, distanceKm: null, error: null };
@@ -234,7 +269,11 @@ export const findNearestAmbulance = async (
     // Fallback: client-side distance calculation
     const { ambulances } = await getAvailableAmbulances();
     if (!ambulances || ambulances.length === 0) {
-      return { ambulanceId: null, distanceKm: null, error: new Error('No available ambulances') };
+      return {
+        ambulanceId: null,
+        distanceKm: null,
+        error: new Error("No available ambulances"),
+      };
     }
 
     let closestId: string | null = null;
@@ -244,7 +283,12 @@ export const findNearestAmbulance = async (
       const loc = parsePostGISPoint(amb.last_known_location);
       if (!loc) continue;
 
-      const dist = calculateDistance(latitude, longitude, loc.latitude, loc.longitude);
+      const dist = calculateDistance(
+        latitude,
+        longitude,
+        loc.latitude,
+        loc.longitude,
+      );
       if (dist < closestDistance && dist <= maxRadiusKm) {
         closestDistance = dist;
         closestId = amb.id;
@@ -252,10 +296,18 @@ export const findNearestAmbulance = async (
     }
 
     if (!closestId) {
-      return { ambulanceId: null, distanceKm: null, error: new Error(`No ambulances within ${maxRadiusKm}km`) };
+      return {
+        ambulanceId: null,
+        distanceKm: null,
+        error: new Error(`No ambulances within ${maxRadiusKm}km`),
+      };
     }
 
-    return { ambulanceId: closestId, distanceKm: Math.round(closestDistance * 10) / 10, error: null };
+    return {
+      ambulanceId: closestId,
+      distanceKm: Math.round(closestDistance * 10) / 10,
+      error: null,
+    };
   } catch (error) {
     return { ambulanceId: null, distanceKm: null, error: error as Error };
   }
@@ -269,42 +321,45 @@ export const findNearestAmbulance = async (
  */
 export const assignAmbulance = async (
   emergencyId: string,
-  ambulanceId: string
+  ambulanceId: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
 
     // 1. Update emergency request
     const { error } = await supabase
-      .from('emergency_requests')
+      .from("emergency_requests")
       .update({
         assigned_ambulance_id: ambulanceId,
-        status: 'assigned',
+        status: "assigned",
         updated_at: now,
       })
-      .eq('id', emergencyId);
+      .eq("id", emergencyId);
 
     if (error) throw error;
 
     // 2. Insert into emergency_assignments (triggers driver realtime subscription)
     const { error: assignError } = await supabase
-      .from('emergency_assignments')
+      .from("emergency_assignments")
       .insert({
         emergency_id: emergencyId,
         ambulance_id: ambulanceId,
-        status: 'pending',
+        status: "pending",
         assigned_at: now,
       });
 
     if (assignError) {
-      console.warn('Failed to insert emergency_assignment (non-blocking):', assignError);
+      console.warn(
+        "Failed to insert emergency_assignment (non-blocking):",
+        assignError,
+      );
     }
 
     // 3. Mark ambulance as unavailable
     await supabase
-      .from('ambulances')
+      .from("ambulances")
       .update({ is_available: false, updated_at: now })
-      .eq('id', ambulanceId);
+      .eq("id", ambulanceId);
 
     return { success: true, error: null };
   } catch (error) {
@@ -317,39 +372,39 @@ export const assignAmbulance = async (
  */
 export const updateEmergencyStatus = async (
   emergencyId: string,
-  status: EmergencyRequest['status']
+  status: EmergencyRequest["status"],
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('emergency_requests')
+      .from("emergency_requests")
       .update({
         status,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', emergencyId);
+      .eq("id", emergencyId);
 
     if (error) throw error;
 
     // When completed/cancelled, also mark assignments and free ambulance
-    if (status === 'completed' || status === 'cancelled') {
+    if (status === "completed" || status === "cancelled") {
       // Mark assignments as completed
       await supabase
-        .from('emergency_assignments')
-        .update({ status: 'completed' })
-        .eq('emergency_id', emergencyId)
-        .in('status', ['pending', 'accepted']);
+        .from("emergency_assignments")
+        .update({ status: "completed" })
+        .eq("emergency_id", emergencyId)
+        .in("status", ["pending", "accepted"]);
 
       // Re-enable ambulance availability
       const { data: assignments } = await supabase
-        .from('emergency_assignments')
-        .select('ambulance_id')
-        .eq('emergency_id', emergencyId);
+        .from("emergency_assignments")
+        .select("ambulance_id")
+        .eq("emergency_id", emergencyId);
       if (assignments) {
         for (const a of assignments) {
           await supabase
-            .from('ambulances')
+            .from("ambulances")
             .update({ is_available: true })
-            .eq('id', a.ambulance_id);
+            .eq("id", a.ambulance_id);
         }
       }
     }
@@ -369,9 +424,9 @@ export const getAvailableAmbulances = async (): Promise<{
 }> => {
   try {
     const { data, error } = await supabase
-      .from('ambulances')
-      .select('*')
-      .eq('is_available', true);
+      .from("ambulances")
+      .select("*")
+      .eq("is_available", true);
 
     if (error) throw error;
 
@@ -389,7 +444,7 @@ export const getHospitals = async (): Promise<{
   error: Error | null;
 }> => {
   try {
-    const { data, error } = await supabase.from('hospitals').select('*');
+    const { data, error } = await supabase.from("hospitals").select("*");
 
     if (error) throw error;
 
@@ -404,23 +459,23 @@ export const getHospitals = async (): Promise<{
  */
 export const subscribeToLocationUpdates = (
   emergencyId: string,
-  callback: (locations: any[]) => void
+  callback: (locations: any[]) => void,
 ) => {
   const subscription = supabase
     .channel(`location_updates:${emergencyId}`)
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: '*',
-        schema: 'public',
-        table: 'location_updates',
+        event: "*",
+        schema: "public",
+        table: "location_updates",
         filter: `emergency_request_id=eq.${emergencyId}`,
       },
       (payload: any) => {
-        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
           callback([payload.new]);
         }
-      }
+      },
     )
     .subscribe();
 
@@ -433,16 +488,16 @@ export const subscribeToLocationUpdates = (
 export const updateAmbulanceLocation = async (
   ambulanceId: string,
   latitude: number,
-  longitude: number
+  longitude: number,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('ambulances')
+      .from("ambulances")
       .update({
         last_known_location: toPostGISPoint(latitude, longitude),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', ambulanceId);
+      .eq("id", ambulanceId);
 
     if (error) throw error;
 
@@ -459,7 +514,7 @@ export function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
 ): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;

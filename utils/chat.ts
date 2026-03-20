@@ -40,7 +40,9 @@ export const getChatbotMessages = async (
   _userId: string,
 ): Promise<{ messages: ChatbotMessage[] | null; error: Error | null }> => {
   try {
-    const data = await backendGet<{ messages: ChatbotMessage[] }>("/chat/messages");
+    const data = await backendGet<{ messages: ChatbotMessage[] }>(
+      "/chat/messages",
+    );
     return { messages: data.messages, error: null };
   } catch (error) {
     console.error("getChatbotMessages error:", error);
@@ -62,4 +64,3 @@ export const deleteChatbotMessages = async (
     return { success: false, error: error as Error };
   }
 };
-

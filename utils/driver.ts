@@ -1,6 +1,6 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
-import { toPostGISPoint } from './emergency';
+import { toPostGISPoint } from "./emergency";
 
 export interface AmbulanceAssignment {
   id: string;
@@ -15,13 +15,13 @@ export interface AmbulanceAssignment {
     status: string;
     created_at: string;
   };
-  status: 'pending' | 'accepted' | 'declined';
+  status: "pending" | "accepted" | "declined";
   assigned_at: string;
 }
 
 const isMissingColumnError = (error: any, column: string): boolean => {
-  const message = String(error?.message ?? '').toLowerCase();
-  return error?.code === '42703' && message.includes(column.toLowerCase());
+  const message = String(error?.message ?? "").toLowerCase();
+  return error?.code === "42703" && message.includes(column.toLowerCase());
 };
 
 export interface AmbulanceDetails {
@@ -39,21 +39,21 @@ export interface AmbulanceDetails {
  * Get ambulance ID for a driver (DB column: current_driver_id)
  */
 export const getDriverAmbulanceId = async (
-  driverId: string
+  driverId: string,
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     let { data, error } = await supabase
-      .from('ambulances')
-      .select('id')
-      .eq('current_driver_id', driverId)
+      .from("ambulances")
+      .select("id")
+      .eq("current_driver_id", driverId)
       .limit(1)
       .maybeSingle();
 
     // Legacy schema fallback: some projects still use different driver-link columns.
-    if (error && isMissingColumnError(error, 'current_driver_id')) {
+    if (error && isMissingColumnError(error, "current_driver_id")) {
       const { data: legacyRows, error: legacyError } = await supabase
-        .from('ambulances')
-        .select('*')
+        .from("ambulances")
+        .select("*")
         .limit(200);
 
       if (legacyError) {
@@ -68,7 +68,7 @@ export const getDriverAmbulanceId = async (
           row?.driver_user_id,
           row?.assigned_driver_id,
         ];
-        return candidates.some((value) => String(value ?? '') === driverId);
+        return candidates.some((value) => String(value ?? "") === driverId);
       });
 
       data = legacyMatch ? { id: legacyMatch.id } : null;
@@ -81,7 +81,7 @@ export const getDriverAmbulanceId = async (
 
     return { ambulanceId: data?.id ?? null, error: null };
   } catch (error) {
-    console.error('Error fetching driver ambulance:', error);
+    console.error("Error fetching driver ambulance:", error);
     return { ambulanceId: null, error: error as Error };
   }
 };
@@ -91,17 +91,20 @@ export const getDriverAmbulanceId = async (
  */
 export const toggleAmbulanceAvailability = async (
   ambulanceId: string,
-  isAvailable: boolean
+  isAvailable: boolean,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('ambulances')
-      .update({ is_available: isAvailable, updated_at: new Date().toISOString() })
-      .eq('id', ambulanceId);
+      .from("ambulances")
+      .update({
+        is_available: isAvailable,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", ambulanceId);
     if (error) throw error;
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error toggling ambulance availability:', error);
+    console.error("Error toggling ambulance availability:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -110,32 +113,38 @@ export const toggleAmbulanceAvailability = async (
  * Get full ambulance details for a driver
  */
 export const getDriverAmbulanceDetails = async (
-  driverId: string
+  driverId: string,
 ): Promise<{ ambulance: AmbulanceDetails | null; error: Error | null }> => {
   try {
     let { data, error } = await supabase
-      .from('ambulances')
-      .select('id, vehicle_number, registration_number, type, is_available, hospital_id, created_at, updated_at')
-      .eq('current_driver_id', driverId)
+      .from("ambulances")
+      .select(
+        "id, vehicle_number, registration_number, type, is_available, hospital_id, created_at, updated_at",
+      )
+      .eq("current_driver_id", driverId)
       .limit(1)
       .maybeSingle();
 
     // Fallback if registration_number column doesn't exist yet
-    if (error && isMissingColumnError(error, 'registration_number')) {
+    if (error && isMissingColumnError(error, "registration_number")) {
       const fallback = await supabase
-        .from('ambulances')
-        .select('id, vehicle_number, type, is_available, hospital_id, created_at, updated_at')
-        .eq('current_driver_id', driverId)
+        .from("ambulances")
+        .select(
+          "id, vehicle_number, type, is_available, hospital_id, created_at, updated_at",
+        )
+        .eq("current_driver_id", driverId)
         .limit(1)
         .maybeSingle();
-      data = fallback.data ? { ...fallback.data, registration_number: null } : null;
+      data = fallback.data
+        ? { ...fallback.data, registration_number: null }
+        : null;
       error = fallback.error;
     }
 
     if (error) throw error;
     return { ambulance: data as AmbulanceDetails | null, error: null };
   } catch (error) {
-    console.error('Error fetching ambulance details:', error);
+    console.error("Error fetching ambulance details:", error);
     return { ambulance: null, error: error as Error };
   }
 };
@@ -146,33 +155,38 @@ export const getDriverAmbulanceDetails = async (
 export const upsertDriverAmbulance = async (
   driverId: string,
   vehicleNumber: string,
-  registrationNumber: string = '',
-  ambulanceType: string = 'standard'
+  registrationNumber: string = "",
+  ambulanceType: string = "standard",
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
     const db = supabase;
     // Check if an ambulance with this vehicle_number already exists
     const { data: existing } = await db
-      .from('ambulances')
-      .select('id')
-      .eq('vehicle_number', vehicleNumber)
+      .from("ambulances")
+      .select("id")
+      .eq("vehicle_number", vehicleNumber)
       .maybeSingle();
 
     if (existing) {
       // Link the driver to the existing ambulance
-      const updatePayload: any = { current_driver_id: driverId, type: ambulanceType, updated_at: now };
-      if (registrationNumber) updatePayload.registration_number = registrationNumber;
+      const updatePayload: any = {
+        current_driver_id: driverId,
+        type: ambulanceType,
+        updated_at: now,
+      };
+      if (registrationNumber)
+        updatePayload.registration_number = registrationNumber;
       const { error: updateErr } = await db
-        .from('ambulances')
+        .from("ambulances")
         .update(updatePayload)
-        .eq('id', existing.id);
+        .eq("id", existing.id);
       // Retry without registration_number if column doesn't exist
-      if (updateErr && isMissingColumnError(updateErr, 'registration_number')) {
+      if (updateErr && isMissingColumnError(updateErr, "registration_number")) {
         const { error: retryErr } = await db
-          .from('ambulances')
+          .from("ambulances")
           .update({ current_driver_id: driverId, updated_at: now })
-          .eq('id', existing.id);
+          .eq("id", existing.id);
         if (retryErr) throw retryErr;
       } else if (updateErr) throw updateErr;
       return { ambulanceId: existing.id, error: null };
@@ -187,49 +201,61 @@ export const upsertDriverAmbulance = async (
       created_at: now,
       updated_at: now,
     };
-    if (registrationNumber) insertPayload.registration_number = registrationNumber;
+    if (registrationNumber)
+      insertPayload.registration_number = registrationNumber;
 
     let insertResult = await db
-      .from('ambulances')
+      .from("ambulances")
       .insert(insertPayload)
-      .select('id')
+      .select("id")
       .single();
 
     // Retry without registration_number if column doesn't exist
-    if (insertResult.error && isMissingColumnError(insertResult.error, 'registration_number')) {
+    if (
+      insertResult.error &&
+      isMissingColumnError(insertResult.error, "registration_number")
+    ) {
       delete insertPayload.registration_number;
       insertResult = await db
-        .from('ambulances')
+        .from("ambulances")
         .insert(insertPayload)
-        .select('id')
+        .select("id")
         .single();
     }
 
     // Retry without type if check constraint fails (code 23514)
-    if (insertResult.error && (insertResult.error as any).code === '23514') {
+    if (insertResult.error && (insertResult.error as any).code === "23514") {
       delete insertPayload.type;
       delete insertPayload.registration_number; // also strip in case column missing
       insertResult = await db
-        .from('ambulances')
+        .from("ambulances")
         .insert(insertPayload)
-        .select('id')
+        .select("id")
         .single();
     }
 
     if (insertResult.error) {
       // Enhanced error handling for RLS violations
-      if (insertResult.error.code === '42501' && insertResult.error.message.includes('row-level security')) {
-        console.error('Ambulance creation failed due to RLS policy:', insertResult.error);
-        alert('Ambulance creation failed due to security policy. Please contact admin to enable ambulance creation for drivers.');
+      if (
+        insertResult.error.code === "42501" &&
+        insertResult.error.message.includes("row-level security")
+      ) {
+        console.error(
+          "Ambulance creation failed due to RLS policy:",
+          insertResult.error,
+        );
+        alert(
+          "Ambulance creation failed due to security policy. Please contact admin to enable ambulance creation for drivers.",
+        );
       } else {
-        console.error('Error upserting driver ambulance:', insertResult.error);
+        console.error("Error upserting driver ambulance:", insertResult.error);
       }
       return { ambulanceId: null, error: insertResult.error };
     }
     return { ambulanceId: insertResult.data?.id ?? null, error: null };
   } catch (error) {
-    console.error('Error upserting driver ambulance:', error);
-    alert('Ambulance creation failed. Please contact admin.');
+    console.error("Error upserting driver ambulance:", error);
+    alert("Ambulance creation failed. Please contact admin.");
     return { ambulanceId: null, error: error as Error };
   }
 };
@@ -238,10 +264,11 @@ export const upsertDriverAmbulance = async (
  * Get driver's ambulance assignment
  */
 export const getDriverAssignment = async (
-  driverId: string
+  driverId: string,
 ): Promise<{ assignment: AmbulanceAssignment | null; error: Error | null }> => {
   try {
-    const { ambulanceId, error: ambulanceError } = await getDriverAmbulanceId(driverId);
+    const { ambulanceId, error: ambulanceError } =
+      await getDriverAmbulanceId(driverId);
     if (ambulanceError) throw ambulanceError;
     if (!ambulanceId) return { assignment: null, error: null };
 
@@ -252,23 +279,26 @@ export const getDriverAssignment = async (
 
     // Get the latest non-completed assignment with its emergency request
     ({ data, error } = await db
-      .from('emergency_assignments')
-      .select('*, emergency_requests(*)')
-      .eq('ambulance_id', ambulanceId)
-      .in('status', ['pending', 'accepted'])
-      .order('assigned_at', { ascending: false })
+      .from("emergency_assignments")
+      .select("*, emergency_requests(*)")
+      .eq("ambulance_id", ambulanceId)
+      .in("status", ["pending", "accepted"])
+      .order("assigned_at", { ascending: false })
       .limit(1)
       .maybeSingle());
 
     // Filter out assignments whose emergency is completed/cancelled
     if (!error && data && data.emergency_requests) {
       const erStatus = data.emergency_requests.status;
-      if (erStatus === 'completed' || erStatus === 'cancelled') {
+      if (erStatus === "completed" || erStatus === "cancelled") {
         // Also mark this assignment as completed in the DB
         await db
-          .from('emergency_assignments')
-          .update({ status: 'completed', completed_at: new Date().toISOString() })
-          .eq('id', data.id);
+          .from("emergency_assignments")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+          })
+          .eq("id", data.id);
         return { assignment: null, error: null };
       }
     }
@@ -276,16 +306,19 @@ export const getDriverAssignment = async (
     // If join returned null emergency_requests but assignment exists, fetch emergency separately
     if (!error && data && !data.emergency_requests) {
       const { data: erData } = await db
-        .from('emergency_requests')
-        .select('*')
-        .eq('id', data.emergency_id)
+        .from("emergency_requests")
+        .select("*")
+        .eq("id", data.emergency_id)
         .maybeSingle();
       if (erData) {
-        if (erData.status === 'completed' || erData.status === 'cancelled') {
+        if (erData.status === "completed" || erData.status === "cancelled") {
           await db
-            .from('emergency_assignments')
-            .update({ status: 'completed', completed_at: new Date().toISOString() })
-            .eq('id', data.id);
+            .from("emergency_assignments")
+            .update({
+              status: "completed",
+              completed_at: new Date().toISOString(),
+            })
+            .eq("id", data.id);
           return { assignment: null, error: null };
         }
         data.emergency_requests = erData;
@@ -293,27 +326,42 @@ export const getDriverAssignment = async (
     }
 
     // Fallback without status filter if column missing
-    if (error && (error.code === '42703' || String(error.message || '').toLowerCase().includes('status'))) {
+    if (
+      error &&
+      (error.code === "42703" ||
+        String(error.message || "")
+          .toLowerCase()
+          .includes("status"))
+    ) {
       ({ data, error } = await db
-        .from('emergency_assignments')
-        .select('*, emergency_requests(*)')
-        .eq('ambulance_id', ambulanceId)
-        .order('assigned_at', { ascending: false })
+        .from("emergency_assignments")
+        .select("*, emergency_requests(*)")
+        .eq("ambulance_id", ambulanceId)
+        .order("assigned_at", { ascending: false })
         .limit(1)
         .maybeSingle());
     }
 
     // CRITICAL FALLBACK: If emergency_assignments table doesn't exist at all,
     // query emergency_requests directly by assigned_ambulance_id
-    if (error && (error.code === '42P01' || error.code === 'PGRST204' || error.code === 'PGRST205'
-        || String(error.message || '').toLowerCase().includes('could not find'))) {
-      console.warn('emergency_assignments table not found, falling back to emergency_requests');
+    if (
+      error &&
+      (error.code === "42P01" ||
+        error.code === "PGRST204" ||
+        error.code === "PGRST205" ||
+        String(error.message || "")
+          .toLowerCase()
+          .includes("could not find"))
+    ) {
+      console.warn(
+        "emergency_assignments table not found, falling back to emergency_requests",
+      );
       const { data: emergencyData, error: emergencyError } = await db
-        .from('emergency_requests')
-        .select('*')
-        .eq('assigned_ambulance_id', ambulanceId)
-        .not('status', 'in', '(completed,cancelled)')
-        .order('created_at', { ascending: false })
+        .from("emergency_requests")
+        .select("*")
+        .eq("assigned_ambulance_id", ambulanceId)
+        .not("status", "in", "(completed,cancelled)")
+        .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -326,7 +374,7 @@ export const getDriverAssignment = async (
             ambulance_id: ambulanceId,
             emergency_id: emergencyData.id,
             emergency_requests: emergencyData,
-            status: 'pending',
+            status: "pending",
             assigned_at: emergencyData.updated_at || emergencyData.created_at,
           } as AmbulanceAssignment,
           error: null,
@@ -338,12 +386,12 @@ export const getDriverAssignment = async (
     if (error) throw error;
 
     const assignment = data
-      ? ({ ...data, status: data.status ?? 'pending' } as AmbulanceAssignment)
+      ? ({ ...data, status: data.status ?? "pending" } as AmbulanceAssignment)
       : null;
 
     return { assignment, error: null };
   } catch (error) {
-    console.error('Error fetching driver assignment:', error);
+    console.error("Error fetching driver assignment:", error);
     return { assignment: null, error: error as Error };
   }
 };
@@ -353,31 +401,33 @@ export const getDriverAssignment = async (
  */
 export const acceptEmergency = async (
   assignmentId: string,
-  emergencyId: string
+  emergencyId: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     // Update assignment status (non-blocking — table may not exist for fallback path)
     try {
       await supabase
-        .from('emergency_assignments')
-        .update({ status: 'accepted' })
-        .eq('id', assignmentId);
-    } catch { /* ignore if table missing */ }
+        .from("emergency_assignments")
+        .update({ status: "accepted" })
+        .eq("id", assignmentId);
+    } catch {
+      /* ignore if table missing */
+    }
 
     // Update emergency status to 'en_route' (driver is now heading to patient)
     const { error: emergencyError } = await supabase
-      .from('emergency_requests')
-      .update({ status: 'en_route', updated_at: new Date().toISOString() })
-      .eq('id', emergencyId);
+      .from("emergency_requests")
+      .update({ status: "en_route", updated_at: new Date().toISOString() })
+      .eq("id", emergencyId);
 
     if (emergencyError) {
       throw emergencyError;
     }
 
-    console.log('Emergency accepted:', assignmentId);
+    console.log("Emergency accepted:", assignmentId);
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error accepting emergency:', error);
+    console.error("Error accepting emergency:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -387,29 +437,31 @@ export const acceptEmergency = async (
  */
 export const declineEmergency = async (
   assignmentId: string,
-  emergencyId?: string
+  emergencyId?: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     // Try emergency_assignments table first
     try {
       await supabase
-        .from('emergency_assignments')
-        .update({ status: 'declined' })
-        .eq('id', assignmentId);
-    } catch { /* ignore if table missing */ }
+        .from("emergency_assignments")
+        .update({ status: "declined" })
+        .eq("id", assignmentId);
+    } catch {
+      /* ignore if table missing */
+    }
 
     // Cancel the emergency request
     // Use emergencyId if provided (normal path), otherwise assignmentId (fallback path where they're the same)
     const erId = emergencyId || assignmentId;
     await supabase
-      .from('emergency_requests')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('id', erId);
+      .from("emergency_requests")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", erId);
 
-    console.log('Emergency declined:', assignmentId);
+    console.log("Emergency declined:", assignmentId);
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error declining emergency:', error);
+    console.error("Error declining emergency:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -418,31 +470,32 @@ export const declineEmergency = async (
  * Get driver stats (active / completed counts) for the driver home screen.
  */
 export const getDriverStats = async (
-  driverId: string
+  driverId: string,
 ): Promise<{ active: number; completed: number; error: Error | null }> => {
   try {
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
-    if (ambErr || !ambulanceId) return { active: 0, completed: 0, error: ambErr };
+    if (ambErr || !ambulanceId)
+      return { active: 0, completed: 0, error: ambErr };
 
     const db = supabase;
 
     // Active = assigned + en_route + at_scene + transporting + at_hospital
     const { count: active } = await db
-      .from('emergency_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('assigned_ambulance_id', ambulanceId)
-      .not('status', 'in', '(completed,cancelled,pending)');
+      .from("emergency_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_ambulance_id", ambulanceId)
+      .not("status", "in", "(completed,cancelled,pending)");
 
     // Completed
     const { count: completed } = await db
-      .from('emergency_requests')
-      .select('id', { count: 'exact', head: true })
-      .eq('assigned_ambulance_id', ambulanceId)
-      .eq('status', 'completed');
+      .from("emergency_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("assigned_ambulance_id", ambulanceId)
+      .eq("status", "completed");
 
     return { active: active ?? 0, completed: completed ?? 0, error: null };
   } catch (error) {
-    console.error('Error fetching driver stats:', error);
+    console.error("Error fetching driver stats:", error);
     return { active: 0, completed: 0, error: error as Error };
   }
 };
@@ -452,45 +505,53 @@ export const getDriverStats = async (
  */
 export const updateEmergencyStatus = async (
   emergencyId: string,
-  status: 'pending' | 'assigned' | 'en_route' | 'at_scene' | 'transporting' | 'at_hospital' | 'completed' | 'cancelled'
+  status:
+    | "pending"
+    | "assigned"
+    | "en_route"
+    | "at_scene"
+    | "transporting"
+    | "at_hospital"
+    | "completed"
+    | "cancelled",
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const db = supabase;
     const now = new Date().toISOString();
 
     const { error } = await db
-      .from('emergency_requests')
+      .from("emergency_requests")
       .update({ status, updated_at: now })
-      .eq('id', emergencyId);
+      .eq("id", emergencyId);
 
     if (error) throw error;
 
     // When completing/cancelling, also mark associated assignment as completed
-    if (status === 'completed' || status === 'cancelled') {
+    if (status === "completed" || status === "cancelled") {
       await db
-        .from('emergency_assignments')
-        .update({ status: 'completed', completed_at: now })
-        .eq('emergency_id', emergencyId)
-        .in('status', ['pending', 'accepted']);
+        .from("emergency_assignments")
+        .update({ status: "completed", completed_at: now })
+        .eq("emergency_id", emergencyId)
+        .in("status", ["pending", "accepted"]);
 
       // Also re-enable ambulance availability
       const { data: er } = await db
-        .from('emergency_requests')
-        .select('assigned_ambulance_id')
-        .eq('id', emergencyId)
+        .from("emergency_requests")
+        .select("assigned_ambulance_id")
+        .eq("id", emergencyId)
         .maybeSingle();
       if (er?.assigned_ambulance_id) {
         await db
-          .from('ambulances')
+          .from("ambulances")
           .update({ is_available: true, updated_at: now })
-          .eq('id', er.assigned_ambulance_id);
+          .eq("id", er.assigned_ambulance_id);
       }
     }
 
     console.log(`Emergency status updated to ${status}:`, emergencyId);
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error updating emergency status:', error);
+    console.error("Error updating emergency status:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -501,16 +562,16 @@ export const updateEmergencyStatus = async (
 export const sendLocationUpdate = async (
   ambulanceId: string,
   latitude: number,
-  longitude: number
+  longitude: number,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const { error } = await supabase
-      .from('ambulances')
+      .from("ambulances")
       .update({
         last_known_location: toPostGISPoint(latitude, longitude),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', ambulanceId);
+      .eq("id", ambulanceId);
 
     if (error) {
       throw error;
@@ -518,7 +579,7 @@ export const sendLocationUpdate = async (
 
     return { success: true, error: null };
   } catch (error) {
-    console.error('Error sending location update:', error);
+    console.error("Error sending location update:", error);
     return { success: false, error: error as Error };
   }
 };
@@ -531,7 +592,7 @@ export const sendLocationUpdate = async (
  */
 export const getDriverHistory = async (
   driverId: string,
-  limit: number = 20
+  limit: number = 20,
 ): Promise<{ history: any[]; error: Error | null }> => {
   try {
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
@@ -539,39 +600,39 @@ export const getDriverHistory = async (
 
     const db = supabase;
     const { data, error } = await db
-      .from('emergency_requests')
-      .select('*')
-      .eq('assigned_ambulance_id', ambulanceId)
-      .eq('status', 'completed')
-      .order('updated_at', { ascending: false })
+      .from("emergency_requests")
+      .select("*")
+      .eq("assigned_ambulance_id", ambulanceId)
+      .eq("status", "completed")
+      .order("updated_at", { ascending: false })
       .limit(limit);
 
     if (error) throw error;
     return { history: data || [], error: null };
   } catch (error) {
-    console.error('Error fetching driver history:', error);
+    console.error("Error fetching driver history:", error);
     return { history: [], error: error as Error };
   }
 };
 
 export const getPatientInfo = async (
-  patientId: string
+  patientId: string,
 ): Promise<{
   info: any | null;
   error: Error | null;
 }> => {
   try {
     if (!patientId) {
-      return { info: null, error: new Error('Patient ID required') };
+      return { info: null, error: new Error("Patient ID required") };
     }
 
     const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', patientId)
+      .from("profiles")
+      .select("*")
+      .eq("id", patientId)
       .single();
 
-    if (profileError && profileError.code !== 'PGRST116') {
+    if (profileError && profileError.code !== "PGRST116") {
       throw profileError;
     }
 
@@ -579,9 +640,9 @@ export const getPatientInfo = async (
     let medicalProfiles: any[] = [];
     try {
       const { data: medData } = await supabase
-        .from('medical_profiles')
-        .select('*')
-        .eq('user_id', patientId);
+        .from("medical_profiles")
+        .select("*")
+        .eq("user_id", patientId);
       if (medData) medicalProfiles = medData;
     } catch {
       // medical_profiles table may not exist — ignore
@@ -596,7 +657,7 @@ export const getPatientInfo = async (
 
     return { info, error: null };
   } catch (error) {
-    console.error('Error fetching patient info:', error);
+    console.error("Error fetching patient info:", error);
     return { info: null, error: error as Error };
   }
 };
@@ -606,7 +667,7 @@ export const getPatientInfo = async (
  */
 export const subscribeToAssignments = (
   driverId: string,
-  onAssignment: (assignment: AmbulanceAssignment) => void
+  onAssignment: (assignment: AmbulanceAssignment) => void,
 ) => {
   let isClosed = false;
   let subscription: ReturnType<typeof supabase.channel> | null = null;
@@ -616,32 +677,34 @@ export const subscribeToAssignments = (
     if (isClosed) return;
 
     if (error) {
-      console.error('Failed to subscribe to assignments:', error);
+      console.error("Failed to subscribe to assignments:", error);
       return;
     }
 
     if (!ambulanceId) {
-      console.warn('No ambulance linked to this driver. Assignment subscription skipped.');
+      console.warn(
+        "No ambulance linked to this driver. Assignment subscription skipped.",
+      );
       return;
     }
 
     subscription = supabase
       .channel(`assignments:${ambulanceId}`)
       .on(
-        'postgres_changes',
+        "postgres_changes",
         {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'emergency_assignments',
+          event: "INSERT",
+          schema: "public",
+          table: "emergency_assignments",
           filter: `ambulance_id=eq.${ambulanceId}`,
         },
         (payload: any) => {
-          console.log('New assignment received:', payload.new);
+          console.log("New assignment received:", payload.new);
           onAssignment({
             ...(payload.new as AmbulanceAssignment),
-            status: payload.new.status ?? 'pending',
+            status: payload.new.status ?? "pending",
           });
-        }
+        },
       )
       .subscribe();
   })();
@@ -657,22 +720,22 @@ export const subscribeToAssignments = (
  */
 export const subscribeToEmergencyStatus = (
   emergencyId: string,
-  onUpdate: (status: string) => void
+  onUpdate: (status: string) => void,
 ) => {
   const subscription = supabase
     .channel(`emergency:${emergencyId}`)
     .on(
-      'postgres_changes',
+      "postgres_changes",
       {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'emergency_requests',
+        event: "UPDATE",
+        schema: "public",
+        table: "emergency_requests",
         filter: `id=eq.${emergencyId}`,
       },
       (payload: any) => {
-        console.log('Emergency status updated:', payload.new.status);
+        console.log("Emergency status updated:", payload.new.status);
         onUpdate(payload.new.status);
-      }
+      },
     )
     .subscribe();
 

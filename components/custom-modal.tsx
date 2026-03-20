@@ -1,14 +1,14 @@
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Modal,
-  Platform,
-  Pressable,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    Animated,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    View,
 } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -76,7 +76,8 @@ export function CustomModal({
       ? "help-outline"
       : normalizedTitle.includes("error") || normalizedTitle.includes("failed")
         ? "error-outline"
-        : normalizedTitle.includes("success") || normalizedTitle.includes("done")
+        : normalizedTitle.includes("success") ||
+            normalizedTitle.includes("done")
           ? "check-circle-outline"
           : "info-outline";
 
@@ -99,7 +100,10 @@ export function CustomModal({
       onRequestClose={onCancel ?? onConfirm}
     >
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
-        <Pressable style={styles.backdropTapArea} onPress={onCancel ?? onConfirm} />
+        <Pressable
+          style={styles.backdropTapArea}
+          onPress={onCancel ?? onConfirm}
+        />
         <Animated.View
           style={[
             styles.card,
@@ -110,13 +114,24 @@ export function CustomModal({
             },
           ]}
         >
-          <View style={[styles.accentBar, { backgroundColor: autoIconColor }]} />
+          <View
+            style={[styles.accentBar, { backgroundColor: autoIconColor }]}
+          />
           <View style={styles.headerRow}>
-            <View style={[styles.iconWrap, { backgroundColor: `${autoIconColor}1A` }]}>
+            <View
+              style={[
+                styles.iconWrap,
+                { backgroundColor: `${autoIconColor}1A` },
+              ]}
+            >
               {type === "loading" ? (
                 <ActivityIndicator color={autoIconColor} size="small" />
               ) : (
-                <MaterialIcons name={autoIcon} size={20} color={autoIconColor} />
+                <MaterialIcons
+                  name={autoIcon}
+                  size={20}
+                  color={autoIconColor}
+                />
               )}
             </View>
             <View style={{ flex: 1 }}>
@@ -167,11 +182,16 @@ export function CustomModal({
                 style={({ pressed }) => [
                   styles.btn,
                   styles.confirm,
-                  { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
+                  {
+                    backgroundColor: colors.primary,
+                    opacity: pressed ? 0.9 : 1,
+                  },
                 ]}
                 onPress={onConfirm}
               >
-                <ThemedText style={styles.confirmText}>{confirmText}</ThemedText>
+                <ThemedText style={styles.confirmText}>
+                  {confirmText}
+                </ThemedText>
               </Pressable>
             </View>
           ) : null}

@@ -1,10 +1,10 @@
-import { supabase } from './supabase';
+import { supabase } from "./supabase";
 
 export interface UserProfile {
   id: string;
   full_name: string;
   phone: string;
-  role: 'patient' | 'driver' | 'hospital' | 'admin';
+  role: "patient" | "driver" | "hospital" | "admin";
   hospital_id: string | null;
   created_at: string;
   updated_at: string;
@@ -25,16 +25,18 @@ export interface MedicalProfile {
 /**
  * Get user profile
  */
-export const getUserProfile = async (userId: string): Promise<{
+export const getUserProfile = async (
+  userId: string,
+): Promise<{
   profile: UserProfile | null;
   error: Error | null;
 }> => {
   try {
     // profiles table has RLS disabled – anon client works fine
     const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
       .single();
 
     if (error) {
@@ -52,17 +54,17 @@ export const getUserProfile = async (userId: string): Promise<{
  */
 export const updateUserProfile = async (
   userId: string,
-  updates: Partial<UserProfile>
+  updates: Partial<UserProfile>,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     // profiles table has RLS disabled – anon client works fine
     const { error } = await supabase
-      .from('profiles')
+      .from("profiles")
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', userId);
+      .eq("id", userId);
 
     if (error) {
       throw error;
@@ -77,18 +79,20 @@ export const updateUserProfile = async (
 /**
  * Get medical profile
  */
-export const getMedicalProfile = async (userId: string): Promise<{
+export const getMedicalProfile = async (
+  userId: string,
+): Promise<{
   profile: MedicalProfile | null;
   error: Error | null;
 }> => {
   try {
     const { data, error } = await supabase
-      .from('medical_profiles')
-      .select('*')
-      .eq('user_id', userId)
+      .from("medical_profiles")
+      .select("*")
+      .eq("user_id", userId)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== "PGRST116") {
       throw error;
     }
 
@@ -103,24 +107,25 @@ export const getMedicalProfile = async (userId: string): Promise<{
  */
 export const upsertMedicalProfile = async (
   userId: string,
-  medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+  medicalData: Omit<
+    MedicalProfile,
+    "id" | "user_id" | "created_at" | "updated_at"
+  >,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
-    const { error } = await supabase
-      .from('medical_profiles')
-      .upsert(
-        {
-          user_id: userId,
-          blood_type: medicalData.blood_type,
-          allergies: medicalData.allergies,
-          medical_conditions: medicalData.medical_conditions || '',
-          emergency_contact_name: medicalData.emergency_contact_name,
-          emergency_contact_phone: medicalData.emergency_contact_phone,
-          updated_at: now,
-        },
-        { onConflict: 'user_id' }
-      );
+    const { error } = await supabase.from("medical_profiles").upsert(
+      {
+        user_id: userId,
+        blood_type: medicalData.blood_type,
+        allergies: medicalData.allergies,
+        medical_conditions: medicalData.medical_conditions || "",
+        emergency_contact_name: medicalData.emergency_contact_name,
+        emergency_contact_phone: medicalData.emergency_contact_phone,
+        updated_at: now,
+      },
+      { onConflict: "user_id" },
+    );
 
     if (error) throw error;
 
@@ -129,4 +134,3 @@ export const upsertMedicalProfile = async (
     return { success: false, error: error as Error };
   }
 };
-
