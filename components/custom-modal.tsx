@@ -1,19 +1,17 @@
-/**
- * CustomModal — Beautiful, app-themed replacement for Alert.alert and window.alert/confirm
- * Provides consistent, attractive modals throughout the app
- */
+import React from "react";
+import {
+  ActivityIndicator,
+  Animated,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef } from "react";
-import {
-    Animated,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    View,
-} from "react-native";
 import { ThemedText } from "./themed-text";
 
 export type ModalType = "alert" | "confirm" | "loading";
@@ -43,64 +41,54 @@ export function CustomModal({
   icon,
   iconColor,
 }: CustomModalProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = Colors[colorScheme ?? "light"];
+  const scheme = useColorScheme();
+  const theme = scheme ?? "light";
+  const colors = Colors[theme];
+  const scaleAnim = React.useRef(new Animated.Value(0.96)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (!visible) return;
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 65,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      scaleAnim.setValue(0);
+    return () => {
       fadeAnim.setValue(0);
-    }
-  }, [visible, scaleAnim, fadeAnim]);
+      scaleAnim.setValue(0.96);
+    };
+  }, [visible, fadeAnim, scaleAnim]);
 
-  const handleConfirm = () => {
-    if (onConfirm) onConfirm();
-  };
+  const normalizedTitle = (title ?? "").toLowerCase();
+  const autoIcon: keyof typeof MaterialIcons.glyphMap = icon
+    ? icon
+    : type === "confirm"
+      ? "help-outline"
+      : normalizedTitle.includes("error") || normalizedTitle.includes("failed")
+        ? "error-outline"
+        : normalizedTitle.includes("success") || normalizedTitle.includes("done")
+          ? "check-circle-outline"
+          : "info-outline";
 
-  const handleCancel = () => {
-    if (onCancel) onCancel();
-  };
-
-  // Auto-detect icon and color based on title or type
-  const defaultIcon =
-    icon ||
-    (title?.toLowerCase().includes("error")
-      ? "error"
-      : title?.toLowerCase().includes("success")
-        ? "check-circle"
-        : title?.toLowerCase().includes("warning")
-          ? "warning"
-          : type === "confirm"
-            ? "help"
-            : "info");
-
-  const defaultIconColor =
-    iconColor ||
-    (title?.toLowerCase().includes("error")
+  const autoIconColor =
+    iconColor ??
+    (normalizedTitle.includes("error") || normalizedTitle.includes("failed")
       ? "#DC2626"
-      : title?.toLowerCase().includes("success")
+      : normalizedTitle.includes("success") || normalizedTitle.includes("done")
         ? "#059669"
-        : title?.toLowerCase().includes("warning")
-          ? "#F59E0B"
-          : colors.primary);
+        : colors.primary);
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -108,129 +96,85 @@ export function CustomModal({
       visible={visible}
       animationType="none"
       statusBarTranslucent
-      onRequestClose={type === "alert" ? handleConfirm : handleCancel}
+      onRequestClose={onCancel ?? onConfirm}
     >
-      <Animated.View
-        style={[
-          styles.overlay,
-          {
-            backgroundColor: isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.5)",
-            opacity: fadeAnim,
-          },
-        ]}
-      >
-        <Pressable
-          style={styles.overlayTouchable}
-          onPress={type === "alert" ? handleConfirm : handleCancel}
-        />
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+        <Pressable style={styles.backdropTapArea} onPress={onCancel ?? onConfirm} />
         <Animated.View
           style={[
-            styles.modalContainer,
+            styles.card,
             {
-              backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
-              borderColor: isDark ? "#334155" : "#E2E8F0",
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
               transform: [{ scale: scaleAnim }],
             },
           ]}
         >
-          {/* Icon */}
-          {type !== "loading" && (
-            <View
-              style={[
-                styles.iconContainer,
-                { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
-              ]}
-            >
-              <MaterialIcons
-                name={defaultIcon}
-                size={48}
-                color={defaultIconColor}
-              />
+          <View style={[styles.accentBar, { backgroundColor: autoIconColor }]} />
+          <View style={styles.headerRow}>
+            <View style={[styles.iconWrap, { backgroundColor: `${autoIconColor}1A` }]}>
+              {type === "loading" ? (
+                <ActivityIndicator color={autoIconColor} size="small" />
+              ) : (
+                <MaterialIcons name={autoIcon} size={20} color={autoIconColor} />
+              )}
             </View>
-          )}
-
-          {/* Title */}
-          {title && (
-            <ThemedText
-              style={[styles.title, { color: isDark ? "#F1F5F9" : "#0F172A" }]}
-            >
-              {title}
-            </ThemedText>
-          )}
-
-          {/* Message */}
+            <View style={{ flex: 1 }}>
+              {title ? (
+                <ThemedText
+                  style={styles.title}
+                  lightColor="#0F172A"
+                  darkColor="#F8FAFC"
+                >
+                  {title}
+                </ThemedText>
+              ) : null}
+            </View>
+          </View>
           <ThemedText
-            style={[styles.message, { color: isDark ? "#CBD5E1" : "#475569" }]}
+            style={[styles.message, { color: colors.textMuted }]}
+            lightColor="#334155"
+            darkColor="#CBD5E1"
           >
             {message}
           </ThemedText>
 
-          {/* Buttons */}
-          {type !== "loading" && (
-            <View style={styles.buttonContainer}>
-              {type === "confirm" && (
+          {type !== "loading" ? (
+            <View style={styles.actions}>
+              {type === "confirm" ? (
                 <Pressable
-                  onPress={handleCancel}
                   style={({ pressed }) => [
-                    styles.button,
-                    styles.cancelButton,
+                    styles.btn,
+                    styles.cancel,
                     {
-                      backgroundColor: isDark ? "#334155" : "#F1F5F9",
-                      opacity: pressed ? 0.7 : 1,
+                      borderColor: colors.border,
+                      backgroundColor: colors.surfaceAlt,
+                      opacity: pressed ? 0.85 : 1,
                     },
                   ]}
+                  onPress={onCancel}
                 >
                   <ThemedText
-                    style={[
-                      styles.buttonText,
-                      { color: isDark ? "#E2E8F0" : "#475569" },
-                    ]}
+                    style={styles.cancelText}
+                    lightColor="#0F172A"
+                    darkColor="#F8FAFC"
                   >
                     {cancelText}
                   </ThemedText>
                 </Pressable>
-              )}
+              ) : null}
               <Pressable
-                onPress={handleConfirm}
                 style={({ pressed }) => [
-                  styles.button,
-                  styles.confirmButton,
-                  {
-                    backgroundColor: defaultIconColor,
-                    opacity: pressed ? 0.8 : 1,
-                  },
+                  styles.btn,
+                  styles.confirm,
+                  { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
                 ]}
+                onPress={onConfirm}
               >
-                <ThemedText style={styles.confirmButtonText}>
-                  {confirmText}
-                </ThemedText>
+                <ThemedText style={styles.confirmText}>{confirmText}</ThemedText>
               </Pressable>
             </View>
-          )}
-
-          {/* Loading spinner */}
-          {type === "loading" && (
-            <View style={styles.loadingContainer}>
-              <Animated.View
-                style={{
-                  transform: [
-                    {
-                      rotate: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0deg", "360deg"],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <MaterialIcons
-                  name="refresh"
-                  size={32}
-                  color={colors.primary}
-                />
-              </Animated.View>
-            </View>
-          )}
+          ) : null}
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -240,80 +184,83 @@ export function CustomModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "rgba(2,6,23,0.62)",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "center",
+    padding: 18,
   },
-  overlayTouchable: {
+  backdropTapArea: {
     ...StyleSheet.absoluteFillObject,
   },
-  modalContainer: {
+  card: {
     width: "100%",
-    maxWidth: 420,
-    borderRadius: 20,
-    padding: 24,
+    maxWidth: 440,
+    borderRadius: 22,
     borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-      web: {
-        boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-      },
-    }),
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 22,
+    elevation: 8,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  accentBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 16,
   },
   title: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 8,
+    letterSpacing: Platform.OS === "ios" ? 0.2 : 0,
   },
   message: {
     fontSize: 15,
-    lineHeight: 22,
-    textAlign: "center",
-    marginBottom: 24,
+    lineHeight: 23,
+    marginTop: 2,
   },
-  buttonContainer: {
+  actions: {
     flexDirection: "row",
+    justifyContent: "flex-end",
     gap: 12,
+    marginTop: 20,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+  btn: {
+    minWidth: 98,
+    paddingHorizontal: 16,
+    paddingVertical: 11.5,
+    borderRadius: 13,
     alignItems: "center",
-    justifyContent: "center",
   },
-  cancelButton: {},
-  confirmButton: {},
-  buttonText: {
-    fontSize: 16,
+  cancel: {
+    borderWidth: 1,
+  },
+  confirm: {
+    backgroundColor: "#2563EB",
+  },
+  cancelText: {
     fontWeight: "600",
   },
-  confirmButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+  confirmText: {
     color: "#FFFFFF",
-  },
-  loadingContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
+    fontWeight: "700",
   },
 });

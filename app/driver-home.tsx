@@ -36,7 +36,19 @@ export default function DriverHomeScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { user, setUser } = useAppState();
-  const { showAlert, showError } = useModal();
+  const { showAlert, showError, showConfirm, showSuccess } = useModal();
+
+  const confirmAvailabilityChange = (newVal: boolean) =>
+    new Promise<boolean>((resolve) => {
+      showConfirm(
+        newVal ? "Go Available" : "Go Offline",
+        newVal
+          ? "You will start receiving emergency assignments and share live location updates. Continue?"
+          : "You will stop receiving new emergency assignments. Continue?",
+        () => resolve(true),
+        () => resolve(false),
+      );
+    });
 
   const [isAvailable, setIsAvailable] = useState(false);
   const [loading] = useState(false);
@@ -319,14 +331,34 @@ export default function DriverHomeScreen() {
           <Pressable
             onPress={async () => {
               const newVal = !isAvailable;
+
+              const ok = await confirmAvailabilityChange(newVal);
+              if (!ok) return;
+
               setIsAvailable(newVal);
+
               if (ambulanceId) {
                 const { error } = await toggleAmbulanceAvailability(
                   ambulanceId,
                   newVal,
                 );
-                if (error) console.warn("Failed to sync availability:", error);
+                if (error) {
+                  console.warn("Failed to sync availability:", error);
+                  setIsAvailable(!newVal);
+                  showError(
+                    "Status Update Failed",
+                    "Could not update ambulance availability. Please try again.",
+                  );
+                  return;
+                }
               }
+
+              showSuccess(
+                "Status Updated",
+                newVal
+                  ? "You are now available for emergency assignments."
+                  : "You are now offline and will not receive new assignments.",
+              );
             }}
             style={[
               styles.statusToggle,

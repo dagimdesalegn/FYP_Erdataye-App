@@ -16,7 +16,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -27,7 +27,7 @@ import {
 
 export default function EmergencyScreen() {
   const { user } = useAppState();
-  const { showError, showAlert, show: showCustomModal } = useModal();
+  const { showError, showAlert, showConfirm } = useModal();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -45,34 +45,22 @@ export default function EmergencyScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Show location permission info modal before requesting
-  const requestLocationWithPrompt = async () => {
+  const requestLocationWithPrompt = useCallback(async () => {
     return new Promise((resolve) => {
-      showCustomModal({
-        title: "📍 Enable Location",
-        message:
-          "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
-        type: "info",
-        actions: [
-          {
-            label: "Enable Location",
-            onPress: async () => {
-              const { status } =
-                await Location.requestForegroundPermissionsAsync();
-              resolve(status === "granted");
-            },
-          },
-          {
-            label: "Cancel",
-            style: "cancel",
-            onPress: () => resolve(false),
-          },
-        ],
-      });
+      showConfirm(
+        "Enable Location",
+        "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
+        async () => {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          resolve(status === "granted");
+        },
+        () => resolve(false),
+      );
     });
-  };
+  }, [showConfirm]);
 
   // Get user's current location with high accuracy
-  const getUserLocation = async () => {
+  const getUserLocation = useCallback(async () => {
     try {
       const allowed = await requestLocationWithPrompt();
       if (!allowed) {
@@ -92,7 +80,7 @@ export default function EmergencyScreen() {
       setErrorMsg(`Error getting location: ${error}`);
       return null;
     }
-  };
+  }, [requestLocationWithPrompt, showError]);
 
   // Call emergency
   const handleEmergencyCall = async () => {

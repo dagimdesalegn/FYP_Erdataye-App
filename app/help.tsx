@@ -52,12 +52,6 @@ export default function HelpScreen() {
   } | null>(
     hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
   );
-  const [locationAccuracyMeters, setLocationAccuracyMeters] = React.useState<
-    number | null
-  >(null);
-  const [locationError, setLocationError] = React.useState<string | null>(null);
-  const [locationLoading, setLocationLoading] =
-    React.useState(!hasInitialLocation);
   const [profileName, setProfileName] = React.useState<string>(
     user?.fullName || "",
   );
@@ -117,23 +111,12 @@ export default function HelpScreen() {
         latitude: coords.latitude,
         longitude: coords.longitude,
       });
-      setLocationAccuracyMeters(
-        typeof coords.accuracy === "number"
-          ? Math.round(Math.max(coords.accuracy, 0))
-          : null,
-      );
-      setLocationError(null);
     };
 
     const loadCurrentLocation = async () => {
       try {
-        setLocationLoading(true);
-
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
-          if (!cancelled) {
-            setLocationError("Enable location in settings to see nearby help.");
-          }
           return;
         }
 
@@ -159,18 +142,8 @@ export default function HelpScreen() {
         applyCoords(position.coords);
       } catch {
         if (!cancelled) {
-          const servicesEnabled =
-            await Location.hasServicesEnabledAsync().catch(() => false);
-          setLocationError(
-            servicesEnabled
-              ? currentLocation
-                ? "Using available location. Waiting for GPS update."
-                : "Unable to read current location."
-              : "Location services are off. Please enable GPS.",
-          );
+          await Location.hasServicesEnabledAsync().catch(() => false);
         }
-      } finally {
-        if (!cancelled) setLocationLoading(false);
       }
     };
     void loadCurrentLocation();
@@ -206,20 +179,9 @@ export default function HelpScreen() {
           latitude: fresh.coords.latitude,
           longitude: fresh.coords.longitude,
         });
-        setLocationAccuracyMeters(
-          typeof fresh.coords.accuracy === "number"
-            ? Math.round(Math.max(fresh.coords.accuracy, 0))
-            : null,
-        );
-        setLocationError(null);
       } catch {
         if (!mounted) return;
-        const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
-          () => false,
-        );
-        if (!servicesEnabled) {
-          setLocationError("Location services are off. Please enable GPS.");
-        }
+        await Location.hasServicesEnabledAsync().catch(() => false);
       }
     };
 
@@ -267,24 +229,6 @@ export default function HelpScreen() {
     if (!mapLocation) return null;
     return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
   }, [mapLocation]);
-
-  const mapSummaryText = React.useMemo(() => {
-    if (mapLocation) {
-      return "Live location map";
-    }
-    if (locationLoading) return "Getting your current location...";
-    if (locationError) return locationError;
-    return "No active location is available yet.";
-  }, [locationLoading, locationError, mapLocation]);
-
-  const openInGoogleMaps = () => {
-    if (!mapLocation) return;
-    const url = Platform.select({
-      ios: `maps://app?daddr=${mapLocation.latitude},${mapLocation.longitude}`,
-      default: `https://www.google.com/maps/dir/?api=1&destination=${mapLocation.latitude},${mapLocation.longitude}`,
-    });
-    Linking.openURL(url);
-  };
 
   const openPatientEmergency = React.useCallback(() => {
     const locationQuery = currentLocation

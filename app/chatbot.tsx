@@ -76,7 +76,7 @@ export default function ChatbotPage() {
       typingAnim.stopAnimation();
       typingAnim.setValue(0);
     }
-  }, [isTyping]);
+  }, [isTyping, typingAnim]);
 
   const sendMessage = async () => {
     const trimmed = inputText.trim();

@@ -165,33 +165,6 @@ export const getActiveEmergency = async (
 };
 
 /**
- * Get all emergencies for a patient
- */
-export const getPatientEmergencies = async (
-  patientId: string,
-  limit: number = 50
-): Promise<{ emergencies: PatientEmergency[]; error: Error | null }> => {
-  try {
-    const { data, error } = await supabase
-      .from('emergency_requests')
-      .select('*')
-      .eq('patient_id', patientId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
-
-    return {
-      emergencies: (data || []).map((item: any) => normalizeEmergency(item)),
-      error: null,
-    };
-  } catch (error) {
-    console.error('Error fetching patient emergencies:', error);
-    return { emergencies: [], error: error as Error };
-  }
-};
-
-/**
  * Get emergency details with assignment and ambulance info
  */
 export const getEmergencyDetails = async (
@@ -302,52 +275,6 @@ export const updateEmergencyStatus = async (
   } catch (error) {
     console.error('Error updating emergency status:', error);
     return { success: false, error: error as Error };
-  }
-};
-
-/**
- * Get nearby hospitals
- */
-export const getNearbyHospitals = async (
-  _latitude: number,
-  _longitude: number,
-  _radiusKm: number = 5
-): Promise<{ hospitals: HospitalInfo[]; error: Error | null }> => {
-  try {
-    const { data, error } = await supabase
-      .from('hospitals')
-      .select('*')
-      .limit(10);
-
-    if (error) throw error;
-
-    return { hospitals: (data || []) as HospitalInfo[], error: null };
-  } catch (error) {
-    console.error('Error fetching nearby hospitals:', error);
-    return { hospitals: [], error: error as Error };
-  }
-};
-
-/**
- * Get available ambulances (DB column: is_available boolean)
- */
-export const getAvailableAmbulances = async (): Promise<{
-  ambulances: AmbulanceInfo[];
-  error: Error | null;
-}> => {
-  try {
-    const { data, error } = await supabase
-      .from('ambulances')
-      .select('*')
-      .eq('is_available', true)
-      .order('updated_at', { ascending: false });
-
-    if (error) throw error;
-
-    return { ambulances: (data || []) as AmbulanceInfo[], error: null };
-  } catch (error) {
-    console.error('Error fetching available ambulances:', error);
-    return { ambulances: [], error: error as Error };
   }
 };
 

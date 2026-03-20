@@ -31,24 +31,8 @@ export function buildDriverPatientMapHtml(
   patientLat: number, patientLng: number,
   _options?: { blueLabel?: string; redLabel?: string; bluePopup?: string; redPopup?: string },
 ): string {
-  // Calculate midpoint
-  const midLat = (driverLat + patientLat) / 2;
-  const midLng = (driverLng + patientLng) / 2;
-
-  // Calculate distance between points (km) to pick zoom
-  const dist = calculateDistance(driverLat, driverLng, patientLat, patientLng);
-
-  let zoom: number;
-  if (dist < 0.5) zoom = 16;       // < 500 m  – street level
-  else if (dist < 2) zoom = 15;    // < 2 km   – neighbourhood
-  else if (dist < 5) zoom = 14;    // < 5 km   – city area
-  else if (dist < 10) zoom = 13;   // < 10 km  – city wide
-  else if (dist < 20) zoom = 12;   // < 20 km  – metro area
-  else if (dist < 50) zoom = 11;   // < 50 km  – region
-  else zoom = 10;                  // far apart
-
-  // Use the patient location as the query pin, centered on the midpoint
-  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&ll=${midLat},${midLng}&z=${zoom}&output=embed`;
+  // Use an embedded directions route for better real-world accuracy and framing.
+  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&dirflg=d&output=embed`;
 }
 
 /**
@@ -60,14 +44,6 @@ export function buildPatientRequestMapHtml(
   _ambulances: { lat: number; lng: number; label?: string }[],
 ): string {
   return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&output=embed`;
-}
-
-/**
- * @deprecated No longer needed – map functions now return direct Google Maps embed URLs.
- * Kept for backward compatibility; simply returns the input unchanged.
- */
-export function mapHtmlToBlobUrl(url: string): string {
-  return url;
 }
 
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */

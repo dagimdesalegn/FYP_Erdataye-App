@@ -103,6 +103,40 @@ const toEthiopianPhone = (phone: string): string => {
   return "+" + digits;
 };
 
+const toProfilePhoneCandidates = (phone: string): string[] => {
+  const normalized = toEthiopianPhone(phone); // +2519XXXXXXXX
+  const digits = normalized.replace(/[^0-9]/g, ""); // 2519XXXXXXXX
+  const local =
+    digits.startsWith("251") && digits.length >= 12
+      ? `0${digits.substring(3)}`
+      : `0${digits}`;
+
+  return Array.from(
+    new Set([normalized, digits, local, local.replace(/^0/, "")]),
+  );
+};
+
+const findExistingProfileByPhone = async (phone: string) => {
+  try {
+    const candidates = toProfilePhoneCandidates(phone);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, role, full_name, phone")
+      .in("phone", candidates)
+      .limit(1);
+
+    if (error) {
+      console.warn("Profile duplicate check failed:", error.message);
+      return null;
+    }
+
+    return data?.[0] ?? null;
+  } catch (e) {
+    console.warn("Profile duplicate check exception:", e);
+    return null;
+  }
+};
+
 /**
  * Update auth phone for an existing user.
  * Routes through the Python backend so the service-role key stays server-side.
@@ -162,6 +196,25 @@ export const signUp = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
+    // Profile table is the source of truth for app account uniqueness.
+    // Check it first so users get a clear, app-specific message.
+    const existingProfile = await findExistingProfileByPhone(phone);
+    if (existingProfile) {
+      const existingRole = isUserRole(existingProfile.role)
+        ? existingProfile.role
+        : "account";
+      const roleNote =
+        existingRole !== role
+          ? ` This phone is already registered as ${existingRole}.`
+          : "";
+      return {
+        user: null,
+        error: new Error(
+          `This phone number already exists in profiles. Please sign in instead.${roleNote}`,
+        ) as AuthError,
+      };
+    }
+
     // Create account via backend (service-role key stays server-side)
     const res = await fetch(`${BACKEND_URL}/auth/register`, {
       method: "POST",
@@ -185,6 +238,26 @@ export const signUp = async (
 
     if (!res.ok || !resBody.user_id) {
       const detail = resBody?.detail ?? "Registration failed. Please try again.";
+
+      // If backend/auth says "already exists", re-check profile table and show a clear DB-driven message.
+      if (
+        String(detail).toLowerCase().includes("already exists") ||
+        String(detail).toLowerCase().includes("already registered")
+      ) {
+        const profileNow = await findExistingProfileByPhone(phone);
+        if (profileNow) {
+          const existingRole = isUserRole(profileNow.role)
+            ? profileNow.role
+            : "account";
+          return {
+            user: null,
+            error: new Error(
+              `This phone number already exists in profiles as ${existingRole}. Please sign in instead.`,
+            ) as AuthError,
+          };
+        }
+      }
+
       return {
         user: null,
         error: new Error(detail) as AuthError,
@@ -387,19 +460,6 @@ export const signOut = async (): Promise<{ error: AuthError | null }> => {
   } catch (error) {
     const authError = new Error(String(error)) as AuthError;
     return { error: authError };
-  }
-};
-
-/**
- * Get current session
- */
-export const getCurrentSession = async (): Promise<Session | null> => {
-  try {
-    const { data, error } = await supabase.auth.getSession();
-    return data.session;
-  } catch (error) {
-    console.error("Error getting session:", error);
-    return null;
   }
 };
 

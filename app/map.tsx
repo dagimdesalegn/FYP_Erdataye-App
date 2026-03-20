@@ -21,7 +21,6 @@ import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Linking,
     Platform,
     Pressable,
     ScrollView,
@@ -239,14 +238,7 @@ export default function MapScreen() {
 
   const userLat = location?.coords.latitude ?? 9.02;
   const userLng = location?.coords.longitude ?? 38.75;
-  const accuracy = location?.coords.accuracy ?? null;
   const mapEmbedUrl = buildMapHtml(userLat, userLng, 17);
-
-  const openInGoogleMaps = () => {
-    Linking.openURL(
-      `https://www.google.com/maps/dir/?api=1&destination=${userLat},${userLng}`,
-    );
-  };
 
   return (
     <ThemedView style={styles.container}>
