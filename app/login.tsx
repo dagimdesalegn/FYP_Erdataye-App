@@ -43,14 +43,6 @@ export default function LoginScreen() {
   const passwordInputRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    // Web uses a dedicated staff portal login route.
-    if (Platform.OS === "web") {
-      router.replace("/staff");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeIn, {
         toValue: 1,
