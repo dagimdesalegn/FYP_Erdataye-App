@@ -10,11 +10,8 @@ import {
     formatCoords,
     normalizeEmergency,
 } from "@/utils/emergency";
-import {
-    getMedicalProfile,
-    MedicalProfile,
-    UserProfile,
-} from "@/utils/profile";
+import { backendGet, backendPut } from "@/utils/api";
+import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -37,6 +34,14 @@ import {
 interface EmergencyWithPatient extends EmergencyRequest {
   patient_profile?: UserProfile;
   patient_medical?: MedicalProfile;
+}
+
+interface HospitalFleetResponse {
+  hospital_id: string;
+  total_ambulances: number;
+  available_ambulances: number;
+  busy_ambulances: number;
+  ambulances: any[];
 }
 
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
@@ -80,6 +85,7 @@ export default function HospitalDashboard() {
   const [profileVisible, setProfileVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -91,47 +97,20 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      // Build query - scope to hospital if linked
-      let query = supabase
-        .from("emergency_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      // If user has a hospital_id, only show emergencies assigned to their hospital
-      if (user && (user as any).hospital_id) {
-        query = query.eq("hospital_id", (user as any).hospital_id);
-      }
-
-      const { data: emergencyData, error: emergencyError } = await query;
-
-      if (emergencyError) throw emergencyError;
-
-      if (!emergencyData || emergencyData.length === 0) {
-        setEmergencies([]);
-        return;
-      }
-
-      const enriched = await Promise.all(
-        emergencyData.map(async (raw) => {
-          const emergency = normalizeEmergency(raw);
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", emergency.patient_id)
-            .maybeSingle();
-          const { profile: medical } = await getMedicalProfile(
-            emergency.patient_id,
-          );
-
-          return {
-            ...emergency,
-            patient_profile: profile as UserProfile | undefined,
-            patient_medical: medical ?? undefined,
-          } as EmergencyWithPatient;
-        }),
+      const [data, fleetData] = await Promise.all([
+        backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
+        backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
+      ]);
+      setEmergencies(
+        data.map((e) =>
+          ({
+            ...normalizeEmergency(e),
+            patient_profile: e.patient_profile,
+            patient_medical: e.patient_medical,
+          }) as EmergencyWithPatient,
+        ),
       );
-
-      setEmergencies(enriched);
+      setFleet(fleetData);
     } catch (error) {
       console.error("Error fetching emergencies:", error);
       showError("Load Failed", "Failed to load emergency requests");
@@ -139,19 +118,16 @@ export default function HospitalDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, showError]);
+  }, [showError]);
 
   const updateStatus = async (
     emergencyId: string,
     newStatus: EmergencyRequest["status"],
   ) => {
     try {
-      const { error } = await supabase
-        .from("emergency_requests")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", emergencyId);
-
-      if (error) throw error;
+      await backendPut(`/ops/emergencies/${emergencyId}/status`, {
+        status: newStatus,
+      });
       showSuccess(
         "Status Updated",
         `Status updated to ${newStatus.replace("_", " ")}`,
@@ -292,6 +268,18 @@ export default function HospitalDashboard() {
       count: counts.cancelled,
       icon: "cancel" as const,
       color: "#EF4444",
+    },
+    {
+      label: "Ambulances",
+      count: fleet?.total_ambulances ?? 0,
+      icon: "directions-car" as const,
+      color: "#8B5CF6",
+    },
+    {
+      label: "Available Fleet",
+      count: fleet?.available_ambulances ?? 0,
+      icon: "check-circle" as const,
+      color: "#10B981",
     },
   ];
 
@@ -440,6 +428,20 @@ export default function HospitalDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
+          <View
+            style={[
+              styles.heroCard,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
+              Emergency Intake Dashboard
+            </ThemedText>
+            <ThemedText style={[styles.heroSub, { color: subText }]}>
+              Triage incoming cases, review patient context, and close requests fast.
+            </ThemedText>
+          </View>
+
           {/* Stat cards */}
           <View style={styles.statsGrid}>
             {statCards.map((stat) => (
@@ -908,6 +910,24 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     alignSelf: "center" as any,
     width: "100%" as any,
+  },
+
+  heroCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
+  heroSub: {
+    marginTop: 4,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
   },
 
   webOnlyWrap: {

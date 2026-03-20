@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -18,37 +19,43 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { signIn } from "@/utils/auth";
-import { useRouter } from "expo-router";
+import { signIn, signOut, UserRole } from "@/utils/auth";
+
 const ambulanceFavicon = require("../assets/images/ambulance-favicon.png");
 
-const CARD_MAX_W = 440;
+type PortalLoginProps = {
+  expectedRole: "admin" | "hospital";
+  title: string;
+  subtitle: string;
+  route: "/admin" | "/hospital";
+  badgeColor: string;
+  badgeLabel: string;
+};
 
-export default function LoginScreen() {
+export function PortalLogin({
+  expectedRole,
+  title,
+  subtitle,
+  route,
+  badgeColor,
+  badgeLabel,
+}: PortalLoginProps) {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { setUser, setRegistered } = useAppState();
   const { showError } = useModal();
+
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({ phone: "", password: "" });
 
-  // Entrance animation
   const fadeIn = useRef(new Animated.Value(0)).current;
   const slideUp = useRef(new Animated.Value(30)).current;
   const passwordInputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    // Web uses a dedicated staff portal login route.
-    if (Platform.OS === "web") {
-      router.replace("/staff");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -63,11 +70,9 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fadeIn, slideUp]);
 
   const handleChange = (key: string, value: string) => {
-    // Clear error for this field when user types
     if (fieldErrors[key]) {
       setFieldErrors((prev) => {
         const next = { ...prev };
@@ -75,23 +80,31 @@ export default function LoginScreen() {
         return next;
       });
     }
-    // For phone field – digits only, max 9 digits (after +251)
+
     if (key === "phone") {
       let cleaned = value.replace(/[^0-9]/g, "");
-      // Strip leading 0 or 251 if user pastes full number
-      if (cleaned.startsWith("251") && cleaned.length > 9)
-        cleaned = cleaned.substring(3);
+      if (cleaned.startsWith("251") && cleaned.length > 9) cleaned = cleaned.substring(3);
       if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
       if (cleaned.length > 9) cleaned = cleaned.substring(0, 9);
       setForm({ ...form, [key]: cleaned });
       return;
     }
+
     setForm({ ...form, [key]: value });
   };
 
   const validatePhone = (phone: string): boolean => {
-    // phone here is 9 digits after +251 prefix (e.g. "912345678")
     return phone.length === 9 && phone.startsWith("9");
+  };
+
+  const handleRoleMismatch = async (actualRole: UserRole | undefined) => {
+    await signOut();
+    setUser(null);
+    setRegistered(false);
+    showError(
+      "Access Denied",
+      `This account is ${actualRole ?? "not authorized"}. Please use a ${expectedRole} account.`,
+    );
   };
 
   const handleLogin = async () => {
@@ -108,8 +121,10 @@ export default function LoginScreen() {
       setFieldErrors(errors);
       return;
     }
+
     setFieldErrors({});
     setLoading(true);
+
     try {
       const { user, error } = await signIn("+251" + form.phone, form.password);
       if (error || !user) {
@@ -117,24 +132,15 @@ export default function LoginScreen() {
         showError("Login Failed", error?.message || "Failed to sign in");
         return;
       }
+
+      if (user.role !== expectedRole) {
+        setLoading(false);
+        await handleRoleMismatch(user.role);
+        return;
+      }
+
       setUser(user);
       setRegistered(true);
-      let route: any;
-      switch (user.role) {
-        case "ambulance":
-        case "driver":
-          route = "/driver-home";
-          break;
-        case "admin":
-          route = "/admin";
-          break;
-        case "hospital":
-          route = "/hospital";
-          break;
-        default:
-          route = "/help";
-          break;
-      }
       setLoading(false);
       router.replace(route);
     } catch (err) {
@@ -143,7 +149,6 @@ export default function LoginScreen() {
     }
   };
 
-  /* ---- colours ---- */
   const bg = colors.background;
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -167,13 +172,8 @@ export default function LoginScreen() {
         translucent
         backgroundColor="transparent"
       />
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Signing in..."
-      />
+      <LoadingModal visible={loading} colorScheme={colorScheme} message="Signing in..." />
 
-      {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}
@@ -188,7 +188,6 @@ export default function LoginScreen() {
           { justifyContent: "center", alignItems: "center" },
         ]}
       >
-        {/* Card */}
         <Animated.View
           style={[
             styles.card,
@@ -197,41 +196,24 @@ export default function LoginScreen() {
               borderColor: cardBorder,
               opacity: fadeIn,
               transform: [{ translateY: slideUp }],
-              padding: 28,
-              borderRadius: 24,
-              minWidth: 340,
-              maxWidth: 400,
-              width: "100%",
-              boxShadow: "0 4px 24px #0001",
             },
           ]}
         >
-          {/* Logo / Header area */}
           <View style={styles.headerArea}>
             <View style={styles.logoContainer}>
-              <Image
-                source={ambulanceFavicon}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
+              <Image source={ambulanceFavicon} style={styles.logoImage} resizeMode="contain" />
+            </View>
+            <View style={[styles.roleBadge, { backgroundColor: badgeColor + "22" }]}>
+              <ThemedText style={[styles.roleBadgeText, { color: badgeColor }]}>{badgeLabel}</ThemedText>
             </View>
           </View>
 
-          {/* Title */}
-          <ThemedText style={[styles.title, { color: textPrimary }]}>
-            Welcome Back
-          </ThemedText>
-          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-            Sign in to access emergency services
-          </ThemedText>
+          <ThemedText style={[styles.title, { color: textPrimary }]}>{title}</ThemedText>
+          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>{subtitle}</ThemedText>
 
-          {/* Form */}
           <View style={styles.form}>
-            {/* Phone Number */}
             <View style={styles.fieldGroup}>
-              <ThemedText style={[styles.label, { color: textPrimary }]}>
-                Phone Number
-              </ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
               <View
                 style={[
                   styles.inputWrap,
@@ -257,11 +239,7 @@ export default function LoginScreen() {
                   }
                   style={styles.inputIcon}
                 />
-                <ThemedText
-                  style={[styles.phonePrefix, { color: textPrimary }]}
-                >
-                  +251
-                </ThemedText>
+                <ThemedText style={[styles.phonePrefix, { color: textPrimary }]}>+251</ThemedText>
                 <TextInput
                   style={[styles.input, { color: textPrimary }]}
                   placeholder="912345678"
@@ -278,18 +256,11 @@ export default function LoginScreen() {
                   editable={!loading}
                 />
               </View>
-              {fieldErrors.phone ? (
-                <ThemedText style={styles.fieldError}>
-                  {fieldErrors.phone}
-                </ThemedText>
-              ) : null}
+              {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
             </View>
 
-            {/* Password */}
             <View style={styles.fieldGroup}>
-              <ThemedText style={[styles.label, { color: textPrimary }]}>
-                Password
-              </ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>Password</ThemedText>
               <View
                 style={[
                   styles.inputWrap,
@@ -330,10 +301,7 @@ export default function LoginScreen() {
                   onBlur={() => setFocusedField(null)}
                   editable={!loading}
                 />
-                <Pressable
-                  onPress={() => setShowPassword((p) => !p)}
-                  hitSlop={8}
-                >
+                <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
                   <MaterialIcons
                     name={showPassword ? "visibility" : "visibility-off"}
                     size={20}
@@ -341,11 +309,7 @@ export default function LoginScreen() {
                   />
                 </Pressable>
               </View>
-              {fieldErrors.password ? (
-                <ThemedText style={styles.fieldError}>
-                  {fieldErrors.password}
-                </ThemedText>
-              ) : null}
+              {fieldErrors.password ? <ThemedText style={styles.fieldError}>{fieldErrors.password}</ThemedText> : null}
             </View>
 
             <Pressable
@@ -364,55 +328,31 @@ export default function LoginScreen() {
                 style={styles.primaryBtnGradient}
               >
                 {loading ? (
-                  <ThemedText style={styles.primaryBtnText}>
-                    Signing In...
-                  </ThemedText>
+                  <ThemedText style={styles.primaryBtnText}>Signing In...</ThemedText>
                 ) : (
                   <>
                     <MaterialIcons name="login" size={20} color="#fff" />
-                    <ThemedText style={styles.primaryBtnText}>
-                      Sign In
-                    </ThemedText>
+                    <ThemedText style={styles.primaryBtnText}>Sign In</ThemedText>
                   </>
                 )}
               </LinearGradient>
             </Pressable>
           </View>
 
-          {/* Divider */}
-          <View style={styles.divider}>
-            <View
-              style={[styles.dividerLine, { backgroundColor: cardBorder }]}
-            />
-            <ThemedText style={[styles.dividerText, { color: textSecondary }]}>
-              or
-            </ThemedText>
-            <View
-              style={[styles.dividerLine, { backgroundColor: cardBorder }]}
-            />
-          </View>
-
-          {/* Create Account */}
-          <Pressable
-            onPress={() => !loading && router.push("/register")}
-            disabled={loading}
-            style={({ pressed }) => [
-              styles.secondaryBtn,
-              {
-                borderColor: isDark ? "#1E293B" : "#E2E8F0",
-                backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-              },
-              pressed && { opacity: 0.85, transform: [{ scale: 0.98 }] },
-            ]}
-          >
-            <MaterialIcons name="person-add" size={20} color="#DC2626" />
-            <ThemedText
-              style={[styles.secondaryBtnText, { color: textPrimary }]}
+          <View style={styles.switchWrap}>
+            <Pressable
+              onPress={() => router.replace(expectedRole === "admin" ? "/hospital-login" : "/admin-login")}
+              style={({ pressed }) => [styles.switchBtn, pressed && { opacity: 0.85 }]}
             >
-              Create Account
-            </ThemedText>
-          </Pressable>
-
+              <ThemedText style={[styles.switchText, { color: textSecondary }]}>Switch Portal</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={() => router.replace("/login")}
+              style={({ pressed }) => [styles.switchBtn, pressed && { opacity: 0.85 }]}
+            >
+              <ThemedText style={[styles.switchText, { color: textSecondary }]}>General Login</ThemedText>
+            </Pressable>
+          </View>
         </Animated.View>
       </View>
     </View>
@@ -422,9 +362,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    ...(Platform.OS === "web"
-      ? { minHeight: "100vh" as any, overflow: "auto" as any }
-      : {}),
+    ...(Platform.OS === "web" ? { minHeight: "100vh" as any, overflow: "auto" as any } : {}),
   },
   flex: {
     flex: 1,
@@ -437,17 +375,9 @@ const styles = StyleSheet.create({
     right: 0,
     height: 300,
   },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  /* ---- Card ---- */
   card: {
     width: "100%",
-    maxWidth: CARD_MAX_W,
+    maxWidth: 440,
     alignSelf: "center",
     borderRadius: 24,
     borderWidth: 1,
@@ -455,8 +385,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     boxShadow: "0px 16px 32px rgba(0, 0, 0, 0.10)",
   },
-  /* ---- Header ---- */
-  headerArea: { alignItems: "center", marginBottom: 24 },
+  headerArea: { alignItems: "center", marginBottom: 24, gap: 12 },
   logoContainer: {
     width: 88,
     height: 88,
@@ -469,11 +398,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(220, 38, 38, 0.12)",
   },
-  logoImage: {
-    width: 60,
-    height: 60,
+  logoImage: { width: 60, height: 60 },
+  roleBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    fontFamily: Fonts.sans,
   },
-  /* ---- Title / Subtitle ---- */
   title: {
     fontSize: 24,
     fontWeight: "800",
@@ -490,15 +423,9 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
   },
-  /* ---- Form ---- */
   form: { gap: 16 },
   fieldGroup: { gap: 6 },
-  label: {
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-    letterSpacing: 0.2,
-  },
+  label: { fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans, letterSpacing: 0.2 },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -508,12 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 10 },
-  phonePrefix: {
-    fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
-    marginRight: 6,
-  },
+  phonePrefix: { fontSize: 15, fontWeight: "600", fontFamily: Fonts.sans, marginRight: 6 },
   input: {
     flex: 1,
     fontSize: 15,
@@ -530,7 +452,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginLeft: 2,
   },
-  /* ---- Primary button ---- */
   primaryBtn: { marginTop: 4, borderRadius: 14, overflow: "hidden" },
   primaryBtnGradient: {
     flexDirection: "row",
@@ -548,29 +469,12 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     letterSpacing: 0.3,
   },
-  /* ---- Divider ---- */
-  divider: {
+  switchWrap: {
+    marginTop: 18,
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
-    gap: 12,
-    marginVertical: 14,
   },
-  dividerLine: { flex: 1, height: 1 },
-  dividerText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
-  /* ---- Secondary button ---- */
-  secondaryBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    height: 52,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    gap: 8,
-  },
-  secondaryBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-    letterSpacing: 0.2,
-  },
+  switchBtn: { paddingVertical: 4, paddingHorizontal: 2 },
+  switchText: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
 });

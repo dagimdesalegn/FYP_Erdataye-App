@@ -15,11 +15,21 @@ import re
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
 from config import settings
-from services.supabase import auth_create_user, auth_refresh, auth_sign_in, auth_update_user, db_upsert
+from deps import get_current_user
+from services.supabase import (
+    auth_create_user,
+    auth_refresh,
+    auth_sign_in,
+    auth_update_user,
+    db_insert,
+    db_delete,
+    db_select,
+    db_upsert,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -28,6 +38,18 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 # ─────────────────────────────────────────────────────────────────────────────
 
 _PHONE_RE = re.compile(r"^\+?[0-9]{9,15}$")
+
+
+def _normalise_ethiopian_mobile(v: str) -> str:
+    digits = re.sub(r"[^0-9]", "", v)
+    if digits.startswith("0") and len(digits) == 10:
+        digits = "251" + digits[1:]
+    elif len(digits) == 9 and digits.startswith("9"):
+        digits = "251" + digits
+
+    if len(digits) != 12 or not digits.startswith("2519"):
+        raise ValueError("Phone must be Ethiopian mobile format: +2519XXXXXXXX")
+    return "+" + digits
 
 
 class RegisterRequest(BaseModel):
@@ -82,18 +104,21 @@ class RegisterStaffRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def normalise_phone(cls, v: str) -> str:
-        digits = re.sub(r"[^0-9]", "", v)
-        if not (9 <= len(digits) <= 15):
-            raise ValueError("Phone must be 9–15 digits")
-        if digits.startswith("0") and len(digits) == 10:
-            digits = "251" + digits[1:]
-        if len(digits) == 9 and digits.startswith("9"):
-            digits = "251" + digits
-        return "+" + digits
+        return _normalise_ethiopian_mobile(v)
 
 class LoginRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=1)
+
+
+class PhoneLoginRequest(BaseModel):
+    phone: str = Field(..., min_length=9, max_length=16)
+    password: str = Field(..., min_length=1)
+
+    @field_validator("phone")
+    @classmethod
+    def normalise_phone(cls, v: str) -> str:
+        return _normalise_ethiopian_mobile(v)
 
 
 class TokenResponse(BaseModel):
@@ -103,8 +128,44 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class PhoneTokenResponse(TokenResponse):
+    user_id: str
+    role: Literal["patient", "ambulance", "driver", "admin", "hospital"] | None = None
+    full_name: str | None = None
+    phone: str | None = None
+    hospital_id: str | None = None
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
+
+
+class ProvisionHospitalRequest(BaseModel):
+    phone: str = Field(..., min_length=9, max_length=16)
+    password: str = Field(..., min_length=6, max_length=72)
+    hospital_name: str = Field(..., min_length=1, max_length=120)
+    address: str = Field(default="Not set", min_length=1, max_length=200)
+
+    @field_validator("hospital_name")
+    @classmethod
+    def strip_hospital_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("hospital_name cannot be blank")
+        return v
+
+    @field_validator("address")
+    @classmethod
+    def strip_address(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("address cannot be blank")
+        return v
+
+    @field_validator("phone")
+    @classmethod
+    def normalise_phone(cls, v: str) -> str:
+        return _normalise_ethiopian_mobile(v)
 
 
 async def _create_user_with_profile(
@@ -115,6 +176,7 @@ async def _create_user_with_profile(
     phone: str,
     role: Literal["patient", "ambulance", "driver", "admin", "hospital"],
     hospital_id: str | None = None,
+    persist_profile: bool = True,
 ) -> RegisterResponse:
     canonical_role = "ambulance" if role == "driver" else role
 
@@ -149,17 +211,22 @@ async def _create_user_with_profile(
     user_id: str = user_data["id"]
     now = datetime.now(timezone.utc).isoformat()
 
-    profile_payload = {
-        "id": user_id,
-        "role": canonical_role,
-        "full_name": full_name,
-        "phone": phone,
-        "updated_at": now,
-    }
-    if hospital_id:
-        profile_payload["hospital_id"] = hospital_id
+    if persist_profile:
+        profile_payload = {
+            "id": user_id,
+            "role": canonical_role,
+            "full_name": full_name,
+            "phone": phone,
+            "updated_at": now,
+        }
+        if hospital_id:
+            profile_payload["hospital_id"] = hospital_id
 
-    await db_upsert("profiles", profile_payload, on_conflict="id")
+        await db_upsert("profiles", profile_payload, on_conflict="id")
+    else:
+        # Some deployments auto-create `profiles` rows from auth hooks.
+        # Remove hospital profile rows to keep hospital identity in `hospitals` only.
+        await db_delete("profiles", {"id": user_id})
 
     return RegisterResponse(
         user_id=user_id,
@@ -212,16 +279,125 @@ async def register_staff(
             detail="Invalid setup key.",
         )
 
-    # Generate pseudo-email for Supabase compatibility
+    # Generate pseudo-email using the same domain pattern as mobile sign-in
+    # (`toAuthEmail` in utils/auth.ts), so staff can log in with phone.
     digits = re.sub(r"[^0-9]", "", req.phone)
-    pseudo_email = f"{digits}@erdataye.local"
+    pseudo_email = f"{digits}@phone.erdataya.app"
+
+    hospital_id = req.hospital_id
+    persist_profile = req.role != "hospital"
+
+    if req.role == "hospital":
+        # Hospital staff is represented in `hospitals` + auth metadata, not `profiles`.
+        if hospital_id:
+            rows, code = await db_select("hospitals", {"id": hospital_id}, columns="id")
+            if code not in (200, 206) or not rows:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Provided hospital_id does not exist.",
+                )
+        else:
+            existing_rows, existing_code = await db_select(
+                "hospitals",
+                {"phone": req.phone},
+                columns="id,name,phone",
+            )
+            if existing_code in (200, 206) and existing_rows:
+                hospital_id = str(existing_rows[0].get("id"))
+            else:
+                inserted, insert_code = await db_insert(
+                    "hospitals",
+                    {
+                        "name": req.full_name,
+                        "address": "Not set",
+                        "phone": req.phone,
+                    },
+                )
+                if insert_code not in (200, 201) or not inserted:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Failed to create hospital record for hospital staff.",
+                    )
+                created_row = inserted[0] if isinstance(inserted, list) else inserted
+                hospital_id = str(created_row.get("id") or "")
+
+        if not hospital_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Hospital account requires a valid hospital record.",
+            )
+
     return await _create_user_with_profile(
         email=pseudo_email,
         password=req.password,
         full_name=req.full_name,
         phone=req.phone,
         role=req.role,
-        hospital_id=req.hospital_id,
+        hospital_id=hospital_id,
+        persist_profile=persist_profile,
+    )
+
+
+@router.post(
+    "/provision-hospital",
+    response_model=RegisterResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a hospital dashboard account from admin workflow",
+)
+async def provision_hospital(
+    req: ProvisionHospitalRequest,
+    current_user: dict = Depends(get_current_user),
+) -> RegisterResponse:
+    requester_id = str(current_user.get("sub") or "")
+    requester_rows, requester_code = await db_select(
+        "profiles",
+        {"id": requester_id},
+        columns="id,role",
+    )
+    requester_role = ""
+    if requester_code in (200, 206) and requester_rows:
+        requester_role = str(requester_rows[0].get("role") or "").lower()
+    else:
+        requester_role = str((current_user.get("user_metadata") or {}).get("role") or "").lower()
+
+    if requester_role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can create hospital accounts")
+
+    existing_rows, existing_code = await db_select(
+        "hospitals",
+        {"phone": req.phone},
+        columns="id,name,phone",
+    )
+    if existing_code in (200, 206) and existing_rows:
+        hospital_id = str(existing_rows[0].get("id"))
+    else:
+        inserted, insert_code = await db_insert(
+            "hospitals",
+            {
+                "name": req.hospital_name,
+                "address": req.address,
+                "phone": req.phone,
+            },
+        )
+        if insert_code not in (200, 201) or not inserted:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create hospital record")
+        created = inserted[0] if isinstance(inserted, list) else inserted
+        hospital_id = str(created.get("id") or "")
+
+    if not hospital_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to resolve hospital_id")
+
+    digits = re.sub(r"[^0-9]", "", req.phone)
+    pseudo_email = f"{digits}@phone.erdataya.app"
+
+    return await _create_user_with_profile(
+        email=pseudo_email,
+        password=req.password,
+        full_name=req.hospital_name,
+        phone=req.phone,
+        role="hospital",
+        hospital_id=hospital_id,
+        persist_profile=False,
     )
 
 
@@ -256,6 +432,94 @@ async def login(req: LoginRequest) -> TokenResponse:
         refresh_token=data["refresh_token"],
         expires_in=int(data.get("expires_in", 3600)),
         token_type=data.get("token_type", "bearer"),
+    )
+
+
+@router.post(
+    "/login-phone",
+    response_model=PhoneTokenResponse,
+    summary="Authenticate with phone/password and return role-aware session tokens",
+)
+async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
+    digits = re.sub(r"[^0-9]", "", req.phone)
+    pseudo_email = f"{digits}@phone.erdataya.app"
+
+    data, code = await auth_sign_in(pseudo_email, req.password)
+    if not data.get("access_token"):
+        detail: str = (
+            data.get("error_description")
+            or data.get("msg")
+            or data.get("error")
+            or "Invalid phone or password."
+        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+    user_obj = data.get("user") or {}
+    metadata = user_obj.get("user_metadata") or {}
+    user_id = str(user_obj.get("id") or "")
+
+    # Hard guarantee: hospital identities live in hospitals table, not profiles.
+    hospital_id = metadata.get("hospital_id")
+    role = str(metadata.get("role") or "").lower()
+    if role == "hospital":
+        phone = str(metadata.get("phone") or req.phone)
+        full_name = str(metadata.get("full_name") or "Hospital")
+
+        resolved_hospital_id: str | None = None
+        if hospital_id:
+            rows, code = await db_select("hospitals", {"id": str(hospital_id)}, columns="id")
+            if code in (200, 206) and rows:
+                resolved_hospital_id = str(rows[0].get("id") or "")
+
+        if not resolved_hospital_id:
+            by_phone, by_phone_code = await db_select(
+                "hospitals",
+                {"phone": phone},
+                columns="id,name,phone",
+            )
+            if by_phone_code in (200, 206) and by_phone:
+                resolved_hospital_id = str(by_phone[0].get("id") or "")
+
+        if not resolved_hospital_id:
+            inserted, insert_code = await db_insert(
+                "hospitals",
+                {"name": full_name, "address": "Not set", "phone": phone},
+            )
+            if insert_code in (200, 201) and inserted:
+                row = inserted[0] if isinstance(inserted, list) else inserted
+                resolved_hospital_id = str(row.get("id") or "")
+
+        # Remove hospital row from profiles if it exists.
+        if user_id:
+            await db_delete("profiles", {"id": user_id})
+
+        if resolved_hospital_id:
+            metadata = {
+                **metadata,
+                "role": "hospital",
+                "phone": phone,
+                "full_name": full_name,
+                "hospital_id": resolved_hospital_id,
+            }
+            hospital_id = resolved_hospital_id
+            await auth_update_user(
+                user_id,
+                {
+                    "user_metadata": metadata,
+                    "email_confirm": True,
+                },
+            )
+
+    return PhoneTokenResponse(
+        access_token=data["access_token"],
+        refresh_token=data["refresh_token"],
+        expires_in=int(data.get("expires_in", 3600)),
+        token_type=data.get("token_type", "bearer"),
+        user_id=user_id,
+        role=metadata.get("role"),
+        full_name=metadata.get("full_name"),
+        phone=metadata.get("phone"),
+        hospital_id=hospital_id or metadata.get("hospital_id"),
     )
 
 

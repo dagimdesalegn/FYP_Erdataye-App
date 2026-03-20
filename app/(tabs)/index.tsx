@@ -146,7 +146,7 @@ export default function HomeScreen() {
       {/* Bottom section - buttons pinned at bottom */}
       <Animated.View style={[styles.bottomSection, { opacity: fadeIn }]}>
         <Pressable
-          onPress={() => router.push("/login")}
+          onPress={() => router.push(Platform.OS === "web" ? "/staff" : "/login")}
           style={({ pressed }) => [
             styles.btn,
             styles.btnPrimary,

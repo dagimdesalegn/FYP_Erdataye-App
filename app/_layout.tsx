@@ -22,10 +22,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // Prevent the splash screen from auto-hiding before fonts load
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export const unstable_settings = {
-  initialRouteName: "index",
-};
-
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     ...MaterialIcons.font,
@@ -81,6 +77,18 @@ function ThemedRoot() {
           <Stack.Screen
             name="login"
             options={{ headerShown: false, title: "Login" }}
+          />
+          <Stack.Screen
+            name="staff"
+            options={{ headerShown: false, title: "Staff Login" }}
+          />
+          <Stack.Screen
+            name="admin-login"
+            options={{ headerShown: false, title: "Admin Login" }}
+          />
+          <Stack.Screen
+            name="hospital-login"
+            options={{ headerShown: false, title: "Hospital Login" }}
           />
           <Stack.Screen
             name="register"

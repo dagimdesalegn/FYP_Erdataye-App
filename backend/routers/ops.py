@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from deps import get_current_user
-from services.supabase import db_select
+from services.supabase import db_query, db_select, db_update
 from fastapi import Depends
 
 router = APIRouter(prefix="/ops", tags=["Operations"])
@@ -90,6 +90,36 @@ class DispatchRecommendationResponse(BaseModel):
     reason: str
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Role helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+async def _get_profile(user_id: str, current_user: dict | None = None) -> dict | None:
+    rows, code = await db_select("profiles", {"id": user_id}, columns="id,role,hospital_id")
+    if code not in (200, 206) or not rows:
+        metadata = (current_user or {}).get("user_metadata") or {}
+        metadata_role = str(metadata.get("role") or "").lower()
+        if metadata_role in ("admin", "hospital", "driver", "ambulance", "patient"):
+            return {
+                "id": user_id,
+                "role": metadata_role,
+                "hospital_id": metadata.get("hospital_id"),
+            }
+        return None
+    return rows[0]
+
+
+async def _require_role(user_id: str, current_user: dict, allowed: tuple[str, ...]) -> dict:
+    profile = await _get_profile(user_id, current_user)
+    if not profile:
+        raise HTTPException(status_code=403, detail="Profile not found for requester.")
+    role = str(profile.get("role") or "").lower()
+    if role not in allowed:
+        raise HTTPException(status_code=403, detail="Insufficient role for this action.")
+    return profile
+
+
 class PatientMedicalProfile(BaseModel):
     blood_type: str | None = None
     allergies: str | None = None
@@ -104,6 +134,36 @@ class PatientContextResponse(BaseModel):
     full_name: str | None = None
     phone: str | None = None
     medical_profiles: list[PatientMedicalProfile] = []
+
+
+class AdminDashboardResponse(BaseModel):
+    users: list[dict]
+    emergencies: list[dict]
+    ambulances: list[dict]
+    hospitals: list[dict]
+
+
+class HospitalEmergency(BaseModel):
+    id: str
+    patient_id: str
+    hospital_id: str | None = None
+    status: str
+    emergency_type: str
+    description: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    patient_profile: dict | None = None
+    patient_medical: dict | None = None
+
+
+class HospitalFleetResponse(BaseModel):
+    hospital_id: str
+    total_ambulances: int
+    available_ambulances: int
+    busy_ambulances: int
+    ambulances: list[dict]
 
 
 def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
@@ -197,16 +257,8 @@ async def patient_context(
     current_user: dict = Depends(get_current_user),
 ) -> PatientContextResponse:
     user_id = str(current_user.get("sub") or "")
-
-    me_rows, me_code = await db_select(
-        "profiles",
-        {"id": user_id},
-        columns="id,role,hospital_id",
-    )
-    if me_code not in (200, 206) or not me_rows:
-        raise HTTPException(status_code=403, detail="Unable to verify requester role.")
-
-    role = str(me_rows[0].get("role") or "").lower()
+    me = await _require_role(user_id, current_user, ("admin", "hospital", "driver", "ambulance"))
+    role = str(me.get("role") or "").lower()
     is_privileged = role in ("admin", "hospital")
 
     if not is_privileged:
@@ -388,6 +440,225 @@ async def ops_summary(
         avg_completion_minutes=avg_completion_minutes,
         completion_rate_pct=completion_rate_pct,
     )
+
+
+@router.get(
+    "/admin/dashboard",
+    response_model=AdminDashboardResponse,
+    summary="Admin dashboard data: users, emergencies, ambulances, hospitals",
+)
+async def admin_dashboard(
+    current_user: dict = Depends(get_current_user),
+    search: str | None = Query(default=None, description="Optional search across names/phones"),
+) -> AdminDashboardResponse:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    users, users_code = await db_query(
+        "profiles",
+        params={"order": "created_at.desc"},
+    )
+    emergencies, eme_code = await db_query(
+        "emergency_requests",
+        params={"order": "created_at.desc"},
+    )
+    ambulances, amb_code = await db_query(
+        "ambulances",
+        params={"order": "created_at.desc"},
+    )
+    hospitals, hosp_code = await db_query(
+        "hospitals",
+        params={"order": "created_at.desc"},
+    )
+
+    if any(code not in (200, 206) for code in (users_code, eme_code, amb_code, hosp_code)):
+        raise HTTPException(status_code=502, detail="Failed to load admin dashboard data")
+
+    def _match_search(row: dict) -> bool:
+        if not search:
+            return True
+        q = search.lower()
+        for key in ("full_name", "phone", "name", "address", "emergency_type", "description", "status"):
+            val = str(row.get(key) or "").lower()
+            if q in val:
+                return True
+        return False
+
+    def _inject_coords(row: dict, geometry_key: str = "patient_location") -> dict:
+        coords = _parse_point_wkt(row.get(geometry_key))
+        if coords:
+            row = {
+                **row,
+                "latitude": coords[0],
+                "longitude": coords[1],
+            }
+        return row
+
+    emergencies = [_inject_coords(e) for e in emergencies if _match_search(e)]
+    ambulances = [_inject_coords(a, "last_known_location") for a in ambulances if _match_search(a)]
+    hospitals = [_inject_coords(h, "location") for h in hospitals if _match_search(h)]
+    users = [u for u in users if _match_search(u)]
+
+    return AdminDashboardResponse(
+        users=users,
+        emergencies=emergencies,
+        ambulances=ambulances,
+        hospitals=hospitals,
+    )
+
+
+@router.get(
+    "/hospital/emergencies",
+    response_model=list[HospitalEmergency],
+    summary="Hospital-scoped emergencies with patient context",
+)
+async def hospital_emergencies(
+    current_user: dict = Depends(get_current_user),
+    status_filter: str | None = Query(default=None, description="optional status filter"),
+) -> list[HospitalEmergency]:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+
+    hospital_id = profile.get("hospital_id") if profile.get("role") == "hospital" else None
+    if str(profile.get("role") or "") == "hospital" and not hospital_id:
+        raise HTTPException(status_code=403, detail="Hospital user is not linked to hospital_id")
+
+    emergency_params: dict = {"order": "created_at.desc"}
+    if hospital_id:
+        emergency_params["hospital_id"] = f"eq.{hospital_id}"
+    emergencies, eme_code = await db_query("emergency_requests", params=emergency_params)
+    if eme_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load emergencies")
+
+    results: list[HospitalEmergency] = []
+    for raw in emergencies:
+        if status_filter and str(raw.get("status") or "") != status_filter:
+            continue
+
+        coords = _parse_point_wkt(raw.get("patient_location"))
+        profile_rows, profile_code = await db_select(
+            "profiles", {"id": str(raw.get("patient_id"))}, columns="id,full_name,phone"
+        )
+        medical_rows, _ = await db_select(
+            "medical_profiles",
+            {"user_id": str(raw.get("patient_id"))},
+            columns=(
+                "blood_type,allergies,medical_conditions,emergency_contact_name," "emergency_contact_phone,updated_at"
+            ),
+        )
+
+        results.append(
+            HospitalEmergency(
+                id=str(raw.get("id")),
+                patient_id=str(raw.get("patient_id")),
+                hospital_id=raw.get("hospital_id"),
+                status=str(raw.get("status") or "pending"),
+                emergency_type=str(raw.get("emergency_type") or "medical"),
+                description=raw.get("description"),
+                latitude=coords[0] if coords else None,
+                longitude=coords[1] if coords else None,
+                created_at=str(raw.get("created_at") or ""),
+                updated_at=str(raw.get("updated_at") or ""),
+                patient_profile=profile_rows[0] if profile_code in (200, 206) and profile_rows else None,
+                patient_medical=medical_rows[0] if medical_rows else None,
+            )
+        )
+
+    return results
+
+
+@router.get(
+    "/hospital/fleet",
+    response_model=HospitalFleetResponse,
+    summary="Hospital-linked ambulance fleet overview",
+)
+async def hospital_fleet(
+    current_user: dict = Depends(get_current_user),
+    hospital_id: str | None = Query(default=None, description="optional hospital id for admin"),
+) -> HospitalFleetResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+
+    role = str(profile.get("role") or "").lower()
+    effective_hospital_id = hospital_id if role == "admin" and hospital_id else profile.get("hospital_id")
+    if not effective_hospital_id:
+        raise HTTPException(status_code=400, detail="hospital_id is required")
+
+    ambulances, amb_code = await db_query(
+        "ambulances",
+        params={
+            "hospital_id": f"eq.{effective_hospital_id}",
+            "order": "created_at.desc",
+        },
+    )
+    if amb_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load hospital ambulances")
+
+    total = len(ambulances)
+    available = sum(1 for a in ambulances if bool(a.get("is_available")))
+    busy = total - available
+
+    return HospitalFleetResponse(
+        hospital_id=str(effective_hospital_id),
+        total_ambulances=total,
+        available_ambulances=available,
+        busy_ambulances=busy,
+        ambulances=ambulances,
+    )
+
+
+class StatusUpdate(BaseModel):
+    status: Literal[
+        "pending",
+        "assigned",
+        "en_route",
+        "at_scene",
+        "arrived",
+        "transporting",
+        "at_hospital",
+        "completed",
+        "cancelled",
+    ]
+
+
+@router.put(
+    "/emergencies/{emergency_id}/status",
+    summary="Update emergency status with role-based checks",
+)
+async def update_emergency_status(
+    emergency_id: str,
+    payload: StatusUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+    role = str(profile.get("role") or "")
+
+    emergency_rows, eme_code = await db_select("emergency_requests", {"id": emergency_id})
+    if eme_code not in (200, 206) or not emergency_rows:
+        raise HTTPException(status_code=404, detail="Emergency not found")
+    emergency = emergency_rows[0]
+
+    if role == "hospital":
+        my_hospital_id = profile.get("hospital_id")
+        if not my_hospital_id:
+            raise HTTPException(status_code=403, detail="Hospital account is not linked to a hospital_id")
+        emergency_hospital_id = emergency.get("hospital_id")
+        if emergency_hospital_id and str(emergency_hospital_id) != str(my_hospital_id):
+            raise HTTPException(status_code=403, detail="Emergency belongs to a different hospital")
+
+    update_payload = {
+        "status": payload.status,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if role == "hospital" and not emergency.get("hospital_id") and profile.get("hospital_id"):
+        update_payload["hospital_id"] = profile.get("hospital_id")
+
+    _, update_code = await db_update("emergency_requests", {"id": emergency_id}, update_payload)
+    if update_code not in (200, 204):
+        raise HTTPException(status_code=400, detail="Failed to update status")
+
+    return {"success": True, "status": payload.status}
 
 
 @router.post(

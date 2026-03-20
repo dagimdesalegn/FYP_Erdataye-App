@@ -181,6 +181,11 @@ export interface Hospital {
   name: string;
   address: string;
   phone: string;
+  is_accepting_emergencies?: boolean;
+  max_concurrent_emergencies?: number;
+  trauma_capable?: boolean;
+  icu_beds_available?: number;
+  average_handover_minutes?: number;
   location?: string; // raw PostGIS hex WKB
   created_at: string;
 }

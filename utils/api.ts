@@ -6,7 +6,21 @@
  */
 import { supabase } from './supabase';
 
-const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+const ENV_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL ?? 'http://localhost:8000';
+
+function resolveBackendUrl(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocalWeb = host === 'localhost' || host === '127.0.0.1';
+    const pointsToTunnel = ENV_BACKEND_URL.includes('ngrok') || ENV_BACKEND_URL.includes('.dev');
+    if (isLocalWeb && pointsToTunnel) {
+      return 'http://localhost:8000';
+    }
+  }
+  return ENV_BACKEND_URL;
+}
+
+const BACKEND_URL = resolveBackendUrl();
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();

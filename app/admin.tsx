@@ -6,11 +6,12 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import {
-    Ambulance,
-    EmergencyRequest,
-    Hospital,
-    normalizeEmergency,
+  Ambulance,
+  EmergencyRequest,
+  Hospital,
+  normalizeEmergency,
 } from "@/utils/emergency";
+import { backendGet, backendPost } from "@/utils/api";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -44,6 +45,13 @@ type Tab = "users" | "emergencies" | "ambulances" | "hospitals";
 type FilterRole = "all" | "patient" | "ambulance" | "admin" | "hospital";
 type EmergencyFilter = "all" | "active" | "completed" | "cancelled";
 
+interface AdminDashboardResponse {
+  users: Profile[];
+  emergencies: EmergencyRequest[];
+  ambulances: Ambulance[];
+  hospitals: Hospital[];
+}
+
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   patient: { bg: "#DBEAFE", text: "#1D4ED8" },
   ambulance: { bg: "#FEF3C7", text: "#B45309" },
@@ -71,13 +79,21 @@ export default function AdminScreen() {
   const colors = Colors[theme];
   const router = useRouter();
   const { user, setUser } = useAppState();
-  const { showError } = useModal();
+  const { showError, showSuccess } = useModal();
 
   const [activeTab, setActiveTab] = useState<Tab>("users");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState("");
   const [profileVisible, setProfileVisible] = useState(false);
+  const [createHospitalVisible, setCreateHospitalVisible] = useState(false);
+  const [creatingHospital, setCreatingHospital] = useState(false);
+  const [hospitalForm, setHospitalForm] = useState({
+    hospitalName: "",
+    phone: "",
+    address: "",
+    password: "",
+  });
 
   const [users, setUsers] = useState<Profile[]>([]);
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
@@ -98,30 +114,14 @@ export default function AdminScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [profileRes, emergencyRes, ambulanceRes, hospitalRes] =
-        await Promise.all([
-          supabase
-            .from("profiles")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("emergency_requests")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("ambulances")
-            .select("*")
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("hospitals")
-            .select("*")
-            .order("created_at", { ascending: false }),
-        ]);
-      if (profileRes.data) setUsers(profileRes.data as Profile[]);
-      if (emergencyRes.data)
-        setEmergencies(emergencyRes.data.map(normalizeEmergency));
-      if (ambulanceRes.data) setAmbulances(ambulanceRes.data as Ambulance[]);
-      if (hospitalRes.data) setHospitals(hospitalRes.data as Hospital[]);
+      const data = await backendGet<AdminDashboardResponse>(
+        "/ops/admin/dashboard",
+      );
+      if (data?.users) setUsers(data.users as Profile[]);
+      if (data?.emergencies)
+        setEmergencies(data.emergencies.map(normalizeEmergency));
+      if (data?.ambulances) setAmbulances(data.ambulances as Ambulance[]);
+      if (data?.hospitals) setHospitals(data.hospitals as Hospital[]);
     } catch (err) {
       console.error("Admin fetch error:", err);
     } finally {
@@ -173,6 +173,31 @@ export default function AdminScreen() {
       router.replace("/");
     } else {
       showError("Logout Failed", "Failed to sign out");
+    }
+  };
+
+  const handleCreateHospitalUser = async () => {
+    if (!hospitalForm.hospitalName.trim() || !hospitalForm.phone.trim() || !hospitalForm.password.trim()) {
+      showError("Missing Fields", "Hospital name, phone, and password are required.");
+      return;
+    }
+
+    setCreatingHospital(true);
+    try {
+      await backendPost("/auth/provision-hospital", {
+        hospital_name: hospitalForm.hospitalName.trim(),
+        phone: hospitalForm.phone.trim(),
+        address: hospitalForm.address.trim() || "Not set",
+        password: hospitalForm.password,
+      });
+      showSuccess("Hospital Created", "Hospital dashboard account created successfully.");
+      setCreateHospitalVisible(false);
+      setHospitalForm({ hospitalName: "", phone: "", address: "", password: "" });
+      fetchAll();
+    } catch (err: any) {
+      showError("Creation Failed", err?.message || "Failed to create hospital account.");
+    } finally {
+      setCreatingHospital(false);
     }
   };
 
@@ -537,12 +562,35 @@ export default function AdminScreen() {
             {item.address || "No address"}
           </ThemedText>
         </View>
+        <View
+          style={[
+            styles.badge,
+            {
+              backgroundColor: item.is_accepting_emergencies === false ? "#FEE2E2" : "#D1FAE5",
+            },
+          ]}
+        >
+          <ThemedText
+            style={[
+              styles.badgeText,
+              { color: item.is_accepting_emergencies === false ? "#DC2626" : "#059669" },
+            ]}
+          >
+            {item.is_accepting_emergencies === false ? "Closed" : "Accepting"}
+          </ThemedText>
+        </View>
       </View>
       <View style={[styles.cardFooter, { borderTopColor: cardBorder }]}>
         <View style={styles.footerItem}>
           <MaterialIcons name="phone" size={14} color={subText} />
           <ThemedText style={[styles.footerText, { color: subText }]}>
             {item.phone || "N/A"}
+          </ThemedText>
+        </View>
+        <View style={styles.footerItem}>
+          <MaterialIcons name="local-hospital" size={14} color={subText} />
+          <ThemedText style={[styles.footerText, { color: subText }]}>
+            ICU {item.icu_beds_available ?? 0}
           </ThemedText>
         </View>
         <View style={styles.footerItem}>
@@ -656,11 +704,25 @@ export default function AdminScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
+          <View
+            style={[
+              styles.heroCard,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
+              Operations Command Center
+            </ThemedText>
+            <ThemedText style={[styles.heroSub, { color: subText }]}>
+              Live view across users, emergencies, fleet, and hospitals.
+            </ThemedText>
+          </View>
+
           {/* Stat cards */}
           <View style={styles.statsGrid}>
-            {statCards.map((stat) => (
+            {statCards.map((stat, idx) => (
               <View
-                key={stat.label}
+                key={`${stat.label}-${idx}`}
                 style={[
                   styles.statCard,
                   { backgroundColor: cardBg, borderColor: cardBorder },
@@ -788,6 +850,18 @@ export default function AdminScreen() {
             </View>
           )}
 
+          {activeTab === "hospitals" && (
+            <View style={styles.actionRow}>
+              <Pressable
+                style={styles.createBtn}
+                onPress={() => setCreateHospitalVisible(true)}
+              >
+                <MaterialIcons name="add" size={18} color="#FFF" />
+                <ThemedText style={styles.createBtnText}>Create Hospital Login</ThemedText>
+              </Pressable>
+            </View>
+          )}
+
           {/* Data list */}
           {loading ? (
             <View style={styles.loadingWrap}>
@@ -826,6 +900,68 @@ export default function AdminScreen() {
       </ScrollView>
 
       {/* Profile Dropdown */}
+      <Modal
+        transparent
+        visible={createHospitalVisible}
+        animationType="fade"
+        onRequestClose={() => setCreateHospitalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setCreateHospitalVisible(false)}
+        >
+          <Pressable
+            style={[styles.createModalCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ThemedText style={[styles.createModalTitle, { color: colors.text }]}>Create Hospital Account</ThemedText>
+
+            <TextInput
+              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+              placeholder="Hospital name"
+              placeholderTextColor={subText}
+              value={hospitalForm.hospitalName}
+              onChangeText={(t) => setHospitalForm((p) => ({ ...p, hospitalName: t }))}
+            />
+            <TextInput
+              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+              placeholder="Phone (e.g. +2519...)"
+              placeholderTextColor={subText}
+              value={hospitalForm.phone}
+              onChangeText={(t) => setHospitalForm((p) => ({ ...p, phone: t }))}
+            />
+            <TextInput
+              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+              placeholder="Address"
+              placeholderTextColor={subText}
+              value={hospitalForm.address}
+              onChangeText={(t) => setHospitalForm((p) => ({ ...p, address: t }))}
+            />
+            <TextInput
+              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+              placeholder="Temporary password"
+              placeholderTextColor={subText}
+              value={hospitalForm.password}
+              onChangeText={(t) => setHospitalForm((p) => ({ ...p, password: t }))}
+              secureTextEntry
+            />
+
+            <View style={styles.createActions}>
+              <Pressable style={[styles.createActionBtn, styles.cancelBtn]} onPress={() => setCreateHospitalVisible(false)}>
+                <ThemedText style={styles.cancelBtnText}>Cancel</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.createActionBtn, styles.saveBtn, creatingHospital && { opacity: 0.7 }]}
+                onPress={handleCreateHospitalUser}
+                disabled={creatingHospital}
+              >
+                <ThemedText style={styles.saveBtnText}>{creatingHospital ? "Creating..." : "Create"}</ThemedText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal
         visible={profileVisible}
         animationType="fade"
@@ -918,6 +1054,24 @@ const styles = StyleSheet.create({
     maxWidth: 1100,
     alignSelf: "center" as any,
     width: "100%" as any,
+  },
+
+  heroCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  heroTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
+  heroSub: {
+    marginTop: 4,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
   },
 
   webOnlyWrap: {
@@ -1086,6 +1240,49 @@ const styles = StyleSheet.create({
   },
   emptyText: { fontSize: 14, fontFamily: Fonts.sans },
   listContent: { paddingBottom: 20 },
+
+  actionRow: { marginBottom: 12, flexDirection: "row", justifyContent: "flex-end" },
+  createBtn: {
+    backgroundColor: "#DC2626",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  createBtnText: { color: "#FFF", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  createModalCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+  },
+  createModalTitle: { fontSize: 16, fontWeight: "800", fontFamily: Fonts.sans, marginBottom: 4 },
+  createInput: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+  },
+  createActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
+  createActionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  cancelBtn: { backgroundColor: "#E5E7EB" },
+  cancelBtnText: { color: "#111827", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  saveBtn: { backgroundColor: "#DC2626" },
+  saveBtnText: { color: "#FFF", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
 
   dropdownOverlay: {
     flex: 1,

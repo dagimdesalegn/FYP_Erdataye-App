@@ -18,6 +18,18 @@ export interface AuthUser {
   phone?: string;
 }
 
+type PhoneLoginResponse = {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  user_id: string;
+  role?: UserRole;
+  full_name?: string;
+  phone?: string;
+  hospital_id?: string;
+};
+
 const isUserRole = (value: unknown): value is UserRole =>
   value === "patient" ||
   value === "ambulance" ||
@@ -316,16 +328,14 @@ export const signIn = async (
   password: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    const authEmail = toAuthEmail(phone);
-
-    // Authenticate via backend (service-role key stays server-side)
-    const res = await fetch(`${BACKEND_URL}/auth/login`, {
+    // Authenticate via one phone-based backend endpoint (role-aware response)
+    const res = await fetch(`${BACKEND_URL}/auth/login-phone`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: authEmail, password }),
+      body: JSON.stringify({ phone, password }),
     });
 
-    let tokenData: any;
+    let tokenData: PhoneLoginResponse | any;
     try {
       const text = await res.text();
       tokenData = text ? JSON.parse(text) : {};
@@ -359,7 +369,9 @@ export const signIn = async (
     const authUser = sessionData.user ?? sessionData.session.user;
 
     // ── Profile resolution ──────────────────────────────────────
-    const roleFromMetadata = getRoleFromMetadata(authUser.user_metadata?.role);
+    const roleFromMetadata =
+      getRoleFromMetadata(tokenData?.role) ??
+      getRoleFromMetadata(authUser.user_metadata?.role);
 
     let dbFullName = "";
     let dbPhone = "";
@@ -370,7 +382,7 @@ export const signIn = async (
         .from("profiles")
         .select("full_name, phone, role")
         .eq("id", authUser.id)
-        .single();
+        .maybeSingle();
       if (profileRow) {
         profileExists = true;
         dbFullName = profileRow.full_name || "";
@@ -384,7 +396,7 @@ export const signIn = async (
     }
 
     // Heal missing profile rows
-    if (!profileExists) {
+    if (!profileExists && roleFromMetadata !== "hospital") {
       const profilePayload = buildProfilePayload({
         id: authUser.id,
         role: roleFromMetadata ?? "patient",
@@ -410,8 +422,12 @@ export const signIn = async (
     const user: AuthUser = {
       id: authUser.id,
       role,
-      fullName: dbFullName || String(authUser.user_metadata?.full_name || ""),
-      phone: dbPhone || String(authUser.user_metadata?.phone || ""),
+      fullName:
+        dbFullName ||
+        String(tokenData?.full_name || authUser.user_metadata?.full_name || ""),
+      phone:
+        dbPhone ||
+        String(tokenData?.phone || authUser.user_metadata?.phone || ""),
     };
 
     return { user, error: null };

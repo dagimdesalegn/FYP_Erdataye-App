@@ -141,6 +141,25 @@ async def db_select(
         return [], res.status_code
 
 
+async def db_query(
+    table: str,
+    *,
+    columns: str = "*",
+    params: dict | None = None,
+) -> tuple[list, int]:
+    """
+    Generic selector with arbitrary PostgREST params (supports ilike/or/order).
+    Useful for richer filtering without adding ad-hoc helpers everywhere.
+    """
+    query_params = {"select": columns, **(params or {})}
+    res = await _client().get(f"/rest/v1/{table}", params=query_params)
+    try:
+        data = res.json()
+        return (data if isinstance(data, list) else [data]), res.status_code
+    except Exception:
+        return [], res.status_code
+
+
 async def db_update(
     table: str,
     filters: dict[str, str],
