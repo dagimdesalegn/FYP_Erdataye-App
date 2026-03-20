@@ -4,7 +4,12 @@ import { supabase } from "./supabase";
 const BACKEND_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
-export type UserRole = "patient" | "driver" | "admin" | "hospital";
+export type UserRole =
+  | "patient"
+  | "ambulance"
+  | "driver"
+  | "admin"
+  | "hospital";
 
 export interface AuthUser {
   id: string;
@@ -15,12 +20,16 @@ export interface AuthUser {
 
 const isUserRole = (value: unknown): value is UserRole =>
   value === "patient" ||
+  value === "ambulance" ||
   value === "driver" ||
   value === "admin" ||
   value === "hospital";
 
+const normalizeRole = (role: UserRole): UserRole =>
+  role === "driver" ? "ambulance" : role;
+
 const getRoleFromMetadata = (value: unknown): UserRole | null =>
-  isUserRole(value) ? value : null;
+  isUserRole(value) ? normalizeRole(value) : null;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -182,7 +191,7 @@ export const updateAuthLoginPhone = async (
 };
 
 /**
- * Sign up a new user with role (patient, driver, or admin).
+ * Sign up a new user with role (patient or ambulance).
  * Routes through the Python backend so the service-role key stays server-side.
  */
 export const signUp = async (
@@ -192,11 +201,11 @@ export const signUp = async (
   fullName: string = "",
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    if (!["patient", "driver"].includes(role)) {
+    if (!["patient", "ambulance"].includes(role)) {
       return {
         user: null,
         error: new Error(
-          "Invalid role. Only patient and driver accounts can be registered through the app.",
+          "Invalid role. Only patient and ambulance accounts can be registered through the app.",
         ) as AuthError,
       };
     }
@@ -209,7 +218,7 @@ export const signUp = async (
     const existingProfile = await findExistingProfileByPhone(phone);
     if (existingProfile) {
       const existingRole = isUserRole(existingProfile.role)
-        ? existingProfile.role
+        ? normalizeRole(existingProfile.role)
         : "account";
       const roleNote =
         existingRole !== role
@@ -256,7 +265,7 @@ export const signUp = async (
         const profileNow = await findExistingProfileByPhone(phone);
         if (profileNow) {
           const existingRole = isUserRole(profileNow.role)
-            ? profileNow.role
+            ? normalizeRole(profileNow.role)
             : "account";
           return {
             user: null,
@@ -366,7 +375,9 @@ export const signIn = async (
         profileExists = true;
         dbFullName = profileRow.full_name || "";
         dbPhone = profileRow.phone || "";
-        dbRole = isUserRole(profileRow.role) ? profileRow.role : null;
+        dbRole = isUserRole(profileRow.role)
+          ? normalizeRole(profileRow.role)
+          : null;
       }
     } catch (e) {
       console.warn("Could not read profile from DB on sign-in:", e);
@@ -389,11 +400,12 @@ export const signIn = async (
       dbPhone = String(authUser.user_metadata?.phone || "");
     }
 
-    const role =
+    const role = normalizeRole(
       roleFromMetadata ??
       dbRole ??
       (await getUserRole(authUser.id)) ??
-      "patient";
+      "patient",
+    );
 
     const user: AuthUser = {
       id: authUser.id,
@@ -426,7 +438,8 @@ export const getUserRole = async (userId: string): Promise<UserRole | null> => {
       return null;
     }
 
-    return data.role as UserRole;
+    if (!isUserRole(data.role)) return null;
+    return normalizeRole(data.role);
   } catch (error) {
     console.error("Exception fetching user role:", error);
     return null;
@@ -514,7 +527,7 @@ export const onAuthStateChange = (
 
           const role =
             profileRow?.role && isUserRole(profileRow.role)
-              ? profileRow.role
+              ? normalizeRole(profileRow.role)
               : (roleFromMetadata ??
                 (await getUserRole(sessionUser.id)) ??
                 "patient");

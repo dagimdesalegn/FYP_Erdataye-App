@@ -111,10 +111,10 @@ function ThemedRoot() {
             name="first-aid-chat"
             options={{ headerShown: false, title: "First Aid Assistant" }}
           />
-          {/* Driver Routes */}
+          {/* Ambulance Routes */}
           <Stack.Screen
             name="driver-home"
-            options={{ headerShown: false, title: "Driver Home" }}
+            options={{ headerShown: false, title: "Ambulance Home" }}
           />
           <Stack.Screen
             name="driver-emergency"

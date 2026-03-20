@@ -307,7 +307,7 @@ export default function DriverHomeScreen() {
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <ThemedText style={styles.greeting}>
-                Welcome, {user?.fullName || "Driver"}
+                Welcome, {user?.fullName || "Ambulance"}
               </ThemedText>
               <ThemedText style={styles.email}>{user?.phone}</ThemedText>
             </View>
@@ -326,7 +326,7 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
-          <ThemedText style={styles.cardTitle}>Driver Status</ThemedText>
+          <ThemedText style={styles.cardTitle}>Ambulance Status</ThemedText>
 
           <Pressable
             onPress={async () => {
@@ -647,7 +647,7 @@ export default function DriverHomeScreen() {
                 />
               </View>
               <ThemedText style={styles.profileTitle}>
-                Driver Profile
+                Ambulance Profile
               </ThemedText>
             </View>
 

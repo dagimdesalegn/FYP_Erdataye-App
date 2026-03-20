@@ -291,7 +291,7 @@ export default function PatientEmergencyTrackingScreen() {
       typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
 
     if (!driverPhone) {
-      Alert.alert("Unavailable", "Driver phone number is not available yet.");
+      Alert.alert("Unavailable", "Ambulance phone number is not available yet.");
       return;
     }
     try {
@@ -852,7 +852,7 @@ export default function PatientEmergencyTrackingScreen() {
                 </ThemedText>
               </View>
             )}
-            {/* Call Driver button and chatbot icon inside box */}
+            {/* Call Ambulance button */}
             <View style={{ alignItems: "center", marginTop: 24 }}>
               <Pressable
                 disabled={!canCallDriver}
@@ -878,7 +878,7 @@ export default function PatientEmergencyTrackingScreen() {
                     marginLeft: 8,
                   }}
                 >
-                  {canCallDriver ? "Call Driver" : "Driver Phone Unavailable"}
+                  {canCallDriver ? "Call Ambulance" : "Ambulance Phone Unavailable"}
                 </ThemedText>
               </Pressable>
             </View>

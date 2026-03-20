@@ -34,18 +34,19 @@ interface Profile {
   id: string;
   full_name: string | null;
   phone: string | null;
-  role: "patient" | "driver" | "admin" | "hospital";
+  role: "patient" | "ambulance" | "driver" | "admin" | "hospital";
   hospital_id: string | null;
   created_at: string;
   updated_at: string;
 }
 
 type Tab = "users" | "emergencies" | "ambulances" | "hospitals";
-type FilterRole = "all" | "patient" | "driver" | "admin" | "hospital";
+type FilterRole = "all" | "patient" | "ambulance" | "admin" | "hospital";
 type EmergencyFilter = "all" | "active" | "completed" | "cancelled";
 
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   patient: { bg: "#DBEAFE", text: "#1D4ED8" },
+  ambulance: { bg: "#FEF3C7", text: "#B45309" },
   driver: { bg: "#FEF3C7", text: "#B45309" },
   admin: { bg: "#FCE7F3", text: "#BE185D" },
   hospital: { bg: "#D1FAE5", text: "#059669" },
@@ -205,7 +206,7 @@ export default function AdminScreen() {
   const roleCounts = {
     all: users.length,
     patient: users.filter((u) => u.role === "patient").length,
-    driver: users.filter((u) => u.role === "driver").length,
+    ambulance: users.filter((u) => u.role === "ambulance" || u.role === "driver").length,
     admin: users.filter((u) => u.role === "admin").length,
     hospital: users.filter((u) => u.role === "hospital").length,
   };
@@ -276,8 +277,8 @@ export default function AdminScreen() {
       color: "#3B82F6",
     },
     {
-      label: "Drivers",
-      count: roleCounts.driver,
+      label: "Ambulances",
+      count: roleCounts.ambulance,
       icon: "local-shipping" as const,
       color: "#F59E0B",
     },
@@ -337,7 +338,7 @@ export default function AdminScreen() {
           >
             <MaterialIcons
               name={
-                item.role === "driver"
+                item.role === "ambulance" || item.role === "driver"
                   ? "local-shipping"
                   : item.role === "admin"
                     ? "admin-panel-settings"
@@ -364,7 +365,7 @@ export default function AdminScreen() {
             ]}
           >
             <ThemedText style={[styles.badgeText, { color: roleStyle.text }]}>
-              {item.role}
+              {item.role === "driver" ? "ambulance" : item.role}
             </ThemedText>
           </View>
         </View>
@@ -475,8 +476,8 @@ export default function AdminScreen() {
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
               {driverProfile
-                ? "Driver: " + driverProfile.full_name
-                : "No driver assigned"}
+                ? "Ambulance Officer: " + driverProfile.full_name
+                : "No ambulance officer assigned"}
               {item.type ? " · " + item.type : ""}
             </ThemedText>
           </View>
@@ -761,7 +762,7 @@ export default function AdminScreen() {
             <View style={styles.filterRow}>
               {renderRoleChip("all", "All")}
               {renderRoleChip("patient", "Patients")}
-              {renderRoleChip("driver", "Drivers")}
+              {renderRoleChip("ambulance", "Ambulances")}
               {renderRoleChip("hospital", "Hospital")}
               {renderRoleChip("admin", "Admins")}
             </View>

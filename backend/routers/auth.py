@@ -35,7 +35,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=72, description="Min 6 characters")
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=9, max_length=16)
-    role: Literal["patient", "driver"] = "patient"
+    role: Literal["patient", "ambulance", "driver"] = "patient"
 
     @field_validator("full_name")
     @classmethod
@@ -113,13 +113,15 @@ async def _create_user_with_profile(
     password: str,
     full_name: str,
     phone: str,
-    role: Literal["patient", "driver", "admin", "hospital"],
+    role: Literal["patient", "ambulance", "driver", "admin", "hospital"],
     hospital_id: str | None = None,
 ) -> RegisterResponse:
+    canonical_role = "ambulance" if role == "driver" else role
+
     user_metadata = {
         "full_name": full_name,
         "phone": phone,
-        "role": role,
+        "role": canonical_role,
     }
     if hospital_id:
         user_metadata["hospital_id"] = hospital_id
@@ -149,7 +151,7 @@ async def _create_user_with_profile(
 
     profile_payload = {
         "id": user_id,
-        "role": role,
+        "role": canonical_role,
         "full_name": full_name,
         "phone": phone,
         "updated_at": now,
@@ -174,7 +176,7 @@ async def _create_user_with_profile(
     "/register",
     response_model=RegisterResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new patient or driver account",
+    summary="Create a new patient or ambulance account",
 )
 async def register(req: RegisterRequest) -> RegisterResponse:
     """

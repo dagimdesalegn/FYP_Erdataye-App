@@ -113,6 +113,7 @@ export default function LoginScreen() {
       setRegistered(true);
       let route: any;
       switch (user.role) {
+        case "ambulance":
         case "driver":
           route = "/driver-home";
           break;

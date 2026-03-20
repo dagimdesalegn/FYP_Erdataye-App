@@ -91,7 +91,7 @@ async def ops_summary(
     cutoff = now - timedelta(days=days)
 
     total_users = len(users)
-    total_drivers = sum(1 for u in users if u.get("role") == "driver")
+    total_drivers = sum(1 for u in users if u.get("role") in ("driver", "ambulance"))
     total_hospitals = len(hospitals)
     total_ambulances = len(ambulances)
     available_ambulances = sum(1 for a in ambulances if bool(a.get("is_available")))

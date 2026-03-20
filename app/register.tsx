@@ -28,7 +28,7 @@ import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
 
 const CARD_MAX_W = 420;
-type AppRegistrationRole = "patient" | "driver";
+type AppRegistrationRole = "patient" | "ambulance";
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -153,8 +153,8 @@ export default function RegisterScreen() {
       errors.contact = "Enter 9 digits starting with 9 (e.g. 912345678)";
     }
 
-    // Driver-specific validation
-    if (userRole === "driver") {
+    // Ambulance-specific validation
+    if (userRole === "ambulance") {
       if (!form.plateNumber.trim()) {
         errors.plateNumber = "Please enter the plate number";
       }
@@ -248,8 +248,8 @@ export default function RegisterScreen() {
         }
       }
 
-      // For driver role, create ambulance row
-      if (userRole === "driver" && form.plateNumber) {
+      // For ambulance role, create ambulance row
+      if (userRole === "ambulance" && form.plateNumber) {
         try {
           const { ambulanceId, error: ambError } = await upsertDriverAmbulance(
             user.id,
@@ -282,7 +282,10 @@ export default function RegisterScreen() {
       console.log("Redirecting based on role:", user.role);
       setLoading(false);
 
-      const route = user.role === "driver" ? "/driver-home" : "/help";
+      const route =
+        user.role === "ambulance" || user.role === "driver"
+          ? "/driver-home"
+          : "/help";
       console.log("Navigating to route:", route);
       router.replace(route as any);
     } catch (error) {
@@ -423,7 +426,7 @@ export default function RegisterScreen() {
             </ThemedText>
             <View style={styles.roleButtons}>
               <RoleButton role="patient" label="Patient" icon="favorite" />
-              <RoleButton role="driver" label="Driver" icon="local-shipping" />
+              <RoleButton role="ambulance" label="Ambulance" icon="local-shipping" />
             </View>
           </View>
 
@@ -668,8 +671,8 @@ export default function RegisterScreen() {
               </View>
             )}
 
-            {/* Driver-specific fields */}
-            {userRole === "driver" && (
+            {/* Ambulance-specific fields */}
+            {userRole === "ambulance" && (
               <>
                 <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                   <View style={styles.fieldHalf}>
