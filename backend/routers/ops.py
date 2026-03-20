@@ -608,7 +608,15 @@ async def hospital_fleet(
                 effective_hospital_id = str(by_name_rows[0].get("id") or "")
 
     if not effective_hospital_id:
-        raise HTTPException(status_code=400, detail="hospital_id is required")
+        # Free-tier / legacy data can have hospital auth users without linkage.
+        # Return an empty fleet response instead of hard-failing the dashboard.
+        return HospitalFleetResponse(
+            hospital_id="",
+            total_ambulances=0,
+            available_ambulances=0,
+            busy_ambulances=0,
+            ambulances=[],
+        )
 
     ambulances, amb_code = await db_query(
         "ambulances",

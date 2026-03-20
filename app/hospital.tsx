@@ -97,10 +97,16 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      const [data, fleetData] = await Promise.all([
+      const [emergencyResult, fleetResult] = await Promise.allSettled([
         backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
         backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
       ]);
+
+      if (emergencyResult.status !== "fulfilled") {
+        throw emergencyResult.reason;
+      }
+
+      const data = emergencyResult.value;
       setEmergencies(
         data.map((e) =>
           ({
@@ -110,10 +116,27 @@ export default function HospitalDashboard() {
           }) as EmergencyWithPatient,
         ),
       );
-      setFleet(fleetData);
+
+      if (fleetResult.status === "fulfilled") {
+        setFleet(fleetResult.value);
+      } else {
+        // Keep dashboard usable when fleet linkage is missing.
+        setFleet({
+          hospital_id: "",
+          total_ambulances: 0,
+          available_ambulances: 0,
+          busy_ambulances: 0,
+          ambulances: [],
+        });
+        console.warn("Hospital fleet unavailable:", fleetResult.reason);
+      }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
-      showError("Load Failed", "Failed to load emergency requests");
+      // Avoid noisy popup loops on free-tier/temporary data inconsistencies.
+      const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+      if (!msg.includes("hospital_id is required")) {
+        showError("Load Failed", "Failed to load emergency requests");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
