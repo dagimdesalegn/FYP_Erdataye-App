@@ -2,14 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Image,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    Image,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -404,7 +404,6 @@ export default function LoginScreen() {
               Create Account
             </ThemedText>
           </Pressable>
-
         </Animated.View>
       </View>
     </View>
