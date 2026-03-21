@@ -19,6 +19,7 @@ import {
 
 import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import { useAppState } from "@/components/app-state";
+import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -260,7 +261,6 @@ export default function RegisterScreen() {
           "Registration Failed",
           error?.message || "Failed to create account",
         );
-        setLoading(false);
         return;
       }
 
@@ -343,8 +343,6 @@ export default function RegisterScreen() {
 
       // Redirect based on role after successful registration
       console.log("Redirecting based on role:", user.role);
-      setLoading(false);
-
       const route =
         user.role === "ambulance" || user.role === "driver"
           ? "/driver-home"
@@ -354,6 +352,7 @@ export default function RegisterScreen() {
     } catch (error) {
       console.error("Registration exception:", error);
       showError("Registration Failed", `Registration failed: ${error}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -416,6 +415,11 @@ export default function RegisterScreen() {
         barStyle={isDark ? "light-content" : "dark-content"}
         translucent
         backgroundColor="transparent"
+      />
+      <LoadingModal
+        visible={loading}
+        colorScheme={colorScheme}
+        message="Creating your account..."
       />
       {/* Top accent gradient */}
       <LinearGradient
