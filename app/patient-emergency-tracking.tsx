@@ -4,7 +4,6 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    Alert,
     Animated,
     Linking,
     Platform,
@@ -104,7 +103,7 @@ export default function PatientEmergencyTrackingScreen() {
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
-  const { showConfirm, showError, showSuccess } = useModal();
+  const { showAlert, showConfirm, showError, showSuccess } = useModal();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -353,12 +352,12 @@ export default function PatientEmergencyTrackingScreen() {
         driverPhone =
           typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
       } catch {
-        // no-op, fallback alert will be shown below
+        // no-op, fallback modal will be shown below
       }
     }
 
     if (!driverPhone) {
-      Alert.alert(
+      showAlert(
         "Unavailable",
         "Ambulance phone number is not available yet.",
       );
@@ -368,12 +367,12 @@ export default function PatientEmergencyTrackingScreen() {
       const telUrl = `tel:${driverPhone}`;
       const canOpen = await Linking.canOpenURL(telUrl);
       if (!canOpen) {
-        Alert.alert("Call Failed", "This device cannot place a phone call.");
+        showError("Call Failed", "This device cannot place a phone call.");
         return;
       }
       await Linking.openURL(telUrl);
     } catch {
-      Alert.alert("Call Failed", "Unable to start the phone call.");
+      showError("Call Failed", "Unable to start the phone call.");
     }
   };
 
@@ -388,7 +387,7 @@ export default function PatientEmergencyTrackingScreen() {
       } = await createFamilyShareLink(emergencyId, 180);
 
       if (shareError || !shareUrl) {
-        Alert.alert(
+        showError(
           "Share Failed",
           shareError?.message || "Unable to create share link.",
         );
@@ -403,12 +402,12 @@ export default function PatientEmergencyTrackingScreen() {
           (window as any).navigator?.clipboard
         ) {
           await (window as any).navigator.clipboard.writeText(shareUrl);
-          Alert.alert(
+          showSuccess(
             "Link Copied",
             `Share link copied to clipboard. Expires: ${new Date(expiresAt).toLocaleString()}`,
           );
         } else {
-          Alert.alert(
+          showAlert(
             "Share Link",
             `${message}\n\nExpires: ${new Date(expiresAt).toLocaleString()}`,
           );
@@ -421,7 +420,7 @@ export default function PatientEmergencyTrackingScreen() {
         });
       }
     } catch (error: any) {
-      Alert.alert(
+      showError(
         "Share Failed",
         error?.message || "Unable to share tracking link.",
       );
