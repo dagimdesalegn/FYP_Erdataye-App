@@ -23,7 +23,11 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { signUp } from "@/utils/auth";
+import {
+  getRegistrationHospitalOptions,
+  RegistrationHospitalOption,
+  signUp,
+} from "@/utils/auth";
 import { ensureAmbulanceHospitalLink, upsertDriverAmbulance } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
@@ -39,6 +43,8 @@ export default function RegisterScreen() {
   const { setRegistered, setUser } = useAppState();
   const { showError, showAlert } = useModal();
   const [loading, setLoading] = useState(false);
+  const [hospitals, setHospitals] = useState<RegistrationHospitalOption[]>([]);
+  const [loadingHospitals, setLoadingHospitals] = useState(false);
   const [userRole, setUserRole] = useState<AppRegistrationRole>("patient");
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
@@ -74,8 +80,33 @@ export default function RegisterScreen() {
     allergies: "",
     plateNumber: "",
     registrationNumber: "",
+    hospitalId: "",
     ambulanceType: "standard" as "standard" | "advanced" | "icu",
   });
+
+  useEffect(() => {
+    let active = true;
+    const loadHospitals = async () => {
+      setLoadingHospitals(true);
+      try {
+        const { hospitals: rows } = await getRegistrationHospitalOptions();
+        if (!active) return;
+        const sorted = (rows || [])
+          .filter((h) => Boolean(h?.id) && Boolean(h?.name))
+          .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+        setHospitals(sorted);
+      } catch {
+        if (active) setHospitals([]);
+      } finally {
+        if (active) setLoadingHospitals(false);
+      }
+    };
+
+    loadHospitals();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const validatePhone = (phone: string): boolean => {
     // phone is 9 digits after +251 (e.g. "912345678")
@@ -156,6 +187,12 @@ export default function RegisterScreen() {
 
     // Ambulance-specific validation
     if (userRole === "ambulance") {
+      if (!hospitals.length) {
+        errors.hospitalId = "No available hospitals found. Ask admin to create one.";
+      }
+      if (!form.hospitalId) {
+        errors.hospitalId = "Please select a hospital";
+      }
       if (!form.plateNumber.trim()) {
         errors.plateNumber = "Please enter the plate number";
       }
@@ -211,6 +248,7 @@ export default function RegisterScreen() {
         form.password,
         userRole,
         form.fullName.trim(),
+        userRole === "ambulance" ? form.hospitalId : undefined,
         signupLocation,
       );
 
@@ -746,6 +784,78 @@ export default function RegisterScreen() {
                     </View>
                   </View>
                 </View>
+                <View style={styles.fieldHalf}>
+                  <ThemedText style={[styles.label, { color: textPrimary }]}>
+                    Hospital *
+                  </ThemedText>
+                  {loadingHospitals ? (
+                    <View style={[styles.hospitalLoading, { borderColor: inputBorder, backgroundColor: inputBg }]}> 
+                      <MaterialIcons name="hourglass-empty" size={16} color="#DC2626" />
+                      <ThemedText style={[styles.hospitalLoadingText, { color: textSecondary }]}>Loading hospitals...</ThemedText>
+                    </View>
+                  ) : (
+                    <View style={styles.hospitalListWrap}>
+                      {!hospitals.length ? (
+                        <View
+                          style={[
+                            styles.hospitalEmpty,
+                            { borderColor: inputBorder, backgroundColor: inputBg },
+                          ]}
+                        >
+                          <ThemedText style={[styles.hospitalEmptyText, { color: textSecondary }]}>
+                            No available hospitals yet. Ask admin to create hospital accounts.
+                          </ThemedText>
+                        </View>
+                      ) : null}
+                      {hospitals.map((h) => {
+                        const selected = form.hospitalId === h.id;
+                        return (
+                          <Pressable
+                            key={h.id}
+                            onPress={() => handleChange("hospitalId", h.id)}
+                            disabled={loading}
+                            style={[
+                              styles.hospitalChip,
+                              {
+                                borderColor: selected ? "#DC2626" : inputBorder,
+                                backgroundColor: selected ? "#DC262610" : inputBg,
+                              },
+                            ]}
+                          >
+                            <ThemedText
+                              numberOfLines={1}
+                              style={{
+                                color: selected ? "#DC2626" : textPrimary,
+                                fontSize: 12,
+                                fontWeight: selected ? "800" : "600",
+                                fontFamily: Fonts.sans,
+                              }}
+                            >
+                              {h.name}
+                            </ThemedText>
+                            {h.address ? (
+                              <ThemedText
+                                numberOfLines={1}
+                                style={{
+                                  color: textSecondary,
+                                  fontSize: 11,
+                                  fontFamily: Fonts.sans,
+                                }}
+                              >
+                                {h.address}
+                              </ThemedText>
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {fieldErrors.hospitalId ? (
+                    <ThemedText style={styles.fieldError}>
+                      {fieldErrors.hospitalId}
+                    </ThemedText>
+                  ) : null}
+                </View>
                 <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                   <View style={styles.fieldHalf}>
                     <ThemedText style={[styles.label, { color: textPrimary }]}>
@@ -1075,6 +1185,45 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
+  },
+  hospitalLoading: {
+    minHeight: 44,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  hospitalLoadingText: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    fontWeight: "600",
+  },
+  hospitalListWrap: {
+    gap: 8,
+  },
+  hospitalChip: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  hospitalEmpty: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  hospitalEmptyText: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    textAlign: "center",
   },
   primaryBtn: {
     marginTop: 2,

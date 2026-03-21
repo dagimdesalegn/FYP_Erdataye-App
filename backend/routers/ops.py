@@ -188,6 +188,16 @@ class AdminDashboardResponse(BaseModel):
     hospitals: list[dict]
 
 
+class AdminHospitalDetailsResponse(BaseModel):
+    hospital: dict
+    linked_ambulances: list[dict]
+    linked_driver_profiles: list[dict]
+    total_emergencies: int
+    active_emergencies: int
+    completed_emergencies: int
+    cancelled_emergencies: int
+
+
 class HospitalEmergency(BaseModel):
     id: str
     patient_id: str
@@ -209,6 +219,27 @@ class HospitalFleetResponse(BaseModel):
     available_ambulances: int
     busy_ambulances: int
     ambulances: list[dict]
+
+class HospitalFleetRepairResponse(BaseModel):
+    hospital_id: str
+    scanned_unlinked_ambulances: int
+    repaired_ambulances: int
+    repaired_driver_profiles: int
+    repaired_ambulance_ids: list[str]
+
+
+class HospitalProfileResponse(BaseModel):
+    hospital_id: str
+    name: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    is_accepting_emergencies: bool | None = None
+    max_concurrent_emergencies: int | None = None
+    dispatch_weight: float | None = None
+    trauma_capable: bool | None = None
+    icu_beds_available: int | None = None
+    average_handover_minutes: int | None = None
+    updated_at: str | None = None
 
 
 def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
@@ -291,6 +322,48 @@ async def _find_nearest_hospital(latitude: float, longitude: float) -> dict | No
                 "distance_km": round(dist, 2),
             }
     return nearest
+
+
+async def _resolve_effective_hospital_id(
+    profile: dict,
+    current_user: dict,
+    requested_hospital_id: str | None = None,
+) -> str | None:
+    role = str(profile.get("role") or "").lower()
+    effective_hospital_id = requested_hospital_id if role == "admin" and requested_hospital_id else profile.get("hospital_id")
+
+    if role == "hospital" and not effective_hospital_id:
+        metadata = current_user.get("user_metadata") or {}
+        phone = str(metadata.get("phone") or "").strip()
+        name = str(metadata.get("full_name") or "").strip()
+
+        if phone:
+            by_phone_rows, by_phone_code = await db_select(
+                "hospitals",
+                {"phone": phone},
+                columns="id,name,phone",
+            )
+            if by_phone_code in (200, 206) and by_phone_rows:
+                effective_hospital_id = str(by_phone_rows[0].get("id") or "")
+
+        if not effective_hospital_id and name:
+            by_name_rows, by_name_code = await db_select(
+                "hospitals",
+                {"name": name},
+                columns="id,name,phone",
+            )
+            if by_name_code in (200, 206) and by_name_rows:
+                effective_hospital_id = str(by_name_rows[0].get("id") or "")
+
+        # Persist recovered linkage to reduce future fallback lookups.
+        if effective_hospital_id and not profile.get("hospital_id") and profile.get("id"):
+            await db_update(
+                "profiles",
+                {"id": str(profile.get("id"))},
+                {"hospital_id": str(effective_hospital_id)},
+            )
+
+    return str(effective_hospital_id) if effective_hospital_id else None
 
 
 async def _compute_dispatch_recommendation(
@@ -729,6 +802,77 @@ async def admin_dashboard(
 
 
 @router.get(
+    "/admin/hospitals/{hospital_id}",
+    response_model=AdminHospitalDetailsResponse,
+    summary="Admin hospital details with linked fleet and stats",
+)
+async def admin_hospital_details(
+    hospital_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> AdminHospitalDetailsResponse:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    hospital_rows, hospital_code = await db_select(
+        "hospitals",
+        {"id": hospital_id},
+        columns="*",
+    )
+    if hospital_code not in (200, 206) or not hospital_rows:
+        raise HTTPException(status_code=404, detail="Hospital not found")
+
+    ambulances, amb_code = await db_query(
+        "ambulances",
+        params={"hospital_id": f"eq.{hospital_id}", "order": "created_at.desc"},
+    )
+    if amb_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load linked ambulances")
+
+    driver_profiles, prof_code = await db_query(
+        "profiles",
+        params={"hospital_id": f"eq.{hospital_id}", "order": "created_at.desc"},
+    )
+    if prof_code not in (200, 206):
+        driver_profiles = []
+
+    linked_driver_profiles = [
+        p
+        for p in (driver_profiles or [])
+        if str(p.get("role") or "").lower() in ("ambulance", "driver")
+    ]
+
+    emergencies, eme_code = await db_query(
+        "emergency_requests",
+        params={"hospital_id": f"eq.{hospital_id}", "order": "created_at.desc"},
+    )
+    if eme_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load hospital emergencies")
+
+    total_emergencies = len(emergencies or [])
+    active_emergencies = sum(
+        1
+        for e in (emergencies or [])
+        if str(e.get("status") or "") not in ("completed", "cancelled")
+    )
+    completed_emergencies = sum(
+        1 for e in (emergencies or []) if str(e.get("status") or "") == "completed"
+    )
+    cancelled_emergencies = sum(
+        1 for e in (emergencies or []) if str(e.get("status") or "") == "cancelled"
+    )
+
+    return AdminHospitalDetailsResponse(
+        hospital=hospital_rows[0],
+        linked_ambulances=ambulances or [],
+        linked_driver_profiles=linked_driver_profiles,
+        total_emergencies=total_emergencies,
+        active_emergencies=active_emergencies,
+        completed_emergencies=completed_emergencies,
+        cancelled_emergencies=cancelled_emergencies,
+    )
+
+
+@router.get(
     "/hospital/emergencies",
     response_model=list[HospitalEmergency],
     summary="Hospital-scoped emergencies with patient context",
@@ -800,33 +944,11 @@ async def hospital_fleet(
     user_id = str(current_user.get("sub") or "")
     profile = await _require_role(user_id, current_user, ("hospital", "admin"))
 
-    role = str(profile.get("role") or "").lower()
-    effective_hospital_id = hospital_id if role == "admin" and hospital_id else profile.get("hospital_id")
-
-    # Some legacy hospital accounts may miss hospital_id linkage in metadata/profile.
-    # Recover by matching hospital phone/name from auth metadata.
-    if role == "hospital" and not effective_hospital_id:
-        metadata = current_user.get("user_metadata") or {}
-        phone = str(metadata.get("phone") or "").strip()
-        name = str(metadata.get("full_name") or "").strip()
-
-        if phone:
-            by_phone_rows, by_phone_code = await db_select(
-                "hospitals",
-                {"phone": phone},
-                columns="id,name,phone",
-            )
-            if by_phone_code in (200, 206) and by_phone_rows:
-                effective_hospital_id = str(by_phone_rows[0].get("id") or "")
-
-        if not effective_hospital_id and name:
-            by_name_rows, by_name_code = await db_select(
-                "hospitals",
-                {"name": name},
-                columns="id,name,phone",
-            )
-            if by_name_code in (200, 206) and by_name_rows:
-                effective_hospital_id = str(by_name_rows[0].get("id") or "")
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=hospital_id,
+    )
 
     if not effective_hospital_id:
         # Free-tier / legacy data can have hospital auth users without linkage.
@@ -859,6 +981,133 @@ async def hospital_fleet(
         available_ambulances=available,
         busy_ambulances=busy,
         ambulances=ambulances,
+    )
+
+
+@router.get(
+    "/hospital/profile",
+    response_model=HospitalProfileResponse,
+    summary="Hospital profile details for header and dashboard context",
+)
+async def hospital_profile(
+    current_user: dict = Depends(get_current_user),
+    hospital_id: str | None = Query(default=None, description="optional hospital id for admin"),
+) -> HospitalProfileResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=hospital_id,
+    )
+
+    if not effective_hospital_id:
+        return HospitalProfileResponse(hospital_id="")
+
+    rows, code = await db_select(
+        "hospitals",
+        {"id": str(effective_hospital_id)},
+        columns=(
+            "id,name,address,phone,is_accepting_emergencies,max_concurrent_emergencies,"
+            "dispatch_weight,trauma_capable,icu_beds_available,average_handover_minutes,updated_at"
+        ),
+    )
+    if code not in (200, 206) or not rows:
+        return HospitalProfileResponse(hospital_id=str(effective_hospital_id))
+
+    row = rows[0]
+    dispatch_weight_raw = row.get("dispatch_weight")
+    try:
+        dispatch_weight = float(dispatch_weight_raw) if dispatch_weight_raw is not None else None
+    except Exception:
+        dispatch_weight = None
+
+    return HospitalProfileResponse(
+        hospital_id=str(row.get("id") or effective_hospital_id),
+        name=(str(row.get("name") or "").strip() or None),
+        address=(str(row.get("address") or "").strip() or None),
+        phone=(str(row.get("phone") or "").strip() or None),
+        is_accepting_emergencies=row.get("is_accepting_emergencies"),
+        max_concurrent_emergencies=row.get("max_concurrent_emergencies"),
+        dispatch_weight=dispatch_weight,
+        trauma_capable=row.get("trauma_capable"),
+        icu_beds_available=row.get("icu_beds_available"),
+        average_handover_minutes=row.get("average_handover_minutes"),
+        updated_at=(str(row.get("updated_at") or "").strip() or None),
+    )
+
+@router.post(
+    "/hospital/fleet/repair-links",
+    response_model=HospitalFleetRepairResponse,
+    summary="Repair unlinked ambulances by assigning them to hospital fleet",
+)
+async def repair_hospital_fleet_links(
+    current_user: dict = Depends(get_current_user),
+    hospital_id: str | None = Query(default=None, description="optional hospital id for admin"),
+) -> HospitalFleetRepairResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=hospital_id,
+    )
+
+    if not effective_hospital_id:
+        raise HTTPException(status_code=400, detail="Hospital linkage could not be resolved for this account")
+
+    ambulances, amb_code = await db_query(
+        "ambulances",
+        columns="id,hospital_id",
+        params={"order": "created_at.desc"},
+    )
+    if amb_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load ambulances for repair")
+
+    unlinked = [
+        row for row in (ambulances or []) if not str(row.get("hospital_id") or "").strip()
+    ]
+
+    repaired_ambulance_ids: list[str] = []
+    repaired_driver_profiles = 0
+    for amb in unlinked:
+        ambulance_id = str(amb.get("id") or "")
+        if not ambulance_id:
+            continue
+
+        _, update_code = await db_update(
+            "ambulances",
+            {"id": ambulance_id},
+            {"hospital_id": effective_hospital_id},
+        )
+        if update_code not in (200, 204):
+            continue
+
+        repaired_ambulance_ids.append(ambulance_id)
+
+        profile_rows, profile_code = await db_select(
+            "profiles",
+            {"ambulance_id": ambulance_id},
+            columns="id,hospital_id",
+        )
+        if profile_code in (200, 206) and profile_rows:
+            for driver_profile in profile_rows:
+                if str(driver_profile.get("hospital_id") or "").strip():
+                    continue
+                _, prof_update_code = await db_update(
+                    "profiles",
+                    {"id": str(driver_profile.get("id") or "")},
+                    {"hospital_id": effective_hospital_id},
+                )
+                if prof_update_code in (200, 204):
+                    repaired_driver_profiles += 1
+
+    return HospitalFleetRepairResponse(
+        hospital_id=effective_hospital_id,
+        scanned_unlinked_ambulances=len(unlinked),
+        repaired_ambulances=len(repaired_ambulance_ids),
+        repaired_driver_profiles=repaired_driver_profiles,
+        repaired_ambulance_ids=repaired_ambulance_ids,
     )
 
 

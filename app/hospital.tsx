@@ -11,7 +11,7 @@ import {
     getHospitalCapacityBoard,
     normalizeEmergency,
 } from "@/utils/emergency";
-import { backendGet, backendPut } from "@/utils/api";
+import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -43,6 +43,21 @@ interface HospitalFleetResponse {
   available_ambulances: number;
   busy_ambulances: number;
   ambulances: any[];
+}
+
+interface HospitalFleetRepairResponse {
+  hospital_id: string;
+  scanned_unlinked_ambulances: number;
+  repaired_ambulances: number;
+  repaired_driver_profiles: number;
+  repaired_ambulance_ids: string[];
+}
+
+interface HospitalProfileResponse {
+  hospital_id: string;
+  name?: string | null;
+  address?: string | null;
+  phone?: string | null;
 }
 
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
@@ -88,6 +103,8 @@ export default function HospitalDashboard() {
   const [search, setSearch] = useState("");
   const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
   const [capacityUtilization, setCapacityUtilization] = useState<number | null>(null);
+  const [repairingFleet, setRepairingFleet] = useState(false);
+  const [hospitalName, setHospitalName] = useState("Hospital Dashboard");
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -99,9 +116,10 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      const [emergencyResult, fleetResult, capacityResult] = await Promise.allSettled([
+      const [emergencyResult, fleetResult, profileResult, capacityResult] = await Promise.allSettled([
         backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
         backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
+        backendGet<HospitalProfileResponse>("/ops/hospital/profile"),
         getHospitalCapacityBoard(),
       ]);
 
@@ -134,6 +152,17 @@ export default function HospitalDashboard() {
         console.warn("Hospital fleet unavailable:", fleetResult.reason);
       }
 
+      if (profileResult && profileResult.status === "fulfilled") {
+        const resolvedName = String(profileResult.value?.name || "").trim();
+        if (resolvedName) {
+          setHospitalName(resolvedName);
+        } else if (user?.fullName) {
+          setHospitalName(user.fullName);
+        }
+      } else if (user?.fullName) {
+        setHospitalName(user.fullName);
+      }
+
       if (capacityResult.status === "fulfilled") {
         const rows = Array.isArray((capacityResult.value as any)?.hospitals) ? (capacityResult.value as any).hospitals : [];
         const match = rows.find((h: any) => String(h?.hospital_id || "") === String((fleetResult.status === "fulfilled" ? fleetResult.value?.hospital_id : "") || ""));
@@ -150,7 +179,7 @@ export default function HospitalDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [showError]);
+  }, [showError, user?.fullName]);
 
   const updateStatus = async (
     emergencyId: string,
@@ -168,6 +197,29 @@ export default function HospitalDashboard() {
       setModalVisible(false);
     } catch {
       showError("Update Failed", "Failed to update status");
+    }
+  };
+
+  const repairFleetLinks = async () => {
+    if (repairingFleet) return;
+    setRepairingFleet(true);
+    try {
+      const result = await backendPost<HospitalFleetRepairResponse>(
+        "/ops/hospital/fleet/repair-links",
+        {},
+      );
+      await fetchEmergencies();
+      showSuccess(
+        "Fleet Linked",
+        `Repaired ${result.repaired_ambulances}/${result.scanned_unlinked_ambulances} ambulances and ${result.repaired_driver_profiles} driver profiles.`,
+      );
+    } catch (error) {
+      showError(
+        "Repair Failed",
+        String((error as any)?.message || "Could not repair ambulance links"),
+      );
+    } finally {
+      setRepairingFleet(false);
     }
   };
 
@@ -450,7 +502,7 @@ export default function HospitalDashboard() {
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="Erdataya Hospital"
+        title={hospitalName}
         onProfilePress={() => setProfileVisible(true)}
       />
 
@@ -511,6 +563,29 @@ export default function HospitalDashboard() {
               <ThemedText style={[styles.capacityInlineText, { color: colors.text }]}>Live Capacity Utilization: {capacityUtilization}%</ThemedText>
             </View>
           ) : null}
+
+          <View style={styles.fleetActionsRow}>
+            <ThemedText style={[styles.fleetMetaText, { color: subText }]}>
+              Fleet: {fleet?.total_ambulances ?? 0} ambulances linked
+            </ThemedText>
+            <Pressable
+              onPress={repairFleetLinks}
+              disabled={repairingFleet}
+              style={({ pressed }) => [
+                styles.repairBtn,
+                { opacity: pressed || repairingFleet ? 0.8 : 1 },
+              ]}
+            >
+              {repairingFleet ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <MaterialIcons name="build-circle" size={16} color="#FFFFFF" />
+              )}
+              <ThemedText style={styles.repairBtnText}>
+                {repairingFleet ? "Repairing..." : "Repair Ambulance Links"}
+              </ThemedText>
+            </Pressable>
+          </View>
 
           {/* Search bar */}
           <View
@@ -1031,6 +1106,31 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   capacityInlineText: { fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans },
+  fleetActionsRow: {
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  fleetMetaText: { fontSize: 12, fontFamily: Fonts.sans },
+  repairBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#0F766E",
+  },
+  repairBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
 
   searchWrap: {
     flexDirection: "row",

@@ -1,8 +1,23 @@
 import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
-const BACKEND_URL =
+const ENV_BACKEND_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+
+function resolveBackendUrl(): string {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isLocalWeb = host === "localhost" || host === "127.0.0.1";
+    const pointsToTunnel =
+      ENV_BACKEND_URL.includes("ngrok") || ENV_BACKEND_URL.includes(".dev");
+    if (isLocalWeb && pointsToTunnel) {
+      return "http://localhost:8000";
+    }
+  }
+  return ENV_BACKEND_URL;
+}
+
+const BACKEND_URL = resolveBackendUrl();
 
 export type UserRole =
   | "patient"
@@ -17,6 +32,14 @@ export interface AuthUser {
   fullName?: string;
   phone?: string;
   hospitalId?: string;
+}
+
+export interface RegistrationHospitalOption {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  is_accepting_emergencies?: boolean;
 }
 
 type PhoneLoginResponse = {
@@ -138,6 +161,23 @@ const toProfilePhoneCandidates = (phone: string): string[] => {
   );
 };
 
+export const getRegistrationHospitalOptions = async (): Promise<{
+  hospitals: RegistrationHospitalOption[];
+  error: Error | null;
+}> => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/hospitals/available`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.detail || `Failed to load hospitals (${res.status})`);
+    }
+    const data = (await res.json()) as RegistrationHospitalOption[];
+    return { hospitals: Array.isArray(data) ? data : [], error: null };
+  } catch (error) {
+    return { hospitals: [], error: error as Error };
+  }
+};
+
 const findExistingProfileByPhone = async (phone: string) => {
   try {
     const candidates = toProfilePhoneCandidates(phone);
@@ -212,6 +252,7 @@ export const signUp = async (
   password: string,
   role: UserRole = "patient",
   fullName: string = "",
+  hospitalId?: string,
   location?: { latitude: number; longitude: number } | null,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
@@ -256,6 +297,7 @@ export const signUp = async (
         full_name: fullName,
         phone: ethPhone,
         role,
+        hospital_id: hospitalId,
         latitude: location?.latitude,
         longitude: location?.longitude,
       }),

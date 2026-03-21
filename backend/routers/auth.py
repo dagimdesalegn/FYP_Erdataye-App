@@ -59,6 +59,7 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=9, max_length=16)
     role: Literal["patient", "ambulance", "driver"] = "patient"
+    hospital_id: str | None = Field(default=None, description="Optional selected hospital for ambulance/driver")
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
@@ -87,6 +88,14 @@ class RegisterResponse(BaseModel):
     user_id: str
     hospital_id: str | None = None
     message: str
+
+
+class PublicHospitalOption(BaseModel):
+    id: str
+    name: str
+    address: str | None = None
+    phone: str | None = None
+    is_accepting_emergencies: bool = True
 
 
 
@@ -149,6 +158,14 @@ class ProvisionHospitalRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=72)
     hospital_name: str = Field(..., min_length=1, max_length=120)
     address: str = Field(default="Not set", min_length=1, max_length=200)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    is_accepting_emergencies: bool = True
+    max_concurrent_emergencies: int | None = Field(default=None, ge=1, le=500)
+    trauma_capable: bool = False
+    icu_beds_available: int | None = Field(default=None, ge=0, le=1000)
+    average_handover_minutes: int | None = Field(default=None, ge=1, le=240)
+    dispatch_weight: float | None = Field(default=None, ge=0.1, le=5.0)
 
     @field_validator("hospital_name")
     @classmethod
@@ -251,6 +268,10 @@ def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
         return None
 
 
+def _to_point_wkt(latitude: float, longitude: float) -> str:
+    return f"SRID=4326;POINT({longitude} {latitude})"
+
+
 def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     r = 6371.0
     d_lat = radians(lat2 - lat1)
@@ -294,6 +315,42 @@ async def _find_nearest_hospital_id(latitude: float, longitude: float) -> str | 
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+@router.get(
+    "/hospitals/available",
+    response_model=list[PublicHospitalOption],
+    summary="List hospitals available for ambulance registration",
+)
+async def list_available_hospitals() -> list[PublicHospitalOption]:
+    rows, code = await db_select(
+        "hospitals",
+        {},
+        columns="id,name,address,phone,is_accepting_emergencies",
+    )
+    if code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Failed to load hospitals")
+
+    options: list[PublicHospitalOption] = []
+    for row in rows or []:
+        if row.get("is_accepting_emergencies") is False:
+            continue
+        hospital_id = str(row.get("id") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not hospital_id or not name:
+            continue
+        options.append(
+            PublicHospitalOption(
+                id=hospital_id,
+                name=name,
+                address=(str(row.get("address") or "").strip() or None),
+                phone=(str(row.get("phone") or "").strip() or None),
+                is_accepting_emergencies=bool(row.get("is_accepting_emergencies", True)),
+            )
+        )
+
+    options.sort(key=lambda item: item.name.lower())
+    return options
+
+
 @router.post(
     "/register",
     response_model=RegisterResponse,
@@ -308,7 +365,12 @@ async def register(req: RegisterRequest) -> RegisterResponse:
     - Service-role key never leaves this server
     """
     resolved_hospital_id: str | None = None
-    if (
+    if req.hospital_id:
+        selected_rows, selected_code = await db_select("hospitals", {"id": req.hospital_id}, columns="id")
+        if selected_code not in (200, 206) or not selected_rows:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected hospital was not found")
+        resolved_hospital_id = req.hospital_id
+    elif (
         req.role in ("patient", "ambulance", "driver")
         and req.latitude is not None
         and req.longitude is not None
@@ -427,6 +489,30 @@ async def provision_hospital(
     if requester_role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can create hospital accounts")
 
+    location_wkt = (
+        _to_point_wkt(req.latitude, req.longitude)
+        if req.latitude is not None and req.longitude is not None
+        else None
+    )
+
+    hospital_payload: dict = {
+        "name": req.hospital_name,
+        "address": req.address,
+        "phone": req.phone,
+        "is_accepting_emergencies": req.is_accepting_emergencies,
+        "trauma_capable": req.trauma_capable,
+    }
+    if req.max_concurrent_emergencies is not None:
+        hospital_payload["max_concurrent_emergencies"] = req.max_concurrent_emergencies
+    if req.icu_beds_available is not None:
+        hospital_payload["icu_beds_available"] = req.icu_beds_available
+    if req.average_handover_minutes is not None:
+        hospital_payload["average_handover_minutes"] = req.average_handover_minutes
+    if req.dispatch_weight is not None:
+        hospital_payload["dispatch_weight"] = req.dispatch_weight
+    if location_wkt:
+        hospital_payload["location"] = location_wkt
+
     existing_rows, existing_code = await db_select(
         "hospitals",
         {"phone": req.phone},
@@ -434,14 +520,17 @@ async def provision_hospital(
     )
     if existing_code in (200, 206) and existing_rows:
         hospital_id = str(existing_rows[0].get("id"))
+        _, update_code = await db_upsert(
+            "hospitals",
+            {"id": hospital_id, **hospital_payload},
+            on_conflict="id",
+        )
+        if update_code not in (200, 201):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update hospital details")
     else:
         inserted, insert_code = await db_insert(
             "hospitals",
-            {
-                "name": req.hospital_name,
-                "address": req.address,
-                "phone": req.phone,
-            },
+            hospital_payload,
         )
         if insert_code not in (200, 201) or not inserted:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create hospital record")
