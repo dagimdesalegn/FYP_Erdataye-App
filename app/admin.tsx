@@ -228,12 +228,35 @@ export default function AdminScreen() {
 
   /* ─── computed ────────────────────────────────────────────── */
 
+  const usersViewData = React.useMemo<Profile[]>(() => {
+    const hospitalPhonesInProfiles = new Set(
+      users
+        .filter((u) => u.role === "hospital")
+        .map((u) => (u.phone ?? "").trim())
+        .filter(Boolean),
+    );
+
+    const hospitalsAsUsers: Profile[] = hospitals
+      .filter((h) => !hospitalPhonesInProfiles.has((h.phone ?? "").trim()))
+      .map((h) => ({
+        id: h.id,
+        full_name: h.name,
+        phone: h.phone,
+        role: "hospital",
+        hospital_id: h.id,
+        created_at: h.created_at,
+        updated_at: h.created_at,
+      }));
+
+    return [...users, ...hospitalsAsUsers];
+  }, [users, hospitals]);
+
   const roleCounts = {
-    all: users.length,
-    patient: users.filter((u) => u.role === "patient").length,
-    ambulance: users.filter((u) => u.role === "ambulance" || u.role === "driver").length,
-    admin: users.filter((u) => u.role === "admin").length,
-    hospital: users.filter((u) => u.role === "hospital").length,
+    all: usersViewData.length,
+    patient: usersViewData.filter((u) => u.role === "patient").length,
+    ambulance: usersViewData.filter((u) => u.role === "ambulance" || u.role === "driver").length,
+    admin: usersViewData.filter((u) => u.role === "admin").length,
+    hospital: usersViewData.filter((u) => u.role === "hospital").length,
   };
 
   const activeEmergencies = emergencies.filter(
@@ -241,8 +264,14 @@ export default function AdminScreen() {
   );
   const availableAmbulances = ambulances.filter((a) => a.is_available);
 
-  const filteredUsers = users.filter((u) => {
-    if (filterRole !== "all" && u.role !== filterRole) return false;
+  const filteredUsers = usersViewData.filter((u) => {
+    if (filterRole === "ambulance") {
+      if (u.role !== "ambulance") {
+        if (u.role !== "driver") return false;
+      }
+    } else if (filterRole !== "all") {
+      if (u.role !== filterRole) return false;
+    }
     if (!search) return true;
     const q = search.toLowerCase();
     return (
