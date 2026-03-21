@@ -116,6 +116,10 @@ export default function PatientEmergencyTrackingScreen() {
     longitude: number;
   } | null>(null);
   const [sharingLink, setSharingLink] = useState(false);
+  const [cachedShareLink, setCachedShareLink] = useState<{
+    shareUrl: string;
+    expiresAt: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusNotification, setStatusNotification] = useState<string | null>(
     null,
@@ -380,17 +384,35 @@ export default function PatientEmergencyTrackingScreen() {
     if (!emergencyId || typeof emergencyId !== "string") return;
     try {
       setSharingLink(true);
-      const {
-        shareUrl,
-        expiresAt,
-        error: shareError,
-      } = await createFamilyShareLink(emergencyId, 180);
+      const getShareLink = async () => {
+        if (cachedShareLink) {
+          const expiresMs = new Date(cachedShareLink.expiresAt).getTime();
+          if (Number.isFinite(expiresMs) && expiresMs - Date.now() > 60 * 1000) {
+            return {
+              shareUrl: cachedShareLink.shareUrl,
+              expiresAt: cachedShareLink.expiresAt,
+              error: null as Error | null,
+            };
+          }
+        }
 
+        const created = await createFamilyShareLink(emergencyId, 180);
+        if (!created.error && created.shareUrl) {
+          setCachedShareLink({
+            shareUrl: created.shareUrl,
+            expiresAt: created.expiresAt,
+          });
+        }
+        return {
+          shareUrl: created.shareUrl,
+          expiresAt: created.expiresAt,
+          error: created.error,
+        };
+      };
+
+      const { shareUrl, expiresAt, error: shareError } = await getShareLink();
       if (shareError || !shareUrl) {
-        showError(
-          "Share Failed",
-          shareError?.message || "Unable to create share link.",
-        );
+        showError("Share Failed", shareError?.message || "Unable to create share link.");
         return;
       }
 
@@ -424,6 +446,50 @@ export default function PatientEmergencyTrackingScreen() {
         "Share Failed",
         error?.message || "Unable to share tracking link.",
       );
+    } finally {
+      setSharingLink(false);
+    }
+  };
+
+  const onShareViaWhatsApp = async () => {
+    if (!emergencyId || typeof emergencyId !== "string") return;
+    try {
+      setSharingLink(true);
+
+      let shareUrl = cachedShareLink?.shareUrl || "";
+      let expiresAt = cachedShareLink?.expiresAt || "";
+      const expiresMs = expiresAt ? new Date(expiresAt).getTime() : 0;
+      const isCachedValid = Boolean(
+        shareUrl && Number.isFinite(expiresMs) && expiresMs - Date.now() > 60 * 1000,
+      );
+
+      if (!isCachedValid) {
+        const created = await createFamilyShareLink(emergencyId, 180);
+        if (created.error || !created.shareUrl) {
+          showError(
+            "Share Failed",
+            created.error?.message || "Unable to create share link.",
+          );
+          return;
+        }
+        shareUrl = created.shareUrl;
+        expiresAt = created.expiresAt;
+        setCachedShareLink({ shareUrl, expiresAt });
+      }
+
+      const message = `Live emergency tracking link: ${shareUrl}\nExpires: ${new Date(expiresAt).toLocaleString()}`;
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      const canOpen = await Linking.canOpenURL(waUrl);
+      if (!canOpen) {
+        showError(
+          "WhatsApp Unavailable",
+          "WhatsApp is not available on this device. Use Share Live Link instead.",
+        );
+        return;
+      }
+      await Linking.openURL(waUrl);
+    } catch (error: any) {
+      showError("Share Failed", error?.message || "Unable to open WhatsApp share.");
     } finally {
       setSharingLink(false);
     }
@@ -1331,6 +1397,27 @@ export default function PatientEmergencyTrackingScreen() {
                   : Platform.OS === "web"
                     ? "Copy Share Link"
                     : "Share Live Link"}
+              </ThemedText>
+            </Pressable>
+
+            <Pressable
+              onPress={onShareViaWhatsApp}
+              disabled={sharingLink}
+              style={{
+                marginTop: 10,
+                backgroundColor: sharingLink ? "#94A3B8" : "#10B981",
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+              }}
+            >
+              <MaterialIcons name="send" size={18} color="#FFF" />
+              <ThemedText
+                style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
+              >
+                {sharingLink ? "Preparing Link..." : "Send via WhatsApp"}
               </ThemedText>
             </Pressable>
           </View>

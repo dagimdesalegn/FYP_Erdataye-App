@@ -2232,7 +2232,23 @@ async def family_share_create(
     current_user: dict = Depends(get_current_user),
 ) -> dict:
     user_id = str(current_user.get("sub") or "")
-    await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+    requester = await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+
+    emergency_rows, emergency_code = await db_select(
+        "emergency_requests",
+        {"id": payload.emergency_id},
+        columns="id,patient_id,status",
+    )
+    if emergency_code not in (200, 206) or not emergency_rows:
+        raise HTTPException(status_code=404, detail="Emergency request not found")
+
+    emergency = emergency_rows[0]
+    requester_role = str(requester.get("role") or "").lower()
+    if requester_role == "patient" and str(emergency.get("patient_id") or "") != user_id:
+        raise HTTPException(status_code=403, detail="You can only share your own emergency request")
+
+    if str(emergency.get("status") or "") in ("completed", "cancelled"):
+        raise HTTPException(status_code=409, detail="Cannot create a share link for a closed emergency")
 
     token = str(uuid4()).replace("-", "")
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=payload.expires_minutes)
