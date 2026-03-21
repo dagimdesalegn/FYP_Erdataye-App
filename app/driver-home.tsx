@@ -27,6 +27,7 @@ import {
     type AmbulanceDetails,
 } from "@/utils/driver";
 import { getUserProfile, type UserProfile } from "@/utils/profile";
+import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
 
 /**
@@ -70,6 +71,7 @@ export default function DriverHomeScreen() {
   const [profileVisible, setProfileVisible] = useState(false);
   const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [hospitalDisplayName, setHospitalDisplayName] = useState<string>("Not assigned");
 
   // Load driver's ambulance ID and details
   useEffect(() => {
@@ -126,6 +128,31 @@ export default function DriverHomeScreen() {
     };
     loadHistory();
   }, [user]);
+
+  useEffect(() => {
+    const resolveHospitalName = async () => {
+      const hospitalId = ambulanceDetails?.hospital_id || driverProfile?.hospital_id;
+      if (!hospitalId) {
+        setHospitalDisplayName("Not assigned");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("hospitals")
+        .select("name")
+        .eq("id", hospitalId)
+        .maybeSingle();
+
+      if (error) {
+        setHospitalDisplayName(String(hospitalId));
+        return;
+      }
+
+      setHospitalDisplayName(String(data?.name || hospitalId));
+    };
+
+    resolveHospitalName();
+  }, [ambulanceDetails?.hospital_id, driverProfile?.hospital_id]);
 
   // Check for existing assignment
   useEffect(() => {
@@ -753,7 +780,7 @@ export default function DriverHomeScreen() {
                 <InfoRow
                   icon="local-hospital"
                   label="Hospital"
-                  value={driverProfile.hospital_id || "Not assigned"}
+                  value={hospitalDisplayName}
                 />
                 <InfoRow
                   icon="calendar-today"

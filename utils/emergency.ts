@@ -239,11 +239,21 @@ export interface DispatchRecommendation {
 /** Normalize a raw emergency_requests row into our EmergencyRequest interface. */
 export function normalizeEmergency(raw: any): EmergencyRequest {
   const parsed = parsePostGISPoint(raw?.patient_location);
+  const rawLat = raw?.latitude;
+  const rawLng = raw?.longitude;
+  const normalizedLat =
+    rawLat !== null && rawLat !== undefined && Number.isFinite(Number(rawLat))
+      ? Number(rawLat)
+      : (parsed?.latitude ?? 0);
+  const normalizedLng =
+    rawLng !== null && rawLng !== undefined && Number.isFinite(Number(rawLng))
+      ? Number(rawLng)
+      : (parsed?.longitude ?? 0);
   return {
     ...raw,
     emergency_type: raw?.emergency_type ?? "medical",
-    latitude: parsed?.latitude ?? 0,
-    longitude: parsed?.longitude ?? 0,
+    latitude: normalizedLat,
+    longitude: normalizedLng,
   } as EmergencyRequest;
 }
 
