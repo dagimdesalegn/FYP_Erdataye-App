@@ -24,7 +24,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signUp } from "@/utils/auth";
-import { upsertDriverAmbulance } from "@/utils/driver";
+import { ensureAmbulanceHospitalLink, upsertDriverAmbulance } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
 
@@ -288,6 +288,12 @@ export default function RegisterScreen() {
             );
           } else {
             console.log("Ambulance linked to driver:", ambulanceId);
+            if (ambulanceId) {
+              await ensureAmbulanceHospitalLink(ambulanceId, {
+                latitude: signupLocation?.latitude,
+                longitude: signupLocation?.longitude,
+              });
+            }
           }
         } catch (err) {
           console.warn("Exception creating ambulance:", err);
@@ -1115,3 +1121,5 @@ const styles = StyleSheet.create({
     color: "#DC2626",
   },
 });
+
+

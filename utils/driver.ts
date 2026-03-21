@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
-import { backendGet } from "./api";
-import { toPostGISPoint } from "./emergency";
+import { backendGet, backendPost } from "./api";
+import { calculateDistance, parsePostGISPoint, toPostGISPoint } from "./emergency";
 
 export interface AmbulanceAssignment {
   id: string;
@@ -862,4 +862,113 @@ export const subscribeToEmergencyStatus = (
   return () => {
     void supabase.removeChannel(channel);
   };
+};
+
+
+
+
+export const ensureAmbulanceHospitalLink = async (
+  ambulanceId: string,
+  opts?: { latitude?: number; longitude?: number; force?: boolean },
+): Promise<{
+  success: boolean;
+  hospitalId: string | null;
+  distanceKm: number | null;
+  error: Error | null;
+}> => {
+  try {
+    const { data: amb, error: ambError } = await supabase
+      .from("ambulances")
+      .select("id,hospital_id,last_known_location,current_driver_id")
+      .eq("id", ambulanceId)
+      .maybeSingle();
+    if (ambError) throw ambError;
+    if (!amb) {
+      return {
+        success: false,
+        hospitalId: null,
+        distanceKm: null,
+        error: new Error("Ambulance not found"),
+      };
+    }
+
+    if (amb.hospital_id && !opts?.force) {
+      return { success: true, hospitalId: amb.hospital_id, distanceKm: null, error: null };
+    }
+
+    let latitude = opts?.latitude;
+    let longitude = opts?.longitude;
+    if (latitude === undefined || longitude === undefined) {
+      const parsed = parsePostGISPoint(amb.last_known_location);
+      if (parsed) {
+        latitude = parsed.latitude;
+        longitude = parsed.longitude;
+      }
+    }
+
+    if (latitude === undefined || longitude === undefined) {
+      return {
+        success: false,
+        hospitalId: null,
+        distanceKm: null,
+        error: new Error("Live location unavailable for hospital linking"),
+      };
+    }
+
+    const { data: hospitals, error: hospError } = await supabase
+      .from("hospitals")
+      .select("id,location,is_accepting_emergencies");
+    if (hospError) throw hospError;
+
+    let bestHospitalId: string | null = null;
+    let bestDistance = Infinity;
+    for (const hospital of hospitals || []) {
+      if (hospital?.is_accepting_emergencies === false) continue;
+      const loc = parsePostGISPoint(hospital?.location);
+      if (!loc) continue;
+      const dist = calculateDistance(latitude, longitude, loc.latitude, loc.longitude);
+      if (dist < bestDistance) {
+        bestDistance = dist;
+        bestHospitalId = String(hospital.id);
+      }
+    }
+
+    if (!bestHospitalId) {
+      return {
+        success: false,
+        hospitalId: null,
+        distanceKm: null,
+        error: new Error("No eligible hospital found"),
+      };
+    }
+
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase
+      .from("ambulances")
+      .update({ hospital_id: bestHospitalId, updated_at: now })
+      .eq("id", ambulanceId);
+    if (updateError) throw updateError;
+
+    if (amb.current_driver_id) {
+      await supabase
+        .from("profiles")
+        .update({ hospital_id: bestHospitalId, updated_at: now })
+        .eq("id", amb.current_driver_id);
+    }
+
+    return {
+      success: true,
+      hospitalId: bestHospitalId,
+      distanceKm: Number.isFinite(bestDistance) ? Math.round(bestDistance * 100) / 100 : null,
+      error: null,
+    };
+  } catch (error) {
+    console.error("Error linking ambulance to nearest hospital:", error);
+    return {
+      success: false,
+      hospitalId: null,
+      distanceKm: null,
+      error: error as Error,
+    };
+  }
 };

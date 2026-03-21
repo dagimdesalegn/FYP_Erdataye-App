@@ -14,6 +14,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import {
+    ensureAmbulanceHospitalLink,
     getDriverAmbulanceDetails,
     getDriverAmbulanceId,
     getDriverAssignment,
@@ -83,7 +84,28 @@ export default function DriverHomeScreen() {
 
       // Also load full details
       const { ambulance } = await getDriverAmbulanceDetails(user.id);
-      if (ambulance) setAmbulanceDetails(ambulance);
+      if (ambulance) {
+        setAmbulanceDetails(ambulance);
+
+        if (!ambulance.hospital_id && id) {
+          try {
+            const { status } = await Location.getForegroundPermissionsAsync();
+            if (status === "granted") {
+              const current = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              await ensureAmbulanceHospitalLink(id, {
+                latitude: current.coords.latitude,
+                longitude: current.coords.longitude,
+              });
+              const { ambulance: refreshed } = await getDriverAmbulanceDetails(user.id);
+              if (refreshed) setAmbulanceDetails(refreshed);
+            }
+          } catch (linkErr) {
+            console.warn("Ambulance-hospital auto-link failed:", linkErr);
+          }
+        }
+      }
     };
 
     loadAmbulance();
@@ -1007,5 +1029,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
+
+
+
 
 
