@@ -451,50 +451,6 @@ export default function PatientEmergencyTrackingScreen() {
     }
   };
 
-  const onShareViaWhatsApp = async () => {
-    if (!emergencyId || typeof emergencyId !== "string") return;
-    try {
-      setSharingLink(true);
-
-      let shareUrl = cachedShareLink?.shareUrl || "";
-      let expiresAt = cachedShareLink?.expiresAt || "";
-      const expiresMs = expiresAt ? new Date(expiresAt).getTime() : 0;
-      const isCachedValid = Boolean(
-        shareUrl && Number.isFinite(expiresMs) && expiresMs - Date.now() > 60 * 1000,
-      );
-
-      if (!isCachedValid) {
-        const created = await createFamilyShareLink(emergencyId, 180);
-        if (created.error || !created.shareUrl) {
-          showError(
-            "Share Failed",
-            created.error?.message || "Unable to create share link.",
-          );
-          return;
-        }
-        shareUrl = created.shareUrl;
-        expiresAt = created.expiresAt;
-        setCachedShareLink({ shareUrl, expiresAt });
-      }
-
-      const message = `Live emergency tracking link: ${shareUrl}\nExpires: ${new Date(expiresAt).toLocaleString()}`;
-      const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-      const canOpen = await Linking.canOpenURL(waUrl);
-      if (!canOpen) {
-        showError(
-          "WhatsApp Unavailable",
-          "WhatsApp is not available on this device. Use Share Live Link instead.",
-        );
-        return;
-      }
-      await Linking.openURL(waUrl);
-    } catch (error: any) {
-      showError("Share Failed", error?.message || "Unable to open WhatsApp share.");
-    } finally {
-      setSharingLink(false);
-    }
-  };
-
   useEffect(() => {
     if (!emergency?.created_at) {
       setCancelRemainingSeconds(0);
@@ -1396,28 +1352,7 @@ export default function PatientEmergencyTrackingScreen() {
                   ? "Preparing Share Link..."
                   : Platform.OS === "web"
                     ? "Copy Share Link"
-                    : "Share Live Link"}
-              </ThemedText>
-            </Pressable>
-
-            <Pressable
-              onPress={onShareViaWhatsApp}
-              disabled={sharingLink}
-              style={{
-                marginTop: 10,
-                backgroundColor: sharingLink ? "#94A3B8" : "#10B981",
-                borderRadius: 12,
-                paddingVertical: 12,
-                alignItems: "center",
-                justifyContent: "center",
-                flexDirection: "row",
-              }}
-            >
-              <MaterialIcons name="send" size={18} color="#FFF" />
-              <ThemedText
-                style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
-              >
-                {sharingLink ? "Preparing Link..." : "Send via WhatsApp"}
+                    : "Share to Any App"}
               </ThemedText>
             </Pressable>
           </View>

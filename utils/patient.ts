@@ -153,6 +153,21 @@ const resolvePublicBackendUrl = (): string => {
   return "http://localhost:8000";
 };
 
+const isShareablePublicUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (!["http:", "https:"].includes(parsed.protocol)) return false;
+    if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") {
+      return false;
+    }
+    if (host.endsWith(".local")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const getEmergencyHospitalStatus = async (
   emergencyId: string,
 ): Promise<{ data: EmergencyHospitalStatus | null; error: Error | null }> => {
@@ -185,6 +200,11 @@ export const createFamilyShareLink = async (
     );
 
     const baseUrl = resolvePublicBackendUrl().replace(/\/$/, "");
+    if (!isShareablePublicUrl(baseUrl)) {
+      throw new Error(
+        "Family share link is not public yet. Set EXPO_PUBLIC_BACKEND_URL to a public HTTPS URL (for example your ngrok URL).",
+      );
+    }
     const shareUrl = `${baseUrl}/ops/family/share/live?share_token=${encodeURIComponent(data.share_token)}`;
 
     return {
