@@ -16,6 +16,7 @@ import {
     parsePostGISPoint,
     toPostGISPoint,
 } from "./emergency";
+import { backendPost } from "./api";
 import { supabase } from "./supabase";
 
 const EMERGENCY_CANCEL_WINDOW_MINUTES = 3;
@@ -46,6 +47,23 @@ export interface PatientEmergency {
   longitude: number;
   created_at: string;
   updated_at: string;
+  dispatch_reason?: string;
+  eta_minutes?: number;
+  route_to_patient_url?: string;
+  route_to_hospital_url?: string;
+}
+
+interface EmergencyDispatchApiResponse {
+  emergency_id: string;
+  status: string;
+  hospital_id: string | null;
+  assigned_ambulance_id: string | null;
+  distance_to_ambulance_km: number | null;
+  distance_to_hospital_km: number | null;
+  eta_minutes: number | null;
+  route_to_patient_url: string | null;
+  route_to_hospital_url: string | null;
+  reason: string;
 }
 
 export interface EmergencyAssignment {
@@ -129,6 +147,41 @@ export const createEmergency = async (
       );
     }
 
+    // Preferred path: backend dispatch (nearest hospital + ambulance pairing)
+    try {
+      const dispatch = await backendPost<EmergencyDispatchApiResponse>(
+        "/ops/patient/emergencies",
+        {
+          latitude,
+          longitude,
+          emergency_type: emergencyType,
+          description: description || null,
+          max_radius_km: 50,
+        },
+      );
+
+      const { data: created, error: fetchErr } = await supabase
+        .from("emergency_requests")
+        .select("*")
+        .eq("id", dispatch.emergency_id)
+        .maybeSingle();
+
+      if (fetchErr || !created) {
+        throw fetchErr || new Error("Dispatch created but emergency record not found.");
+      }
+
+      const emergency = normalizeEmergency(created);
+      emergency.dispatch_reason = dispatch.reason;
+      emergency.eta_minutes = dispatch.eta_minutes ?? undefined;
+      emergency.route_to_patient_url = dispatch.route_to_patient_url ?? undefined;
+      emergency.route_to_hospital_url = dispatch.route_to_hospital_url ?? undefined;
+
+      return { emergency, error: null };
+    } catch (backendErr) {
+      console.warn("Backend dispatch unavailable, using legacy fallback:", backendErr);
+    }
+
+    // Fallback path: direct insert + nearest ambulance assignment
     const timestamp = new Date().toISOString();
     const { data, error } = await supabase
       .from("emergency_requests")
@@ -148,13 +201,8 @@ export const createEmergency = async (
 
     const emergency = normalizeEmergency(data);
 
-    // Auto-assign nearest ambulance (best-effort, non-blocking)
     try {
-      const { ambulanceId } = await findNearestAmbulance(
-        latitude,
-        longitude,
-        50,
-      );
+      const { ambulanceId } = await findNearestAmbulance(latitude, longitude, 50);
       if (ambulanceId && emergency) {
         await assignAmbulance(emergency.id, ambulanceId);
         emergency.assigned_ambulance_id = ambulanceId;

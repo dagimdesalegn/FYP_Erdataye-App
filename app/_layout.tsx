@@ -81,16 +81,7 @@ function ThemedRoot() {
           <Stack.Screen
             name="staff"
             options={{ headerShown: false, title: "Staff Login" }}
-          />
-          <Stack.Screen
-            name="admin-login"
-            options={{ headerShown: false, title: "Admin Login" }}
-          />
-          <Stack.Screen
-            name="hospital-login"
-            options={{ headerShown: false, title: "Hospital Login" }}
-          />
-          <Stack.Screen
+          /><Stack.Screen
             name="register"
             options={{ headerShown: false, title: "Register" }}
           />
@@ -164,3 +155,4 @@ function ThemedRoot() {
     </View>
   );
 }
+

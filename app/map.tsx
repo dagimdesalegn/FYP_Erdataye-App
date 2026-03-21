@@ -46,6 +46,10 @@ export default function MapScreen() {
     (Hospital & { lat: number; lng: number })[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const locationWatcherRef = React.useRef<Location.LocationSubscription | null>(
+    null,
+  );
+  
 
   const textColor = colors.text;
   const subText = colors.textMuted;
@@ -229,7 +233,7 @@ export default function MapScreen() {
           <ThemedText
             style={{ marginTop: 16, color: textColor, fontFamily: Fonts.sans }}
           >
-            Loading map…
+            Loading map...
           </ThemedText>
         </View>
       </ThemedView>
@@ -295,14 +299,14 @@ export default function MapScreen() {
               Ambulance {amb.vehicle_number}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              Type: {amb.type || "Standard"} • {formatCoords(amb.lat, amb.lng)}
+              Type: {amb.type || "Standard"} - {formatCoords(amb.lat, amb.lng)}
             </ThemedText>
           </View>
         ))}
 
         {/* Emergencies */}
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-          ⚠️ Emergencies ({emergencies.length})
+          (!) Emergencies ({emergencies.length})
         </ThemedText>
         {emergencies.length === 0 && (
           <ThemedText style={[styles.emptyText, { color: subText }]}>
@@ -317,7 +321,7 @@ export default function MapScreen() {
               style={[styles.card, { borderColor: colors.danger }]}
             >
               <ThemedText style={[styles.cardTitle, { color: textColor }]}>
-                {e.emergency_type} — {e.status}
+                {e.emergency_type} - {e.status}
               </ThemedText>
               <ThemedText style={[styles.cardSub, { color: subText }]}>
                 {e.description}
@@ -327,7 +331,7 @@ export default function MapScreen() {
 
         {/* Hospitals */}
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-          🏥 Hospitals ({hospitals.length})
+          Hospitals ({hospitals.length})
         </ThemedText>
         {hospitals.length === 0 && (
           <ThemedText style={[styles.emptyText, { color: subText }]}>
@@ -346,7 +350,7 @@ export default function MapScreen() {
               {h.name}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              {h.address} • 📞 {h.phone}
+              {h.address} - phone: {h.phone}
             </ThemedText>
           </View>
         ))}
@@ -430,3 +434,5 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+

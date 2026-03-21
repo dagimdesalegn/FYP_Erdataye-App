@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     Animated,
     Pressable,
@@ -92,20 +92,6 @@ export default function PatientEmergencyScreen() {
   >([]);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
-
-  const nearestDistanceKm = useMemo(() => {
-    if (nearbyAmbulances.length === 0) return null;
-    return nearbyAmbulances.reduce((min, a) => Math.min(min, a.distanceKm), Infinity);
-  }, [nearbyAmbulances]);
-
-  const estimatedArrivalMinutes = useMemo(() => {
-    if (nearestDistanceKm === null || !Number.isFinite(nearestDistanceKm)) {
-      return null;
-    }
-    // Simple urban estimate: ~35 km/h average + 1 minute dispatch overhead.
-    return Math.max(2, Math.round((nearestDistanceKm / 35) * 60 + 1));
-  }, [nearestDistanceKm]);
-
   const canCancelByWindow =
     cancelRemainingSeconds > 0 &&
     ["pending", "assigned"].includes(activeEmergencyStatus || "pending");
@@ -192,14 +178,14 @@ export default function PatientEmergencyScreen() {
     }
   };
 
-  // Subscribe to emergency status changes → notify patient & auto-navigate
+  // Subscribe to emergency status changes -> notify patient & auto-navigate
   useEffect(() => {
     if (!activeEmergencyId) return;
     const unsub = subscribeToEmergency(activeEmergencyId, (updated) => {
       const status = updated?.status;
       setActiveEmergencyStatus(status ?? null);
       if (status === "en_route" || status === "assigned") {
-        // Ambulance accepted → show notification and go to tracking
+        // Ambulance accepted -> show notification and go to tracking
         const msg =
           status === "en_route"
             ? "An ambulance is now on its way to your location!"
@@ -333,7 +319,7 @@ export default function PatientEmergencyScreen() {
         description || null,
         patientCondition ? `Condition: ${patientCondition}` : null,
       ].filter(Boolean);
-      const fullDescription = parts.length > 0 ? parts.join(" — ") : undefined;
+      const fullDescription = parts.length > 0 ? parts.join(" - ") : undefined;
 
       const { emergency, error } = await createEmergency(
         user.id,
@@ -360,8 +346,18 @@ export default function PatientEmergencyScreen() {
       setOtherPersonName("");
       setOtherPersonContact("");
 
+      const etaNote =
+        typeof emergency.eta_minutes === "number"
+          ? `\nEstimated ambulance arrival: ${emergency.eta_minutes} min.`
+          : "";
+      const hospitalNote = emergency.hospital_id
+        ? "\nNearest hospital has been linked to your request."
+        : "";
       const successMsg =
-        "Your emergency request has been sent. Ambulance dispatch is in progress.\n\nStay calm and follow dispatcher instructions.";
+        "Your emergency request has been sent. Ambulance dispatch is in progress." +
+        etaNote +
+        hospitalNote +
+        "\n\nStay calm and follow dispatcher instructions.";
       showSuccess("Emergency Request Sent", successMsg);
 
       // Navigate to tracking screen
@@ -627,7 +623,7 @@ export default function PatientEmergencyScreen() {
           ) : (
             // No Emergency View
             <>
-              {/* ── Map Box: Your location + nearby ambulances ─── */}
+              {/* Map: Your location + nearby ambulances */}
               {location && (
                 <View
                   style={[styles.mapSection, { borderColor: colors.border }]}
@@ -670,30 +666,6 @@ export default function PatientEmergencyScreen() {
                           : "Searching for ambulances..."}
                       </ThemedText>
                     </View>
-                    {nearbyAmbulances.length > 0 && (
-                      <View style={styles.routeMetaRow}>
-                        <ThemedText
-                          style={[
-                            styles.routeHint,
-                            { color: colors.textMuted, marginBottom: 0 },
-                          ]}
-                        >
-                          Route preview: nearest ambulance to your location
-                        </ThemedText>
-                        {estimatedArrivalMinutes !== null && (
-                          <View style={styles.etaBadge}>
-                            <MaterialIcons
-                              name="schedule"
-                              size={13}
-                              color="#0369A1"
-                            />
-                            <ThemedText style={styles.etaText}>
-                              ETA {estimatedArrivalMinutes} min
-                            </ThemedText>
-                          </View>
-                        )}
-                      </View>
-                    )}
                     {nearbyAmbulances.slice(0, 3).map((amb, idx) => (
                       <View
                         key={idx}
@@ -725,7 +697,7 @@ export default function PatientEmergencyScreen() {
                           { color: colors.textMuted },
                         ]}
                       >
-                        No ambulances nearby — your request will still be
+                        No ambulances nearby - your request will still be
                         dispatched
                       </ThemedText>
                     )}
@@ -1166,3 +1138,7 @@ const styles = StyleSheet.create({
     color: "#0369A1",
   },
 });
+
+
+
+

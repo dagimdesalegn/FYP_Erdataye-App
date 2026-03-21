@@ -1,4 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -188,12 +189,29 @@ export default function RegisterScreen() {
         role: userRole,
       });
 
+      let signupLocation: { latitude: number; longitude: number } | null = null;
+      try {
+        const permission = await Location.getForegroundPermissionsAsync();
+        if (permission.status === "granted") {
+          const current = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          signupLocation = {
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          };
+        }
+      } catch {
+        signupLocation = null;
+      }
+
       // Sign up user with role (send E.164 phone for auth, Ethiopian format for profile)
       const { user, error } = await signUp(
         "+251" + form.phone,
         form.password,
         userRole,
         form.fullName.trim(),
+        signupLocation,
       );
 
       console.log("Signup result:", { user, error });
@@ -256,6 +274,7 @@ export default function RegisterScreen() {
             form.plateNumber,
             form.registrationNumber,
             form.ambulanceType,
+            user.hospitalId,
           );
 
           if (ambError) {

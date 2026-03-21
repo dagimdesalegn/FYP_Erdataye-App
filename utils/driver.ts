@@ -179,6 +179,7 @@ export const upsertDriverAmbulance = async (
   vehicleNumber: string,
   registrationNumber: string = "",
   ambulanceType: string = "standard",
+  hospitalId?: string,
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
@@ -197,6 +198,7 @@ export const upsertDriverAmbulance = async (
         type: ambulanceType,
         updated_at: now,
       };
+      if (hospitalId) updatePayload.hospital_id = hospitalId;
       if (registrationNumber)
         updatePayload.registration_number = registrationNumber;
       const { error: updateErr } = await db
@@ -223,6 +225,7 @@ export const upsertDriverAmbulance = async (
       created_at: now,
       updated_at: now,
     };
+    if (hospitalId) insertPayload.hospital_id = hospitalId;
     if (registrationNumber)
       insertPayload.registration_number = registrationNumber;
 

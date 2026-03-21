@@ -13,6 +13,7 @@ Security rationale:
 
 import re
 from datetime import datetime, timezone
+from math import asin, cos, radians, sin, sqrt
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -58,6 +59,8 @@ class RegisterRequest(BaseModel):
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=9, max_length=16)
     role: Literal["patient", "ambulance", "driver"] = "patient"
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
     @field_validator("full_name")
     @classmethod
@@ -82,6 +85,7 @@ class RegisterRequest(BaseModel):
 
 class RegisterResponse(BaseModel):
     user_id: str
+    hospital_id: str | None = None
     message: str
 
 
@@ -230,8 +234,59 @@ async def _create_user_with_profile(
 
     return RegisterResponse(
         user_id=user_id,
+        hospital_id=hospital_id,
         message="Account created successfully. Please sign in.",
     )
+
+
+def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
+    if not value:
+        return None
+    try:
+        point_part = value.split(";")[-1]
+        inside = point_part[point_part.find("(") + 1 : point_part.rfind(")")]
+        lon_str, lat_str = inside.strip().split()
+        return float(lat_str), float(lon_str)
+    except Exception:
+        return None
+
+
+def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    r = 6371.0
+    d_lat = radians(lat2 - lat1)
+    d_lon = radians(lon2 - lon1)
+    a = (
+        sin(d_lat / 2) ** 2
+        + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lon / 2) ** 2
+    )
+    c = 2 * asin(sqrt(a))
+    return r * c
+
+
+async def _find_nearest_hospital_id(latitude: float, longitude: float) -> str | None:
+    rows, code = await db_select(
+        "hospitals",
+        {},
+        columns="id,location,is_accepting_emergencies",
+    )
+    if code not in (200, 206) or not rows:
+        return None
+
+    best_id: str | None = None
+    best_dist = float("inf")
+    for row in rows:
+        if row.get("is_accepting_emergencies") is False:
+            continue
+        parsed = _parse_point_wkt(row.get("location"))
+        if not parsed:
+            continue
+        h_lat, h_lon = parsed
+        dist = _distance_km(latitude, longitude, h_lat, h_lon)
+        if dist < best_dist:
+            best_dist = dist
+            best_id = str(row.get("id") or "") or None
+
+    return best_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -252,12 +307,21 @@ async def register(req: RegisterRequest) -> RegisterResponse:
     - Profile row is created in the `profiles` table
     - Service-role key never leaves this server
     """
+    resolved_hospital_id: str | None = None
+    if (
+        req.role in ("patient", "ambulance", "driver")
+        and req.latitude is not None
+        and req.longitude is not None
+    ):
+        resolved_hospital_id = await _find_nearest_hospital_id(req.latitude, req.longitude)
+
     return await _create_user_with_profile(
         email=req.email,
         password=req.password,
         full_name=req.full_name,
         phone=req.phone,
         role=req.role,
+        hospital_id=resolved_hospital_id,
     )
 
 

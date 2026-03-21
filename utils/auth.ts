@@ -16,6 +16,7 @@ export interface AuthUser {
   role?: UserRole;
   fullName?: string;
   phone?: string;
+  hospitalId?: string;
 }
 
 type PhoneLoginResponse = {
@@ -211,6 +212,7 @@ export const signUp = async (
   password: string,
   role: UserRole = "patient",
   fullName: string = "",
+  location?: { latitude: number; longitude: number } | null,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     if (!["patient", "ambulance"].includes(role)) {
@@ -254,6 +256,8 @@ export const signUp = async (
         full_name: fullName,
         phone: ethPhone,
         role,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
       }),
     });
 
@@ -309,6 +313,10 @@ export const signUp = async (
       role,
       fullName,
       phone: ethPhone,
+      hospitalId:
+        typeof resBody?.hospital_id === "string" && resBody.hospital_id.length > 0
+          ? resBody.hospital_id
+          : undefined,
     };
 
     return { user, error: null };
