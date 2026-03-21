@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
 import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -103,6 +104,7 @@ export default function PatientEmergencyTrackingScreen() {
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
+  const { showConfirm, showError, showSuccess } = useModal();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -449,35 +451,29 @@ export default function PatientEmergencyTrackingScreen() {
   const onCancelEmergency = () => {
     if (!emergencyId || typeof emergencyId !== "string" || !user?.id) return;
 
-    Alert.alert(
+    showConfirm(
       "Cancel Emergency",
       "You can cancel only within 3 minutes from request creation. Continue?",
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            const { success, error } = await cancelEmergencyWithinWindow(
-              emergencyId,
-              user.id,
-              3,
-            );
-            if (!success) {
-              Alert.alert(
-                "Cancellation Failed",
-                error?.message || "Unable to cancel emergency request.",
-              );
-              return;
-            }
-            Alert.alert(
-              "Emergency Cancelled",
-              "Your request has been cancelled successfully.",
-              [{ text: "OK", onPress: () => router.replace("/help" as any) }],
-            );
-          },
-        },
-      ],
+      async () => {
+        const { success, error } = await cancelEmergencyWithinWindow(
+          emergencyId,
+          user.id,
+          3,
+        );
+        if (!success) {
+          showError(
+            "Cancellation Failed",
+            error?.message || "Unable to cancel emergency request.",
+          );
+          return;
+        }
+
+        showSuccess(
+          "Emergency Cancelled",
+          "Your request has been cancelled successfully.",
+          () => router.replace("/help" as any),
+        );
+      },
     );
   };
 
