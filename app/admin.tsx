@@ -99,6 +99,7 @@ export default function AdminScreen() {
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
   const [ambulances, setAmbulances] = useState<Ambulance[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [opsInsights, setOpsInsights] = useState<{ emergenciesTotal: number; avgCompletionMinutes: number | null } | null>(null);
 
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [emergencyFilter, setEmergencyFilter] =
@@ -122,6 +123,15 @@ export default function AdminScreen() {
         setEmergencies(data.emergencies.map(normalizeEmergency));
       if (data?.ambulances) setAmbulances(data.ambulances as Ambulance[]);
       if (data?.hospitals) setHospitals(data.hospitals as Hospital[]);
+      try {
+        const insights = await backendGet<any>("/ops/insights/operations?days=7");
+        setOpsInsights({
+          emergenciesTotal: Number(insights?.emergencies_total || 0),
+          avgCompletionMinutes: typeof insights?.avg_completion_minutes === "number" ? insights.avg_completion_minutes : null,
+        });
+      } catch {
+        setOpsInsights(null);
+      }
     } catch (err) {
       console.error("Admin fetch error:", err);
     } finally {

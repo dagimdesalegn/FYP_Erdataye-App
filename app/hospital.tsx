@@ -8,6 +8,7 @@ import { signOut } from "@/utils/auth";
 import {
     EmergencyRequest,
     formatCoords,
+    getHospitalCapacityBoard,
     normalizeEmergency,
 } from "@/utils/emergency";
 import { backendGet, backendPut } from "@/utils/api";
@@ -86,6 +87,7 @@ export default function HospitalDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
+  const [capacityUtilization, setCapacityUtilization] = useState<number | null>(null);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -97,9 +99,10 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      const [emergencyResult, fleetResult] = await Promise.allSettled([
+      const [emergencyResult, fleetResult, capacityResult] = await Promise.allSettled([
         backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
         backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
+        getHospitalCapacityBoard(),
       ]);
 
       if (emergencyResult.status !== "fulfilled") {
@@ -129,6 +132,12 @@ export default function HospitalDashboard() {
           ambulances: [],
         });
         console.warn("Hospital fleet unavailable:", fleetResult.reason);
+      }
+
+      if (capacityResult.status === "fulfilled") {
+        const rows = Array.isArray((capacityResult.value as any)?.hospitals) ? (capacityResult.value as any).hospitals : [];
+        const match = rows.find((h: any) => String(h?.hospital_id || "") === String((fleetResult.status === "fulfilled" ? fleetResult.value?.hospital_id : "") || ""));
+        if (match) setCapacityUtilization(Math.round(Number(match.utilization || 0) * 100));
       }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
@@ -496,6 +505,12 @@ export default function HospitalDashboard() {
               </View>
             ))}
           </View>
+
+          {capacityUtilization != null ? (
+            <View style={[styles.capacityInline, { backgroundColor: cardBg, borderColor: cardBorder }]}>{
+              <ThemedText style={[styles.capacityInlineText, { color: colors.text }]}>Live Capacity Utilization: {capacityUtilization}%</ThemedText>
+            </View>
+          ) : null}
 
           {/* Search bar */}
           <View
@@ -1008,6 +1023,15 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  capacityInline: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  capacityInlineText: { fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans },
+
   searchWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -1222,3 +1246,5 @@ const styles = StyleSheet.create({
     color: "#DC2626",
   },
 });
+
+

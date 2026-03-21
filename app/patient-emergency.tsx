@@ -24,7 +24,10 @@ import {
     buildMapHtml,
     buildPatientRequestMapHtml,
     calculateDistance,
+    getContextualFirstAid,
+    getExplainableTriage,
     getLiveAvailableAmbulances,
+    getTrafficAwareDispatch,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
@@ -90,6 +93,18 @@ export default function PatientEmergencyScreen() {
       distanceKm: number;
     }[]
   >([]);
+  const [smartPreview, setSmartPreview] = useState<string>("Tap to preview smart dispatch guidance.");
+  const [triagePreview, setTriagePreview] = useState<{
+    priority: string;
+    score: number;
+    recommendation: string;
+  } | null>(null);
+  const [dispatchPreview, setDispatchPreview] = useState<{
+    etaMinutes: number | null;
+    distanceKm: number | null;
+  } | null>(null);
+  const [firstAidTips, setFirstAidTips] = useState<string[]>([]);
+  const [tipsLoading, setTipsLoading] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const canCancelByWindow =
@@ -137,6 +152,35 @@ export default function PatientEmergencyScreen() {
   }, [location?.latitude, location?.longitude]);
 
   const MAX_AMBULANCE_DISTANCE_KM = 50; // Only show ambulances within 50km
+  const handleSmartPreview = async () => {
+    if (!location) {
+      showError("Location Required", "Enable location to run smart preview.");
+      return;
+    }
+    try {
+      const [triage, dispatch] = await Promise.all([
+        getExplainableTriage({ severity }),
+        getTrafficAwareDispatch({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          maxRadiusKm: 60,
+          trafficLevel: "moderate",
+        }),
+      ]);
+
+      const priority = String((triage as any)?.priority || "P3");
+      const eta = (dispatch as any)?.eta_minutes;
+      const distance = (dispatch as any)?.distance_km;
+      setSmartPreview(
+        `Priority ${priority}` +
+          (typeof eta === "number" ? ` · ETA ${eta} min` : "") +
+          (typeof distance === "number" ? ` · ${distance.toFixed(1)} km` : ""),
+      );
+    } catch (err) {
+      console.warn("Smart preview error:", err);
+      setSmartPreview("Smart preview currently unavailable.");
+    }
+  };
 
   const loadNearbyAmbulances = async () => {
     try {
@@ -753,6 +797,25 @@ export default function PatientEmergencyScreen() {
                     label="Critical"
                     color="#DC2626"
                   />
+                </View>
+              </View>
+
+
+              <View style={styles.section}>
+                <ThemedText style={styles.sectionTitle}>
+                  Smart Dispatch Preview
+                </ThemedText>
+                <View style={[styles.previewCard, isDark ? styles.previewCardDark : null]}>
+                  <ThemedText style={styles.previewTitle}>
+                    Triage: {triagePreview?.priority || "P3"} ({triagePreview?.score ?? 0})
+                  </ThemedText>
+                  <ThemedText style={styles.previewText}>
+                    {triagePreview?.recommendation || "Preparing triage recommendation..."}
+                  </ThemedText>
+                  <ThemedText style={styles.previewText}>
+                    Estimated ETA: {dispatchPreview?.etaMinutes != null ? `${dispatchPreview.etaMinutes} min` : "--"}
+                    {dispatchPreview?.distanceKm != null ? ` · Nearest distance ${dispatchPreview.distanceKm.toFixed(1)} km` : ""}
+                  </ThemedText>
                 </View>
               </View>
 

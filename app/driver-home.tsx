@@ -13,6 +13,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
+import { getDriverSafetyScore, getGpsTrustScore } from "@/utils/emergency";
 import {
     ensureAmbulanceHospitalLink,
     getDriverAmbulanceDetails,
@@ -64,6 +65,8 @@ export default function DriverHomeScreen() {
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [safetyScore, setSafetyScore] = useState<number | null>(null);
+  const [gpsTrust, setGpsTrust] = useState<number | null>(null);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
@@ -216,6 +219,34 @@ export default function DriverHomeScreen() {
     };
   }, [isAvailable, user, ambulanceId, showError, showAlert]);
 
+
+  const runSafetyProbe = async () => {
+    try {
+      const [safety, trust] = await Promise.all([
+        getDriverSafetyScore({ speedKmh: 35 }),
+        getGpsTrustScore({
+          reportedLatitude: 9.03,
+          reportedLongitude: 38.74,
+          gpsAgeSeconds: 0,
+        }),
+      ]);
+
+      setSafetyScore(
+        typeof (safety as any)?.safety_score === "number"
+          ? (safety as any).safety_score
+          : null,
+      );
+      setGpsTrust(
+        typeof (trust as any)?.confidence_score === "number"
+          ? (trust as any).confidence_score
+          : null,
+      );
+      showSuccess("Probe Complete", "Safety and GPS trust signals refreshed.");
+    } catch (err) {
+      console.warn("Probe error:", err);
+      showError("Probe Failed", "Could not load safety signals.");
+    }
+  };
   const handleLogout = async () => {
     setIsAvailable(false);
     if (ambulanceId) await toggleAmbulanceAvailability(ambulanceId, false);
@@ -400,6 +431,33 @@ export default function DriverHomeScreen() {
               </ThemedText>
             </View>
           </Pressable>
+        </ThemedView>
+
+
+        <ThemedView
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+            },
+          ]}
+        >
+          <ThemedText style={styles.cardTitle}>Safety and Trust Signals</ThemedText>
+          <ThemedText style={styles.statusSubtitle}>
+            Driver safety score: {safetyScore != null ? safetyScore.toFixed(1) : "--"}
+          </ThemedText>
+          <ThemedText style={styles.statusSubtitle}>
+            GPS confidence: {gpsTrust != null ? `${Math.round(gpsTrust * 100)}%` : "--"}
+          </ThemedText>
+          <AppButton
+            label="Run Safety Probe"
+            onPress={runSafetyProbe}
+            variant="secondary"
+            fullWidth
+            style={{ marginTop: 10 }}
+          />
         </ThemedView>
 
         {/* Assignment Alert */}
