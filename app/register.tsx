@@ -143,7 +143,6 @@ export default function RegisterScreen() {
   };
 
   const handleSubmit = async () => {
-    console.log("handleSubmit called");
 
     const errors: Record<string, string> = {};
 
@@ -213,7 +212,6 @@ export default function RegisterScreen() {
   };
 
   const performSignup = async () => {
-    console.log("performSignup called");
     setLoading(true);
     try {
       const emergencyContactPhone =
@@ -222,10 +220,6 @@ export default function RegisterScreen() {
           : "";
 
       console.log("Starting signup with:", {
-        phone: "+251" + form.phone,
-        fullName: form.fullName,
-        role: userRole,
-      });
 
       let signupLocation: { latitude: number; longitude: number } | null = null;
       try {
@@ -279,9 +273,6 @@ export default function RegisterScreen() {
             });
 
           console.log("Medical profile result:", {
-            medicalSuccess,
-            medicalError,
-          });
 
           if (!medicalSuccess) {
             console.warn(
