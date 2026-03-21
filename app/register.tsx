@@ -219,8 +219,6 @@ export default function RegisterScreen() {
           ? formatPhoneForDB(form.contact)
           : "";
 
-      console.log("Starting signup with:", {
-
       let signupLocation: { latitude: number; longitude: number } | null = null;
       try {
         const permission = await Location.getForegroundPermissionsAsync();
@@ -271,8 +269,6 @@ export default function RegisterScreen() {
               emergency_contact_phone: emergencyContactPhone,
               medical_conditions: "",
             });
-
-          console.log("Medical profile result:", {
 
           if (!medicalSuccess) {
             console.warn(
