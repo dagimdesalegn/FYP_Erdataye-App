@@ -2,6 +2,7 @@
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
     Animated,
     Pressable,
     ScrollView,
@@ -15,7 +16,6 @@ import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -619,12 +619,6 @@ export default function PatientEmergencyScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Requesting ambulance..."
-      />
-
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
@@ -933,14 +927,24 @@ export default function PatientEmergencyScreen() {
                             { transform: [{ scale: scaleAnim }] },
                           ]}
                         >
+                          {loading ? (
+                            <View style={styles.inlineLoadingRow}>
+                              <ActivityIndicator size="small" color="#DC2626" />
+                              <ThemedText style={[styles.inlineLoadingText, { color: colors.textMuted }]}>
+                                Requesting ambulance...
+                              </ThemedText>
+                            </View>
+                          ) : null}
                           <Pressable
                             onPress={() => {
                               handlePulseAnimation();
                               handleSOS();
                             }}
+                            disabled={loading}
                             style={({ pressed }) => [
                               styles.sosButton,
                               pressed && { opacity: 0.9 },
+                              loading && { opacity: 0.6 },
                             ]}
                           >
                             <MaterialIcons name="phone" size={32} color="white" />
@@ -1132,6 +1136,18 @@ const styles = StyleSheet.create({
   },
   sosButtonContainer: {
     marginVertical: 24,
+  },
+  inlineLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+  inlineLoadingText: {
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    fontWeight: "600",
   },
   sosButton: {
     backgroundColor: "#DC2626",

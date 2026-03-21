@@ -3,7 +3,7 @@
  * Use `useModal()` hook in any component to show alerts/confirmations
  */
 import React, { createContext, useCallback, useContext, useState } from "react";
-import { CustomModal, CustomModalProps } from "./custom-modal";
+import { Alert } from "react-native";
 
 interface ModalContextValue {
   showAlert: (title: string, message: string, onConfirm?: () => void) => void;
@@ -21,12 +21,7 @@ interface ModalContextValue {
 const ModalContext = createContext<ModalContextValue | null>(null);
 
 export function ModalProvider({ children }: { children: React.ReactNode }) {
-  const [modalProps, setModalProps] = useState<
-    Omit<CustomModalProps, "visible"> & { visible: boolean }
-  >({
-    visible: false,
-    message: "",
-  });
+  const [, setModalVisible] = useState(false);
   const lastModalRef = React.useRef<{ key: string; at: number } | null>(null);
 
   const shouldSuppressDuplicate = useCallback((next: { type?: string; title?: string; message: string }) => {
@@ -40,22 +35,21 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const hideModal = useCallback(() => {
-    setModalProps((prev) => ({ ...prev, visible: false }));
+    setModalVisible(false);
   }, []);
 
   const showAlert = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
       if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
-      setModalProps({
-        visible: true,
-        type: "alert",
-        title,
-        message,
-        onConfirm: () => {
-          hideModal();
-          if (onConfirm) onConfirm();
+      Alert.alert(title, message, [
+        {
+          text: "OK",
+          onPress: () => {
+            hideModal();
+            if (onConfirm) onConfirm();
+          },
         },
-      });
+      ]);
     },
     [hideModal, shouldSuppressDuplicate],
   );
@@ -68,20 +62,23 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       onCancel?: () => void,
     ) => {
       if (shouldSuppressDuplicate({ type: "confirm", title, message })) return;
-      setModalProps({
-        visible: true,
-        type: "confirm",
-        title,
-        message,
-        onConfirm: () => {
-          hideModal();
-          onConfirm();
+      Alert.alert(title, message, [
+        {
+          text: "Cancel",
+          style: "cancel",
+          onPress: () => {
+            hideModal();
+            if (onCancel) onCancel();
+          },
         },
-        onCancel: () => {
-          hideModal();
-          if (onCancel) onCancel();
+        {
+          text: "OK",
+          onPress: () => {
+            hideModal();
+            onConfirm();
+          },
         },
-      });
+      ]);
     },
     [hideModal, shouldSuppressDuplicate],
   );
@@ -89,18 +86,15 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const showError = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
       if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
-      setModalProps({
-        visible: true,
-        type: "alert",
-        title,
-        message,
-        icon: "error",
-        iconColor: "#DC2626",
-        onConfirm: () => {
-          hideModal();
-          if (onConfirm) onConfirm();
+      Alert.alert(title, message, [
+        {
+          text: "OK",
+          onPress: () => {
+            hideModal();
+            if (onConfirm) onConfirm();
+          },
         },
-      });
+      ]);
     },
     [hideModal, shouldSuppressDuplicate],
   );
@@ -108,18 +102,15 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   const showSuccess = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
       if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
-      setModalProps({
-        visible: true,
-        type: "alert",
-        title,
-        message,
-        icon: "check-circle",
-        iconColor: "#059669",
-        onConfirm: () => {
-          hideModal();
-          if (onConfirm) onConfirm();
+      Alert.alert(title, message, [
+        {
+          text: "OK",
+          onPress: () => {
+            hideModal();
+            if (onConfirm) onConfirm();
+          },
         },
-      });
+      ]);
     },
     [hideModal, shouldSuppressDuplicate],
   );
@@ -129,7 +120,6 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       value={{ showAlert, showConfirm, showError, showSuccess, hideModal }}
     >
       {children}
-      <CustomModal {...modalProps} />
     </ModalContext.Provider>
   );
 }

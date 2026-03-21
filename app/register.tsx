@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
     Animated,
     Image,
     KeyboardAvoidingView,
@@ -18,7 +19,6 @@ import {
 
 import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -417,12 +417,6 @@ export default function RegisterScreen() {
         translucent
         backgroundColor="transparent"
       />
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Creating your account..."
-      />
-
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -999,7 +993,11 @@ export default function RegisterScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.primaryBtnGradient}
               >
-                <MaterialIcons name="person-add" size={18} color="#fff" />
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <MaterialIcons name="person-add" size={18} color="#fff" />
+                )}
                 <ThemedText style={styles.primaryBtnText}>
                   {loading ? "Creating..." : "Create Account"}
                 </ThemedText>
