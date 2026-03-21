@@ -1,4 +1,4 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+ï»¿import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
 import {
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
+import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
 import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
@@ -28,6 +29,8 @@ import {
     getExplainableTriage,
     getLiveAvailableAmbulances,
     getTrafficAwareDispatch,
+    findNearestAmbulance,
+    assignAmbulance,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
@@ -36,6 +39,7 @@ import {
   getEmergencyCancelWindowState,
     getActiveEmergency,
     subscribeToEmergency,
+  retryEmergencyDispatch,
 } from "@/utils/patient";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -104,12 +108,17 @@ export default function PatientEmergencyScreen() {
     distanceKm: number | null;
   } | null>(null);
   const [firstAidTips, setFirstAidTips] = useState<string[]>([]);
+  const [fallbackAssigning, setFallbackAssigning] = useState(false);
   const [tipsLoading, setTipsLoading] = useState(false);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const canCancelByWindow =
     cancelRemainingSeconds > 0 &&
     ["pending", "assigned"].includes(activeEmergencyStatus || "pending");
+
+  const hasNearbyAmbulance = nearbyAmbulances.length > 0;
+  const lastDispatchRetry = React.useRef<number>(0);
+  const lastFallbackAssign = React.useRef<number>(0);
 
   useEffect(() => {
     checkActiveEmergency();
@@ -123,6 +132,14 @@ export default function PatientEmergencyScreen() {
     if (location) loadNearbyAmbulances();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
+
+  // When we have a pending emergency and a nearby ambulance, try dispatch retry once per appearance.
+  useEffect(() => {
+    attemptDispatchRetry();
+    // If backend retry fails silently, ensure fallback assign is attempted too
+    attemptFallbackAssign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasNearbyAmbulance, activeEmergencyStatus, activeEmergencyId]);
 
   // Auto-refresh ambulance count every 15s (picks up driver availability toggles)
   useEffect(() => {
@@ -142,6 +159,9 @@ export default function PatientEmergencyScreen() {
         { event: "*", schema: "public", table: "ambulances" },
         () => {
           loadNearbyAmbulances();
+          // If we have a pending emergency and a fresh ambulance just came online, trigger a retry
+          attemptDispatchRetry();
+          attemptFallbackAssign();
         },
       )
       .subscribe();
@@ -173,8 +193,8 @@ export default function PatientEmergencyScreen() {
       const distance = (dispatch as any)?.distance_km;
       setSmartPreview(
         `Priority ${priority}` +
-          (typeof eta === "number" ? ` · ETA ${eta} min` : "") +
-          (typeof distance === "number" ? ` · ${distance.toFixed(1)} km` : ""),
+          (typeof eta === "number" ? ` â€¢ ETA ${eta} min` : "") +
+          (typeof distance === "number" ? ` â€¢ ${distance.toFixed(1)} km` : ""),
       );
     } catch (err) {
       console.warn("Smart preview error:", err);
@@ -345,6 +365,79 @@ export default function PatientEmergencyScreen() {
     showConfirm("Confirm Emergency Call", confirmMsg, () =>
       createEmergencyRequest(),
     );
+  };
+
+  const attemptDispatchRetry = async () => {
+    if (!activeEmergencyId) return;
+    if (activeEmergencyStatus !== "pending") return;
+    if (!hasNearbyAmbulance) return;
+
+    const now = Date.now();
+    if (now - lastDispatchRetry.current < 10000) return; // throttle retries to 10s
+    lastDispatchRetry.current = now;
+
+    try {
+      const { success, emergency } = await retryEmergencyDispatch(
+        activeEmergencyId,
+        80,
+      );
+      if (success && emergency) {
+        setActiveEmergencyStatus(emergency.status);
+        setActiveEmergencyCreatedAt(emergency.created_at || null);
+        setActiveEmergencyId(emergency.id);
+        if (emergency.status === "assigned") {
+          showAlert(
+            "Ambulance Assigned",
+            "A nearby ambulance has been auto-assigned. Tracking will open now.",
+          );
+          router.push(
+            `/patient-emergency-tracking?emergencyId=${emergency.id}`,
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Dispatch retry failed", err);
+      await attemptFallbackAssign();
+    }
+  };
+
+  const attemptFallbackAssign = async () => {
+    if (!activeEmergencyId || !location) return;
+    if (activeEmergencyStatus !== "pending") return;
+    const now = Date.now();
+    if (now - lastFallbackAssign.current < 12000) return; // throttle 12s
+    lastFallbackAssign.current = now;
+
+    setFallbackAssigning(true);
+    try {
+      const { ambulanceId } = await findNearestAmbulance(
+        location.latitude,
+        location.longitude,
+        80,
+      );
+      if (!ambulanceId) return;
+
+      const { success, error } = await assignAmbulance(
+        activeEmergencyId,
+        ambulanceId,
+      );
+      if (success) {
+        setActiveEmergencyStatus("assigned");
+        showAlert(
+          "Ambulance Assigned",
+          "Fallback assignment succeeded. A nearby ambulance is on the way.",
+        );
+        router.push(
+          `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
+        );
+      } else if (error) {
+        console.warn("Fallback assign error", error);
+      }
+    } catch (err) {
+      console.warn("Fallback assign failed", err);
+    } finally {
+      setFallbackAssigning(false);
+    }
   };
 
   const createEmergencyRequest = async () => {
@@ -710,188 +803,146 @@ export default function PatientEmergencyScreen() {
                           : "Searching for nearby live ambulances..."}
                       </ThemedText>
                     </View>
-                    {nearbyAmbulances.map((amb, idx) => (
-                      <View
-                        key={idx}
-                        style={[
-                          styles.nearbyItem,
-                          { backgroundColor: colors.surfaceMuted },
-                        ]}
-                      >
-                        <View style={styles.nearbyDot} />
-                        <ThemedText
-                          style={[styles.nearbyLabel, { color: colors.text }]}
-                          numberOfLines={1}
-                        >
-                          {amb.label}
+
+                    {!hasNearbyAmbulance ? (
+                      <View style={[styles.section, { alignItems: "center" }]}> 
+                        <ThemedText style={styles.sectionTitle}>
+                          No ambulances are nearby right now
                         </ThemedText>
-                        {amb.distance ? (
-                          <View style={styles.distBadge}>
-                            <ThemedText style={styles.distText}>
-                              {amb.distance}
-                            </ThemedText>
-                          </View>
-                        ) : null}
+                        <ThemedText style={[styles.nearbyEmpty, { color: colors.text }]}>
+                          We cannot take a request until a unit comes online within range.
+                          Try again shortly or chat with first aid.
+                        </ThemedText>
+                        <View style={{ marginTop: 18 }}>
+                          <FirstAidFab triggerMode="tag" triggerLabel="Ask Chatbot" />
+                        </View>
                       </View>
-                    ))}
-                    {nearbyAmbulances.length === 0 && (
-                      <ThemedText
-                        style={[
-                          styles.nearbyEmpty,
-                          { color: colors.textMuted },
-                        ]}
-                      >
-                        No ambulances nearby - your request will still be
-                        dispatched
-                      </ThemedText>
+                    ) : (
+                      <>
+                        {/* Other person details */}
+                        {isForOther && (
+                          <View style={styles.section}>
+                            <ThemedText style={styles.sectionTitle}>
+                              Person in Need
+                            </ThemedText>
+
+                            <ThemedText style={styles.label}>Name</ThemedText>
+                            <TextInput
+                              style={[styles.input, isDark ? styles.inputDark : null]}
+                              placeholder="Name of the person who needs help"
+                              placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                              value={otherPersonName}
+                              onChangeText={setOtherPersonName}
+                            />
+
+                            <ThemedText style={styles.label}>
+                              Contact Number (optional)
+                            </ThemedText>
+                            <TextInput
+                              style={[styles.input, isDark ? styles.inputDark : null]}
+                              placeholder="Their phone number"
+                              placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                              value={otherPersonContact}
+                              onChangeText={setOtherPersonContact}
+                              keyboardType="phone-pad"
+                            />
+                          </View>
+                        )}
+
+                        {/* Severity Selection */}
+                        <View style={styles.section}>
+                          <ThemedText style={styles.sectionTitle}>
+                            Emergency Severity
+                          </ThemedText>
+                          <View style={styles.severityGrid}>
+                            <SeverityButton level="low" label="Low" color="#3B82F6" />
+                            <SeverityButton
+                              level="medium"
+                              label="Medium"
+                              color="#F59E0B"
+                            />
+                            <SeverityButton level="high" label="High" color="#EF4444" />
+                            <SeverityButton
+                              level="critical"
+                              label="Critical"
+                              color="#DC2626"
+                            />
+                          </View>
+                        </View>
+
+                        {/* Description */}
+                        <View style={styles.section}>
+                          <ThemedText style={styles.sectionTitle}>
+                            Emergency Details
+                          </ThemedText>
+
+                          <ThemedText style={styles.label}>
+                            Description (optional)
+                          </ThemedText>
+                          <TextInput
+                            style={[styles.input, isDark ? styles.inputDark : null]}
+                            placeholder={
+                              isForOther
+                                ? "Describe what happened..."
+                                : "Describe your emergency..."
+                            }
+                            placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                            value={description}
+                            onChangeText={setDescription}
+                            multiline
+                            numberOfLines={3}
+                          />
+
+                          <ThemedText style={styles.label}>
+                            {isForOther
+                              ? "Their Condition (optional)"
+                              : "Your Condition (optional)"}
+                          </ThemedText>
+                          <TextInput
+                            style={[styles.input, isDark ? styles.inputDark : null]}
+                            placeholder={
+                              isForOther
+                                ? "Describe their current condition..."
+                                : "Describe your current condition..."
+                            }
+                            placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                            value={patientCondition}
+                            onChangeText={setPatientCondition}
+                            multiline
+                            numberOfLines={3}
+                          />
+                        </View>
+
+                        {/* SOS Button */}
+                        <Animated.View
+                          style={[
+                            styles.sosButtonContainer,
+                            { transform: [{ scale: scaleAnim }] },
+                          ]}
+                        >
+                          <Pressable
+                            onPress={() => {
+                              handlePulseAnimation();
+                              handleSOS();
+                            }}
+                            style={({ pressed }) => [
+                              styles.sosButton,
+                              pressed && { opacity: 0.9 },
+                            ]}
+                          >
+                            <MaterialIcons name="phone" size={32} color="white" />
+                            <ThemedText style={styles.sosButtonText}>
+                              {isForOther
+                                ? "SOS - Call Ambulance for Them"
+                                : "SOS - Call Ambulance"}
+                            </ThemedText>
+                          </Pressable>
+                        </Animated.View>
+                      </>
                     )}
                   </View>
                 </View>
               )}
-
-              {/* Other person details */}
-              {isForOther && (
-                <View style={styles.section}>
-                  <ThemedText style={styles.sectionTitle}>
-                    Person in Need
-                  </ThemedText>
-
-                  <ThemedText style={styles.label}>Name</ThemedText>
-                  <TextInput
-                    style={[styles.input, isDark ? styles.inputDark : null]}
-                    placeholder="Name of the person who needs help"
-                    placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
-                    value={otherPersonName}
-                    onChangeText={setOtherPersonName}
-                  />
-
-                  <ThemedText style={styles.label}>
-                    Contact Number (optional)
-                  </ThemedText>
-                  <TextInput
-                    style={[styles.input, isDark ? styles.inputDark : null]}
-                    placeholder="Their phone number"
-                    placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
-                    value={otherPersonContact}
-                    onChangeText={setOtherPersonContact}
-                    keyboardType="phone-pad"
-                  />
-                </View>
-              )}
-
-              {/* Severity Selection */}
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>
-                  Emergency Severity
-                </ThemedText>
-                <View style={styles.severityGrid}>
-                  <SeverityButton level="low" label="Low" color="#3B82F6" />
-                  <SeverityButton
-                    level="medium"
-                    label="Medium"
-                    color="#F59E0B"
-                  />
-                  <SeverityButton level="high" label="High" color="#EF4444" />
-                  <SeverityButton
-                    level="critical"
-                    label="Critical"
-                    color="#DC2626"
-                  />
-                </View>
-              </View>
-
-
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>
-                  Smart Dispatch Preview
-                </ThemedText>
-                <View style={[styles.previewCard, isDark ? styles.previewCardDark : null]}>
-                  <ThemedText style={styles.previewTitle}>
-                    Triage: {triagePreview?.priority || "P3"} ({triagePreview?.score ?? 0})
-                  </ThemedText>
-                  <ThemedText style={styles.previewText}>
-                    {triagePreview?.recommendation || "Preparing triage recommendation..."}
-                  </ThemedText>
-                  <ThemedText style={styles.previewText}>
-                    Estimated ETA: {dispatchPreview?.etaMinutes != null ? `${dispatchPreview.etaMinutes} min` : "--"}
-                    {dispatchPreview?.distanceKm != null ? ` · Nearest distance ${dispatchPreview.distanceKm.toFixed(1)} km` : ""}
-                  </ThemedText>
-                </View>
-              </View>
-
-              {/* Description */}
-              <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>
-                  Emergency Details
-                </ThemedText>
-
-                <ThemedText style={styles.label}>
-                  Description (optional)
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder={
-                    isForOther
-                      ? "Describe what happened..."
-                      : "Describe your emergency..."
-                  }
-                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  numberOfLines={3}
-                />
-
-                <ThemedText style={styles.label}>
-                  {isForOther
-                    ? "Their Condition (optional)"
-                    : "Your Condition (optional)"}
-                </ThemedText>
-                <TextInput
-                  style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder={
-                    isForOther
-                      ? "Describe their current condition..."
-                      : "Describe your current condition..."
-                  }
-                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
-                  value={patientCondition}
-                  onChangeText={setPatientCondition}
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              {/* SOS Button */}
-              <Animated.View
-                style={[
-                  styles.sosButtonContainer,
-                  { transform: [{ scale: scaleAnim }] },
-                ]}
-              >
-                <Pressable
-                  onPress={() => {
-                    handlePulseAnimation();
-                    handleSOS();
-                  }}
-                  style={({ pressed }) => [
-                    styles.sosButton,
-                    pressed && { opacity: 0.9 },
-                  ]}
-                >
-                  <MaterialIcons name="phone" size={32} color="white" />
-                  <ThemedText style={styles.sosButtonText}>
-                    {isForOther
-                      ? "SOS - Call Ambulance for Them"
-                      : "SOS - Call Ambulance"}
-                  </ThemedText>
-                </Pressable>
-              </Animated.View>
-
-              <ThemedText style={styles.disclaimerText}>
-                For life-threatening emergencies, also call your local emergency
-                number (911, 112, etc.)
-              </ThemedText>
             </>
           )}
         </ThemedView>

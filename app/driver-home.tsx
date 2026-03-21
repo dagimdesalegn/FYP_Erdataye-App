@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
@@ -13,7 +13,7 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
-import { getDriverSafetyScore, getGpsTrustScore } from "@/utils/emergency";
+
 import {
     ensureAmbulanceHospitalLink,
     getDriverAmbulanceDetails,
@@ -65,8 +65,6 @@ export default function DriverHomeScreen() {
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const [safetyScore, setSafetyScore] = useState<number | null>(null);
-  const [gpsTrust, setGpsTrust] = useState<number | null>(null);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
@@ -139,7 +137,7 @@ export default function DriverHomeScreen() {
         setHasAssignment(true);
         setAssignmentCount(1);
       } else {
-        // No active assignment GÇö clear stale state
+        // No active assignment -> clear stale state
         setHasAssignment(false);
         setAssignmentCount(0);
       }
@@ -174,13 +172,13 @@ export default function DriverHomeScreen() {
     if (!isAvailable || !user || !ambulanceId) return;
 
     let watcher: Location.LocationSubscription | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startLocationTracking = async () => {
       try {
-        // Show pre-permission explanation first
         showAlert(
-          "=ƒÜù Location Tracking Required",
-          "Patients need to see your real-time location to know when help arrives. This is critical for emergency response.",
+          "Location Tracking Required",
+          "Patients need to see your real-time location to know when help arrives.",
         );
 
         const { status } = await Location.requestForegroundPermissionsAsync();
@@ -191,20 +189,39 @@ export default function DriverHomeScreen() {
           );
           setIsAvailable(false);
           return;
-        }        watcher = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Balanced,
-            timeInterval: 5000,
-            distanceInterval: 5,
-          },
-          async (loc) => {
-            await sendLocationUpdate(
-              ambulanceId,
-              loc.coords.latitude,
-              loc.coords.longitude,
-            );
-          },
-        );
+        }
+
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (locErr) {
+              console.warn("Web location polling failed:", locErr);
+            }
+          }, 5000);
+        } else {
+          watcher = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 5000,
+              distanceInterval: 5,
+            },
+            async (loc) => {
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            },
+          );
+        }
 
         console.log("Location tracking started");
       } catch (error) {
@@ -215,38 +232,18 @@ export default function DriverHomeScreen() {
     startLocationTracking();
 
     return () => {
-      watcher?.remove();
+      if (intervalId) clearInterval(intervalId);
+      if (watcher) {
+        try {
+          watcher.remove();
+        } catch (removeErr) {
+          console.warn("Location watcher cleanup failed:", removeErr);
+        }
+      }
     };
   }, [isAvailable, user, ambulanceId, showError, showAlert]);
 
 
-  const runSafetyProbe = async () => {
-    try {
-      const [safety, trust] = await Promise.all([
-        getDriverSafetyScore({ speedKmh: 35 }),
-        getGpsTrustScore({
-          reportedLatitude: 9.03,
-          reportedLongitude: 38.74,
-          gpsAgeSeconds: 0,
-        }),
-      ]);
-
-      setSafetyScore(
-        typeof (safety as any)?.safety_score === "number"
-          ? (safety as any).safety_score
-          : null,
-      );
-      setGpsTrust(
-        typeof (trust as any)?.confidence_score === "number"
-          ? (trust as any).confidence_score
-          : null,
-      );
-      showSuccess("Probe Complete", "Safety and GPS trust signals refreshed.");
-    } catch (err) {
-      console.warn("Probe error:", err);
-      showError("Probe Failed", "Could not load safety signals.");
-    }
-  };
   const handleLogout = async () => {
     setIsAvailable(false);
     if (ambulanceId) await toggleAmbulanceAvailability(ambulanceId, false);
@@ -264,7 +261,7 @@ export default function DriverHomeScreen() {
     if (!user) return;
     const { assignment } = await getDriverAssignment(user.id);
     if (!assignment) {
-      // Assignment was completed/cancelled GÇö clear the UI
+      // Assignment was completed/cancelled -> clear the UI
       setHasAssignment(false);
       setAssignmentCount(0);
       // Also refresh stats
@@ -311,7 +308,7 @@ export default function DriverHomeScreen() {
       />
       <View style={{ flex: 1 }}>
         <ThemedText style={styles.infoLabel}>{label}</ThemedText>
-        <ThemedText style={styles.infoValue}>{value || "GÇö"}</ThemedText>
+        <ThemedText style={styles.infoValue}>{value || "--"}</ThemedText>
       </View>
     </View>
   );
@@ -324,7 +321,7 @@ export default function DriverHomeScreen() {
         message="Loading..."
       />
 
-      {/* App Header GÇô project name top-left, theme toggle + profile icon top-right */}
+      {/* App Header with project name top-left, theme toggle + profile icon top-right */}
       <AppHeader
         title="Erdataya Ambulance"
         onProfilePress={handleProfilePress}
@@ -444,21 +441,6 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
-          <ThemedText style={styles.cardTitle}>Safety and Trust Signals</ThemedText>
-          <ThemedText style={styles.statusSubtitle}>
-            Driver safety score: {safetyScore != null ? safetyScore.toFixed(1) : "--"}
-          </ThemedText>
-          <ThemedText style={styles.statusSubtitle}>
-            GPS confidence: {gpsTrust != null ? `${Math.round(gpsTrust * 100)}%` : "--"}
-          </ThemedText>
-          <AppButton
-            label="Run Safety Probe"
-            onPress={runSafetyProbe}
-            variant="secondary"
-            fullWidth
-            style={{ marginTop: 10 }}
-          />
-        </ThemedView>
 
         {/* Assignment Alert */}
         {hasAssignment && (
@@ -530,6 +512,8 @@ export default function DriverHomeScreen() {
             <ThemedText style={styles.statLabel}>Total</ThemedText>
           </ThemedView>
         </View>
+
+          </ThemedView>
 
         {/* Completed History */}
         <ThemedView
@@ -623,7 +607,7 @@ export default function DriverHomeScreen() {
                                 year: "numeric",
                               },
                             )
-                          : "GÇö"}
+                          : "--"}
                       </ThemedText>
                     </View>
                     {item.description ? (
@@ -646,7 +630,7 @@ export default function DriverHomeScreen() {
                                 minute: "2-digit",
                               },
                             )
-                          : "GÇö"}
+                          : "--"}
                       </ThemedText>
                       <MaterialIcons
                         name="check-circle"
@@ -1087,6 +1071,15 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
+
+
+
+
+
+
+
+
+
 
 
 

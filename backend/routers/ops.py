@@ -116,6 +116,10 @@ class EmergencyDispatchCreateResponse(BaseModel):
     reason: str
 
 
+class EmergencyDispatchRetryRequest(BaseModel):
+    max_radius_km: float = Field(default=100.0, ge=1.0, le=250.0)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Role helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1212,6 +1216,168 @@ async def create_patient_emergency(
         reason=reason,
     )
 
+
+@router.post(
+    "/patient/emergencies/{emergency_id}/retry-dispatch",
+    response_model=EmergencyDispatchCreateResponse,
+    summary="Retry auto-dispatch for an existing active emergency",
+)
+async def retry_patient_emergency_dispatch(
+    emergency_id: str,
+    payload: EmergencyDispatchRetryRequest,
+    current_user: dict = Depends(get_current_user),
+) -> EmergencyDispatchCreateResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("patient", "admin"))
+
+    rows, code = await db_select(
+        "emergency_requests",
+        {"id": emergency_id},
+        columns="id,patient_id,patient_location,hospital_id,status,assigned_ambulance_id",
+    )
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Emergency request not found")
+
+    emergency = rows[0]
+    owner_id = str(emergency.get("patient_id") or "")
+    role = str(profile.get("role") or "")
+    if role == "patient" and owner_id != user_id:
+        raise HTTPException(status_code=403, detail="You can only retry your own emergency dispatch")
+
+    status_value = str(emergency.get("status") or "pending")
+    assigned_existing = str(emergency.get("assigned_ambulance_id") or "")
+    location = _parse_point_wkt(emergency.get("patient_location"))
+    if not location:
+        raise HTTPException(status_code=400, detail="Emergency location is missing or invalid")
+
+    latitude, longitude = location
+    nearest_hospital = await _find_nearest_hospital(latitude, longitude)
+    preferred_hospital_id = str(emergency.get("hospital_id") or "") or (
+        str(nearest_hospital.get("hospital_id") or "") if nearest_hospital else ""
+    )
+    preferred_hospital_id = preferred_hospital_id or None
+
+    if status_value in ("completed", "cancelled"):
+        return EmergencyDispatchCreateResponse(
+            emergency_id=emergency_id,
+            status=status_value,
+            hospital_id=(str(emergency.get("hospital_id")) if emergency.get("hospital_id") else None),
+            assigned_ambulance_id=(assigned_existing or None),
+            distance_to_ambulance_km=None,
+            distance_to_hospital_km=(nearest_hospital["distance_km"] if nearest_hospital else None),
+            eta_minutes=None,
+            route_to_patient_url=None,
+            route_to_hospital_url=None,
+            reason="Emergency is already closed",
+        )
+
+    if assigned_existing and status_value in (
+        "assigned",
+        "en_route",
+        "at_scene",
+        "arrived",
+        "transporting",
+        "at_hospital",
+    ):
+        return EmergencyDispatchCreateResponse(
+            emergency_id=emergency_id,
+            status=status_value,
+            hospital_id=(str(emergency.get("hospital_id")) if emergency.get("hospital_id") else None),
+            assigned_ambulance_id=assigned_existing,
+            distance_to_ambulance_km=None,
+            distance_to_hospital_km=(nearest_hospital["distance_km"] if nearest_hospital else None),
+            eta_minutes=None,
+            route_to_patient_url=None,
+            route_to_hospital_url=None,
+            reason="Emergency is already assigned",
+        )
+
+    best, reason = await _compute_dispatch_recommendation(
+        latitude,
+        longitude,
+        payload.max_radius_km,
+        preferred_hospital_id=preferred_hospital_id,
+    )
+
+    if best is None:
+        return EmergencyDispatchCreateResponse(
+            emergency_id=emergency_id,
+            status="pending",
+            hospital_id=preferred_hospital_id,
+            assigned_ambulance_id=None,
+            distance_to_ambulance_km=None,
+            distance_to_hospital_km=(nearest_hospital["distance_km"] if nearest_hospital else None),
+            eta_minutes=None,
+            route_to_patient_url=None,
+            route_to_hospital_url=None,
+            reason=reason,
+        )
+
+    now = datetime.now(timezone.utc).isoformat()
+    hospital_id = best.get("hospital_id") or preferred_hospital_id
+    ambulance_id = str(best["ambulance_id"])
+
+    _, update_code = await db_update(
+        "emergency_requests",
+        {"id": emergency_id},
+        {
+            "assigned_ambulance_id": ambulance_id,
+            "hospital_id": hospital_id,
+            "status": "assigned",
+            "updated_at": now,
+        },
+    )
+    if update_code not in (200, 204):
+        return EmergencyDispatchCreateResponse(emergency_id=emergency_id, status="pending", hospital_id=preferred_hospital_id, assigned_ambulance_id=None, distance_to_ambulance_km=None, distance_to_hospital_km=(nearest_hospital["distance_km"] if nearest_hospital else None), eta_minutes=None, route_to_patient_url=None, route_to_hospital_url=None, reason="Dispatch candidate found; assignment update retrying")
+
+    await db_insert(
+        "emergency_assignments",
+        {
+            "emergency_id": emergency_id,
+            "ambulance_id": ambulance_id,
+            "status": "pending",
+            "assigned_at": now,
+            "notes": "Auto-dispatch retry for pending emergency",
+        },
+    )
+
+    await db_update(
+        "ambulances",
+        {"id": ambulance_id},
+        {"is_available": False, "updated_at": now},
+    )
+
+    amb_lat = best.get("ambulance_latitude")
+    amb_lon = best.get("ambulance_longitude")
+    hosp_lat = best.get("hospital_latitude")
+    hosp_lon = best.get("hospital_longitude")
+    if (hosp_lat is None or hosp_lon is None) and nearest_hospital:
+        hosp_lat = nearest_hospital.get("latitude")
+        hosp_lon = nearest_hospital.get("longitude")
+
+    distance_to_ambulance_km = float(best.get("distance_km") or 0)
+    eta_minutes = max(2, round((distance_to_ambulance_km / 35.0) * 60 + 1))
+
+    return EmergencyDispatchCreateResponse(
+        emergency_id=emergency_id,
+        status="assigned",
+        hospital_id=(str(hospital_id) if hospital_id else None),
+        assigned_ambulance_id=ambulance_id,
+        distance_to_ambulance_km=round(distance_to_ambulance_km, 2),
+        distance_to_hospital_km=(nearest_hospital["distance_km"] if nearest_hospital else None),
+        eta_minutes=eta_minutes,
+        route_to_patient_url=(
+            _gmaps_route_url(amb_lat, amb_lon, latitude, longitude)
+            if isinstance(amb_lat, float) and isinstance(amb_lon, float)
+            else None
+        ),
+        route_to_hospital_url=(
+            _gmaps_route_url(latitude, longitude, hosp_lat, hosp_lon)
+            if isinstance(hosp_lat, float) and isinstance(hosp_lon, float)
+            else None
+        ),
+        reason=reason,
+    )
 # OPS_ENHANCEMENT_MARKER
 
 # ---- Enhancement MVP Endpoints -------------------------------------------------
@@ -1674,3 +1840,6 @@ async def contextual_first_aid(
         "steps": steps,
         "version": "contextual-first-aid-v1",
     }
+
+
+

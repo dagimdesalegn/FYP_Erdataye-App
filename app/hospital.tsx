@@ -507,7 +507,7 @@ export default function HospitalDashboard() {
           </View>
 
           {capacityUtilization != null ? (
-            <View style={[styles.capacityInline, { backgroundColor: cardBg, borderColor: cardBorder }]}>{
+            <View style={[styles.capacityInline, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <ThemedText style={[styles.capacityInlineText, { color: colors.text }]}>Live Capacity Utilization: {capacityUtilization}%</ThemedText>
             </View>
           ) : null}

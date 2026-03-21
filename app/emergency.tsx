@@ -7,12 +7,11 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     Ambulance,
-    createEmergencyRequest,
-    findNearestAmbulance,
     formatCoords,
     getAvailableAmbulances,
     parsePostGISPoint,
 } from "@/utils/emergency";
+import { createEmergency } from "@/utils/patient";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
@@ -106,35 +105,22 @@ export default function EmergencyScreen() {
 
       const { latitude, longitude } = currentLocation.coords;
 
-      // Create emergency request
-      const { error } = await createEmergencyRequest(
+      // Create emergency request via patient flow (auto dispatches nearest ambulance)
+      const { emergency, error } = await createEmergency(
         user.id,
         latitude,
         longitude,
-        "Emergency ambulance request",
         "medical",
+        "Emergency ambulance request",
       );
 
-      if (error) {
+      if (error || !emergency) {
         showError(
           "Request Failed",
-          `Failed to create emergency request: ${error.message}`,
+          `Failed to create emergency request: ${error?.message ?? "Unknown error"}`,
         );
         setLoading(false);
         return;
-      }
-
-      // Try to find nearest ambulance (expanded 50km range)
-      const {
-        ambulanceId,
-        distanceKm,
-        error: ambulanceError,
-      } = await findNearestAmbulance(latitude, longitude, 50);
-      if (ambulanceError) {
-        console.warn(
-          "Warning finding nearest ambulance:",
-          ambulanceError.message,
-        );
       }
 
       // Fetch available ambulances for display
@@ -151,7 +137,7 @@ export default function EmergencyScreen() {
 
       showAlert(
         "Emergency Request Sent",
-        `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ""}. Help is on the way!` : "\n\nSearching for available ambulances..."}`,
+        `Your location (${formatCoords(latitude, longitude)}) has been sent.${emergency.assigned_ambulance_id ? "\\n\\nNearest ambulance was assigned automatically. Help is on the way!" : "\\n\\nRequest created. Dispatch retry is running in the background."}`,
       );
     } catch (error) {
       showError("Emergency Failed", `Emergency call failed: ${error}`);
@@ -406,3 +392,6 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
+
+
+
