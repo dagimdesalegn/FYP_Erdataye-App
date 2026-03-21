@@ -29,15 +29,22 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
   });
   const lastModalRef = React.useRef<{ key: string; at: number } | null>(null);
 
-  const shouldSuppressDuplicate = useCallback((next: { type?: string; title?: string; message: string }) => {
-    const now = Date.now();
-    const key = `${next.type || "alert"}::${next.title || ""}::${next.message}`;
-    if (lastModalRef.current && lastModalRef.current.key === key && now - lastModalRef.current.at < 1500) {
-      return true;
-    }
-    lastModalRef.current = { key, at: now };
-    return false;
-  }, []);
+  const shouldSuppressDuplicate = useCallback(
+    (next: { type?: string; title?: string; message: string }) => {
+      const now = Date.now();
+      const key = `${next.type || "alert"}::${next.title || ""}::${next.message}`;
+      if (
+        lastModalRef.current &&
+        lastModalRef.current.key === key &&
+        now - lastModalRef.current.at < 1500
+      ) {
+        return true;
+      }
+      lastModalRef.current = { key, at: now };
+      return false;
+    },
+    [],
+  );
 
   const hideModal = useCallback(() => {
     setModalProps((prev) => ({ ...prev, visible: false }));
