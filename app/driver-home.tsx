@@ -144,7 +144,7 @@ export default function DriverHomeScreen() {
         .maybeSingle();
 
       if (error) {
-        setHospitalDisplayName(String(hospitalId));
+        setHospitalDisplayName("Assigned hospital");
         return;
       }
 

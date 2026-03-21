@@ -487,9 +487,22 @@ export default function PatientEmergencyScreen() {
         typeof emergency.eta_minutes === "number"
           ? `\nEstimated ambulance arrival: ${emergency.eta_minutes} min.`
           : "";
-      const hospitalNote = emergency.hospital_id
-        ? "\nNearest hospital has been linked to your request."
-        : "";
+
+      let hospitalNote = "";
+      if (emergency.hospital_id) {
+        const { data: hospRow, error: hospErr } = await supabase
+          .from("hospitals")
+          .select("name")
+          .eq("id", emergency.hospital_id)
+          .maybeSingle();
+
+        if (!hospErr && hospRow?.name) {
+          hospitalNote = `\nNearest hospital linked: ${hospRow.name}.`;
+        } else {
+          hospitalNote = "\nNearest hospital has been linked to your request.";
+        }
+      }
+
       const successMsg =
         "Your emergency request has been sent. Ambulance dispatch is in progress." +
         etaNote +
