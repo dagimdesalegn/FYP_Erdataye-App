@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { backendGet, backendPost } from "./api";
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
@@ -802,3 +803,122 @@ export function calculateDistance(
   return R * c;
 }
 
+
+// --- Enhancement endpoints (MVP wrappers) -----------------------------
+
+export const getTrafficAwareDispatch = async (input: {
+  latitude: number;
+  longitude: number;
+  maxRadiusKm?: number;
+  trafficLevel?: "low" | "moderate" | "high" | "severe";
+}) =>
+  backendPost("/ops/dispatch/traffic-aware", {
+    latitude: input.latitude,
+    longitude: input.longitude,
+    max_radius_km: input.maxRadiusKm ?? 60,
+    traffic_level: input.trafficLevel ?? "moderate",
+  });
+
+export const getExplainableTriage = async (input: {
+  severity: "low" | "medium" | "high" | "critical";
+  age?: number;
+  conscious?: boolean;
+  breathingDifficulty?: boolean;
+  severeBleeding?: boolean;
+  chestPain?: boolean;
+  strokeSymptoms?: boolean;
+  trauma?: boolean;
+}) =>
+  backendPost("/ops/triage/explainable", {
+    severity: input.severity,
+    age: input.age,
+    conscious: input.conscious ?? true,
+    breathing_difficulty: input.breathingDifficulty ?? false,
+    severe_bleeding: input.severeBleeding ?? false,
+    chest_pain: input.chestPain ?? false,
+    stroke_symptoms: input.strokeSymptoms ?? false,
+    trauma: input.trauma ?? false,
+  });
+
+export const syncOfflineQueue = async (
+  items: Array<{
+    type: "location_ping" | "emergency_create" | "status_update";
+    payload: Record<string, unknown>;
+    queuedAt?: string;
+  }>,
+) =>
+  backendPost("/ops/offline/sync", {
+    items: items.map((item) => ({
+      type: item.type,
+      payload: item.payload,
+      queued_at: item.queuedAt,
+    })),
+  });
+
+export const addEmergencyTimelineEvent = async (input: {
+  emergencyId: string;
+  eventType: string;
+  details?: Record<string, unknown>;
+}) =>
+  backendPost("/ops/timeline/events", {
+    emergency_id: input.emergencyId,
+    event_type: input.eventType,
+    details: input.details ?? {},
+  });
+
+export const getEmergencyTimeline = async (emergencyId: string) =>
+  backendGet(`/ops/timeline/events?emergency_id=${encodeURIComponent(emergencyId)}`);
+
+export const getHospitalCapacityBoard = async () =>
+  backendGet("/ops/capacity/hospitals");
+
+export const createFamilyShareLink = async (input: {
+  emergencyId: string;
+  expiresMinutes?: number;
+}) =>
+  backendPost("/ops/family/share", {
+    emergency_id: input.emergencyId,
+    expires_minutes: input.expiresMinutes ?? 180,
+  });
+
+export const resolveFamilyShareLink = async (token: string) =>
+  backendGet(`/ops/family/share?share_token=${encodeURIComponent(token)}`);
+
+export const getDriverSafetyScore = async (input: {
+  speedKmh: number;
+  harshBrakeCount?: number;
+  harshAccelCount?: number;
+  hardTurnCount?: number;
+}) =>
+  backendPost("/ops/driver/safety", {
+    speed_kmh: input.speedKmh,
+    harsh_brake_count: input.harshBrakeCount ?? 0,
+    harsh_accel_count: input.harshAccelCount ?? 0,
+    hard_turn_count: input.hardTurnCount ?? 0,
+  });
+
+export const getGpsTrustScore = async (input: {
+  reportedLatitude: number;
+  reportedLongitude: number;
+  referenceLatitude?: number;
+  referenceLongitude?: number;
+  gpsAgeSeconds?: number;
+}) =>
+  backendPost("/ops/trust/gps-confidence", {
+    reported_latitude: input.reportedLatitude,
+    reported_longitude: input.reportedLongitude,
+    reference_latitude: input.referenceLatitude,
+    reference_longitude: input.referenceLongitude,
+    gps_age_seconds: input.gpsAgeSeconds ?? 0,
+  });
+
+export const getOperationsInsights = async (days: number = 7) =>
+  backendGet(`/ops/insights/operations?days=${days}`);
+
+export const getContextualFirstAid = async (
+  symptom: string,
+  language: "en" | "am" = "en",
+) =>
+  backendGet(
+    `/ops/first-aid/contextual?symptom=${encodeURIComponent(symptom)}&language=${language}`,
+  );

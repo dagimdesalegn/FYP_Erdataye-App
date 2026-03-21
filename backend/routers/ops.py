@@ -10,7 +10,8 @@ These endpoints do not modify existing tables or flows.
 
 from datetime import datetime, timedelta, timezone
 from math import asin, cos, radians, sin, sqrt
-from typing import Literal
+from typing import Any, Literal
+from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -20,6 +21,10 @@ from services.supabase import db_insert, db_query, db_select, db_update
 from fastapi import Depends
 
 router = APIRouter(prefix="/ops", tags=["Operations"])
+
+# Fast MVP stores for timeline/share contracts before DB migration.
+_TIMELINES: dict[str, list[dict[str, Any]]] = {}
+_SHARE_LINKS: dict[str, dict[str, Any]] = {}
 
 
 def _parse_iso(ts: str | None) -> datetime | None:
@@ -1206,3 +1211,466 @@ async def create_patient_emergency(
         ),
         reason=reason,
     )
+
+# OPS_ENHANCEMENT_MARKER
+
+# ---- Enhancement MVP Endpoints -------------------------------------------------
+
+class TrafficAwareDispatchInput(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    max_radius_km: float = Field(default=60.0, ge=1.0, le=250.0)
+    traffic_level: Literal["low", "moderate", "high", "severe"] = "moderate"
+
+
+class ExplainableTriageInput(BaseModel):
+    severity: Literal["low", "medium", "high", "critical"]
+    age: int | None = Field(default=None, ge=0, le=120)
+    conscious: bool = True
+    breathing_difficulty: bool = False
+    severe_bleeding: bool = False
+    chest_pain: bool = False
+    stroke_symptoms: bool = False
+    trauma: bool = False
+
+
+class TimelineEventInput(BaseModel):
+    emergency_id: str = Field(min_length=8)
+    event_type: str = Field(min_length=2, max_length=60)
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class FamilyShareInput(BaseModel):
+    emergency_id: str = Field(min_length=8)
+    expires_minutes: int = Field(default=180, ge=10, le=1440)
+
+
+class DriverSafetyInput(BaseModel):
+    speed_kmh: float = Field(ge=0, le=250)
+    harsh_brake_count: int = Field(default=0, ge=0, le=100)
+    harsh_accel_count: int = Field(default=0, ge=0, le=100)
+    hard_turn_count: int = Field(default=0, ge=0, le=100)
+
+
+class GpsConfidenceInput(BaseModel):
+    reported_latitude: float = Field(..., ge=-90, le=90)
+    reported_longitude: float = Field(..., ge=-180, le=180)
+    reference_latitude: float | None = Field(default=None, ge=-90, le=90)
+    reference_longitude: float | None = Field(default=None, ge=-180, le=180)
+    gps_age_seconds: int = Field(default=0, ge=0, le=36000)
+
+
+class OfflineSyncItem(BaseModel):
+    type: Literal["location_ping", "emergency_create", "status_update"]
+    payload: dict[str, Any]
+    queued_at: str | None = None
+
+
+class OfflineSyncInput(BaseModel):
+    items: list[OfflineSyncItem] = Field(default_factory=list, max_length=300)
+
+
+@router.post("/dispatch/traffic-aware", summary="Traffic-aware ambulance recommendation (MVP)")
+async def dispatch_traffic_aware(
+    payload: TrafficAwareDispatchInput,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+
+    best, reason = await _compute_dispatch_recommendation(
+        payload.latitude,
+        payload.longitude,
+        payload.max_radius_km,
+    )
+    if not best:
+        return {
+            "ambulance_id": None,
+            "hospital_id": None,
+            "distance_km": None,
+            "eta_minutes": None,
+            "traffic_multiplier": 1.0,
+            "confidence": 0.0,
+            "reason": reason,
+        }
+
+    multiplier = {
+        "low": 0.9,
+        "moderate": 1.0,
+        "high": 1.25,
+        "severe": 1.5,
+    }[payload.traffic_level]
+    distance_km = float(best.get("distance_km") or 0)
+    eta_minutes = int(max(2, round((distance_km / 42.0) * 60.0 * multiplier)))
+    confidence = round(max(0.2, min(0.98, 1.0 - distance_km / max(payload.max_radius_km, 1.0))), 2)
+
+    return {
+        "ambulance_id": best.get("ambulance_id"),
+        "hospital_id": best.get("hospital_id"),
+        "distance_km": round(distance_km, 2),
+        "eta_minutes": eta_minutes,
+        "traffic_multiplier": multiplier,
+        "confidence": confidence,
+        "reason": "Best available unit with traffic-adjusted ETA",
+    }
+
+
+@router.post("/triage/explainable", summary="Explainable urgency triage scoring (MVP)")
+async def triage_explainable(payload: ExplainableTriageInput) -> dict:
+    score = {"low": 15, "medium": 40, "high": 70, "critical": 90}[payload.severity]
+    reasons: list[str] = [f"Base severity: {payload.severity}"]
+
+    if not payload.conscious:
+        score += 20
+        reasons.append("Patient unconscious")
+    if payload.breathing_difficulty:
+        score += 15
+        reasons.append("Breathing difficulty present")
+    if payload.severe_bleeding:
+        score += 15
+        reasons.append("Severe bleeding detected")
+    if payload.chest_pain:
+        score += 12
+        reasons.append("Chest pain symptoms")
+    if payload.stroke_symptoms:
+        score += 16
+        reasons.append("Stroke-like symptoms")
+    if payload.trauma:
+        score += 10
+        reasons.append("Trauma mechanism reported")
+    if payload.age is not None and (payload.age >= 65 or payload.age <= 5):
+        score += 6
+        reasons.append("Age-based risk modifier")
+
+    score = min(score, 100)
+    priority = "P1" if score >= 85 else "P2" if score >= 65 else "P3" if score >= 35 else "P4"
+    recommendation = {
+        "P1": "Immediate dispatch, pre-alert nearest trauma-capable hospital.",
+        "P2": "Urgent dispatch with high-priority lane guidance.",
+        "P3": "Standard dispatch with symptom monitoring.",
+        "P4": "Tele-advice first, dispatch if symptoms worsen.",
+    }[priority]
+
+    return {
+        "priority": priority,
+        "score": score,
+        "recommendation": recommendation,
+        "explainability": reasons,
+    }
+
+
+@router.post("/offline/sync", summary="Offline queue sync endpoint (MVP)")
+async def offline_sync(
+    payload: OfflineSyncInput,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+
+    accepted = 0
+    rejected = 0
+    for item in payload.items:
+        if item.type == "location_ping":
+            ambulance_id = str(item.payload.get("ambulance_id") or "")
+            lat = item.payload.get("latitude")
+            lng = item.payload.get("longitude")
+            if not ambulance_id or lat is None or lng is None:
+                rejected += 1
+                continue
+            _, code = await db_update(
+                "ambulances",
+                {"id": ambulance_id},
+                {
+                    "last_known_location": _to_point_wkt(float(lat), float(lng)),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            if code in (200, 204):
+                accepted += 1
+            else:
+                rejected += 1
+        else:
+            accepted += 1
+
+    return {
+        "accepted": accepted,
+        "rejected": rejected,
+        "server_received_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/timeline/events", summary="Append verifiable emergency timeline event (MVP)")
+async def timeline_add_event(
+    payload: TimelineEventInput,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    me = await _require_role(user_id, current_user, ("ambulance", "driver", "hospital", "admin"))
+
+    event = {
+        "id": str(uuid4()),
+        "emergency_id": payload.emergency_id,
+        "event_type": payload.event_type,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "actor_role": str(me.get("role") or ""),
+        "actor_id": user_id,
+        "details": payload.details,
+    }
+    _TIMELINES.setdefault(payload.emergency_id, []).append(event)
+    return event
+
+
+@router.get("/timeline/events", summary="Get emergency timeline events (MVP)")
+async def timeline_get_events(
+    emergency_id: str = Query(..., min_length=8),
+    current_user: dict = Depends(get_current_user),
+) -> list[dict]:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+    return _TIMELINES.get(emergency_id, [])
+
+
+@router.get("/capacity/hospitals", summary="Live hospital capacity board (MVP)")
+async def hospital_capacity_board(current_user: dict = Depends(get_current_user)) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("hospital", "admin"))
+
+    hospitals, h_code = await db_query(
+        "hospitals",
+        columns="id,name,is_accepting_emergencies,max_concurrent_emergencies,icu_beds_available",
+    )
+    emergencies, e_code = await db_query(
+        "emergency_requests",
+        columns="hospital_id,status",
+    )
+    if h_code not in (200, 206) or e_code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Could not load capacity board")
+
+    active_by_hospital: dict[str, int] = {}
+    for row in emergencies:
+        if str(row.get("status") or "") in ("completed", "cancelled"):
+            continue
+        hid = str(row.get("hospital_id") or "")
+        if hid:
+            active_by_hospital[hid] = active_by_hospital.get(hid, 0) + 1
+
+    rows: list[dict] = []
+    for h in hospitals:
+        hid = str(h.get("id") or "")
+        active = active_by_hospital.get(hid, 0)
+        max_concurrent = int(h.get("max_concurrent_emergencies") or 10)
+        rows.append(
+            {
+                "hospital_id": hid,
+                "name": h.get("name"),
+                "is_accepting_emergencies": h.get("is_accepting_emergencies", True),
+                "active_emergencies": active,
+                "max_concurrent_emergencies": max_concurrent,
+                "utilization": round(min(1.5, active / max(max_concurrent, 1)), 2),
+                "icu_beds_available": int(h.get("icu_beds_available") or 0),
+            }
+        )
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "hospitals": rows,
+    }
+
+
+@router.post("/family/share", summary="Create family/guardian tracking share token (MVP)")
+async def family_share_create(
+    payload: FamilyShareInput,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("patient", "ambulance", "driver", "hospital", "admin"))
+
+    token = str(uuid4()).replace("-", "")
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=payload.expires_minutes)
+    _SHARE_LINKS[token] = {
+        "emergency_id": payload.emergency_id,
+        "expires_at": expires_at.isoformat(),
+    }
+    return {
+        "share_token": token,
+        "emergency_id": payload.emergency_id,
+        "expires_at": expires_at.isoformat(),
+    }
+
+
+@router.get("/family/share", summary="Resolve family/guardian share token (MVP)")
+async def family_share_resolve(share_token: str = Query(..., min_length=16)) -> dict:
+    row = _SHARE_LINKS.get(share_token)
+    if not row:
+        raise HTTPException(status_code=404, detail="Invalid share token")
+    expires = _parse_iso(str(row.get("expires_at") or ""))
+    if not expires or expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Share token expired")
+    return {
+        "share_token": share_token,
+        "emergency_id": row.get("emergency_id"),
+        "expires_at": row.get("expires_at"),
+    }
+
+
+@router.post("/driver/safety", summary="Driver safety coaching score (MVP)")
+async def driver_safety_score(
+    payload: DriverSafetyInput,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("ambulance", "driver", "admin"))
+
+    score = 100.0
+    score -= max(0.0, payload.speed_kmh - 70.0) * 0.35
+    score -= payload.harsh_brake_count * 1.8
+    score -= payload.harsh_accel_count * 1.2
+    score -= payload.hard_turn_count * 1.0
+    score = max(0.0, min(100.0, score))
+
+    if score >= 85:
+        risk_level = "low"
+        coaching_tip = "Great control. Keep speed smooth and scan intersections early."
+    elif score >= 65:
+        risk_level = "moderate"
+        coaching_tip = "Reduce harsh inputs and maintain larger following distance."
+    else:
+        risk_level = "high"
+        coaching_tip = "Slow down, avoid abrupt maneuvers, and choose safer route options."
+
+    return {
+        "safety_score": round(score, 1),
+        "risk_level": risk_level,
+        "coaching_tip": coaching_tip,
+    }
+
+
+@router.post("/trust/gps-confidence", summary="GPS trust and spoofing risk signal (MVP)")
+async def gps_confidence(payload: GpsConfidenceInput) -> dict:
+    confidence = 1.0
+    flags: list[str] = []
+
+    if payload.gps_age_seconds > 180:
+        flags.append("stale_gps")
+        confidence -= 0.35
+    if payload.gps_age_seconds > 600:
+        flags.append("very_stale_gps")
+        confidence -= 0.25
+
+    if payload.reference_latitude is not None and payload.reference_longitude is not None:
+        jump_km = _distance_km(
+            payload.reported_latitude,
+            payload.reported_longitude,
+            payload.reference_latitude,
+            payload.reference_longitude,
+        )
+        if jump_km > 2.0:
+            flags.append("large_position_jump")
+            confidence -= 0.25
+        if jump_km > 10.0:
+            flags.append("possible_spoof_or_vpn")
+            confidence -= 0.25
+
+    confidence = max(0.0, min(1.0, confidence))
+    return {
+        "confidence_score": round(confidence, 2),
+        "flags": flags,
+        "recommendation": (
+            "Use location for nearest-unit routing"
+            if confidence >= 0.65
+            else "Refresh location before nearest-unit dispatch"
+        ),
+    }
+
+
+@router.get("/insights/operations", summary="Operational insights dashboard payload (MVP)")
+async def insights_operations(
+    days: int = Query(default=7, ge=1, le=60),
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    emergencies, code = await db_query(
+        "emergency_requests",
+        columns="id,status,created_at,updated_at,emergency_type,hospital_id",
+        params={"order": "created_at.desc"},
+    )
+    if code not in (200, 206):
+        raise HTTPException(status_code=502, detail="Could not load insights")
+
+    since = datetime.now(timezone.utc) - timedelta(days=days)
+    in_window: list[dict] = []
+    for row in emergencies:
+        created = _parse_iso(str(row.get("created_at") or ""))
+        if created and created >= since:
+            in_window.append(row)
+
+    status_breakdown: dict[str, int] = {}
+    type_breakdown: dict[str, int] = {}
+    daily_volume: dict[str, int] = {}
+    completion_minutes: list[float] = []
+
+    for row in in_window:
+        status_key = str(row.get("status") or "unknown")
+        type_key = str(row.get("emergency_type") or "medical")
+        status_breakdown[status_key] = status_breakdown.get(status_key, 0) + 1
+        type_breakdown[type_key] = type_breakdown.get(type_key, 0) + 1
+
+        created = _parse_iso(str(row.get("created_at") or ""))
+        updated = _parse_iso(str(row.get("updated_at") or ""))
+        if created:
+            day_key = created.date().isoformat()
+            daily_volume[day_key] = daily_volume.get(day_key, 0) + 1
+        if status_key == "completed" and created and updated and updated >= created:
+            completion_minutes.append((updated - created).total_seconds() / 60.0)
+
+    avg_completion = round(sum(completion_minutes) / len(completion_minutes), 2) if completion_minutes else None
+    return {
+        "window_days": days,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "emergencies_total": len(in_window),
+        "status_breakdown": status_breakdown,
+        "type_breakdown": type_breakdown,
+        "daily_volume": dict(sorted(daily_volume.items(), key=lambda item: item[0])),
+        "avg_completion_minutes": avg_completion,
+    }
+
+
+@router.get("/first-aid/contextual", summary="Context-aware first-aid guidance (MVP)")
+async def contextual_first_aid(
+    symptom: str = Query(..., min_length=2, max_length=120),
+    language: Literal["en", "am"] = Query(default="en"),
+) -> dict:
+    low = symptom.lower()
+    if "bleed" in low or "blood" in low:
+        steps = [
+            "Apply direct pressure with a clean cloth.",
+            "Elevate the injured area if possible.",
+            "Do not remove deeply embedded objects.",
+            "Monitor breathing until ambulance arrives.",
+        ]
+    else:
+        steps = [
+            "Keep the patient calm and seated safely.",
+            "Check breathing and consciousness every minute.",
+            "Avoid food/drink if severe symptoms are present.",
+            "Share exact location and landmarks with dispatcher.",
+        ]
+
+    if language == "am":
+        # English fallback text until dedicated localized corpus is integrated.
+        return {
+            "symptom": symptom,
+            "language": language,
+            "steps": steps,
+            "version": "contextual-first-aid-v1",
+            "note": "Localized medical corpus is pending; using safe fallback guidance.",
+        }
+
+    return {
+        "symptom": symptom,
+        "language": language,
+        "steps": steps,
+        "version": "contextual-first-aid-v1",
+    }
