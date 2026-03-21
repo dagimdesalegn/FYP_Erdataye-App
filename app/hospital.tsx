@@ -8,10 +8,9 @@ import { signOut } from "@/utils/auth";
 import {
     EmergencyRequest,
     formatCoords,
-    getHospitalCapacityBoard,
     normalizeEmergency,
 } from "@/utils/emergency";
-import { backendGet, backendPost, backendPut } from "@/utils/api";
+import { backendGet, backendPut } from "@/utils/api";
 import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -45,19 +44,17 @@ interface HospitalFleetResponse {
   ambulances: any[];
 }
 
-interface HospitalFleetRepairResponse {
-  hospital_id: string;
-  scanned_unlinked_ambulances: number;
-  repaired_ambulances: number;
-  repaired_driver_profiles: number;
-  repaired_ambulance_ids: string[];
-}
-
 interface HospitalProfileResponse {
   hospital_id: string;
   name?: string | null;
   address?: string | null;
   phone?: string | null;
+  is_accepting_emergencies?: boolean | null;
+  max_concurrent_emergencies?: number | null;
+  dispatch_weight?: number | null;
+  trauma_capable?: boolean | null;
+  icu_beds_available?: number | null;
+  average_handover_minutes?: number | null;
 }
 
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
@@ -102,9 +99,21 @@ export default function HospitalDashboard() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
-  const [capacityUtilization, setCapacityUtilization] = useState<number | null>(null);
-  const [repairingFleet, setRepairingFleet] = useState(false);
   const [hospitalName, setHospitalName] = useState("Hospital Dashboard");
+  const [hospitalProfile, setHospitalProfile] = useState<HospitalProfileResponse | null>(null);
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    address: "",
+    phone: "",
+    isAcceptingEmergencies: true,
+    traumaCapable: false,
+    maxConcurrent: "",
+    dispatchWeight: "1",
+    icuBeds: "0",
+    averageHandover: "25",
+  });
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -116,11 +125,10 @@ export default function HospitalDashboard() {
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      const [emergencyResult, fleetResult, profileResult, capacityResult] = await Promise.allSettled([
+      const [emergencyResult, fleetResult, profileResult] = await Promise.allSettled([
         backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
         backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
         backendGet<HospitalProfileResponse>("/ops/hospital/profile"),
-        getHospitalCapacityBoard(),
       ]);
 
       if (emergencyResult.status !== "fulfilled") {
@@ -153,9 +161,13 @@ export default function HospitalDashboard() {
       }
 
       if (profileResult && profileResult.status === "fulfilled") {
+        setHospitalProfile(profileResult.value);
         const resolvedName = String(profileResult.value?.name || "").trim();
         if (resolvedName) {
           setHospitalName(resolvedName);
+          if (user && resolvedName !== (user.fullName || "")) {
+            setUser({ ...user, fullName: resolvedName });
+          }
         } else if (user?.fullName) {
           setHospitalName(user.fullName);
         }
@@ -163,11 +175,6 @@ export default function HospitalDashboard() {
         setHospitalName(user.fullName);
       }
 
-      if (capacityResult.status === "fulfilled") {
-        const rows = Array.isArray((capacityResult.value as any)?.hospitals) ? (capacityResult.value as any).hospitals : [];
-        const match = rows.find((h: any) => String(h?.hospital_id || "") === String((fleetResult.status === "fulfilled" ? fleetResult.value?.hospital_id : "") || ""));
-        if (match) setCapacityUtilization(Math.round(Number(match.utilization || 0) * 100));
-      }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
       // Avoid noisy popup loops on free-tier/temporary data inconsistencies.
@@ -179,7 +186,22 @@ export default function HospitalDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [showError, user?.fullName]);
+  }, [showError, setUser, user, user?.fullName]);
+
+  useEffect(() => {
+    if (!hospitalProfile) return;
+    setProfileForm({
+      name: String(hospitalProfile.name || ""),
+      address: String(hospitalProfile.address || ""),
+      phone: String(hospitalProfile.phone || ""),
+      isAcceptingEmergencies: hospitalProfile.is_accepting_emergencies !== false,
+      traumaCapable: Boolean(hospitalProfile.trauma_capable),
+      maxConcurrent: String(hospitalProfile.max_concurrent_emergencies ?? ""),
+      dispatchWeight: String(hospitalProfile.dispatch_weight ?? "1"),
+      icuBeds: String(hospitalProfile.icu_beds_available ?? "0"),
+      averageHandover: String(hospitalProfile.average_handover_minutes ?? "25"),
+    });
+  }, [hospitalProfile]);
 
   const updateStatus = async (
     emergencyId: string,
@@ -200,29 +222,6 @@ export default function HospitalDashboard() {
     }
   };
 
-  const repairFleetLinks = async () => {
-    if (repairingFleet) return;
-    setRepairingFleet(true);
-    try {
-      const result = await backendPost<HospitalFleetRepairResponse>(
-        "/ops/hospital/fleet/repair-links",
-        {},
-      );
-      await fetchEmergencies();
-      showSuccess(
-        "Fleet Linked",
-        `Repaired ${result.repaired_ambulances}/${result.scanned_unlinked_ambulances} ambulances and ${result.repaired_driver_profiles} driver profiles.`,
-      );
-    } catch (error) {
-      showError(
-        "Repair Failed",
-        String((error as any)?.message || "Could not repair ambulance links"),
-      );
-    } finally {
-      setRepairingFleet(false);
-    }
-  };
-
   useEffect(() => {
     fetchEmergencies();
     const channel = supabase
@@ -230,6 +229,31 @@ export default function HospitalDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ambulances" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospitals" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospital_ambulance_links" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_profiles" },
         () => fetchEmergencies(),
       )
       .subscribe();
@@ -251,6 +275,51 @@ export default function HospitalDashboard() {
       router.replace("/");
     } else {
       showError("Logout Failed", "Failed to sign out");
+    }
+  };
+
+  const saveHospitalProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const updatedProfile = await backendPut<HospitalProfileResponse>("/ops/hospital/profile", {
+        name: profileForm.name.trim() || undefined,
+        address: profileForm.address.trim() || undefined,
+        phone: profileForm.phone.trim() || undefined,
+        is_accepting_emergencies: profileForm.isAcceptingEmergencies,
+        trauma_capable: profileForm.traumaCapable,
+        max_concurrent_emergencies: profileForm.maxConcurrent.trim()
+          ? Number(profileForm.maxConcurrent)
+          : undefined,
+        dispatch_weight: profileForm.dispatchWeight.trim()
+          ? Number(profileForm.dispatchWeight)
+          : undefined,
+        icu_beds_available: profileForm.icuBeds.trim()
+          ? Number(profileForm.icuBeds)
+          : undefined,
+        average_handover_minutes: profileForm.averageHandover.trim()
+          ? Number(profileForm.averageHandover)
+          : undefined,
+      });
+
+      setHospitalProfile(updatedProfile);
+      const updatedName = String(updatedProfile?.name || profileForm.name || "").trim();
+      if (updatedName) {
+        setHospitalName(updatedName);
+        if (user) {
+          setUser({ ...user, fullName: updatedName });
+        }
+      }
+
+      setEditProfileVisible(false);
+      showSuccess("Profile Updated", "Hospital profile updated successfully.");
+      fetchEmergencies();
+    } catch (error) {
+      showError(
+        "Update Failed",
+        String((error as any)?.message || "Failed to update hospital profile"),
+      );
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -352,18 +421,6 @@ export default function HospitalDashboard() {
       count: counts.cancelled,
       icon: "cancel" as const,
       color: "#EF4444",
-    },
-    {
-      label: "Ambulances",
-      count: fleet?.total_ambulances ?? 0,
-      icon: "directions-car" as const,
-      color: "#8B5CF6",
-    },
-    {
-      label: "Available Fleet",
-      count: fleet?.available_ambulances ?? 0,
-      icon: "check-circle" as const,
-      color: "#10B981",
     },
   ];
 
@@ -519,10 +576,12 @@ export default function HospitalDashboard() {
             ]}
           >
             <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
-              Emergency Intake Dashboard
+              {hospitalName}
             </ThemedText>
             <ThemedText style={[styles.heroSub, { color: subText }]}>
-              Triage incoming cases, review patient context, and close requests fast.
+              {hospitalProfile?.address
+                ? `${hospitalProfile.address} · ${hospitalProfile.phone || "No phone"}`
+                : "Manage emergency intake, fleet readiness, and patient handover in real time."}
             </ThemedText>
           </View>
 
@@ -556,35 +615,6 @@ export default function HospitalDashboard() {
                 </ThemedText>
               </View>
             ))}
-          </View>
-
-          {capacityUtilization != null ? (
-            <View style={[styles.capacityInline, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <ThemedText style={[styles.capacityInlineText, { color: colors.text }]}>Live Capacity Utilization: {capacityUtilization}%</ThemedText>
-            </View>
-          ) : null}
-
-          <View style={styles.fleetActionsRow}>
-            <ThemedText style={[styles.fleetMetaText, { color: subText }]}>
-              Fleet: {fleet?.total_ambulances ?? 0} ambulances linked
-            </ThemedText>
-            <Pressable
-              onPress={repairFleetLinks}
-              disabled={repairingFleet}
-              style={({ pressed }) => [
-                styles.repairBtn,
-                { opacity: pressed || repairingFleet ? 0.8 : 1 },
-              ]}
-            >
-              {repairingFleet ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <MaterialIcons name="build-circle" size={16} color="#FFFFFF" />
-              )}
-              <ThemedText style={styles.repairBtnText}>
-                {repairingFleet ? "Repairing..." : "Repair Ambulance Links"}
-              </ThemedText>
-            </Pressable>
           </View>
 
           {/* Search bar */}
@@ -928,7 +958,7 @@ export default function HospitalDashboard() {
                 <ThemedText
                   style={[styles.dropdownName, { color: colors.text }]}
                 >
-                  {user?.fullName || "Hospital"}
+                  {hospitalName || user?.fullName || "Hospital"}
                 </ThemedText>
                 <ThemedText style={[styles.dropdownPhone, { color: subText }]}>
                   {user?.phone || ""}
@@ -951,6 +981,19 @@ export default function HospitalDashboard() {
               style={[styles.dropdownDivider, { backgroundColor: cardBorder }]}
             />
             <Pressable
+              onPress={() => {
+                setProfileVisible(false);
+                setEditProfileVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.dropdownAction,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <MaterialIcons name="edit" size={20} color="#0F766E" />
+              <ThemedText style={styles.dropdownActionText}>Edit Profile</ThemedText>
+            </Pressable>
+            <Pressable
               onPress={handleLogout}
               style={({ pressed }) => [
                 styles.dropdownSignOut,
@@ -964,6 +1007,148 @@ export default function HospitalDashboard() {
             </Pressable>
           </View>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={editProfileVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditProfileVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? "#1E2028" : "#FFFFFF" },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <ThemedText style={[styles.modalTitle, { color: colors.text }]}>Edit Hospital Profile</ThemedText>
+                <Pressable onPress={() => setEditProfileVisible(false)} style={styles.closeBtn}>
+                  <MaterialIcons name="close" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <ThemedText style={[styles.profileSectionTitle, { color: colors.text }]}>Basic Information</ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>Update your hospital identity details exactly as they should appear across the system.</ThemedText>
+
+              <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Hospital Name</ThemedText>
+
+              <TextInput
+                style={[styles.profileInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                placeholder="Enter hospital name"
+                placeholderTextColor={subText}
+                value={profileForm.name}
+                onChangeText={(t) => setProfileForm((p) => ({ ...p, name: t }))}
+              />
+              <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Hospital Address</ThemedText>
+              <TextInput
+                style={[styles.profileInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                placeholder="Enter full hospital address"
+                placeholderTextColor={subText}
+                value={profileForm.address}
+                onChangeText={(t) => setProfileForm((p) => ({ ...p, address: t }))}
+              />
+              <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Hospital Phone Number</ThemedText>
+              <TextInput
+                style={[styles.profileInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                placeholder="Enter contact phone number"
+                placeholderTextColor={subText}
+                value={profileForm.phone}
+                onChangeText={(t) => setProfileForm((p) => ({ ...p, phone: t }))}
+              />
+
+              <ThemedText style={[styles.profileSectionTitle, { color: colors.text }]}>Operational Status</ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>Set whether you are receiving emergency cases and whether trauma support is currently available.</ThemedText>
+
+              <View style={styles.profileToggleRow}>
+                <Pressable
+                  onPress={() => setProfileForm((p) => ({ ...p, isAcceptingEmergencies: !p.isAcceptingEmergencies }))}
+                  style={[styles.profileToggleBtn, { backgroundColor: profileForm.isAcceptingEmergencies ? "#DCFCE7" : "#FEE2E2" }]}
+                >
+                  <ThemedText style={[styles.profileToggleText, { color: profileForm.isAcceptingEmergencies ? "#166534" : "#991B1B" }]}>
+                    {profileForm.isAcceptingEmergencies ? "Emergency Intake: OPEN" : "Emergency Intake: CLOSED"}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() => setProfileForm((p) => ({ ...p, traumaCapable: !p.traumaCapable }))}
+                  style={[styles.profileToggleBtn, { backgroundColor: profileForm.traumaCapable ? "#DBEAFE" : "#F3F4F6" }]}
+                >
+                  <ThemedText style={[styles.profileToggleText, { color: profileForm.traumaCapable ? "#1D4ED8" : "#374151" }]}>
+                    {profileForm.traumaCapable ? "Trauma Service: AVAILABLE" : "Trauma Service: UNAVAILABLE"}
+                  </ThemedText>
+                </Pressable>
+              </View>
+
+              <ThemedText style={[styles.profileSectionTitle, { color: colors.text }]}>Capacity and Dispatch</ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>These values control routing, load balancing, and handover planning.</ThemedText>
+
+              <View style={styles.profileInputRow}>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Max Concurrent Emergencies</ThemedText>
+                  <TextInput
+                    style={[styles.profileInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                    placeholder="Example: 20"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.maxConcurrent}
+                    onChangeText={(t) => setProfileForm((p) => ({ ...p, maxConcurrent: t }))}
+                  />
+                </View>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Dispatch Priority Weight</ThemedText>
+                  <TextInput
+                    style={[styles.profileInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                    placeholder="Example: 1.0"
+                    placeholderTextColor={subText}
+                    keyboardType="decimal-pad"
+                    value={profileForm.dispatchWeight}
+                    onChangeText={(t) => setProfileForm((p) => ({ ...p, dispatchWeight: t }))}
+                  />
+                </View>
+              </View>
+              <View style={styles.profileInputRow}>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>ICU Beds Available</ThemedText>
+                  <TextInput
+                    style={[styles.profileInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                    placeholder="Example: 5"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.icuBeds}
+                    onChangeText={(t) => setProfileForm((p) => ({ ...p, icuBeds: t }))}
+                  />
+                </View>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText style={[styles.profileFieldLabel, { color: colors.text }]}>Average Handover Time (minutes)</ThemedText>
+                  <TextInput
+                    style={[styles.profileInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
+                    placeholder="Example: 25"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.averageHandover}
+                    onChangeText={(t) => setProfileForm((p) => ({ ...p, averageHandover: t }))}
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={saveHospitalProfile}
+                disabled={savingProfile}
+                style={({ pressed }) => [styles.profileSaveBtn, { opacity: pressed || savingProfile ? 0.85 : 1 }]}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <MaterialIcons name="save" size={16} color="#FFFFFF" />
+                )}
+                <ThemedText style={styles.profileSaveBtnText}>{savingProfile ? "Saving..." : "Save Profile"}</ThemedText>
+              </Pressable>
+            </ScrollView>
+          </Pressable>
+        </View>
       </Modal>
     </View>
   );
@@ -1020,34 +1205,28 @@ const styles = StyleSheet.create({
   scrollContent: { paddingTop: 16, paddingBottom: 60 },
   container: {
     paddingHorizontal: 16,
-    maxWidth: 900,
-    alignSelf: "center" as any,
+    maxWidth: 1100,
     width: "100%" as any,
+    alignSelf: "center" as any,
   },
-
   heroCard: {
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     marginBottom: 14,
   },
   heroTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "800",
     fontFamily: Fonts.sans,
+    letterSpacing: -0.3,
   },
   heroSub: {
     marginTop: 4,
     fontSize: 13,
     fontFamily: Fonts.sans,
-  },
-
-  webOnlyWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+    lineHeight: 18,
   },
   webOnlyTitle: {
     fontSize: 16,
@@ -1333,6 +1512,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   dropdownDivider: { height: 1, marginVertical: 12 },
+  dropdownAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  dropdownActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    color: "#0F766E",
+  },
   dropdownSignOut: {
     flexDirection: "row",
     alignItems: "center",
@@ -1344,6 +1535,84 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: Fonts.sans,
     color: "#DC2626",
+  },
+  profileInput: {
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+  },
+  profileSectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  profileHint: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+  },
+  profileFieldLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    marginBottom: 4,
+  },
+  profileInputRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  profileInputFieldHalf: {
+    flex: 1,
+  },
+  profileInputHalf: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+  },
+  profileToggleRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  profileToggleBtn: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  profileToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
+  profileSaveBtn: {
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  profileSaveBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
   },
 });
 

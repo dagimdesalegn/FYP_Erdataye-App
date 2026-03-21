@@ -2,17 +2,15 @@ import { AppHeader } from "@/components/app-header";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { backendGet, backendPut } from "@/utils/api";
+import { backendGet } from "@/utils/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -38,19 +36,6 @@ export default function AdminHospitalDetailsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<HospitalDetailsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    isAcceptingEmergencies: true,
-    traumaCapable: false,
-    maxConcurrent: "",
-    dispatchWeight: "",
-    icuBeds: "",
-    averageHandover: "",
-  });
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -80,21 +65,6 @@ export default function AdminHospitalDetailsScreen() {
   useEffect(() => {
     fetchDetails();
   }, [fetchDetails]);
-
-  useEffect(() => {
-    if (!data?.hospital) return;
-    setEditForm({
-      name: String(data.hospital?.name || ""),
-      address: String(data.hospital?.address || ""),
-      phone: String(data.hospital?.phone || ""),
-      isAcceptingEmergencies: data.hospital?.is_accepting_emergencies !== false,
-      traumaCapable: Boolean(data.hospital?.trauma_capable),
-      maxConcurrent: String(data.hospital?.max_concurrent_emergencies ?? ""),
-      dispatchWeight: String(data.hospital?.dispatch_weight ?? "1"),
-      icuBeds: String(data.hospital?.icu_beds_available ?? "0"),
-      averageHandover: String(data.hospital?.average_handover_minutes ?? "25"),
-    });
-  }, [data?.hospital]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -138,41 +108,6 @@ export default function AdminHospitalDetailsScreen() {
       },
     ];
   }, [data]);
-
-  const saveHospitalSettings = async () => {
-    if (!id) return;
-    setSaving(true);
-    setSaveMessage(null);
-    try {
-      const payload = {
-        name: editForm.name.trim() || undefined,
-        address: editForm.address.trim() || undefined,
-        phone: editForm.phone.trim() || undefined,
-        is_accepting_emergencies: editForm.isAcceptingEmergencies,
-        trauma_capable: editForm.traumaCapable,
-        max_concurrent_emergencies: editForm.maxConcurrent.trim()
-          ? Number(editForm.maxConcurrent)
-          : undefined,
-        dispatch_weight: editForm.dispatchWeight.trim()
-          ? Number(editForm.dispatchWeight)
-          : undefined,
-        icu_beds_available: editForm.icuBeds.trim()
-          ? Number(editForm.icuBeds)
-          : undefined,
-        average_handover_minutes: editForm.averageHandover.trim()
-          ? Number(editForm.averageHandover)
-          : undefined,
-      };
-
-      await backendPut(`/ops/admin/hospitals/${id}`, payload);
-      setSaveMessage("Hospital settings updated successfully.");
-      fetchDetails();
-    } catch (e: any) {
-      setSaveMessage(String(e?.message || "Failed to update hospital settings"));
-    } finally {
-      setSaving(false);
-    }
-  };
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}> 
@@ -228,108 +163,6 @@ export default function AdminHospitalDetailsScreen() {
                 <Meta label="Avg Handover (min)" value={String(data.hospital?.average_handover_minutes ?? "N/A")} subText={subText} text={colors.text} />
                 <Meta label="Created" value={String(data.hospital?.created_at ?? "N/A")} subText={subText} text={colors.text} />
                 <Meta label="Updated" value={String(data.hospital?.updated_at ?? "N/A")} subText={subText} text={colors.text} />
-              </View>
-
-              <View style={[styles.sectionCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Edit Hospital Settings</ThemedText>
-
-                <TextInput
-                  style={[styles.input, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                  placeholder="Hospital name"
-                  placeholderTextColor={subText}
-                  value={editForm.name}
-                  onChangeText={(t) => setEditForm((p) => ({ ...p, name: t }))}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                  placeholder="Address"
-                  placeholderTextColor={subText}
-                  value={editForm.address}
-                  onChangeText={(t) => setEditForm((p) => ({ ...p, address: t }))}
-                />
-                <TextInput
-                  style={[styles.input, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                  placeholder="Phone"
-                  placeholderTextColor={subText}
-                  value={editForm.phone}
-                  onChangeText={(t) => setEditForm((p) => ({ ...p, phone: t }))}
-                />
-
-                <View style={styles.toggleRow}>
-                  <Pressable
-                    onPress={() => setEditForm((p) => ({ ...p, isAcceptingEmergencies: !p.isAcceptingEmergencies }))}
-                    style={[styles.toggleBtn, { backgroundColor: editForm.isAcceptingEmergencies ? "#DCFCE7" : "#FEE2E2" }]}
-                  >
-                    <ThemedText style={[styles.toggleText, { color: editForm.isAcceptingEmergencies ? "#166534" : "#991B1B" }]}>
-                      {editForm.isAcceptingEmergencies ? "Accepting Emergencies" : "Closed to Emergencies"}
-                    </ThemedText>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setEditForm((p) => ({ ...p, traumaCapable: !p.traumaCapable }))}
-                    style={[styles.toggleBtn, { backgroundColor: editForm.traumaCapable ? "#DBEAFE" : "#F3F4F6" }]}
-                  >
-                    <ThemedText style={[styles.toggleText, { color: editForm.traumaCapable ? "#1D4ED8" : "#374151" }]}>
-                      Trauma {editForm.traumaCapable ? "Enabled" : "Disabled"}
-                    </ThemedText>
-                  </Pressable>
-                </View>
-
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={[styles.inputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                    placeholder="Max concurrent"
-                    placeholderTextColor={subText}
-                    keyboardType="numeric"
-                    value={editForm.maxConcurrent}
-                    onChangeText={(t) => setEditForm((p) => ({ ...p, maxConcurrent: t }))}
-                  />
-                  <TextInput
-                    style={[styles.inputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                    placeholder="Dispatch weight"
-                    placeholderTextColor={subText}
-                    keyboardType="decimal-pad"
-                    value={editForm.dispatchWeight}
-                    onChangeText={(t) => setEditForm((p) => ({ ...p, dispatchWeight: t }))}
-                  />
-                </View>
-                <View style={styles.inputRow}>
-                  <TextInput
-                    style={[styles.inputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                    placeholder="ICU beds"
-                    placeholderTextColor={subText}
-                    keyboardType="numeric"
-                    value={editForm.icuBeds}
-                    onChangeText={(t) => setEditForm((p) => ({ ...p, icuBeds: t }))}
-                  />
-                  <TextInput
-                    style={[styles.inputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: isDark ? "#101622" : "#F8FAFC" }]}
-                    placeholder="Avg handover minutes"
-                    placeholderTextColor={subText}
-                    keyboardType="numeric"
-                    value={editForm.averageHandover}
-                    onChangeText={(t) => setEditForm((p) => ({ ...p, averageHandover: t }))}
-                  />
-                </View>
-
-                <Pressable
-                  onPress={saveHospitalSettings}
-                  disabled={saving}
-                  style={({ pressed }) => [
-                    styles.saveBtn,
-                    { opacity: pressed || saving ? 0.85 : 1 },
-                  ]}
-                >
-                  {saving ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <MaterialIcons name="save" size={16} color="#FFFFFF" />
-                  )}
-                  <ThemedText style={styles.saveBtnText}>{saving ? "Saving..." : "Save Changes"}</ThemedText>
-                </Pressable>
-
-                {saveMessage ? (
-                  <ThemedText style={[styles.saveMessage, { color: subText }]}>{saveMessage}</ThemedText>
-                ) : null}
               </View>
 
               <View style={[styles.sectionCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
@@ -441,66 +274,6 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
   metaLabel: { fontSize: 12, fontFamily: Fonts.sans },
   metaValue: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
-  input: {
-    height: 42,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 13,
-    fontFamily: Fonts.sans,
-  },
-  inputRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  inputHalf: {
-    flex: 1,
-    height: 42,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 13,
-    fontFamily: Fonts.sans,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    gap: 8,
-    flexWrap: "wrap",
-  },
-  toggleBtn: {
-    flex: 1,
-    minHeight: 38,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-  },
-  saveBtn: {
-    marginTop: 2,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: "#DC2626",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-    gap: 6,
-  },
-  saveBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-  },
-  saveMessage: {
-    fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
-  },
   emptyText: { fontSize: 12, fontFamily: Fonts.sans },
   rowItem: { borderTopWidth: 1, paddingTop: 8, gap: 2 },
   rowTitle: { fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans },

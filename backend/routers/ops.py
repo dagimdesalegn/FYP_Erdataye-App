@@ -254,6 +254,18 @@ class HospitalProfileResponse(BaseModel):
     updated_at: str | None = None
 
 
+class HospitalProfileUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    address: str | None = Field(default=None, min_length=1, max_length=200)
+    phone: str | None = Field(default=None, min_length=9, max_length=16)
+    is_accepting_emergencies: bool | None = None
+    max_concurrent_emergencies: int | None = Field(default=None, ge=1, le=500)
+    dispatch_weight: float | None = Field(default=None, ge=0.1, le=5.0)
+    trauma_capable: bool | None = None
+    icu_beds_available: int | None = Field(default=None, ge=0, le=1000)
+    average_handover_minutes: int | None = Field(default=None, ge=1, le=240)
+
+
 def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
     if not value:
         return None
@@ -1081,6 +1093,69 @@ async def hospital_profile(
     )
     if code not in (200, 206) or not rows:
         return HospitalProfileResponse(hospital_id=str(effective_hospital_id))
+
+    row = rows[0]
+    dispatch_weight_raw = row.get("dispatch_weight")
+    try:
+        dispatch_weight = float(dispatch_weight_raw) if dispatch_weight_raw is not None else None
+    except Exception:
+        dispatch_weight = None
+
+    return HospitalProfileResponse(
+        hospital_id=str(row.get("id") or effective_hospital_id),
+        name=(str(row.get("name") or "").strip() or None),
+        address=(str(row.get("address") or "").strip() or None),
+        phone=(str(row.get("phone") or "").strip() or None),
+        is_accepting_emergencies=row.get("is_accepting_emergencies"),
+        max_concurrent_emergencies=row.get("max_concurrent_emergencies"),
+        dispatch_weight=dispatch_weight,
+        trauma_capable=row.get("trauma_capable"),
+        icu_beds_available=row.get("icu_beds_available"),
+        average_handover_minutes=row.get("average_handover_minutes"),
+        updated_at=(str(row.get("updated_at") or "").strip() or None),
+    )
+
+
+@router.put(
+    "/hospital/profile",
+    response_model=HospitalProfileResponse,
+    summary="Update current hospital profile settings",
+)
+async def update_hospital_profile(
+    payload: HospitalProfileUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+    hospital_id: str | None = Query(default=None, description="optional hospital id for admin"),
+) -> HospitalProfileResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=hospital_id,
+    )
+
+    if not effective_hospital_id:
+        raise HTTPException(status_code=400, detail="Hospital linkage could not be resolved")
+
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No update fields provided")
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _, update_code = await db_update("hospitals", {"id": str(effective_hospital_id)}, updates)
+    if update_code not in (200, 204):
+        raise HTTPException(status_code=502, detail="Failed to update hospital profile")
+
+    rows, code = await db_select(
+        "hospitals",
+        {"id": str(effective_hospital_id)},
+        columns=(
+            "id,name,address,phone,is_accepting_emergencies,max_concurrent_emergencies,"
+            "dispatch_weight,trauma_capable,icu_beds_available,average_handover_minutes,updated_at"
+        ),
+    )
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Hospital not found after update")
 
     row = rows[0]
     dispatch_weight_raw = row.get("dispatch_weight")

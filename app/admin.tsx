@@ -175,6 +175,16 @@ export default function AdminScreen() {
         { event: "*", schema: "public", table: "hospitals" },
         () => fetchAll(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospital_ambulance_links" },
+        () => fetchAll(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_profiles" },
+        () => fetchAll(),
+      )
       .subscribe();
     return () => {
       channel.unsubscribe();
@@ -928,20 +938,6 @@ export default function AdminScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
-          <View
-            style={[
-              styles.heroCard,
-              { backgroundColor: cardBg, borderColor: cardBorder },
-            ]}
-          >
-            <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
-              Operations Command Center
-            </ThemedText>
-            <ThemedText style={[styles.heroSub, { color: subText }]}>
-              Live view across users, emergencies, fleet, and hospitals.
-            </ThemedText>
-          </View>
-
           {/* Stat cards */}
           <View style={styles.statsGrid}>
             {statCards.map((stat, idx) => (
@@ -1326,7 +1322,7 @@ export default function AdminScreen() {
                 <ThemedText
                   style={[styles.dropdownName, { color: colors.text }]}
                 >
-                  {user?.fullName || "Admin"}
+                  Erdataya Admin
                 </ThemedText>
                 <ThemedText style={[styles.dropdownPhone, { color: subText }]}>
                   {user?.phone || ""}

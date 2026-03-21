@@ -37,6 +37,7 @@ export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [ambulances, setAmbulances] = useState<
     (Ambulance & { lat: number; lng: number })[]
@@ -55,6 +56,24 @@ export default function MapScreen() {
   const subText = colors.textMuted;
   const accentColor = colors.primary;
   const cardBg = colors.surface;
+
+  const distanceMeters = (
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ) => {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const getUserLocation = async () => {
     try {
@@ -93,6 +112,7 @@ export default function MapScreen() {
       });
       if (lastKnown) {
         setLocation(lastKnown);
+        setMapCenter({ lat: lastKnown.coords.latitude, lng: lastKnown.coords.longitude });
       }
 
       try {
@@ -104,6 +124,7 @@ export default function MapScreen() {
           mayShowUserSettingsDialog: true,
         });
         setLocation(currentLocation);
+        setMapCenter({ lat: currentLocation.coords.latitude, lng: currentLocation.coords.longitude });
         return currentLocation;
       } catch (positionError) {
         if (lastKnown) {
@@ -117,6 +138,7 @@ export default function MapScreen() {
         }).catch(() => null);
         if (fallbackLocation) {
           setLocation(fallbackLocation);
+          setMapCenter({ lat: fallbackLocation.coords.latitude, lng: fallbackLocation.coords.longitude });
           setLocationError(
             "GPS signal is weak. Using lower-accuracy location.",
           );
@@ -221,10 +243,20 @@ export default function MapScreen() {
         locationWatcherRef.current = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
-            timeInterval: 5000,
-            distanceInterval: 5,
+            timeInterval: 12000,
+            distanceInterval: 15,
           },
-          (next) => setLocation(next),
+          (next) => {
+            setLocation(next);
+            const nextLat = next.coords.latitude;
+            const nextLng = next.coords.longitude;
+
+            setMapCenter((prev) => {
+              if (!prev) return { lat: nextLat, lng: nextLng };
+              const moved = distanceMeters(prev.lat, prev.lng, nextLat, nextLng);
+              return moved >= 20 ? { lat: nextLat, lng: nextLng } : prev;
+            });
+          },
         );
       } catch {
         // fallback to initial location lookup
@@ -255,8 +287,8 @@ export default function MapScreen() {
     );
   }
 
-  const userLat = location?.coords.latitude ?? 9.02;
-  const userLng = location?.coords.longitude ?? 38.75;
+  const userLat = mapCenter?.lat ?? location?.coords.latitude ?? 9.02;
+  const userLng = mapCenter?.lng ?? location?.coords.longitude ?? 38.75;
   const mapEmbedUrl = buildMapHtml(userLat, userLng, 17);
 
   return (

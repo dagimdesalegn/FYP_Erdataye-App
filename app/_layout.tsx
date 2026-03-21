@@ -138,6 +138,10 @@ function ThemedRoot() {
             options={{ headerShown: false, title: "Hospital Dashboard" }}
           />
           <Stack.Screen
+            name="hospitals/[id]"
+            options={{ headerShown: false, title: "Hospital Details" }}
+          />
+          <Stack.Screen
             name="map"
             options={{ headerShown: false, title: "Live Map" }}
           />
