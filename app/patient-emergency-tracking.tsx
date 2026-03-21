@@ -8,6 +8,7 @@ import {
     Animated,
   Linking,
   Platform,
+  Share,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -31,7 +32,9 @@ import {
 } from "@/utils/emergency";
 import {
   cancelEmergencyWithinWindow,
+    createFamilyShareLink,
     getEmergencyDetails,
+  getEmergencyHospitalStatus,
   getEmergencyCancelWindowState,
     subscribeToAmbulanceLocation,
     subscribeToEmergency,
@@ -106,10 +109,12 @@ export default function PatientEmergencyTrackingScreen() {
   const [emergency, setEmergency] = useState<any>(null);
   const [assignment, setAssignment] = useState<any>(null);
   const [ambulance, setAmbulance] = useState<any>(null);
+  const [hospitalStatus, setHospitalStatus] = useState<any>(null);
   const [ambulanceCoords, setAmbulanceCoords] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [sharingLink, setSharingLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusNotification, setStatusNotification] = useState<string | null>(
     null,
@@ -147,6 +152,10 @@ export default function PatientEmergencyTrackingScreen() {
         setEmergency(emerg);
         setAssignment(assign);
         setAmbulance(amb);
+        if (emerg?.id) {
+          const { data: hospitalData } = await getEmergencyHospitalStatus(emerg.id);
+          if (hospitalData) setHospitalStatus(hospitalData);
+        }
         if (amb?.last_known_location) {
           const parsed = parsePostGISPoint(amb.last_known_location);
           if (parsed) setAmbulanceCoords(parsed);
@@ -173,6 +182,9 @@ export default function PatientEmergencyTrackingScreen() {
       void getEmergencyDetails(emergencyId).then(({ assignment, ambulance }) => {
         setAssignment(assignment);
         setAmbulance(ambulance);
+        void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
+          if (data) setHospitalStatus(data);
+        });
         if (ambulance?.last_known_location) {
           const parsed = parsePostGISPoint(ambulance.last_known_location);
           if (parsed) setAmbulanceCoords(parsed);
@@ -190,6 +202,9 @@ export default function PatientEmergencyTrackingScreen() {
         const { emergency: emerg, assignment: assign, ambulance: amb } =
           await getEmergencyDetails(emergencyId);
         if (emerg && emerg.status !== emergency?.status) setEmergency(emerg);
+        void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
+          if (data) setHospitalStatus(data);
+        });
         if (assign) setAssignment(assign);
         if (amb) {
           setAmbulance(amb);
@@ -347,6 +362,46 @@ export default function PatientEmergencyTrackingScreen() {
       await Linking.openURL(telUrl);
     } catch {
       Alert.alert("Call Failed", "Unable to start the phone call.");
+    }
+  };
+
+  const onShareLiveTracking = async () => {
+    if (!emergencyId || typeof emergencyId !== "string") return;
+    try {
+      setSharingLink(true);
+      const { shareUrl, expiresAt, error: shareError } = await createFamilyShareLink(
+        emergencyId,
+        180,
+      );
+
+      if (shareError || !shareUrl) {
+        Alert.alert("Share Failed", shareError?.message || "Unable to create share link.");
+        return;
+      }
+
+      const message = `Live emergency tracking link: ${shareUrl}`;
+
+      if (Platform.OS === "web") {
+        if (typeof window !== "undefined" && (window as any).navigator?.clipboard) {
+          await (window as any).navigator.clipboard.writeText(shareUrl);
+          Alert.alert(
+            "Link Copied",
+            `Share link copied to clipboard. Expires: ${new Date(expiresAt).toLocaleString()}`,
+          );
+        } else {
+          Alert.alert("Share Link", `${message}\n\nExpires: ${new Date(expiresAt).toLocaleString()}`);
+        }
+      } else {
+        await Share.share({
+          title: "Live Emergency Tracking",
+          message: `${message}\nExpires: ${new Date(expiresAt).toLocaleString()}`,
+          url: shareUrl,
+        });
+      }
+    } catch (error: any) {
+      Alert.alert("Share Failed", error?.message || "Unable to share tracking link.");
+    } finally {
+      setSharingLink(false);
     }
   };
 
@@ -519,24 +574,64 @@ export default function PatientEmergencyTrackingScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map: show both patient + ambulance with CORRECT labels for patient view
+  const hospitalCoords =
+    hospitalStatus?.hospital_latitude != null &&
+    hospitalStatus?.hospital_longitude != null
+      ? {
+          latitude: Number(hospitalStatus.hospital_latitude),
+          longitude: Number(hospitalStatus.hospital_longitude),
+        }
+      : null;
+  const isTransportPhase = ["transporting", "at_hospital"].includes(
+    String(emergency.status || ""),
+  );
+
+  // Map route: ambulance -> patient by default, then ambulance -> hospital during transport.
   const mapHtml =
     animatedAmbulanceCoords && patientCoords.latitude
-      ? buildDriverPatientMapHtml(
-          animatedAmbulanceCoords.latitude,
-          animatedAmbulanceCoords.longitude,
-          patientCoords.latitude,
-          patientCoords.longitude,
-          {
-            blueLabel: "Ambulance",
-            redLabel: "You",
-            bluePopup: "🚑 Ambulance",
-            redPopup: "📍 Your Location",
-          },
-        )
+      ? isTransportPhase && hospitalCoords
+        ? buildDriverPatientMapHtml(
+            animatedAmbulanceCoords.latitude,
+            animatedAmbulanceCoords.longitude,
+            hospitalCoords.latitude,
+            hospitalCoords.longitude,
+            {
+              blueLabel: "Ambulance",
+              redLabel: "Hospital",
+            },
+          )
+        : buildDriverPatientMapHtml(
+            animatedAmbulanceCoords.latitude,
+            animatedAmbulanceCoords.longitude,
+            patientCoords.latitude,
+            patientCoords.longitude,
+            {
+              blueLabel: "Ambulance",
+              redLabel: "You",
+              bluePopup: "🚑 Ambulance",
+              redPopup: "📍 Your Location",
+            },
+          )
       : patientCoords.latitude
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
+        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 17)
         : null;
+
+  const openDetailedRoute = async () => {
+    try {
+      if (!animatedAmbulanceCoords) return;
+      const origin = `${animatedAmbulanceCoords.latitude},${animatedAmbulanceCoords.longitude}`;
+      const destination = isTransportPhase && hospitalCoords
+        ? `${hospitalCoords.latitude},${hospitalCoords.longitude}`
+        : `${patientCoords.latitude},${patientCoords.longitude}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      }
+    } catch {
+      // silent fallback
+    }
+  };
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -838,7 +933,7 @@ export default function PatientEmergencyTrackingScreen() {
                   style={[styles.legendDot, { backgroundColor: "#DC2626" }]}
                 />
                 <ThemedText style={[styles.legendText, { color: subtleText }]}>
-                  You
+                  {isTransportPhase && hospitalCoords ? "Hospital" : "You"}
                 </ThemedText>
               </View>
               {animatedAmbulanceCoords && (
@@ -854,6 +949,30 @@ export default function PatientEmergencyTrackingScreen() {
                 </View>
               )}
             </View>
+            {animatedAmbulanceCoords && (
+              <Pressable
+                onPress={openDetailedRoute}
+                style={({ pressed }) => [
+                  {
+                    marginHorizontal: 12,
+                    marginBottom: 12,
+                    marginTop: 4,
+                    backgroundColor: "#0EA5E9",
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                  },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <MaterialIcons name="alt-route" size={16} color="#FFF" />
+                <ThemedText style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}>
+                  Open Clear Route View
+                </ThemedText>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -1013,6 +1132,143 @@ export default function PatientEmergencyTrackingScreen() {
                 </ThemedText>
               </Pressable>
             </View>
+          </View>
+        )}
+
+        {/* ── Hospital Acceptance + ETA ─────────────────── */}
+        {hospitalStatus && (
+          <View
+            style={[
+              styles.infoCard,
+              styles.cardElevated,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconCircle, { backgroundColor: "#EDE9FE" }]}> 
+                <MaterialIcons name="local-hospital" size={20} color="#7C3AED" />
+              </View>
+              <ThemedText
+                style={[
+                  styles.cardHeading,
+                  { color: isDark ? "#E2E8F0" : "#1E293B" },
+                ]}
+              >
+                Destination Hospital
+              </ThemedText>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View
+                style={[
+                  styles.detailIcon,
+                  { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
+                ]}
+              >
+                <MaterialIcons name="apartment" size={16} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[styles.detailLabel, { color: subtleText }]}>Hospital</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.detailValue,
+                    { color: isDark ? "#F1F5F9" : "#0F172A" },
+                  ]}
+                >
+                  {hospitalStatus.hospital_name || "Not assigned yet"}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View
+                style={[
+                  styles.detailIcon,
+                  { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
+                ]}
+              >
+                <MaterialIcons
+                  name={hospitalStatus.is_accepting_emergencies ? "check-circle" : "pause-circle-filled"}
+                  size={16}
+                  color={hospitalStatus.is_accepting_emergencies ? "#10B981" : "#F59E0B"}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[styles.detailLabel, { color: subtleText }]}>Acceptance</ThemedText>
+                <ThemedText
+                  style={[
+                    styles.detailValue,
+                    {
+                      color: hospitalStatus.is_accepting_emergencies ? "#10B981" : "#F59E0B",
+                    },
+                  ]}
+                >
+                  {hospitalStatus.is_accepting_emergencies ? "Accepting emergencies" : "Temporarily not accepting"}
+                </ThemedText>
+              </View>
+            </View>
+
+            {(hospitalStatus.eta_to_hospital_minutes != null || hospitalStatus.distance_to_hospital_km != null) && (
+              <View style={[styles.etaBadge, { backgroundColor: "#EDE9FE" }]}>
+                <MaterialIcons name="schedule" size={16} color="#7C3AED" />
+                <ThemedText style={[styles.etaText, { color: "#7C3AED" }]}> 
+                  {hospitalStatus.eta_to_hospital_minutes != null
+                    ? `ETA to hospital: ${hospitalStatus.eta_to_hospital_minutes} min`
+                    : "ETA to hospital pending"}
+                  {hospitalStatus.distance_to_hospital_km != null
+                    ? ` • ${hospitalStatus.distance_to_hospital_km.toFixed(1)} km`
+                    : ""}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {!isCompleted && (
+          <View
+            style={[
+              styles.infoCard,
+              styles.cardElevated,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={[styles.cardHeader, { marginBottom: 8 }]}>
+              <View style={[styles.iconCircle, { backgroundColor: "#ECFEFF" }]}> 
+                <MaterialIcons name="share" size={20} color="#0891B2" />
+              </View>
+              <ThemedText
+                style={[
+                  styles.cardHeading,
+                  { color: isDark ? "#E2E8F0" : "#1E293B" },
+                ]}
+              >
+                Family Live Tracking
+              </ThemedText>
+            </View>
+            <ThemedText style={[styles.legendText, { color: subtleText, marginBottom: 10 }]}> 
+              Share a secure live tracking link with family or guardians.
+            </ThemedText>
+            <Pressable
+              onPress={onShareLiveTracking}
+              disabled={sharingLink}
+              style={{
+                backgroundColor: sharingLink ? "#94A3B8" : "#0891B2",
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+              }}
+            >
+              <MaterialIcons name="share" size={18} color="#FFF" />
+              <ThemedText style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}>
+                {sharingLink
+                  ? "Preparing Share Link..."
+                  : Platform.OS === "web"
+                    ? "Copy Share Link"
+                    : "Share Live Link"}
+              </ThemedText>
+            </Pressable>
           </View>
         )}
 

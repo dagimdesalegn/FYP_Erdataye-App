@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
@@ -160,11 +160,36 @@ export default function DriverEmergencyTrackingScreen() {
     if (!locationTracking || !ambulanceId) return;
 
     let watcher: Location.LocationSubscription | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") return;        watcher = await Location.watchPositionAsync(
+        if (status !== "granted") return;
+
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (pollErr) {
+              console.warn("Web location polling failed:", pollErr);
+            }
+          }, 5000);
+          return;
+        }
+
+        watcher = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
             timeInterval: 5000,
@@ -189,7 +214,14 @@ export default function DriverEmergencyTrackingScreen() {
 
     startTracking();
     return () => {
-      watcher?.remove();
+      if (intervalId) clearInterval(intervalId);
+      if (watcher && typeof (watcher as any).remove === "function") {
+        try {
+          watcher.remove();
+        } catch (removeErr) {
+          console.warn("Location watcher cleanup failed:", removeErr);
+        }
+      }
     };
   }, [locationTracking, ambulanceId]);
 

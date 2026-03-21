@@ -1,6 +1,10 @@
 import { supabase } from "./supabase";
 import { backendGet, backendPost } from "./api";
 
+function mapCacheToken(...values: number[]): string {
+  return values.map((v) => v.toFixed(5)).join("_");
+}
+
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
 /**
@@ -26,7 +30,9 @@ export function buildMapHtml(
   lng: number,
   zoom: number = 17,
 ): string {
-  return `https://maps.google.com/maps?q=${lat},${lng}&z=${zoom}&output=embed`;
+  // t=m uses the standard roadmap view (roads + building labels).
+  const cb = mapCacheToken(lat, lng, zoom);
+  return `https://maps.google.com/maps?q=${lat},${lng}&z=${zoom}&t=m&output=embed&cb=${cb}`;
 }
 
 /**
@@ -47,8 +53,17 @@ export function buildDriverPatientMapHtml(
     redPopup?: string;
   },
 ): string {
-  // Use an embedded directions route for better real-world accuracy and framing.
-  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&dirflg=d&output=embed`;
+  // Keep map clear: if units are far apart, center on destination with tighter zoom
+  // instead of the very wide auto-fitted directions frame.
+  const km = calculateDistance(driverLat, driverLng, patientLat, patientLng);
+  if (km > 10) {
+    const cb = mapCacheToken(driverLat, driverLng, patientLat, patientLng, km);
+    return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=15&t=m&output=embed&cb=${cb}`;
+  }
+
+  // For closer distances, use embedded directions for route context.
+  const cb = mapCacheToken(driverLat, driverLng, patientLat, patientLng, km);
+  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&dirflg=d&t=m&output=embed&cb=${cb}`;
 }
 
 /**
@@ -84,10 +99,18 @@ export function buildPatientRequestMapHtml(
       }
     }
 
-    return `https://maps.google.com/maps?saddr=${nearest.lat},${nearest.lng}&daddr=${patientLat},${patientLng}&dirflg=d&output=embed`;
+    // Avoid very wide map in request screen when nearest unit is far.
+    if (bestDistance > 10) {
+      const cb = mapCacheToken(patientLat, patientLng, nearest.lat, nearest.lng, bestDistance);
+      return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=15&t=m&output=embed&cb=${cb}`;
+    }
+
+    const cb = mapCacheToken(patientLat, patientLng, nearest.lat, nearest.lng, bestDistance);
+    return `https://maps.google.com/maps?saddr=${nearest.lat},${nearest.lng}&daddr=${patientLat},${patientLng}&dirflg=d&t=m&output=embed&cb=${cb}`;
   }
 
-  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&output=embed`;
+  const cb = mapCacheToken(patientLat, patientLng, 16);
+  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&t=m&output=embed&cb=${cb}`;
 }
 
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */

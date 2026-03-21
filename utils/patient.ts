@@ -8,7 +8,7 @@ import {
   parsePostGISPoint,
   toPostGISPoint,
 } from "./emergency";
-import { backendPost } from "./api";
+import { backendGet, backendPost } from "./api";
 import { supabase } from "./supabase";
 
 const EMERGENCY_CANCEL_WINDOW_MINUTES = 3;
@@ -114,6 +114,83 @@ export interface HospitalInfo {
   phone: string;
   location?: string;
 }
+
+export interface EmergencyHospitalStatus {
+  emergency_id: string;
+  hospital_id: string | null;
+  hospital_name: string | null;
+  is_accepting_emergencies: boolean | null;
+  active_emergencies: number;
+  max_concurrent_emergencies: number | null;
+  utilization: number | null;
+  distance_to_hospital_km: number | null;
+  eta_to_hospital_minutes: number | null;
+  hospital_latitude: number | null;
+  hospital_longitude: number | null;
+  source: string;
+}
+
+interface FamilyShareCreateResponse {
+  share_token: string;
+  emergency_id: string;
+  expires_at: string;
+}
+
+const resolvePublicBackendUrl = (): string => {
+  const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+  if (envUrl && envUrl.trim().length > 0) return envUrl;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin;
+  }
+  return "http://localhost:8000";
+};
+
+export const getEmergencyHospitalStatus = async (
+  emergencyId: string,
+): Promise<{ data: EmergencyHospitalStatus | null; error: Error | null }> => {
+  try {
+    const data = await backendGet<EmergencyHospitalStatus>(
+      `/ops/patient/emergencies/${emergencyId}/hospital-status`,
+    );
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: error as Error };
+  }
+};
+
+export const createFamilyShareLink = async (
+  emergencyId: string,
+  expiresMinutes: number = 180,
+): Promise<{
+  shareToken: string;
+  shareUrl: string;
+  expiresAt: string;
+  error: Error | null;
+}> => {
+  try {
+    const data = await backendPost<FamilyShareCreateResponse>("/ops/family/share", {
+      emergency_id: emergencyId,
+      expires_minutes: expiresMinutes,
+    });
+
+    const baseUrl = resolvePublicBackendUrl().replace(/\/$/, "");
+    const shareUrl = `${baseUrl}/ops/family/share/live?share_token=${encodeURIComponent(data.share_token)}`;
+
+    return {
+      shareToken: data.share_token,
+      shareUrl,
+      expiresAt: data.expires_at,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      shareToken: "",
+      shareUrl: "",
+      expiresAt: "",
+      error: error as Error,
+    };
+  }
+};
 
 const normalizeEmergency = (raw: any): PatientEmergency => {
   const parsed = parsePostGISPoint(raw?.patient_location);

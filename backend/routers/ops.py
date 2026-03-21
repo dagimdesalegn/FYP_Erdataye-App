@@ -120,6 +120,21 @@ class EmergencyDispatchRetryRequest(BaseModel):
     max_radius_km: float = Field(default=100.0, ge=1.0, le=250.0)
 
 
+class EmergencyHospitalStatusResponse(BaseModel):
+    emergency_id: str
+    hospital_id: str | None
+    hospital_name: str | None
+    is_accepting_emergencies: bool | None
+    active_emergencies: int
+    max_concurrent_emergencies: int | None
+    utilization: float | None
+    distance_to_hospital_km: float | None
+    eta_to_hospital_minutes: int | None
+    hospital_latitude: float | None
+    hospital_longitude: float | None
+    source: str
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Role helpers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -225,6 +240,24 @@ def _to_point_wkt(latitude: float, longitude: float) -> str:
     return f"SRID=4326;POINT({longitude} {latitude})"
 
 
+def _fallback_hospital_coords_from_address(address: str | None) -> tuple[float, float] | None:
+    # Coarse geocode fallback for environments where hospitals.location is missing.
+    # Addis Ababa city center approx.
+    text = (address or "").strip().lower()
+    if not text:
+        return None
+    if "addis" in text or "addis ababa" in text:
+        return (9.03, 38.74)
+    return None
+
+
+def _resolve_hospital_location(hospital: dict) -> tuple[float, float] | None:
+    parsed = _parse_point_wkt(hospital.get("location"))
+    if parsed:
+        return parsed
+    return _fallback_hospital_coords_from_address(str(hospital.get("address") or ""))
+
+
 def _gmaps_route_url(start_lat: float, start_lng: float, end_lat: float, end_lng: float) -> str:
     return (
         "https://maps.google.com/maps?"
@@ -236,7 +269,7 @@ async def _find_nearest_hospital(latitude: float, longitude: float) -> dict | No
     hospitals, hosp_code = await db_select(
         "hospitals",
         {},
-        columns="id,location,is_accepting_emergencies",
+        columns="id,location,address,is_accepting_emergencies",
     )
     if hosp_code not in (200, 206):
         return None
@@ -245,7 +278,7 @@ async def _find_nearest_hospital(latitude: float, longitude: float) -> dict | No
     for hospital in hospitals or []:
         if hospital.get("is_accepting_emergencies") is False:
             continue
-        parsed = _parse_point_wkt(hospital.get("location"))
+        parsed = _resolve_hospital_location(hospital)
         if not parsed:
             continue
         hosp_lat, hosp_lon = parsed
@@ -271,11 +304,11 @@ async def _compute_dispatch_recommendation(
         {},
         columns=(
             "id,is_accepting_emergencies,dispatch_weight,"
-            "max_concurrent_emergencies,trauma_capable,icu_beds_available,location"
+            "max_concurrent_emergencies,trauma_capable,icu_beds_available,location,address"
         ),
     )
     if hosp_code not in (200, 206):
-        hospitals, hosp_code = await db_select("hospitals", {}, columns="id,location")
+        hospitals, hosp_code = await db_select("hospitals", {}, columns="id,location,address")
 
     ambulances, amb_code = await db_select(
         "ambulances",
@@ -346,7 +379,7 @@ async def _compute_dispatch_recommendation(
         max_concurrent = int(hospital.get("max_concurrent_emergencies") or fleet) if hospital else fleet
         trauma_capable = bool(hospital.get("trauma_capable", False)) if hospital else False
         icu_beds = int(hospital.get("icu_beds_available") or 0) if hospital else 0
-        hospital_loc = _parse_point_wkt(hospital.get("location")) if hospital else None
+        hospital_loc = _resolve_hospital_location(hospital) if hospital else None
 
         distance_score = max(0.0, 100.0 - dist * 2.0)
         load_ratio = min(active / max(max_concurrent, 1), 2.0)
@@ -1378,6 +1411,165 @@ async def retry_patient_emergency_dispatch(
         ),
         reason=reason,
     )
+
+
+@router.get(
+    "/patient/emergencies/{emergency_id}/hospital-status",
+    response_model=EmergencyHospitalStatusResponse,
+    summary="Get hospital acceptance and ETA details for a patient emergency",
+)
+async def get_patient_emergency_hospital_status(
+    emergency_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> EmergencyHospitalStatusResponse:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("patient", "admin", "hospital", "driver", "ambulance"))
+
+    rows, code = await db_select(
+        "emergency_requests",
+        {"id": emergency_id},
+        columns="id,patient_id,hospital_id,assigned_ambulance_id,patient_location,status",
+    )
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Emergency request not found")
+
+    emergency = rows[0]
+    role = str(profile.get("role") or "")
+    if role == "patient" and str(emergency.get("patient_id") or "") != user_id:
+        raise HTTPException(status_code=403, detail="You can only view your own emergency")
+
+    patient_loc = _parse_point_wkt(emergency.get("patient_location"))
+
+    hospital_id = str(emergency.get("hospital_id") or "")
+    if not hospital_id and patient_loc:
+        # Resolve nearest hospital on-demand so patient UI always has a hospital candidate.
+        nearest_any: dict | None = None
+        all_hospitals, all_hospitals_code = await db_select(
+            "hospitals",
+            {},
+            columns="id,name,is_accepting_emergencies,max_concurrent_emergencies,location,address",
+        )
+        if all_hospitals_code in (200, 206):
+            for h in all_hospitals or []:
+                parsed = _resolve_hospital_location(h)
+                if not parsed:
+                    continue
+                dist = _distance_km(patient_loc[0], patient_loc[1], parsed[0], parsed[1])
+                if nearest_any is None or dist < nearest_any["distance_km"]:
+                    nearest_any = {
+                        "hospital_id": str(h.get("id") or ""),
+                        "distance_km": round(dist, 2),
+                    }
+        if nearest_any and nearest_any.get("hospital_id"):
+            hospital_id = str(nearest_any["hospital_id"])
+            # Best-effort persistence so next reads are consistent.
+            await db_update(
+                "emergency_requests",
+                {"id": emergency_id},
+                {
+                    "hospital_id": hospital_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+    if not hospital_id:
+        return EmergencyHospitalStatusResponse(
+            emergency_id=emergency_id,
+            hospital_id=None,
+            hospital_name=None,
+            is_accepting_emergencies=None,
+            active_emergencies=0,
+            max_concurrent_emergencies=None,
+            utilization=None,
+            distance_to_hospital_km=None,
+            eta_to_hospital_minutes=None,
+            source="unassigned",
+        )
+
+    hosp_rows, hosp_code = await db_select(
+        "hospitals",
+        {"id": hospital_id},
+        columns="id,name,is_accepting_emergencies,max_concurrent_emergencies,location,address",
+    )
+    if hosp_code not in (200, 206) or not hosp_rows:
+        raise HTTPException(status_code=404, detail="Hospital linked to emergency was not found")
+
+    hospital = hosp_rows[0]
+    accepting_raw = hospital.get("is_accepting_emergencies")
+    is_accepting = True if accepting_raw is None else bool(accepting_raw)
+    max_concurrent = hospital.get("max_concurrent_emergencies")
+    max_concurrent_int = int(max_concurrent) if max_concurrent is not None else None
+
+    active_rows, active_code = await db_select(
+        "emergency_requests",
+        {"hospital_id": hospital_id},
+        columns="status",
+    )
+    if active_code not in (200, 206):
+        active_rows = []
+
+    active_emergencies = sum(
+        1 for row in (active_rows or []) if str(row.get("status") or "") not in ("completed", "cancelled")
+    )
+    utilization = None
+    if max_concurrent_int and max_concurrent_int > 0:
+        utilization = round(active_emergencies / max_concurrent_int, 2)
+
+    hospital_loc = _resolve_hospital_location(hospital)
+
+    # Backfill missing geometry for future dispatch quality.
+    if not _parse_point_wkt(hospital.get("location")) and hospital_loc:
+        await db_update(
+            "hospitals",
+            {"id": hospital_id},
+            {
+                "location": _to_point_wkt(hospital_loc[0], hospital_loc[1]),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+
+    ref_lat = None
+    ref_lon = None
+    source = "patient"
+
+    assigned_ambulance_id = str(emergency.get("assigned_ambulance_id") or "")
+    if assigned_ambulance_id:
+        amb_rows, amb_code = await db_select(
+            "ambulances",
+            {"id": assigned_ambulance_id},
+            columns="last_known_location",
+        )
+        if amb_code in (200, 206) and amb_rows:
+            amb_loc = _parse_point_wkt(amb_rows[0].get("last_known_location"))
+            if amb_loc:
+                ref_lat, ref_lon = amb_loc
+                source = "ambulance"
+
+    if ref_lat is None or ref_lon is None:
+        if patient_loc:
+            ref_lat, ref_lon = patient_loc
+
+    distance_km = None
+    eta_minutes = None
+    if ref_lat is not None and ref_lon is not None and hospital_loc:
+        hosp_lat, hosp_lon = hospital_loc
+        distance_km = round(_distance_km(ref_lat, ref_lon, hosp_lat, hosp_lon), 2)
+        eta_minutes = max(2, round((distance_km / 35.0) * 60 + 1))
+
+    return EmergencyHospitalStatusResponse(
+        emergency_id=emergency_id,
+        hospital_id=hospital_id,
+        hospital_name=str(hospital.get("name") or "Hospital"),
+        is_accepting_emergencies=is_accepting,
+        active_emergencies=active_emergencies,
+        max_concurrent_emergencies=max_concurrent_int,
+        utilization=utilization,
+        distance_to_hospital_km=distance_km,
+        eta_to_hospital_minutes=eta_minutes,
+        hospital_latitude=(hospital_loc[0] if hospital_loc else None),
+        hospital_longitude=(hospital_loc[1] if hospital_loc else None),
+        source=source,
+    )
 # OPS_ENHANCEMENT_MARKER
 
 # ---- Enhancement MVP Endpoints -------------------------------------------------
@@ -1675,6 +1867,83 @@ async def family_share_resolve(share_token: str = Query(..., min_length=16)) -> 
     return {
         "share_token": share_token,
         "emergency_id": row.get("emergency_id"),
+        "expires_at": row.get("expires_at"),
+    }
+
+
+@router.get("/family/share/live", summary="Public live emergency status for family share links")
+async def family_share_live(share_token: str = Query(..., min_length=16)) -> dict:
+    row = _SHARE_LINKS.get(share_token)
+    if not row:
+        raise HTTPException(status_code=404, detail="Invalid share token")
+
+    expires = _parse_iso(str(row.get("expires_at") or ""))
+    if not expires or expires < datetime.now(timezone.utc):
+        raise HTTPException(status_code=410, detail="Share token expired")
+
+    emergency_id = str(row.get("emergency_id") or "")
+    emerg_rows, emerg_code = await db_select(
+        "emergency_requests",
+        {"id": emergency_id},
+        columns="id,status,emergency_type,updated_at,hospital_id,assigned_ambulance_id,patient_location",
+    )
+    if emerg_code not in (200, 206) or not emerg_rows:
+        raise HTTPException(status_code=404, detail="Emergency not found")
+
+    emergency = emerg_rows[0]
+    hospital_id = str(emergency.get("hospital_id") or "")
+    hospital_name = None
+    hospital_accepting = None
+    distance_hospital_km = None
+
+    hospital_loc = None
+    if hospital_id:
+        hosp_rows, hosp_code = await db_select(
+            "hospitals",
+            {"id": hospital_id},
+            columns="name,is_accepting_emergencies,location",
+        )
+        if hosp_code in (200, 206) and hosp_rows:
+            hospital = hosp_rows[0]
+            hospital_name = hospital.get("name")
+            hospital_accepting = bool(hospital.get("is_accepting_emergencies", True))
+            hospital_loc = _parse_point_wkt(hospital.get("location"))
+
+    ambulance_vehicle = None
+    distance_patient_km = None
+    eta_minutes = None
+    ambulance_loc = None
+    assigned_ambulance_id = str(emergency.get("assigned_ambulance_id") or "")
+    if assigned_ambulance_id:
+        amb_rows, amb_code = await db_select(
+            "ambulances",
+            {"id": assigned_ambulance_id},
+            columns="vehicle_number,last_known_location",
+        )
+        if amb_code in (200, 206) and amb_rows:
+            ambulance_vehicle = amb_rows[0].get("vehicle_number")
+            ambulance_loc = _parse_point_wkt(amb_rows[0].get("last_known_location"))
+
+    patient_loc = _parse_point_wkt(emergency.get("patient_location"))
+    if ambulance_loc and patient_loc:
+        distance_patient_km = round(_distance_km(ambulance_loc[0], ambulance_loc[1], patient_loc[0], patient_loc[1]), 2)
+        eta_minutes = max(2, round((distance_patient_km / 35.0) * 60 + 1))
+
+    if hospital_loc and patient_loc:
+        distance_hospital_km = round(_distance_km(patient_loc[0], patient_loc[1], hospital_loc[0], hospital_loc[1]), 2)
+
+    return {
+        "share_token": share_token,
+        "emergency_id": emergency_id,
+        "status": emergency.get("status"),
+        "emergency_type": emergency.get("emergency_type"),
+        "updated_at": emergency.get("updated_at"),
+        "hospital_name": hospital_name,
+        "hospital_accepting": hospital_accepting,
+        "ambulance_vehicle": ambulance_vehicle,
+        "distance_to_patient_km": distance_patient_km,
+        "distance_to_hospital_km": distance_hospital_km,
+        "eta_minutes": eta_minutes,
         "expires_at": row.get("expires_at"),
     }
 
