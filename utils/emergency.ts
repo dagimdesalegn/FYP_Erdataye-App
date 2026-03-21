@@ -683,6 +683,33 @@ export const getAvailableAmbulances = async (): Promise<{
 };
 
 /**
+ * Get available ambulances with fresh realtime location only.
+ */
+export const getLiveAvailableAmbulances = async (
+  maxAgeMinutes: number = 10,
+): Promise<{
+  ambulances: Ambulance[] | null;
+  error: Error | null;
+}> => {
+  try {
+    const cutoffIso = new Date(
+      Date.now() - maxAgeMinutes * 60 * 1000,
+    ).toISOString();
+    const { data, error } = await supabase
+      .from("ambulances")
+      .select("*")
+      .eq("is_available", true)
+      .not("last_known_location", "is", null)
+      .gte("updated_at", cutoffIso)
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    return { ambulances: (data || []).map(normalizeAmbulance), error: null };
+  } catch (error) {
+    return { ambulances: null, error: error as Error };
+  }
+};
+/**
  * Get all hospitals
  */
 export const getHospitals = async (): Promise<{
@@ -774,3 +801,4 @@ export function calculateDistance(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+

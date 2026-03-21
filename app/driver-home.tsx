@@ -114,7 +114,7 @@ export default function DriverHomeScreen() {
         setHasAssignment(true);
         setAssignmentCount(1);
       } else {
-        // No active assignment â€” clear stale state
+        // No active assignment GÇö clear stale state
         setHasAssignment(false);
         setAssignmentCount(0);
       }
@@ -148,13 +148,13 @@ export default function DriverHomeScreen() {
   useEffect(() => {
     if (!isAvailable || !user || !ambulanceId) return;
 
-    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let watcher: Location.LocationSubscription | null = null;
 
     const startLocationTracking = async () => {
       try {
         // Show pre-permission explanation first
         showAlert(
-          "ðŸš— Location Tracking Required",
+          "=ƒÜù Location Tracking Required",
           "Patients need to see your real-time location to know when help arrives. This is critical for emergency response.",
         );
 
@@ -166,23 +166,20 @@ export default function DriverHomeScreen() {
           );
           setIsAvailable(false);
           return;
-        }
-
-        const location = await Location.getCurrentPositionAsync();
-        await sendLocationUpdate(
-          ambulanceId,
-          location.coords.latitude,
-          location.coords.longitude,
+        }        watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          async (loc) => {
+            await sendLocationUpdate(
+              ambulanceId,
+              loc.coords.latitude,
+              loc.coords.longitude,
+            );
+          },
         );
-
-        intervalId = setInterval(async () => {
-          const currentLocation = await Location.getCurrentPositionAsync();
-          await sendLocationUpdate(
-            ambulanceId,
-            currentLocation.coords.latitude,
-            currentLocation.coords.longitude,
-          );
-        }, 10000);
 
         console.log("Location tracking started");
       } catch (error) {
@@ -193,7 +190,7 @@ export default function DriverHomeScreen() {
     startLocationTracking();
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      watcher?.remove();
     };
   }, [isAvailable, user, ambulanceId, showError, showAlert]);
 
@@ -214,7 +211,7 @@ export default function DriverHomeScreen() {
     if (!user) return;
     const { assignment } = await getDriverAssignment(user.id);
     if (!assignment) {
-      // Assignment was completed/cancelled â€” clear the UI
+      // Assignment was completed/cancelled GÇö clear the UI
       setHasAssignment(false);
       setAssignmentCount(0);
       // Also refresh stats
@@ -261,7 +258,7 @@ export default function DriverHomeScreen() {
       />
       <View style={{ flex: 1 }}>
         <ThemedText style={styles.infoLabel}>{label}</ThemedText>
-        <ThemedText style={styles.infoValue}>{value || "â€”"}</ThemedText>
+        <ThemedText style={styles.infoValue}>{value || "GÇö"}</ThemedText>
       </View>
     </View>
   );
@@ -274,7 +271,7 @@ export default function DriverHomeScreen() {
         message="Loading..."
       />
 
-      {/* App Header â€“ project name top-left, theme toggle + profile icon top-right */}
+      {/* App Header GÇô project name top-left, theme toggle + profile icon top-right */}
       <AppHeader
         title="Erdataya Ambulance"
         onProfilePress={handleProfilePress}
@@ -546,7 +543,7 @@ export default function DriverHomeScreen() {
                                 year: "numeric",
                               },
                             )
-                          : "â€”"}
+                          : "GÇö"}
                       </ThemedText>
                     </View>
                     {item.description ? (
@@ -569,7 +566,7 @@ export default function DriverHomeScreen() {
                                 minute: "2-digit",
                               },
                             )
-                          : "â€”"}
+                          : "GÇö"}
                       </ThemedText>
                       <MaterialIcons
                         name="check-circle"
@@ -1010,3 +1007,5 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
+
+

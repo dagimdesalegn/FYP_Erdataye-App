@@ -24,7 +24,7 @@ import {
     buildMapHtml,
     buildPatientRequestMapHtml,
     calculateDistance,
-    getAvailableAmbulances,
+    getLiveAvailableAmbulances,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
@@ -124,7 +124,7 @@ export default function PatientEmergencyScreen() {
       .channel("ambulance-availability")
       .on(
         "postgres_changes" as any,
-        { event: "UPDATE", schema: "public", table: "ambulances" },
+        { event: "*", schema: "public", table: "ambulances" },
         () => {
           loadNearbyAmbulances();
         },
@@ -140,7 +140,7 @@ export default function PatientEmergencyScreen() {
 
   const loadNearbyAmbulances = async () => {
     try {
-      const { ambulances: data } = await getAvailableAmbulances();
+      const { ambulances: data } = await getLiveAvailableAmbulances(10);
       if (!data) return;
       const parsed = data
         .map((a: any) => {
@@ -172,7 +172,7 @@ export default function PatientEmergencyScreen() {
         })
         .filter(Boolean)
         .sort((a: any, b: any) => a.distanceRaw - b.distanceRaw);
-      setNearbyAmbulances(parsed as any[]);
+      setNearbyAmbulances((parsed as any[]).slice(0, 1));
     } catch (err) {
       console.error("Error loading ambulances:", err);
     }
@@ -639,7 +639,7 @@ export default function PatientEmergencyScreen() {
                         : buildMapHtml(
                             location.latitude,
                             location.longitude,
-                            16,
+                            17,
                           );
                     return (
                       <HtmlMapView
@@ -662,11 +662,11 @@ export default function PatientEmergencyScreen() {
                         style={[styles.nearbyTitle, { color: colors.text }]}
                       >
                         {nearbyAmbulances.length > 0
-                          ? `${nearbyAmbulances.length} Ambulance${nearbyAmbulances.length > 1 ? "s" : ""} Available`
-                          : "Searching for ambulances..."}
+                          ? "Nearest live ambulance"
+                          : "Searching for nearby live ambulances..."}
                       </ThemedText>
                     </View>
-                    {nearbyAmbulances.slice(0, 3).map((amb, idx) => (
+                    {nearbyAmbulances.map((amb, idx) => (
                       <View
                         key={idx}
                         style={[
@@ -1138,6 +1138,7 @@ const styles = StyleSheet.create({
     color: "#0369A1",
   },
 });
+
 
 
 

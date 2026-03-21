@@ -9,7 +9,7 @@ import {
     buildMapHtml,
     EmergencyRequest,
     formatCoords,
-    getAvailableAmbulances,
+    getLiveAvailableAmbulances,
     getHospitals,
     Hospital,
     normalizeEmergency,
@@ -143,7 +143,7 @@ export default function MapScreen() {
 
   const fetchAmbulances = async () => {
     try {
-      const { ambulances: data, error } = await getAvailableAmbulances();
+      const { ambulances: data, error } = await getLiveAvailableAmbulances(10);
       if (error) throw error;
       const parsed = (data || [])
         .map((a) => {
@@ -214,12 +214,27 @@ export default function MapScreen() {
         { event: "*", schema: "public", table: "emergency_requests" },
         () => fetchEmergencies(),
       )
-      .subscribe();
-    const locationInterval = setInterval(() => getUserLocation(), 10000);
+      .subscribe();    void (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        locationWatcherRef.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          (next) => setLocation(next),
+        );
+      } catch {
+        // fallback to initial location lookup
+      }
+    })();
     return () => {
       ambulanceSub.unsubscribe();
       emergencySub.unsubscribe();
-      clearInterval(locationInterval);
+      locationWatcherRef.current?.remove();
+      locationWatcherRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -434,5 +449,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
+
+
 
 

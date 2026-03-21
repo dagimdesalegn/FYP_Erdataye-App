@@ -159,38 +159,29 @@ export default function DriverEmergencyTrackingScreen() {
   useEffect(() => {
     if (!locationTracking || !ambulanceId) return;
 
-    let intervalId: any = null;
+    let watcher: Location.LocationSubscription | null = null;
 
     const startTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") return;
-
-        const loc = await Location.getCurrentPositionAsync();
-        setDriverCoords({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        await sendLocationUpdate(
-          ambulanceId,
-          loc.coords.latitude,
-          loc.coords.longitude,
-        );
-
-        intervalId = setInterval(async () => {
-          try {
-            const currentLoc = await Location.getCurrentPositionAsync();
+        if (status !== "granted") return;        watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          async (loc) => {
             setDriverCoords({
-              latitude: currentLoc.coords.latitude,
-              longitude: currentLoc.coords.longitude,
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
             });
             await sendLocationUpdate(
               ambulanceId,
-              currentLoc.coords.latitude,
-              currentLoc.coords.longitude,
+              loc.coords.latitude,
+              loc.coords.longitude,
             );
-          } catch {}
-        }, 10000);
+          },
+        );
       } catch (error) {
         console.error("Location error:", error);
       }
@@ -198,7 +189,7 @@ export default function DriverEmergencyTrackingScreen() {
 
     startTracking();
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      watcher?.remove();
     };
   }, [locationTracking, ambulanceId]);
 
@@ -1050,3 +1041,5 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
 });
+
+
