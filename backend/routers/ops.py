@@ -198,6 +198,18 @@ class AdminHospitalDetailsResponse(BaseModel):
     cancelled_emergencies: int
 
 
+class AdminHospitalUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    address: str | None = Field(default=None, min_length=1, max_length=200)
+    phone: str | None = Field(default=None, min_length=9, max_length=16)
+    is_accepting_emergencies: bool | None = None
+    max_concurrent_emergencies: int | None = Field(default=None, ge=1, le=500)
+    dispatch_weight: float | None = Field(default=None, ge=0.1, le=5.0)
+    trauma_capable: bool | None = None
+    icu_beds_available: int | None = Field(default=None, ge=0, le=1000)
+    average_handover_minutes: int | None = Field(default=None, ge=1, le=240)
+
+
 class HospitalEmergency(BaseModel):
     id: str
     patient_id: str
@@ -869,6 +881,61 @@ async def admin_hospital_details(
         active_emergencies=active_emergencies,
         completed_emergencies=completed_emergencies,
         cancelled_emergencies=cancelled_emergencies,
+    )
+
+
+@router.put(
+    "/admin/hospitals/{hospital_id}",
+    response_model=HospitalProfileResponse,
+    summary="Admin update hospital operational settings",
+)
+async def admin_update_hospital(
+    hospital_id: str,
+    payload: AdminHospitalUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+) -> HospitalProfileResponse:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(status_code=400, detail="No update fields provided")
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _, update_code = await db_update("hospitals", {"id": hospital_id}, updates)
+    if update_code not in (200, 204):
+        raise HTTPException(status_code=502, detail="Failed to update hospital")
+
+    rows, code = await db_select(
+        "hospitals",
+        {"id": hospital_id},
+        columns=(
+            "id,name,address,phone,is_accepting_emergencies,max_concurrent_emergencies,"
+            "dispatch_weight,trauma_capable,icu_beds_available,average_handover_minutes,updated_at"
+        ),
+    )
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Hospital not found after update")
+
+    row = rows[0]
+    dispatch_weight_raw = row.get("dispatch_weight")
+    try:
+        dispatch_weight = float(dispatch_weight_raw) if dispatch_weight_raw is not None else None
+    except Exception:
+        dispatch_weight = None
+
+    return HospitalProfileResponse(
+        hospital_id=str(row.get("id") or hospital_id),
+        name=(str(row.get("name") or "").strip() or None),
+        address=(str(row.get("address") or "").strip() or None),
+        phone=(str(row.get("phone") or "").strip() or None),
+        is_accepting_emergencies=row.get("is_accepting_emergencies"),
+        max_concurrent_emergencies=row.get("max_concurrent_emergencies"),
+        dispatch_weight=dispatch_weight,
+        trauma_capable=row.get("trauma_capable"),
+        icu_beds_available=row.get("icu_beds_available"),
+        average_handover_minutes=row.get("average_handover_minutes"),
+        updated_at=(str(row.get("updated_at") or "").strip() or None),
     )
 
 

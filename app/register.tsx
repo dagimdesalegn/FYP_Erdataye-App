@@ -807,47 +807,87 @@ export default function RegisterScreen() {
                           </ThemedText>
                         </View>
                       ) : null}
-                      {hospitals.map((h) => {
-                        const selected = form.hospitalId === h.id;
-                        return (
-                          <Pressable
-                            key={h.id}
-                            onPress={() => handleChange("hospitalId", h.id)}
-                            disabled={loading}
-                            style={[
-                              styles.hospitalChip,
-                              {
-                                borderColor: selected ? "#DC2626" : inputBorder,
-                                backgroundColor: selected ? "#DC262610" : inputBg,
-                              },
-                            ]}
-                          >
-                            <ThemedText
-                              numberOfLines={1}
-                              style={{
-                                color: selected ? "#DC2626" : textPrimary,
-                                fontSize: 12,
-                                fontWeight: selected ? "800" : "600",
-                                fontFamily: Fonts.sans,
-                              }}
+                      <View style={styles.hospitalGrid}>
+                        {hospitals.map((h) => {
+                          const selected = form.hospitalId === h.id;
+                          return (
+                            <Pressable
+                              key={h.id}
+                              onPress={() => handleChange("hospitalId", h.id)}
+                              disabled={loading}
+                              style={[
+                                styles.hospitalCard,
+                                selected && styles.hospitalCardSelected,
+                                {
+                                  borderColor: selected ? "#DC2626" : inputBorder,
+                                  backgroundColor: selected
+                                    ? isDark
+                                      ? "rgba(220,38,38,0.18)"
+                                      : "#FEE2E2"
+                                    : isDark
+                                      ? "#121826"
+                                      : "#F8FAFC",
+                                },
+                              ]}
                             >
-                              {h.name}
-                            </ThemedText>
-                            {h.address ? (
+                              <View style={styles.hospitalCardTop}>
+                                <View
+                                  style={[
+                                    styles.hospitalIcon,
+                                    {
+                                      backgroundColor: selected
+                                        ? "rgba(220,38,38,0.18)"
+                                        : isDark
+                                          ? "rgba(14,165,233,0.18)"
+                                          : "rgba(14,165,233,0.12)",
+                                    },
+                                  ]}
+                                >
+                                  <MaterialIcons
+                                    name="local-hospital"
+                                    size={14}
+                                    color={selected ? "#DC2626" : "#0EA5E9"}
+                                  />
+                                </View>
+                                {selected ? (
+                                  <View style={styles.hospitalBadge}>
+                                    <ThemedText style={styles.hospitalBadgeText}>Selected</ThemedText>
+                                  </View>
+                                ) : null}
+                              </View>
+
                               <ThemedText
                                 numberOfLines={1}
-                                style={{
-                                  color: textSecondary,
-                                  fontSize: 11,
-                                  fontFamily: Fonts.sans,
-                                }}
+                                style={[
+                                  styles.hospitalName,
+                                  { color: selected ? "#B91C1C" : textPrimary },
+                                ]}
                               >
-                                {h.address}
+                                {h.name}
                               </ThemedText>
-                            ) : null}
-                          </Pressable>
-                        );
-                      })}
+
+                              <View style={styles.hospitalMetaRow}>
+                                <MaterialIcons name="place" size={12} color={textSecondary} />
+                                <ThemedText
+                                  numberOfLines={1}
+                                  style={[styles.hospitalMetaText, { color: textSecondary }]}
+                                >
+                                  {h.address || "Address not set"}
+                                </ThemedText>
+                              </View>
+                              <View style={styles.hospitalMetaRow}>
+                                <MaterialIcons name="phone" size={12} color={textSecondary} />
+                                <ThemedText
+                                  numberOfLines={1}
+                                  style={[styles.hospitalMetaText, { color: textSecondary }]}
+                                >
+                                  {h.phone || "No phone"}
+                                </ThemedText>
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     </View>
                   )}
                   {fieldErrors.hospitalId ? (
@@ -1202,6 +1242,64 @@ const styles = StyleSheet.create({
   },
   hospitalListWrap: {
     gap: 8,
+  },
+  hospitalGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  hospitalCard: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 4,
+    flexBasis: "48%" as any,
+    minHeight: 94,
+  },
+  hospitalCardSelected: {
+    boxShadow: "0px 6px 14px rgba(220, 38, 38, 0.22)",
+  },
+  hospitalCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  hospitalIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  hospitalBadge: {
+    backgroundColor: "#DC2626",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  hospitalBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.2,
+  },
+  hospitalName: {
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
+  hospitalMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  hospitalMetaText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: Fonts.sans,
   },
   hospitalChip: {
     borderWidth: 1.5,
