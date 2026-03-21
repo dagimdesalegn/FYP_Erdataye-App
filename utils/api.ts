@@ -21,6 +21,45 @@ function resolveBackendUrl(): string {
 }
 
 const BACKEND_URL = resolveBackendUrl();
+const DEFAULT_TIMEOUT_MS = 12000;
+
+function toErrorMessage(status: number, body: any): string {
+  if (typeof body?.detail === 'string' && body.detail.trim()) return body.detail;
+  if (typeof body?.message === 'string' && body.message.trim()) return body.message;
+  return `Backend error ${status}`;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number = DEFAULT_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Request timeout. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function parseJsonResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(toErrorMessage(res.status, body));
+  }
+
+  if (res.status === 204) {
+    return {} as T;
+  }
+
+  return res.json() as Promise<T>;
+}
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
@@ -32,51 +71,35 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 export async function backendGet<T>(path: string): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${BACKEND_URL}${path}`, { headers });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.detail ?? `Backend error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  const res = await fetchWithTimeout(`${BACKEND_URL}${path}`, { headers }, 12000);
+  return parseJsonResponse<T>(res);
 }
 
 export async function backendPost<T>(path: string, body: unknown): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetchWithTimeout(`${BACKEND_URL}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? `Backend error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  }, 15000);
+  return parseJsonResponse<T>(res);
 }
 
 export async function backendPut<T>(path: string, body: unknown): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetchWithTimeout(`${BACKEND_URL}${path}`, {
     method: 'PUT',
     headers,
     body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? `Backend error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  }, 15000);
+  return parseJsonResponse<T>(res);
 }
 
 export async function backendDelete<T>(path: string): Promise<T> {
   const headers = await getAuthHeaders();
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetchWithTimeout(`${BACKEND_URL}${path}`, {
     method: 'DELETE',
     headers,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.detail ?? `Backend error ${res.status}`);
-  }
-  return res.json() as Promise<T>;
+  }, 12000);
+  return parseJsonResponse<T>(res);
 }

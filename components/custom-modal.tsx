@@ -27,6 +27,7 @@ export interface CustomModalProps {
   onCancel?: () => void;
   icon?: keyof typeof MaterialIcons.glyphMap;
   iconColor?: string;
+  dismissOnBackdrop?: boolean;
 }
 
 export function CustomModal({
@@ -40,6 +41,7 @@ export function CustomModal({
   onCancel,
   icon,
   iconColor,
+  dismissOnBackdrop = false,
 }: CustomModalProps) {
   const scheme = useColorScheme();
   const theme = scheme ?? "light";
@@ -102,7 +104,7 @@ export function CustomModal({
       <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Pressable
           style={styles.backdropTapArea}
-          onPress={onCancel ?? onConfirm}
+          onPress={dismissOnBackdrop ? (onCancel ?? onConfirm) : undefined}
         />
         <Animated.View
           style={[

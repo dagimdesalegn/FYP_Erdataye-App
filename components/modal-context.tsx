@@ -27,6 +27,17 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
     visible: false,
     message: "",
   });
+  const lastModalRef = React.useRef<{ key: string; at: number } | null>(null);
+
+  const shouldSuppressDuplicate = useCallback((next: { type?: string; title?: string; message: string }) => {
+    const now = Date.now();
+    const key = `${next.type || "alert"}::${next.title || ""}::${next.message}`;
+    if (lastModalRef.current && lastModalRef.current.key === key && now - lastModalRef.current.at < 1500) {
+      return true;
+    }
+    lastModalRef.current = { key, at: now };
+    return false;
+  }, []);
 
   const hideModal = useCallback(() => {
     setModalProps((prev) => ({ ...prev, visible: false }));
@@ -34,6 +45,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
 
   const showAlert = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
+      if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
       setModalProps({
         visible: true,
         type: "alert",
@@ -45,7 +57,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         },
       });
     },
-    [hideModal],
+    [hideModal, shouldSuppressDuplicate],
   );
 
   const showConfirm = useCallback(
@@ -55,6 +67,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       onConfirm: () => void,
       onCancel?: () => void,
     ) => {
+      if (shouldSuppressDuplicate({ type: "confirm", title, message })) return;
       setModalProps({
         visible: true,
         type: "confirm",
@@ -70,11 +83,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         },
       });
     },
-    [hideModal],
+    [hideModal, shouldSuppressDuplicate],
   );
 
   const showError = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
+      if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
       setModalProps({
         visible: true,
         type: "alert",
@@ -88,11 +102,12 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         },
       });
     },
-    [hideModal],
+    [hideModal, shouldSuppressDuplicate],
   );
 
   const showSuccess = useCallback(
     (title: string, message: string, onConfirm?: () => void) => {
+      if (shouldSuppressDuplicate({ type: "alert", title, message })) return;
       setModalProps({
         visible: true,
         type: "alert",
@@ -106,7 +121,7 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         },
       });
     },
-    [hideModal],
+    [hideModal, shouldSuppressDuplicate],
   );
 
   return (
