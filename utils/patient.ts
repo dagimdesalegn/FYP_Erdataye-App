@@ -2,13 +2,13 @@
  * Patient Emergency Management Utilities
  */
 
-import {
-  assignAmbulance,
-  findNearestAmbulance,
-  parsePostGISPoint,
-  toPostGISPoint,
-} from "./emergency";
 import { backendGet, backendPost } from "./api";
+import {
+    assignAmbulance,
+    findNearestAmbulance,
+    parsePostGISPoint,
+    toPostGISPoint,
+} from "./emergency";
 import { supabase } from "./supabase";
 
 const EMERGENCY_CANCEL_WINDOW_MINUTES = 3;
@@ -70,7 +70,11 @@ export interface EmergencyAssignment {
 export const retryEmergencyDispatch = async (
   emergencyId: string,
   maxRadiusKm: number = 80,
-): Promise<{ success: boolean; emergency: PatientEmergency | null; error: Error | null }> => {
+): Promise<{
+  success: boolean;
+  emergency: PatientEmergency | null;
+  error: Error | null;
+}> => {
   try {
     const res = await backendPost<EmergencyDispatchApiResponse>(
       `/ops/patient/emergencies/${emergencyId}/retry-dispatch`,
@@ -85,7 +89,11 @@ export const retryEmergencyDispatch = async (
       .maybeSingle();
 
     if (error || !data) {
-      return { success: false, emergency: null, error: error ?? new Error("Emergency not found after retry") };
+      return {
+        success: false,
+        emergency: null,
+        error: error ?? new Error("Emergency not found after retry"),
+      };
     }
 
     return { success: true, emergency: normalizeEmergency(data), error: null };
@@ -168,10 +176,13 @@ export const createFamilyShareLink = async (
   error: Error | null;
 }> => {
   try {
-    const data = await backendPost<FamilyShareCreateResponse>("/ops/family/share", {
-      emergency_id: emergencyId,
-      expires_minutes: expiresMinutes,
-    });
+    const data = await backendPost<FamilyShareCreateResponse>(
+      "/ops/family/share",
+      {
+        emergency_id: emergencyId,
+        expires_minutes: expiresMinutes,
+      },
+    );
 
     const baseUrl = resolvePublicBackendUrl().replace(/\/$/, "");
     const shareUrl = `${baseUrl}/ops/family/share/live?share_token=${encodeURIComponent(data.share_token)}`;
@@ -221,7 +232,9 @@ export const createEmergency = async (
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
   try {
     if (!patientId || latitude === undefined || longitude === undefined) {
-      throw new Error("Missing required fields: patientId, latitude, longitude");
+      throw new Error(
+        "Missing required fields: patientId, latitude, longitude",
+      );
     }
 
     try {
@@ -243,18 +256,26 @@ export const createEmergency = async (
         .maybeSingle();
 
       if (fetchErr || !created) {
-        throw fetchErr || new Error("Dispatch created but emergency record not found.");
+        throw (
+          fetchErr ||
+          new Error("Dispatch created but emergency record not found.")
+        );
       }
 
       const emergency = normalizeEmergency(created);
       emergency.dispatch_reason = dispatch.reason;
       emergency.eta_minutes = dispatch.eta_minutes ?? undefined;
-      emergency.route_to_patient_url = dispatch.route_to_patient_url ?? undefined;
-      emergency.route_to_hospital_url = dispatch.route_to_hospital_url ?? undefined;
+      emergency.route_to_patient_url =
+        dispatch.route_to_patient_url ?? undefined;
+      emergency.route_to_hospital_url =
+        dispatch.route_to_hospital_url ?? undefined;
 
       return { emergency, error: null };
     } catch (backendErr) {
-      console.warn("Backend dispatch unavailable, using legacy fallback:", backendErr);
+      console.warn(
+        "Backend dispatch unavailable, using legacy fallback:",
+        backendErr,
+      );
     }
 
     const timestamp = new Date().toISOString();
@@ -277,7 +298,11 @@ export const createEmergency = async (
     const emergency = normalizeEmergency(data);
 
     try {
-      const { ambulanceId } = await findNearestAmbulance(latitude, longitude, 100);
+      const { ambulanceId } = await findNearestAmbulance(
+        latitude,
+        longitude,
+        100,
+      );
       if (ambulanceId) {
         await assignAmbulance(emergency.id, ambulanceId);
         emergency.assigned_ambulance_id = ambulanceId;
@@ -331,7 +356,10 @@ export const getActiveEmergency = async (
           if (refreshed) activeRow = refreshed;
         }
       } catch (retryError) {
-        console.warn("Active emergency auto-dispatch retry failed:", retryError);
+        console.warn(
+          "Active emergency auto-dispatch retry failed:",
+          retryError,
+        );
       }
     }
 
@@ -430,7 +458,9 @@ export const getEmergencyDetails = async (
             .in("id", candidateIds)
             .limit(10);
 
-          resolvedPhone = firstNonEmptyPhone(...(profiles || []).map((p: any) => p.phone));
+          resolvedPhone = firstNonEmptyPhone(
+            ...(profiles || []).map((p: any) => p.phone),
+          );
         }
       }
 
@@ -438,8 +468,14 @@ export const getEmergencyDetails = async (
         ambulance = {
           ...(ambulanceData as any),
           driver_phone: resolvedPhone,
-          phone: firstNonEmptyPhone((ambulanceData as any)?.phone, resolvedPhone),
-          phone_number: firstNonEmptyPhone((ambulanceData as any)?.phone_number, resolvedPhone),
+          phone: firstNonEmptyPhone(
+            (ambulanceData as any)?.phone,
+            resolvedPhone,
+          ),
+          phone_number: firstNonEmptyPhone(
+            (ambulanceData as any)?.phone_number,
+            resolvedPhone,
+          ),
         } as AmbulanceInfo;
 
         if (assignmentData) {
@@ -463,7 +499,10 @@ export const getEmergencyDetails = async (
     return {
       emergency: normalizeEmergency(emergencyData),
       assignment: assignmentData
-        ? ({ ...assignmentData, status: assignmentData.status ?? "pending" } as EmergencyAssignment)
+        ? ({
+            ...assignmentData,
+            status: assignmentData.status ?? "pending",
+          } as EmergencyAssignment)
         : null,
       ambulance,
       error: null,
@@ -519,7 +558,10 @@ export const updateEmergencyStatus = async (
         for (const row of assignments as Array<{ ambulance_id: string }>) {
           await supabase
             .from("ambulances")
-            .update({ is_available: true, updated_at: new Date().toISOString() })
+            .update({
+              is_available: true,
+              updated_at: new Date().toISOString(),
+            })
             .eq("id", row.ambulance_id);
         }
       }
@@ -550,7 +592,11 @@ export const cancelEmergencyWithinWindow = async (
   emergencyId: string,
   patientId: string,
   maxMinutes: number = EMERGENCY_CANCEL_WINDOW_MINUTES,
-): Promise<{ success: boolean; error: Error | null; remainingSeconds: number }> => {
+): Promise<{
+  success: boolean;
+  error: Error | null;
+  remainingSeconds: number;
+}> => {
   try {
     const { data, error } = await supabase
       .from("emergency_requests")
@@ -571,7 +617,9 @@ export const cancelEmergencyWithinWindow = async (
     if (data.patient_id !== patientId) {
       return {
         success: false,
-        error: new Error("You are not allowed to cancel this emergency request."),
+        error: new Error(
+          "You are not allowed to cancel this emergency request.",
+        ),
         remainingSeconds: 0,
       };
     }

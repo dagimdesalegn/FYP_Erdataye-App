@@ -2,7 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
@@ -1073,5 +1080,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
 });
-
-

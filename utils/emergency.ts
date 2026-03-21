@@ -1,5 +1,5 @@
-import { supabase } from "./supabase";
 import { backendGet, backendPost } from "./api";
+import { supabase } from "./supabase";
 
 function mapCacheToken(...values: number[]): string {
   return values.map((v) => v.toFixed(5)).join("_");
@@ -101,11 +101,23 @@ export function buildPatientRequestMapHtml(
 
     // Avoid very wide map in request screen when nearest unit is far.
     if (bestDistance > 10) {
-      const cb = mapCacheToken(patientLat, patientLng, nearest.lat, nearest.lng, bestDistance);
+      const cb = mapCacheToken(
+        patientLat,
+        patientLng,
+        nearest.lat,
+        nearest.lng,
+        bestDistance,
+      );
       return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=15&t=m&output=embed&cb=${cb}`;
     }
 
-    const cb = mapCacheToken(patientLat, patientLng, nearest.lat, nearest.lng, bestDistance);
+    const cb = mapCacheToken(
+      patientLat,
+      patientLng,
+      nearest.lat,
+      nearest.lng,
+      bestDistance,
+    );
     return `https://maps.google.com/maps?saddr=${nearest.lat},${nearest.lng}&daddr=${patientLat},${patientLng}&dirflg=d&t=m&output=embed&cb=${cb}`;
   }
 
@@ -316,11 +328,7 @@ export const findNearestAmbulance = async (
   distanceKm: number | null;
   error: Error | null;
 }> => {
-  const ranked = await recommendBestDispatch(
-    latitude,
-    longitude,
-    maxRadiusKm,
-  );
+  const ranked = await recommendBestDispatch(latitude, longitude, maxRadiusKm);
   if (!ranked.error && ranked.ambulanceId) {
     return {
       ambulanceId: ranked.ambulanceId,
@@ -483,8 +491,7 @@ export const recommendBestDispatch = async (
       const loadScore = Math.max(0, 100 - loadRatio * 50);
       const capacityScore = Math.min(100, fleet * 10);
 
-      const score =
-        distanceScore * 0.6 + loadScore * 0.3 + capacityScore * 0.1;
+      const score = distanceScore * 0.6 + loadScore * 0.3 + capacityScore * 0.1;
 
       if (!best || score > best.score) {
         best = {
@@ -826,7 +833,6 @@ export function calculateDistance(
   return R * c;
 }
 
-
 // --- Enhancement endpoints (MVP wrappers) -----------------------------
 
 export const getTrafficAwareDispatch = async (input: {
@@ -890,7 +896,9 @@ export const addEmergencyTimelineEvent = async (input: {
   });
 
 export const getEmergencyTimeline = async (emergencyId: string) =>
-  backendGet(`/ops/timeline/events?emergency_id=${encodeURIComponent(emergencyId)}`);
+  backendGet(
+    `/ops/timeline/events?emergency_id=${encodeURIComponent(emergencyId)}`,
+  );
 
 export const getHospitalCapacityBoard = async () =>
   backendGet("/ops/capacity/hospitals");
