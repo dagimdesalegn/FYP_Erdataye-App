@@ -374,36 +374,82 @@ export default function LoginScreen() {
 
           {/* OR divider + Continue with Fayda */}
           <View style={{ marginVertical: 14, alignItems: "center" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12, width: "100%" }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: cardBorder }} />
-              <ThemedText style={{ marginHorizontal: 12, fontWeight: "700", fontSize: 12, color: textSecondary }}>OR</ThemedText>
-              <View style={{ flex: 1, height: 1, backgroundColor: cardBorder }} />
-            </View>
-            <Pressable
-              onPress={() => showAlert("Coming Soon", "Fayda (National ID) sign-in will be available soon. Please sign in manually for now.")}
-              disabled={loading}
-              style={({ pressed }) => [{
-                backgroundColor: "#1A4D8F",
-                borderRadius: 14,
-                paddingVertical: 13,
-                paddingHorizontal: 22,
+            <View
+              style={{
                 flexDirection: "row",
                 alignItems: "center",
-                justifyContent: "center",
+                marginBottom: 12,
                 width: "100%",
-                opacity: pressed ? 0.85 : 1,
-              }]}
+              }}
+            >
+              <View
+                style={{ flex: 1, height: 1, backgroundColor: cardBorder }}
+              />
+              <ThemedText
+                style={{
+                  marginHorizontal: 12,
+                  fontWeight: "700",
+                  fontSize: 12,
+                  color: textSecondary,
+                }}
+              >
+                OR
+              </ThemedText>
+              <View
+                style={{ flex: 1, height: 1, backgroundColor: cardBorder }}
+              />
+            </View>
+            <Pressable
+              onPress={() =>
+                showAlert(
+                  "Coming Soon",
+                  "Fayda (National ID) sign-in will be available soon. Please sign in manually for now.",
+                )
+              }
+              disabled={loading}
+              style={({ pressed }) => [
+                {
+                  backgroundColor: "#1A4D8F",
+                  borderRadius: 14,
+                  paddingVertical: 13,
+                  paddingHorizontal: 22,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "100%",
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
             >
               <Image
                 source={faydaLogo}
-                style={{ width: 26, height: 26, marginRight: 10, borderRadius: 4 }}
+                style={{
+                  width: 26,
+                  height: 26,
+                  marginRight: 10,
+                  borderRadius: 4,
+                }}
                 resizeMode="contain"
               />
-              <ThemedText style={{ color: "#fff", fontWeight: "800", fontSize: 15, letterSpacing: 0.2 }}>
+              <ThemedText
+                style={{
+                  color: "#fff",
+                  fontWeight: "800",
+                  fontSize: 15,
+                  letterSpacing: 0.2,
+                }}
+              >
                 Continue with Fayda
               </ThemedText>
             </Pressable>
-            <ThemedText style={{ marginTop: 6, fontSize: 11, color: textSecondary, textAlign: "center" }}>
+            <ThemedText
+              style={{
+                marginTop: 6,
+                fontSize: 11,
+                color: textSecondary,
+                textAlign: "center",
+              }}
+            >
               Sign in instantly using your Fayda National ID
             </ThemedText>
           </View>
