@@ -254,6 +254,7 @@ export const signUp = async (
   fullName: string = "",
   hospitalId?: string,
   location?: { latitude: number; longitude: number } | null,
+  nationalId?: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     if (!["patient", "ambulance"].includes(role)) {
@@ -296,6 +297,7 @@ export const signUp = async (
         password,
         full_name: fullName,
         phone: ethPhone,
+        national_id: nationalId || "",
         role,
         hospital_id: hospitalId,
         latitude: location?.latitude,

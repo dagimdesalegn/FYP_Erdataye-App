@@ -34,6 +34,7 @@ import {
 interface EmergencyWithPatient extends EmergencyRequest {
   patient_profile?: UserProfile;
   patient_medical?: MedicalProfile;
+  national_id?: string | null;
 }
 
 interface HospitalFleetResponse {
@@ -142,6 +143,7 @@ export default function HospitalDashboard() {
             ...normalizeEmergency(e),
             patient_profile: e.patient_profile,
             patient_medical: e.patient_medical,
+            national_id: (e as any).national_id ?? null,
           }) as EmergencyWithPatient,
         ),
       );
@@ -750,6 +752,12 @@ export default function HospitalDashboard() {
                     <InfoRow
                       label="Phone"
                       value={selectedEmergency.patient_profile?.phone}
+                      c={colors.text}
+                      s={subText}
+                    />
+                    <InfoRow
+                      label="National ID"
+                      value={selectedEmergency.national_id}
                       c={colors.text}
                       s={subText}
                     />

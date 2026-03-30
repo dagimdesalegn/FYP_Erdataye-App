@@ -250,12 +250,24 @@ export const createEmergency = async (
   emergencyType: string = "medical",
   description?: string,
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
+
   try {
     if (!patientId || latitude === undefined || longitude === undefined) {
       throw new Error(
         "Missing required fields: patientId, latitude, longitude",
       );
     }
+
+    // Try to get national_id from user profile (if available)
+    let nationalId = "";
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("national_id")
+        .eq("id", patientId)
+        .maybeSingle();
+      if (profile && profile.national_id) nationalId = profile.national_id;
+    } catch {}
 
     try {
       const dispatch = await backendPost<EmergencyDispatchApiResponse>(
@@ -266,6 +278,7 @@ export const createEmergency = async (
           emergency_type: emergencyType,
           description: description || null,
           max_radius_km: 100,
+          national_id: nationalId,
         },
       );
 

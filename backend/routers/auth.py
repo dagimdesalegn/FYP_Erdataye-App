@@ -58,6 +58,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=72, description="Min 6 characters")
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=9, max_length=16)
+    national_id: str | None = Field(default=None, min_length=5, max_length=32, description="National ID number (optional)")
     role: Literal["patient", "ambulance", "driver"] = "patient"
     hospital_id: str | None = Field(default=None, description="Optional selected hospital for ambulance/driver")
     latitude: float | None = Field(default=None, ge=-90, le=90)

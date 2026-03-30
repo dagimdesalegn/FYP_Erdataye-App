@@ -101,6 +101,7 @@ class EmergencyDispatchCreateRequest(BaseModel):
     emergency_type: str = Field(default="medical", min_length=1, max_length=40)
     description: str | None = Field(default=None, max_length=1500)
     max_radius_km: float = Field(default=50.0, ge=1.0, le=200.0)
+    national_id: str | None = Field(default=None, min_length=5, max_length=32, description="National ID number (optional)")
 
 
 class EmergencyDispatchCreateResponse(BaseModel):
@@ -223,6 +224,7 @@ class HospitalEmergency(BaseModel):
     updated_at: str | None = None
     patient_profile: dict | None = None
     patient_medical: dict | None = None
+    national_id: str | None = None
 
 
 class HospitalFleetResponse(BaseModel):
@@ -429,7 +431,7 @@ async def _compute_dispatch_recommendation(
     hospitals_by_id = {str(h.get("id")): h for h in (hospitals or [])}
     available = [a for a in all_ambulances if bool(a.get("is_available"))]
     if not available:
-        return None, "No available ambulances"
+        return None, "All ambulances are currently on active emergencies. Your request has been saved and an ambulance will be dispatched as soon as one becomes available."
 
     fleet_by_hospital: dict[str, int] = {}
     for amb in all_ambulances:
@@ -483,11 +485,13 @@ async def _compute_dispatch_recommendation(
         load_score = max(0.0, 100.0 - load_ratio * 50.0)
         capacity_score = min(100.0, fleet * 10.0)
         capability_bonus = (6.0 if trauma_capable else 0.0) + min(icu_beds, 5) * 1.2
+        # Distance is the dominant factor (0.70) so that same-severity
+        # requests always dispatch the nearest available ambulance first.
         score = (
-            distance_score * 0.52
-            + load_score * 0.26
-            + capacity_score * 0.12
-            + min(dispatch_weight, 2.0) * 8.0
+            distance_score * 0.70
+            + load_score * 0.16
+            + capacity_score * 0.06
+            + min(dispatch_weight, 2.0) * 4.0
             + capability_bonus
         )
 
@@ -504,7 +508,7 @@ async def _compute_dispatch_recommendation(
             }
 
     if best is None:
-        return None, f"No available ambulances within {max_radius_km:.0f} km"
+        return None, f"No ambulances found within {max_radius_km:.0f} km of your location. Your request has been saved and will be dispatched when an ambulance becomes available nearby."
 
     return best, "Recommended by distance, hospital load, and fleet capacity"
 
@@ -1253,6 +1257,67 @@ async def repair_hospital_fleet_links(
     )
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Admin Settings — runtime API key management
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class AdminSettingsResponse(BaseModel):
+    deepseek_api_key_set: bool
+    deepseek_api_key_preview: str
+
+
+class AdminUpdateApiKeyRequest(BaseModel):
+    deepseek_api_key: str = Field(..., min_length=1, max_length=200)
+
+
+@router.get(
+    "/admin/settings",
+    response_model=AdminSettingsResponse,
+    summary="Get current admin settings (API key status)",
+)
+async def admin_get_settings(
+    current_user: dict = Depends(get_current_user),
+) -> AdminSettingsResponse:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    from config import settings as app_settings
+
+    key = app_settings.deepseek_api_key or ""
+    has_key = len(key) > 4
+    preview = (key[:4] + "..." + key[-4:]) if has_key else "(not set)"
+    return AdminSettingsResponse(
+        deepseek_api_key_set=has_key,
+        deepseek_api_key_preview=preview,
+    )
+
+
+@router.put(
+    "/admin/settings/api-key",
+    summary="Update the DeepSeek API key at runtime",
+)
+async def admin_update_api_key(
+    payload: AdminUpdateApiKeyRequest,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    from config import settings as app_settings
+    import routers.chat as chat_module
+
+    new_key = payload.deepseek_api_key.strip()
+    # Update the runtime settings object
+    app_settings.deepseek_api_key = new_key
+    # Rebuild the OpenAI client used by the chat router
+    chat_module._deepseek = chat_module.OpenAI(
+        api_key=new_key,
+        base_url="https://api.deepseek.com",
+    )
+    return {"success": True, "message": "API key updated successfully"}
+
+
 class StatusUpdate(BaseModel):
     status: Literal[
         "pending",
@@ -1541,6 +1606,7 @@ async def create_patient_emergency(
             "emergency_type": payload.emergency_type,
             "description": payload.description,
             "hospital_id": preferred_hospital_id,
+            "national_id": payload.national_id,
             "status": "pending",
             "created_at": now,
             "updated_at": now,
@@ -1572,7 +1638,7 @@ async def create_patient_emergency(
             eta_minutes=None,
             route_to_patient_url=None,
             route_to_hospital_url=None,
-            reason=reason,
+            reason=reason or "All ambulances are currently busy. Your emergency request has been saved — an ambulance will be dispatched as soon as one becomes available. You can try again shortly.",
         )
 
     hospital_id = best.get("hospital_id") or preferred_hospital_id
@@ -2208,22 +2274,23 @@ async def hospital_capacity_board(current_user: dict = Depends(get_current_user)
         hid = str(h.get("id") or "")
         active = active_by_hospital.get(hid, 0)
         max_concurrent = int(h.get("max_concurrent_emergencies") or 10)
-        rows.append(
-            {
-                "hospital_id": hid,
-                "name": h.get("name"),
-                "is_accepting_emergencies": h.get("is_accepting_emergencies", True),
-                "active_emergencies": active,
-                "max_concurrent_emergencies": max_concurrent,
-                "utilization": round(min(1.5, active / max(max_concurrent, 1)), 2),
-                "icu_beds_available": int(h.get("icu_beds_available") or 0),
-            }
+        results.append(
+            HospitalEmergency(
+                id=str(raw.get("id")),
+                patient_id=str(raw.get("patient_id")),
+                hospital_id=raw.get("hospital_id"),
+                status=str(raw.get("status") or "pending"),
+                emergency_type=str(raw.get("emergency_type") or "medical"),
+                description=raw.get("description"),
+                latitude=coords[0] if coords else None,
+                longitude=coords[1] if coords else None,
+                created_at=str(raw.get("created_at") or ""),
+                updated_at=str(raw.get("updated_at") or ""),
+                patient_profile=profile_rows[0] if profile_code in (200, 206) and profile_rows else None,
+                patient_medical=medical_rows[0] if medical_rows else None,
+                national_id=raw.get("national_id"),
+            )
         )
-
-    return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "hospitals": rows,
-    }
 
 
 @router.post("/family/share", summary="Create family/guardian tracking share token (MVP)")

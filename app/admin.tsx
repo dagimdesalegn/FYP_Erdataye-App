@@ -11,7 +11,7 @@ import {
   Hospital,
   normalizeEmergency,
 } from "@/utils/emergency";
-import { backendGet, backendPost } from "@/utils/api";
+import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -43,7 +43,7 @@ interface Profile {
   updated_at: string;
 }
 
-type Tab = "users" | "emergencies" | "ambulances" | "hospitals";
+type Tab = "users" | "emergencies" | "ambulances" | "hospitals" | "settings";
 type FilterRole = "all" | "patient" | "ambulance" | "admin" | "hospital";
 type EmergencyFilter = "all" | "active" | "completed" | "cancelled";
 
@@ -112,6 +112,12 @@ export default function AdminScreen() {
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [opsInsights, setOpsInsights] = useState<{ emergenciesTotal: number; avgCompletionMinutes: number | null } | null>(null);
 
+  // Settings state
+  const [apiKeyPreview, setApiKeyPreview] = useState("");
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [newApiKey, setNewApiKey] = useState("");
+  const [savingApiKey, setSavingApiKey] = useState(false);
+
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [emergencyFilter, setEmergencyFilter] =
     useState<EmergencyFilter>("all");
@@ -151,8 +157,39 @@ export default function AdminScreen() {
     }
   }, []);
 
+  const fetchSettings = useCallback(async () => {
+    try {
+      const data = await backendGet<{ deepseek_api_key_set: boolean; deepseek_api_key_preview: string }>("/ops/admin/settings");
+      if (data) {
+        setApiKeySet(data.deepseek_api_key_set);
+        setApiKeyPreview(data.deepseek_api_key_preview);
+      }
+    } catch (err) {
+      console.error("Settings fetch error:", err);
+    }
+  }, []);
+
+  const handleSaveApiKey = async () => {
+    if (!newApiKey.trim()) {
+      showError("Missing Key", "Please enter a valid API key.");
+      return;
+    }
+    setSavingApiKey(true);
+    try {
+      await backendPut("/ops/admin/settings/api-key", { deepseek_api_key: newApiKey.trim() });
+      showSuccess("API Key Updated", "The first aid chatbot API key has been updated successfully.");
+      setNewApiKey("");
+      fetchSettings();
+    } catch (err: any) {
+      showError("Update Failed", String(err?.message || "Failed to update API key"));
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
   useEffect(() => {
     fetchAll();
+    fetchSettings();
     const channel = supabase
       .channel("admin_realtime")
       .on(
@@ -907,6 +944,8 @@ export default function AdminScreen() {
         return filteredAmbulances;
       case "hospitals":
         return filteredHospitals;
+      case "settings":
+        return [];
     }
   };
 
@@ -920,6 +959,8 @@ export default function AdminScreen() {
         return renderAmbulanceCard;
       case "hospitals":
         return renderHospitalCard;
+      case "settings":
+        return () => null;
     }
   };
 
@@ -985,6 +1026,11 @@ export default function AdminScreen() {
                   key: "hospitals",
                   label: "Hospitals",
                   icon: "local-hospital",
+                },
+                {
+                  key: "settings",
+                  label: "Settings",
+                  icon: "settings",
                 },
               ] as { key: Tab; label: string; icon: any }[]
             ).map((tab) => {
@@ -1083,7 +1129,62 @@ export default function AdminScreen() {
           )}
 
           {/* Data list */}
-          {loading ? (
+          {activeTab === "settings" ? (
+            <View style={[styles.settingsPanel, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.settingsHeader}>
+                <MaterialIcons name="vpn-key" size={24} color="#DC2626" />
+                <ThemedText style={[styles.settingsTitle, { color: colors.text }]}>
+                  First Aid Chatbot API Key
+                </ThemedText>
+              </View>
+              <ThemedText style={[styles.settingsDesc, { color: subText }]}>
+                The first aid chatbot uses DeepSeek AI. You can update the API key here without restarting the server.
+              </ThemedText>
+
+              <View style={[styles.settingsKeyStatus, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+                <MaterialIcons
+                  name={apiKeySet ? "check-circle" : "error-outline"}
+                  size={18}
+                  color={apiKeySet ? "#10B981" : "#F59E0B"}
+                />
+                <ThemedText style={{ color: colors.text, fontSize: 13, fontFamily: Fonts.sans, flex: 1 }}>
+                  Current key: {apiKeyPreview || "(loading...)"}
+                </ThemedText>
+                <Pressable onPress={fetchSettings} hitSlop={8}>
+                  <MaterialIcons name="refresh" size={18} color={subText} />
+                </Pressable>
+              </View>
+
+              <ThemedText style={[styles.label, { color: colors.text, marginTop: 14, marginBottom: 6, fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans }]}>
+                New API Key
+              </ThemedText>
+              <TextInput
+                style={[styles.settingsInput, { color: colors.text, borderColor: inputBorder, backgroundColor: inputBg }]}
+                placeholder="sk-..."
+                placeholderTextColor={subText}
+                value={newApiKey}
+                onChangeText={setNewApiKey}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+              />
+
+              <Pressable
+                style={[styles.settingsSaveBtn, savingApiKey && { opacity: 0.7 }]}
+                onPress={handleSaveApiKey}
+                disabled={savingApiKey}
+              >
+                {savingApiKey ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <MaterialIcons name="save" size={18} color="#FFF" />
+                )}
+                <ThemedText style={styles.settingsSaveBtnText}>
+                  {savingApiKey ? "Saving..." : "Update API Key"}
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : loading ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator size="large" color="#DC2626" />
               <ThemedText style={[styles.loadingText, { color: subText }]}>
@@ -1698,5 +1799,63 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: Fonts.sans,
     color: "#DC2626",
+  },
+
+  /* Settings tab */
+  settingsPanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 20,
+    gap: 8,
+  },
+  settingsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 4,
+  },
+  settingsTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
+  settingsDesc: {
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    lineHeight: 19,
+  },
+  settingsKeyStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  settingsInput: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+  },
+  settingsSaveBtn: {
+    backgroundColor: "#DC2626",
+    borderRadius: 10,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 10,
+  },
+  settingsSaveBtnText: {
+    color: "#FFF",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
   },
 });
