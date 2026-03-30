@@ -250,7 +250,6 @@ export const createEmergency = async (
   emergencyType: string = "medical",
   description?: string,
 ): Promise<{ emergency: PatientEmergency | null; error: Error | null }> => {
-
   try {
     if (!patientId || latitude === undefined || longitude === undefined) {
       throw new Error(

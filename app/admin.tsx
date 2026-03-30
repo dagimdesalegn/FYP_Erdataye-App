@@ -4,14 +4,14 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { signOut } from "@/utils/auth";
 import {
-  Ambulance,
-  EmergencyRequest,
-  Hospital,
-  normalizeEmergency,
+    Ambulance,
+    EmergencyRequest,
+    Hospital,
+    normalizeEmergency,
 } from "@/utils/emergency";
-import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
@@ -20,7 +20,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
-  KeyboardAvoidingView,
+    KeyboardAvoidingView,
     Modal,
     Platform,
     Pressable,
@@ -110,7 +110,10 @@ export default function AdminScreen() {
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
   const [ambulances, setAmbulances] = useState<Ambulance[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [opsInsights, setOpsInsights] = useState<{ emergenciesTotal: number; avgCompletionMinutes: number | null } | null>(null);
+  const [opsInsights, setOpsInsights] = useState<{
+    emergenciesTotal: number;
+    avgCompletionMinutes: number | null;
+  } | null>(null);
 
   // Settings state
   const [apiKeyPreview, setApiKeyPreview] = useState("");
@@ -141,10 +144,15 @@ export default function AdminScreen() {
       if (data?.ambulances) setAmbulances(data.ambulances as Ambulance[]);
       if (data?.hospitals) setHospitals(data.hospitals as Hospital[]);
       try {
-        const insights = await backendGet<any>("/ops/insights/operations?days=7");
+        const insights = await backendGet<any>(
+          "/ops/insights/operations?days=7",
+        );
         setOpsInsights({
           emergenciesTotal: Number(insights?.emergencies_total || 0),
-          avgCompletionMinutes: typeof insights?.avg_completion_minutes === "number" ? insights.avg_completion_minutes : null,
+          avgCompletionMinutes:
+            typeof insights?.avg_completion_minutes === "number"
+              ? insights.avg_completion_minutes
+              : null,
         });
       } catch {
         setOpsInsights(null);
@@ -159,7 +167,10 @@ export default function AdminScreen() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const data = await backendGet<{ deepseek_api_key_set: boolean; deepseek_api_key_preview: string }>("/ops/admin/settings");
+      const data = await backendGet<{
+        deepseek_api_key_set: boolean;
+        deepseek_api_key_preview: string;
+      }>("/ops/admin/settings");
       if (data) {
         setApiKeySet(data.deepseek_api_key_set);
         setApiKeyPreview(data.deepseek_api_key_preview);
@@ -176,12 +187,20 @@ export default function AdminScreen() {
     }
     setSavingApiKey(true);
     try {
-      await backendPut("/ops/admin/settings/api-key", { deepseek_api_key: newApiKey.trim() });
-      showSuccess("API Key Updated", "The first aid chatbot API key has been updated successfully.");
+      await backendPut("/ops/admin/settings/api-key", {
+        deepseek_api_key: newApiKey.trim(),
+      });
+      showSuccess(
+        "API Key Updated",
+        "The first aid chatbot API key has been updated successfully.",
+      );
       setNewApiKey("");
       fetchSettings();
     } catch (err: any) {
-      showError("Update Failed", String(err?.message || "Failed to update API key"));
+      showError(
+        "Update Failed",
+        String(err?.message || "Failed to update API key"),
+      );
     } finally {
       setSavingApiKey(false);
     }
@@ -245,8 +264,15 @@ export default function AdminScreen() {
   };
 
   const handleCreateHospitalUser = async () => {
-    if (!hospitalForm.hospitalName.trim() || !hospitalForm.phone.trim() || !hospitalForm.password.trim()) {
-      showError("Missing Fields", "Hospital name, phone, and password are required.");
+    if (
+      !hospitalForm.hospitalName.trim() ||
+      !hospitalForm.phone.trim() ||
+      !hospitalForm.password.trim()
+    ) {
+      showError(
+        "Missing Fields",
+        "Hospital name, phone, and password are required.",
+      );
       return;
     }
 
@@ -257,7 +283,10 @@ export default function AdminScreen() {
       (phoneDigits.length === 10 && phoneDigits.startsWith("09")) ||
       (phoneDigits.length === 9 && phoneDigits.startsWith("9"));
     if (!isEthMobile) {
-      showError("Invalid Phone", "Use Ethiopian mobile format like +2519XXXXXXXX or 09XXXXXXXX.");
+      showError(
+        "Invalid Phone",
+        "Use Ethiopian mobile format like +2519XXXXXXXX or 09XXXXXXXX.",
+      );
       return;
     }
 
@@ -275,7 +304,9 @@ export default function AdminScreen() {
       if (!raw) return null;
 
       // Accept direct "lat, lng" input first.
-      const direct = raw.match(/(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/);
+      const direct = raw.match(
+        /(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/,
+      );
       if (direct) {
         return {
           latitude: Number(direct[1]),
@@ -284,7 +315,9 @@ export default function AdminScreen() {
       }
 
       // Accept pasted Google Maps URLs containing @lat,lng or q=lat,lng.
-      const mapPattern = raw.match(/@(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/);
+      const mapPattern = raw.match(
+        /@(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/,
+      );
       if (mapPattern) {
         return {
           latitude: Number(mapPattern[1]),
@@ -292,7 +325,9 @@ export default function AdminScreen() {
         };
       }
 
-      const qPattern = raw.match(/[?&]q=(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/);
+      const qPattern = raw.match(
+        /[?&]q=(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?)/,
+      );
       if (qPattern) {
         return {
           latitude: Number(qPattern[1]),
@@ -305,10 +340,17 @@ export default function AdminScreen() {
 
     let latitude = parseOptionalNumber(hospitalForm.latitude);
     let longitude = parseOptionalNumber(hospitalForm.longitude);
-    if (latitude == null && longitude == null && hospitalForm.locationInput.trim()) {
+    if (
+      latitude == null &&
+      longitude == null &&
+      hospitalForm.locationInput.trim()
+    ) {
       const parsed = parseCoordinatesFromText(hospitalForm.locationInput);
       if (!parsed) {
-        showError("Invalid Location", "Paste coordinates like 9.03, 38.74 or a Google Maps URL.");
+        showError(
+          "Invalid Location",
+          "Paste coordinates like 9.03, 38.74 or a Google Maps URL.",
+        );
         return;
       }
       latitude = parsed.latitude;
@@ -316,7 +358,10 @@ export default function AdminScreen() {
     }
 
     if ((latitude == null) !== (longitude == null)) {
-      showError("Invalid Location", "Provide both latitude and longitude, or leave both empty.");
+      showError(
+        "Invalid Location",
+        "Provide both latitude and longitude, or leave both empty.",
+      );
       return;
     }
     if (latitude != null && (latitude < -90 || latitude > 90)) {
@@ -328,15 +373,26 @@ export default function AdminScreen() {
       return;
     }
 
-    const maxConcurrent = parseOptionalNumber(hospitalForm.maxConcurrentEmergencies);
+    const maxConcurrent = parseOptionalNumber(
+      hospitalForm.maxConcurrentEmergencies,
+    );
     if (maxConcurrent != null && (maxConcurrent < 1 || maxConcurrent > 500)) {
-      showError("Invalid Capacity", "Max concurrent emergencies must be between 1 and 500.");
+      showError(
+        "Invalid Capacity",
+        "Max concurrent emergencies must be between 1 and 500.",
+      );
       return;
     }
 
     const dispatchWeight = parseOptionalNumber(hospitalForm.dispatchWeight);
-    if (dispatchWeight != null && (dispatchWeight < 0.1 || dispatchWeight > 5.0)) {
-      showError("Invalid Dispatch Weight", "Dispatch weight must be between 0.1 and 5.0.");
+    if (
+      dispatchWeight != null &&
+      (dispatchWeight < 0.1 || dispatchWeight > 5.0)
+    ) {
+      showError(
+        "Invalid Dispatch Weight",
+        "Dispatch weight must be between 0.1 and 5.0.",
+      );
       return;
     }
 
@@ -348,7 +404,10 @@ export default function AdminScreen() {
 
     const handover = parseOptionalNumber(hospitalForm.averageHandoverMinutes);
     if (handover != null && (handover < 1 || handover > 240)) {
-      showError("Invalid Handover", "Average handover minutes must be between 1 and 240.");
+      showError(
+        "Invalid Handover",
+        "Average handover minutes must be between 1 and 240.",
+      );
       return;
     }
 
@@ -367,13 +426,18 @@ export default function AdminScreen() {
         payload.latitude = latitude;
         payload.longitude = longitude;
       }
-      if (maxConcurrent != null) payload.max_concurrent_emergencies = Math.trunc(maxConcurrent);
+      if (maxConcurrent != null)
+        payload.max_concurrent_emergencies = Math.trunc(maxConcurrent);
       if (dispatchWeight != null) payload.dispatch_weight = dispatchWeight;
       if (icuBeds != null) payload.icu_beds_available = Math.trunc(icuBeds);
-      if (handover != null) payload.average_handover_minutes = Math.trunc(handover);
+      if (handover != null)
+        payload.average_handover_minutes = Math.trunc(handover);
 
       await backendPost("/auth/provision-hospital", payload);
-      showSuccess("Hospital Created", "Hospital dashboard account created successfully.");
+      showSuccess(
+        "Hospital Created",
+        "Hospital dashboard account created successfully.",
+      );
       setCreateHospitalVisible(false);
       setHospitalForm({
         hospitalName: "",
@@ -392,7 +456,9 @@ export default function AdminScreen() {
       });
       fetchAll();
     } catch (err: any) {
-      const message = String(err?.message || "Failed to create hospital account.");
+      const message = String(
+        err?.message || "Failed to create hospital account.",
+      );
       showError("Creation Failed", message);
     } finally {
       setCreatingHospital(false);
@@ -403,7 +469,10 @@ export default function AdminScreen() {
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
-        showError("Location Permission", "Location permission is required to auto-fill hospital coordinates.");
+        showError(
+          "Location Permission",
+          "Location permission is required to auto-fill hospital coordinates.",
+        );
         return;
       }
       const current = await Location.getCurrentPositionAsync({
@@ -417,9 +486,15 @@ export default function AdminScreen() {
         longitude: lng.toFixed(6),
         locationInput: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
       }));
-      showSuccess("Location Added", "Coordinates were filled from your current location.");
+      showSuccess(
+        "Location Added",
+        "Coordinates were filled from your current location.",
+      );
     } catch {
-      showError("Location Failed", "Could not read your current location. You can still paste coordinates manually.");
+      showError(
+        "Location Failed",
+        "Could not read your current location. You can still paste coordinates manually.",
+      );
     }
   };
 
@@ -485,7 +560,9 @@ export default function AdminScreen() {
   const roleCounts = {
     all: usersViewData.length,
     patient: usersViewData.filter((u) => u.role === "patient").length,
-    ambulance: usersViewData.filter((u) => u.role === "ambulance" || u.role === "driver").length,
+    ambulance: usersViewData.filter(
+      (u) => u.role === "ambulance" || u.role === "driver",
+    ).length,
     admin: usersViewData.filter((u) => u.role === "admin").length,
     hospital: usersViewData.filter((u) => u.role === "hospital").length,
   };
@@ -796,81 +873,94 @@ export default function AdminScreen() {
 
   const renderHospitalCard = ({ item }: { item: Hospital }) => (
     <Pressable
-      onPress={() => router.push({ pathname: "/hospitals/[id]", params: { id: item.id } } as any)}
+      onPress={() =>
+        router.push({
+          pathname: "/hospitals/[id]",
+          params: { id: item.id },
+        } as any)
+      }
       style={({ pressed }) => [{ opacity: pressed ? 0.92 : 1 }]}
     >
-    <View
-      style={[
-        styles.itemCard,
-        { backgroundColor: cardBg, borderColor: cardBorder },
-      ]}
-    >
-      <View style={styles.cardRow}>
-        <View
-          style={[
-            styles.avatar,
-            {
-              backgroundColor: isDark
-                ? "rgba(6,182,212,0.15)"
-                : "rgba(6,182,212,0.08)",
-            },
-          ]}
-        >
-          <MaterialIcons name="local-hospital" size={22} color="#06B6D4" />
-        </View>
-        <View style={styles.cardInfo}>
-          <ThemedText style={[styles.cardTitle, { color: colors.text }]}>
-            {item.name}
-          </ThemedText>
-          <ThemedText style={[styles.cardSub, { color: subText }]}>
-            {item.address || "No address"}
-          </ThemedText>
-        </View>
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor: item.is_accepting_emergencies === false ? "#FEE2E2" : "#D1FAE5",
-            },
-          ]}
-        >
-          <ThemedText
+      <View
+        style={[
+          styles.itemCard,
+          { backgroundColor: cardBg, borderColor: cardBorder },
+        ]}
+      >
+        <View style={styles.cardRow}>
+          <View
             style={[
-              styles.badgeText,
-              { color: item.is_accepting_emergencies === false ? "#DC2626" : "#059669" },
+              styles.avatar,
+              {
+                backgroundColor: isDark
+                  ? "rgba(6,182,212,0.15)"
+                  : "rgba(6,182,212,0.08)",
+              },
             ]}
           >
-            {item.is_accepting_emergencies === false ? "Closed" : "Accepting"}
-          </ThemedText>
+            <MaterialIcons name="local-hospital" size={22} color="#06B6D4" />
+          </View>
+          <View style={styles.cardInfo}>
+            <ThemedText style={[styles.cardTitle, { color: colors.text }]}>
+              {item.name}
+            </ThemedText>
+            <ThemedText style={[styles.cardSub, { color: subText }]}>
+              {item.address || "No address"}
+            </ThemedText>
+          </View>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor:
+                  item.is_accepting_emergencies === false
+                    ? "#FEE2E2"
+                    : "#D1FAE5",
+              },
+            ]}
+          >
+            <ThemedText
+              style={[
+                styles.badgeText,
+                {
+                  color:
+                    item.is_accepting_emergencies === false
+                      ? "#DC2626"
+                      : "#059669",
+                },
+              ]}
+            >
+              {item.is_accepting_emergencies === false ? "Closed" : "Accepting"}
+            </ThemedText>
+          </View>
+        </View>
+        <View style={[styles.cardFooter, { borderTopColor: cardBorder }]}>
+          <View style={styles.footerItem}>
+            <MaterialIcons name="phone" size={14} color={subText} />
+            <ThemedText style={[styles.footerText, { color: subText }]}>
+              {item.phone || "N/A"}
+            </ThemedText>
+          </View>
+          <View style={styles.footerItem}>
+            <MaterialIcons name="local-hospital" size={14} color={subText} />
+            <ThemedText style={[styles.footerText, { color: subText }]}>
+              ICU {item.icu_beds_available ?? 0}
+            </ThemedText>
+          </View>
+          <View style={styles.footerItem}>
+            <MaterialIcons name="calendar-today" size={14} color={subText} />
+            <ThemedText style={[styles.footerText, { color: subText }]}>
+              {formatDate(item.created_at)}
+            </ThemedText>
+          </View>
+          <View style={styles.footerItem}>
+            <MaterialIcons name="open-in-new" size={14} color={subText} />
+            <ThemedText style={[styles.footerText, { color: subText }]}>
+              View details
+            </ThemedText>
+          </View>
         </View>
       </View>
-      <View style={[styles.cardFooter, { borderTopColor: cardBorder }]}>
-        <View style={styles.footerItem}>
-          <MaterialIcons name="phone" size={14} color={subText} />
-          <ThemedText style={[styles.footerText, { color: subText }]}>
-            {item.phone || "N/A"}
-          </ThemedText>
-        </View>
-        <View style={styles.footerItem}>
-          <MaterialIcons name="local-hospital" size={14} color={subText} />
-          <ThemedText style={[styles.footerText, { color: subText }]}>
-            ICU {item.icu_beds_available ?? 0}
-          </ThemedText>
-        </View>
-        <View style={styles.footerItem}>
-          <MaterialIcons name="calendar-today" size={14} color={subText} />
-          <ThemedText style={[styles.footerText, { color: subText }]}>
-            {formatDate(item.created_at)}
-          </ThemedText>
-        </View>
-        <View style={styles.footerItem}>
-          <MaterialIcons name="open-in-new" size={14} color={subText} />
-          <ThemedText style={[styles.footerText, { color: subText }]}>
-            View details
-          </ThemedText>
-        </View>
-      </View>
-    </View>
     </Pressable>
   );
 
@@ -1123,31 +1213,53 @@ export default function AdminScreen() {
                 onPress={() => setCreateHospitalVisible(true)}
               >
                 <MaterialIcons name="add" size={18} color="#FFF" />
-                <ThemedText style={styles.createBtnText}>Create Hospital Login</ThemedText>
+                <ThemedText style={styles.createBtnText}>
+                  Create Hospital Login
+                </ThemedText>
               </Pressable>
             </View>
           )}
 
           {/* Data list */}
           {activeTab === "settings" ? (
-            <View style={[styles.settingsPanel, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+            <View
+              style={[
+                styles.settingsPanel,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+            >
               <View style={styles.settingsHeader}>
                 <MaterialIcons name="vpn-key" size={24} color="#DC2626" />
-                <ThemedText style={[styles.settingsTitle, { color: colors.text }]}>
+                <ThemedText
+                  style={[styles.settingsTitle, { color: colors.text }]}
+                >
                   First Aid Chatbot API Key
                 </ThemedText>
               </View>
               <ThemedText style={[styles.settingsDesc, { color: subText }]}>
-                The first aid chatbot uses DeepSeek AI. You can update the API key here without restarting the server.
+                The first aid chatbot uses DeepSeek AI. You can update the API
+                key here without restarting the server.
               </ThemedText>
 
-              <View style={[styles.settingsKeyStatus, { backgroundColor: inputBg, borderColor: inputBorder }]}>
+              <View
+                style={[
+                  styles.settingsKeyStatus,
+                  { backgroundColor: inputBg, borderColor: inputBorder },
+                ]}
+              >
                 <MaterialIcons
                   name={apiKeySet ? "check-circle" : "error-outline"}
                   size={18}
                   color={apiKeySet ? "#10B981" : "#F59E0B"}
                 />
-                <ThemedText style={{ color: colors.text, fontSize: 13, fontFamily: Fonts.sans, flex: 1 }}>
+                <ThemedText
+                  style={{
+                    color: colors.text,
+                    fontSize: 13,
+                    fontFamily: Fonts.sans,
+                    flex: 1,
+                  }}
+                >
                   Current key: {apiKeyPreview || "(loading...)"}
                 </ThemedText>
                 <Pressable onPress={fetchSettings} hitSlop={8}>
@@ -1155,11 +1267,30 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
 
-              <ThemedText style={[styles.label, { color: colors.text, marginTop: 14, marginBottom: 6, fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans }]}>
+              <ThemedText
+                style={[
+                  styles.label,
+                  {
+                    color: colors.text,
+                    marginTop: 14,
+                    marginBottom: 6,
+                    fontSize: 13,
+                    fontWeight: "700",
+                    fontFamily: Fonts.sans,
+                  },
+                ]}
+              >
                 New API Key
               </ThemedText>
               <TextInput
-                style={[styles.settingsInput, { color: colors.text, borderColor: inputBorder, backgroundColor: inputBg }]}
+                style={[
+                  styles.settingsInput,
+                  {
+                    color: colors.text,
+                    borderColor: inputBorder,
+                    backgroundColor: inputBg,
+                  },
+                ]}
                 placeholder="sk-..."
                 placeholderTextColor={subText}
                 value={newApiKey}
@@ -1170,7 +1301,10 @@ export default function AdminScreen() {
               />
 
               <Pressable
-                style={[styles.settingsSaveBtn, savingApiKey && { opacity: 0.7 }]}
+                style={[
+                  styles.settingsSaveBtn,
+                  savingApiKey && { opacity: 0.7 },
+                ]}
                 onPress={handleSaveApiKey}
                 disabled={savingApiKey}
               >
@@ -1227,158 +1361,356 @@ export default function AdminScreen() {
         animationType="fade"
         onRequestClose={() => setCreateHospitalVisible(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setCreateHospitalVisible(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setCreateHospitalVisible(false)}
+        >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             style={styles.modalKeyboardWrap}
           >
-          <Pressable
-            style={[styles.createModalCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <ScrollView
-              style={styles.createScroll}
-              contentContainerStyle={styles.createScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+            <Pressable
+              style={[
+                styles.createModalCard,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+              onPress={(e) => e.stopPropagation()}
             >
-            <ThemedText style={[styles.createModalTitle, { color: colors.text }]}>Create Hospital Account</ThemedText>
-
-            <TextInput
-              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-              placeholder="Hospital name"
-              placeholderTextColor={subText}
-              value={hospitalForm.hospitalName}
-              onChangeText={(t) => setHospitalForm((p) => ({ ...p, hospitalName: t }))}
-            />
-            <TextInput
-              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-              placeholder="Phone (e.g. +2519...)"
-              placeholderTextColor={subText}
-              value={hospitalForm.phone}
-              onChangeText={(t) => setHospitalForm((p) => ({ ...p, phone: t }))}
-            />
-            <TextInput
-              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-              placeholder="Address"
-              placeholderTextColor={subText}
-              value={hospitalForm.address}
-              onChangeText={(t) => setHospitalForm((p) => ({ ...p, address: t }))}
-            />
-            <TextInput
-              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-              placeholder="Paste location: 9.03, 38.74 or Google Maps link"
-              placeholderTextColor={subText}
-              value={hospitalForm.locationInput}
-              onChangeText={(t) => setHospitalForm((p) => ({ ...p, locationInput: t }))}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <View style={styles.createRow}>
-              <Pressable onPress={useCurrentLocation} style={[styles.quickLocationBtn, { backgroundColor: "#DBEAFE" }]}>
-                <MaterialIcons name="my-location" size={14} color="#1D4ED8" />
-                <ThemedText style={styles.quickLocationText}>Use current location</ThemedText>
-              </Pressable>
-              <Pressable onPress={useAddisAbabaCenter} style={[styles.quickLocationBtn, { backgroundColor: "#FEF3C7" }]}>
-                <MaterialIcons name="location-city" size={14} color="#B45309" />
-                <ThemedText style={styles.quickLocationText}>Use Addis Ababa center</ThemedText>
-              </Pressable>
-            </View>
-            <View style={styles.createRow}>
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="Latitude"
-                placeholderTextColor={subText}
-                keyboardType="decimal-pad"
-                value={hospitalForm.latitude}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, latitude: t }))}
-              />
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="Longitude"
-                placeholderTextColor={subText}
-                keyboardType="decimal-pad"
-                value={hospitalForm.longitude}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, longitude: t }))}
-              />
-            </View>
-            <View style={styles.createRow}>
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="Max concurrent emergencies"
-                placeholderTextColor={subText}
-                keyboardType="numeric"
-                value={hospitalForm.maxConcurrentEmergencies}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, maxConcurrentEmergencies: t }))}
-              />
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="Dispatch weight"
-                placeholderTextColor={subText}
-                keyboardType="decimal-pad"
-                value={hospitalForm.dispatchWeight}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, dispatchWeight: t }))}
-              />
-            </View>
-            <View style={styles.createRow}>
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="ICU beds available"
-                placeholderTextColor={subText}
-                keyboardType="numeric"
-                value={hospitalForm.icuBedsAvailable}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, icuBedsAvailable: t }))}
-              />
-              <TextInput
-                style={[styles.createInput, styles.createInputHalf, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-                placeholder="Avg handover minutes"
-                placeholderTextColor={subText}
-                keyboardType="numeric"
-                value={hospitalForm.averageHandoverMinutes}
-                onChangeText={(t) => setHospitalForm((p) => ({ ...p, averageHandoverMinutes: t }))}
-              />
-            </View>
-            <View style={styles.createRow}>
-              <Pressable
-                onPress={() => setHospitalForm((p) => ({ ...p, traumaCapable: !p.traumaCapable }))}
-                style={[styles.toggleChip, { backgroundColor: hospitalForm.traumaCapable ? "#DCFCE7" : "#F3F4F6" }]}
+              <ScrollView
+                style={styles.createScroll}
+                contentContainerStyle={styles.createScrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
               >
-                <ThemedText style={{ color: hospitalForm.traumaCapable ? "#166534" : "#374151", fontWeight: "700", fontFamily: Fonts.sans, fontSize: 12 }}>
-                  Trauma Capable: {hospitalForm.traumaCapable ? "Yes" : "No"}
+                <ThemedText
+                  style={[styles.createModalTitle, { color: colors.text }]}
+                >
+                  Create Hospital Account
                 </ThemedText>
-              </Pressable>
-              <Pressable
-                onPress={() => setHospitalForm((p) => ({ ...p, isAcceptingEmergencies: !p.isAcceptingEmergencies }))}
-                style={[styles.toggleChip, { backgroundColor: hospitalForm.isAcceptingEmergencies ? "#DBEAFE" : "#F3F4F6" }]}
-              >
-                <ThemedText style={{ color: hospitalForm.isAcceptingEmergencies ? "#1D4ED8" : "#374151", fontWeight: "700", fontFamily: Fonts.sans, fontSize: 12 }}>
-                  Accepting: {hospitalForm.isAcceptingEmergencies ? "Open" : "Closed"}
-                </ThemedText>
-              </Pressable>
-            </View>
-            <TextInput
-              style={[styles.createInput, { color: colors.text, borderColor: cardBorder, backgroundColor: inputBg }]}
-              placeholder="Temporary password"
-              placeholderTextColor={subText}
-              value={hospitalForm.password}
-              onChangeText={(t) => setHospitalForm((p) => ({ ...p, password: t }))}
-              secureTextEntry
-            />
 
-            <View style={styles.createActions}>
-              <Pressable style={[styles.createActionBtn, styles.cancelBtn]} onPress={() => setCreateHospitalVisible(false)}>
-                <ThemedText style={styles.cancelBtnText}>Cancel</ThemedText>
-              </Pressable>
-              <Pressable
-                style={[styles.createActionBtn, styles.saveBtn, creatingHospital && { opacity: 0.7 }]}
-                onPress={handleCreateHospitalUser}
-                disabled={creatingHospital}
-              >
-                <ThemedText style={styles.saveBtnText}>{creatingHospital ? "Creating..." : "Create"}</ThemedText>
-              </Pressable>
-            </View>
-            </ScrollView>
-          </Pressable>
+                <TextInput
+                  style={[
+                    styles.createInput,
+                    {
+                      color: colors.text,
+                      borderColor: cardBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="Hospital name"
+                  placeholderTextColor={subText}
+                  value={hospitalForm.hospitalName}
+                  onChangeText={(t) =>
+                    setHospitalForm((p) => ({ ...p, hospitalName: t }))
+                  }
+                />
+                <TextInput
+                  style={[
+                    styles.createInput,
+                    {
+                      color: colors.text,
+                      borderColor: cardBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="Phone (e.g. +2519...)"
+                  placeholderTextColor={subText}
+                  value={hospitalForm.phone}
+                  onChangeText={(t) =>
+                    setHospitalForm((p) => ({ ...p, phone: t }))
+                  }
+                />
+                <TextInput
+                  style={[
+                    styles.createInput,
+                    {
+                      color: colors.text,
+                      borderColor: cardBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="Address"
+                  placeholderTextColor={subText}
+                  value={hospitalForm.address}
+                  onChangeText={(t) =>
+                    setHospitalForm((p) => ({ ...p, address: t }))
+                  }
+                />
+                <TextInput
+                  style={[
+                    styles.createInput,
+                    {
+                      color: colors.text,
+                      borderColor: cardBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="Paste location: 9.03, 38.74 or Google Maps link"
+                  placeholderTextColor={subText}
+                  value={hospitalForm.locationInput}
+                  onChangeText={(t) =>
+                    setHospitalForm((p) => ({ ...p, locationInput: t }))
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <View style={styles.createRow}>
+                  <Pressable
+                    onPress={useCurrentLocation}
+                    style={[
+                      styles.quickLocationBtn,
+                      { backgroundColor: "#DBEAFE" },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="my-location"
+                      size={14}
+                      color="#1D4ED8"
+                    />
+                    <ThemedText style={styles.quickLocationText}>
+                      Use current location
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={useAddisAbabaCenter}
+                    style={[
+                      styles.quickLocationBtn,
+                      { backgroundColor: "#FEF3C7" },
+                    ]}
+                  >
+                    <MaterialIcons
+                      name="location-city"
+                      size={14}
+                      color="#B45309"
+                    />
+                    <ThemedText style={styles.quickLocationText}>
+                      Use Addis Ababa center
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                <View style={styles.createRow}>
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Latitude"
+                    placeholderTextColor={subText}
+                    keyboardType="decimal-pad"
+                    value={hospitalForm.latitude}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({ ...p, latitude: t }))
+                    }
+                  />
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Longitude"
+                    placeholderTextColor={subText}
+                    keyboardType="decimal-pad"
+                    value={hospitalForm.longitude}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({ ...p, longitude: t }))
+                    }
+                  />
+                </View>
+                <View style={styles.createRow}>
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Max concurrent emergencies"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={hospitalForm.maxConcurrentEmergencies}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({
+                        ...p,
+                        maxConcurrentEmergencies: t,
+                      }))
+                    }
+                  />
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Dispatch weight"
+                    placeholderTextColor={subText}
+                    keyboardType="decimal-pad"
+                    value={hospitalForm.dispatchWeight}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({ ...p, dispatchWeight: t }))
+                    }
+                  />
+                </View>
+                <View style={styles.createRow}>
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="ICU beds available"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={hospitalForm.icuBedsAvailable}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({ ...p, icuBedsAvailable: t }))
+                    }
+                  />
+                  <TextInput
+                    style={[
+                      styles.createInput,
+                      styles.createInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Avg handover minutes"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={hospitalForm.averageHandoverMinutes}
+                    onChangeText={(t) =>
+                      setHospitalForm((p) => ({
+                        ...p,
+                        averageHandoverMinutes: t,
+                      }))
+                    }
+                  />
+                </View>
+                <View style={styles.createRow}>
+                  <Pressable
+                    onPress={() =>
+                      setHospitalForm((p) => ({
+                        ...p,
+                        traumaCapable: !p.traumaCapable,
+                      }))
+                    }
+                    style={[
+                      styles.toggleChip,
+                      {
+                        backgroundColor: hospitalForm.traumaCapable
+                          ? "#DCFCE7"
+                          : "#F3F4F6",
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={{
+                        color: hospitalForm.traumaCapable
+                          ? "#166534"
+                          : "#374151",
+                        fontWeight: "700",
+                        fontFamily: Fonts.sans,
+                        fontSize: 12,
+                      }}
+                    >
+                      Trauma Capable:{" "}
+                      {hospitalForm.traumaCapable ? "Yes" : "No"}
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      setHospitalForm((p) => ({
+                        ...p,
+                        isAcceptingEmergencies: !p.isAcceptingEmergencies,
+                      }))
+                    }
+                    style={[
+                      styles.toggleChip,
+                      {
+                        backgroundColor: hospitalForm.isAcceptingEmergencies
+                          ? "#DBEAFE"
+                          : "#F3F4F6",
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={{
+                        color: hospitalForm.isAcceptingEmergencies
+                          ? "#1D4ED8"
+                          : "#374151",
+                        fontWeight: "700",
+                        fontFamily: Fonts.sans,
+                        fontSize: 12,
+                      }}
+                    >
+                      Accepting:{" "}
+                      {hospitalForm.isAcceptingEmergencies ? "Open" : "Closed"}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+                <TextInput
+                  style={[
+                    styles.createInput,
+                    {
+                      color: colors.text,
+                      borderColor: cardBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="Temporary password"
+                  placeholderTextColor={subText}
+                  value={hospitalForm.password}
+                  onChangeText={(t) =>
+                    setHospitalForm((p) => ({ ...p, password: t }))
+                  }
+                  secureTextEntry
+                />
+
+                <View style={styles.createActions}>
+                  <Pressable
+                    style={[styles.createActionBtn, styles.cancelBtn]}
+                    onPress={() => setCreateHospitalVisible(false)}
+                  >
+                    <ThemedText style={styles.cancelBtnText}>Cancel</ThemedText>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.createActionBtn,
+                      styles.saveBtn,
+                      creatingHospital && { opacity: 0.7 },
+                    ]}
+                    onPress={handleCreateHospitalUser}
+                    disabled={creatingHospital}
+                  >
+                    <ThemedText style={styles.saveBtnText}>
+                      {creatingHospital ? "Creating..." : "Create"}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </Pressable>
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
@@ -1662,7 +1994,11 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, fontFamily: Fonts.sans },
   listContent: { paddingBottom: 20 },
 
-  actionRow: { marginBottom: 12, flexDirection: "row", justifyContent: "flex-end" },
+  actionRow: {
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "flex-end",
+  },
   createBtn: {
     backgroundColor: "#DC2626",
     borderRadius: 10,
@@ -1672,7 +2008,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  createBtnText: { color: "#FFF", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  createBtnText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
 
   modalOverlay: {
     flex: 1,
@@ -1702,7 +2043,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 6,
   },
-  createModalTitle: { fontSize: 16, fontWeight: "800", fontFamily: Fonts.sans, marginBottom: 4 },
+  createModalTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    marginBottom: 4,
+  },
   createInput: {
     height: 44,
     borderWidth: 1,
@@ -1737,12 +2083,31 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 8,
   },
-  createActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 4 },
-  createActionBtn: { borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  createActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 10,
+    marginTop: 4,
+  },
+  createActionBtn: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   cancelBtn: { backgroundColor: "#E5E7EB" },
-  cancelBtnText: { color: "#111827", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  cancelBtnText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
   saveBtn: { backgroundColor: "#DC2626" },
-  saveBtnText: { color: "#FFF", fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  saveBtnText: {
+    color: "#FFF",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
 
   dropdownOverlay: {
     flex: 1,

@@ -169,7 +169,9 @@ export const getRegistrationHospitalOptions = async (): Promise<{
     const res = await fetch(`${BACKEND_URL}/auth/hospitals/available`);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      throw new Error(body?.detail || `Failed to load hospitals (${res.status})`);
+      throw new Error(
+        body?.detail || `Failed to load hospitals (${res.status})`,
+      );
     }
     const data = (await res.json()) as RegistrationHospitalOption[];
     return { hospitals: Array.isArray(data) ? data : [], error: null };
@@ -358,7 +360,8 @@ export const signUp = async (
       fullName,
       phone: ethPhone,
       hospitalId:
-        typeof resBody?.hospital_id === "string" && resBody.hospital_id.length > 0
+        typeof resBody?.hospital_id === "string" &&
+        resBody.hospital_id.length > 0
           ? resBody.hospital_id
           : undefined,
     };
@@ -466,9 +469,9 @@ export const signIn = async (
 
     const role = normalizeRole(
       roleFromMetadata ??
-      dbRole ??
-      (await getUserRole(authUser.id)) ??
-      "patient",
+        dbRole ??
+        (await getUserRole(authUser.id)) ??
+        "patient",
     );
 
     const user: AuthUser = {
