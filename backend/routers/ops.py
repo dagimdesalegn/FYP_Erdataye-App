@@ -1622,6 +1622,8 @@ class AdminSettingsResponse(BaseModel):
     active_provider: str
     available_providers: list[str]
     total_chat_requests: int
+    unique_chat_users: int
+    today_chat_requests: int
 
 
 class AdminUpdateApiKeyRequest(BaseModel):
@@ -1648,8 +1650,12 @@ async def admin_get_settings(
     preview = (key[:4] + "..." + key[-4:]) if has_key else "(not set)"
 
     # Chat stats
-    rows, _ = await db_query("chatbot_messages", params={"select": "id"})
-    total = len(rows or [])
+    rows, _ = await db_query("chatbot_messages", params={"select": "id,user_id,created_at"})
+    all_rows = rows or []
+    total = len(all_rows)
+    unique_users = len({r.get("user_id") for r in all_rows if r.get("user_id")})
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_count = sum(1 for r in all_rows if (r.get("created_at") or "").startswith(today_str))
 
     return AdminSettingsResponse(
         deepseek_api_key_set=has_key,
@@ -1657,6 +1663,8 @@ async def admin_get_settings(
         active_provider=_active_provider,
         available_providers=list(_AI_PROVIDERS.keys()),
         total_chat_requests=total,
+        unique_chat_users=unique_users,
+        today_chat_requests=today_count,
     )
 
 
@@ -1684,8 +1692,8 @@ async def admin_update_api_key(
     # Update the runtime settings object
     app_settings.deepseek_api_key = new_key
     _active_provider = provider
-    # Rebuild the OpenAI client used by the chat router
-    chat_module._deepseek = chat_module.OpenAI(
+    # Rebuild the AsyncOpenAI client used by the chat router
+    chat_module._deepseek = chat_module.AsyncOpenAI(
         api_key=new_key,
         base_url=provider_cfg["base_url"],
     )

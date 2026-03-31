@@ -123,6 +123,8 @@ export default function AdminScreen() {
   const [activeProvider, setActiveProvider] = useState("deepseek");
   const [availableProviders, setAvailableProviders] = useState<string[]>(["deepseek", "openai", "groq"]);
   const [totalChatRequests, setTotalChatRequests] = useState(0);
+  const [uniqueChatUsers, setUniqueChatUsers] = useState(0);
+  const [todayChatRequests, setTodayChatRequests] = useState(0);
 
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [emergencyFilter, setEmergencyFilter] =
@@ -176,6 +178,8 @@ export default function AdminScreen() {
         active_provider: string;
         available_providers: string[];
         total_chat_requests: number;
+        unique_chat_users: number;
+        today_chat_requests: number;
       }>("/ops/admin/settings");
       if (data) {
         setApiKeySet(data.deepseek_api_key_set);
@@ -183,6 +187,8 @@ export default function AdminScreen() {
         setActiveProvider(data.active_provider || "deepseek");
         if (data.available_providers?.length) setAvailableProviders(data.available_providers);
         setTotalChatRequests(data.total_chat_requests || 0);
+        setUniqueChatUsers(data.unique_chat_users || 0);
+        setTodayChatRequests(data.today_chat_requests || 0);
       }
     } catch (err) {
       console.error("Settings fetch error:", err);
@@ -1248,7 +1254,7 @@ export default function AdminScreen() {
                     Chatbot Usage
                   </ThemedText>
                 </View>
-                <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
                   <View
                     style={[
                       styles.settingsStatCard,
@@ -1259,7 +1265,33 @@ export default function AdminScreen() {
                       {totalChatRequests}
                     </ThemedText>
                     <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
-                      Total Requests
+                      Total Messages
+                    </ThemedText>
+                  </View>
+                  <View
+                    style={[
+                      styles.settingsStatCard,
+                      { backgroundColor: inputBg, borderColor: inputBorder },
+                    ]}
+                  >
+                    <ThemedText style={[styles.settingsStatNumber, { color: "#3B82F6" }]}>
+                      {uniqueChatUsers}
+                    </ThemedText>
+                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                      Unique Users
+                    </ThemedText>
+                  </View>
+                  <View
+                    style={[
+                      styles.settingsStatCard,
+                      { backgroundColor: inputBg, borderColor: inputBorder },
+                    ]}
+                  >
+                    <ThemedText style={[styles.settingsStatNumber, { color: "#F59E0B" }]}>
+                      {todayChatRequests}
+                    </ThemedText>
+                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                      Today
                     </ThemedText>
                   </View>
                   <View
