@@ -121,7 +121,11 @@ export default function AdminScreen() {
   const [newApiKey, setNewApiKey] = useState("");
   const [savingApiKey, setSavingApiKey] = useState(false);
   const [activeProvider, setActiveProvider] = useState("deepseek");
-  const [availableProviders, setAvailableProviders] = useState<string[]>(["deepseek", "openai", "groq"]);
+  const [availableProviders, setAvailableProviders] = useState<string[]>([
+    "deepseek",
+    "openai",
+    "groq",
+  ]);
   const [totalChatRequests, setTotalChatRequests] = useState(0);
   const [uniqueChatUsers, setUniqueChatUsers] = useState(0);
   const [todayChatRequests, setTodayChatRequests] = useState(0);
@@ -185,7 +189,8 @@ export default function AdminScreen() {
         setApiKeySet(data.deepseek_api_key_set);
         setApiKeyPreview(data.deepseek_api_key_preview);
         setActiveProvider(data.active_provider || "deepseek");
-        if (data.available_providers?.length) setAvailableProviders(data.available_providers);
+        if (data.available_providers?.length)
+          setAvailableProviders(data.available_providers);
         setTotalChatRequests(data.total_chat_requests || 0);
         setUniqueChatUsers(data.unique_chat_users || 0);
         setTodayChatRequests(data.today_chat_requests || 0);
@@ -1254,17 +1259,28 @@ export default function AdminScreen() {
                     Chatbot Usage
                   </ThemedText>
                 </View>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    marginTop: 8,
+                  }}
+                >
                   <View
                     style={[
                       styles.settingsStatCard,
                       { backgroundColor: inputBg, borderColor: inputBorder },
                     ]}
                   >
-                    <ThemedText style={[styles.settingsStatNumber, { color: "#8B5CF6" }]}>
+                    <ThemedText
+                      style={[styles.settingsStatNumber, { color: "#8B5CF6" }]}
+                    >
                       {totalChatRequests}
                     </ThemedText>
-                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                    <ThemedText
+                      style={[styles.settingsStatLabel, { color: subText }]}
+                    >
                       Total Messages
                     </ThemedText>
                   </View>
@@ -1274,10 +1290,14 @@ export default function AdminScreen() {
                       { backgroundColor: inputBg, borderColor: inputBorder },
                     ]}
                   >
-                    <ThemedText style={[styles.settingsStatNumber, { color: "#3B82F6" }]}>
+                    <ThemedText
+                      style={[styles.settingsStatNumber, { color: "#3B82F6" }]}
+                    >
                       {uniqueChatUsers}
                     </ThemedText>
-                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                    <ThemedText
+                      style={[styles.settingsStatLabel, { color: subText }]}
+                    >
                       Unique Users
                     </ThemedText>
                   </View>
@@ -1287,10 +1307,14 @@ export default function AdminScreen() {
                       { backgroundColor: inputBg, borderColor: inputBorder },
                     ]}
                   >
-                    <ThemedText style={[styles.settingsStatNumber, { color: "#F59E0B" }]}>
+                    <ThemedText
+                      style={[styles.settingsStatNumber, { color: "#F59E0B" }]}
+                    >
                       {todayChatRequests}
                     </ThemedText>
-                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                    <ThemedText
+                      style={[styles.settingsStatLabel, { color: subText }]}
+                    >
                       Today
                     </ThemedText>
                   </View>
@@ -1300,10 +1324,14 @@ export default function AdminScreen() {
                       { backgroundColor: inputBg, borderColor: inputBorder },
                     ]}
                   >
-                    <ThemedText style={[styles.settingsStatNumber, { color: "#10B981" }]}>
+                    <ThemedText
+                      style={[styles.settingsStatNumber, { color: "#10B981" }]}
+                    >
                       {activeProvider.toUpperCase()}
                     </ThemedText>
-                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                    <ThemedText
+                      style={[styles.settingsStatLabel, { color: subText }]}
+                    >
                       Active Provider
                     </ThemedText>
                   </View>
@@ -1431,7 +1459,9 @@ export default function AdminScreen() {
                     <MaterialIcons name="save" size={18} color="#FFF" />
                   )}
                   <ThemedText style={styles.settingsSaveBtnText}>
-                    {savingApiKey ? "Saving..." : `Update ${activeProvider.toUpperCase()} Key`}
+                    {savingApiKey
+                      ? "Saving..."
+                      : `Update ${activeProvider.toUpperCase()} Key`}
                   </ThemedText>
                 </Pressable>
               </View>

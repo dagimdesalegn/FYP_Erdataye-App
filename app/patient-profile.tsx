@@ -2,15 +2,15 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 import { AppButton } from "@/components/app-button";
@@ -22,10 +22,10 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { updateAuthLoginPhone } from "@/utils/auth";
 import {
-  getMedicalProfile,
-  getUserProfile,
-  updateUserProfile,
-  upsertMedicalProfile,
+    getMedicalProfile,
+    getUserProfile,
+    updateUserProfile,
+    upsertMedicalProfile,
 } from "@/utils/profile";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -271,7 +271,14 @@ export default function PatientProfileScreen() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: colors.background,
+        }}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -295,8 +302,7 @@ export default function PatientProfileScreen() {
 
       {/* Success Notification (centered) */}
       {successVisible && (
-        <View style={[styles.successOverlay, { pointerEvents: "none" }]}
-        >
+        <View style={[styles.successOverlay, { pointerEvents: "none" }]}>
           <Animated.View
             style={[
               styles.successBanner,

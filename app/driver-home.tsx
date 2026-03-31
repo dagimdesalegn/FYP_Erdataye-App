@@ -1,7 +1,15 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+    ActivityIndicator,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
@@ -28,7 +36,6 @@ import {
     type AmbulanceDetails,
 } from "@/utils/driver";
 import { getUserProfile, type UserProfile } from "@/utils/profile";
-import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
 
 /**
@@ -67,14 +74,18 @@ export default function DriverHomeScreen() {
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
-  const lastSentLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastSentLocationRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const lastSentAtRef = useRef<number>(0);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
   const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [hospitalDisplayName, setHospitalDisplayName] = useState<string>("Not assigned");
+  const [hospitalDisplayName, setHospitalDisplayName] =
+    useState<string>("Not assigned");
 
   // Load driver's ambulance ID and details
   useEffect(() => {
@@ -105,7 +116,9 @@ export default function DriverHomeScreen() {
                 latitude: current.coords.latitude,
                 longitude: current.coords.longitude,
               });
-              const { ambulance: refreshed } = await getDriverAmbulanceDetails(user.id);
+              const { ambulance: refreshed } = await getDriverAmbulanceDetails(
+                user.id,
+              );
               if (refreshed) {
                 setAmbulanceDetails(refreshed);
                 setIsAvailable(Boolean(refreshed.is_available));
@@ -156,7 +169,8 @@ export default function DriverHomeScreen() {
 
   useEffect(() => {
     const resolveHospitalName = async () => {
-      const hospitalId = ambulanceDetails?.hospital_id || driverProfile?.hospital_id;
+      const hospitalId =
+        ambulanceDetails?.hospital_id || driverProfile?.hospital_id;
       if (!hospitalId) {
         setHospitalDisplayName("Not assigned");
         return;
@@ -223,16 +237,12 @@ export default function DriverHomeScreen() {
 
     const startLocationTracking = async () => {
       const maybeSendLocation = async (lat: number, lng: number) => {
-
         const now = Date.now();
         const previous = lastSentLocationRef.current;
         if (previous) {
-          const movedMeters = calculateDistance(
-            previous.latitude,
-            previous.longitude,
-            lat,
-            lng,
-          ) * 1000;
+          const movedMeters =
+            calculateDistance(previous.latitude, previous.longitude, lat, lng) *
+            1000;
           const elapsed = now - lastSentAtRef.current;
           if (movedMeters < 4 && elapsed < 15000) {
             return;
@@ -259,7 +269,10 @@ export default function DriverHomeScreen() {
           const initial = await Location.getCurrentPositionAsync({
             accuracy: Location.Accuracy.Balanced,
           });
-          await maybeSendLocation(initial.coords.latitude, initial.coords.longitude);
+          await maybeSendLocation(
+            initial.coords.latitude,
+            initial.coords.longitude,
+          );
         } catch (initialErr) {
           console.warn("Initial location snapshot failed:", initialErr);
         }
@@ -313,7 +326,6 @@ export default function DriverHomeScreen() {
       }
     };
   }, [isAvailable, user, ambulanceId, showError, showAlert]);
-
 
   const handleLogout = async () => {
     setIsAvailable(false);
@@ -469,7 +481,8 @@ export default function DriverHomeScreen() {
                 if (newVal) {
                   // Push one immediate location update so patient nearby list can populate quickly.
                   try {
-                    const { status } = await Location.getForegroundPermissionsAsync();
+                    const { status } =
+                      await Location.getForegroundPermissionsAsync();
                     if (status === "granted") {
                       const current = await Location.getCurrentPositionAsync({
                         accuracy: Location.Accuracy.Balanced,
@@ -481,7 +494,10 @@ export default function DriverHomeScreen() {
                       );
                     }
                   } catch (initialSendErr) {
-                    console.warn("Immediate location update failed:", initialSendErr);
+                    console.warn(
+                      "Immediate location update failed:",
+                      initialSendErr,
+                    );
                   }
                 }
               }
@@ -496,7 +512,14 @@ export default function DriverHomeScreen() {
             ]}
           >
             {toggleLoading ? (
-              <View style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
                 <ActivityIndicator color="#fff" size="small" />
               </View>
             ) : (
@@ -517,7 +540,6 @@ export default function DriverHomeScreen() {
           </Pressable>
         </ThemedView>
 
-
         <ThemedView
           style={[
             styles.card,
@@ -528,79 +550,81 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
+          {/* Assignment Alert */}
+          {hasAssignment && (
+            <ThemedView style={[styles.card, styles.alertCard]}>
+              <View style={styles.alertHeader}>
+                <MaterialIcons name="priority-high" size={28} color="#DC2626" />
+                <ThemedText style={styles.alertTitle}>
+                  New Assignment!
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.alertSubtitle}>
+                You have {assignmentCount} incoming emergency
+                {assignmentCount > 1 ? "s" : ""}
+              </ThemedText>
+              <AppButton
+                label="View Assignment"
+                onPress={handleViewAssignment}
+                variant="primary"
+                fullWidth
+                style={{ marginTop: 12 }}
+              />
+            </ThemedView>
+          )}
 
-        {/* Assignment Alert */}
-        {hasAssignment && (
-          <ThemedView style={[styles.card, styles.alertCard]}>
-            <View style={styles.alertHeader}>
-              <MaterialIcons name="priority-high" size={28} color="#DC2626" />
-              <ThemedText style={styles.alertTitle}>New Assignment!</ThemedText>
-            </View>
-            <ThemedText style={styles.alertSubtitle}>
-              You have {assignmentCount} incoming emergency
-              {assignmentCount > 1 ? "s" : ""}
-            </ThemedText>
-            <AppButton
-              label="View Assignment"
-              onPress={handleViewAssignment}
-              variant="primary"
-              fullWidth
-              style={{ marginTop: 12 }}
-            />
-          </ThemedView>
-        )}
+          {/* Quick Stats */}
+          <View style={styles.statsGrid}>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
+              <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
+              <ThemedText style={styles.statLabel}>Active</ThemedText>
+            </ThemedView>
 
-        {/* Quick Stats */}
-        <View style={styles.statsGrid}>
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
-            <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Active</ThemedText>
-          </ThemedView>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="check-circle" size={28} color="#10B981" />
+              <ThemedText style={styles.statNumber}>
+                {completedCount}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Completed</ThemedText>
+            </ThemedView>
 
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="check-circle" size={28} color="#10B981" />
-            <ThemedText style={styles.statNumber}>{completedCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Completed</ThemedText>
-          </ThemedView>
-
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="schedule" size={28} color="#F59E0B" />
-            <ThemedText style={styles.statNumber}>
-              {activeCount + completedCount}
-            </ThemedText>
-            <ThemedText style={styles.statLabel}>Total</ThemedText>
-          </ThemedView>
-        </View>
-
-          </ThemedView>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="schedule" size={28} color="#F59E0B" />
+              <ThemedText style={styles.statNumber}>
+                {activeCount + completedCount}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Total</ThemedText>
+            </ThemedView>
+          </View>
+        </ThemedView>
 
         {/* Completed History */}
         <ThemedView
@@ -1158,17 +1182,3 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

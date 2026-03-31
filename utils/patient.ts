@@ -3,7 +3,13 @@
  */
 
 import { backendGet, backendPatch, backendPost } from "./api";
-import { assignAmbulance, calculateDistance, getAvailableAmbulances, parsePostGISPoint, toPostGISPoint } from "./emergency";
+import {
+    assignAmbulance,
+    calculateDistance,
+    getAvailableAmbulances,
+    parsePostGISPoint,
+    toPostGISPoint,
+} from "./emergency";
 import { supabase } from "./supabase";
 
 const EMERGENCY_CANCEL_WINDOW_MINUTES = 3;
@@ -254,15 +260,20 @@ export const createEmergency = async (
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      throw new Error("Invalid location coordinates. Please refresh location and try again.");
+      throw new Error(
+        "Invalid location coordinates. Please refresh location and try again.",
+      );
     }
     if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      throw new Error("Location coordinates are out of range. Please refresh location and try again.");
+      throw new Error(
+        "Location coordinates are out of range. Please refresh location and try again.",
+      );
     }
 
-    const normalizedEmergencyType = String(emergencyType || "medical")
-      .trim()
-      .slice(0, 40) || "medical";
+    const normalizedEmergencyType =
+      String(emergencyType || "medical")
+        .trim()
+        .slice(0, 40) || "medical";
     const normalizedDescription =
       typeof description === "string" && description.trim().length > 0
         ? description.trim().slice(0, 1500)
@@ -271,7 +282,9 @@ export const createEmergency = async (
     // Get national_id from user profile via backend
     let nationalId = "";
     try {
-      const profile = await backendGet<{ national_id?: string }>("/profiles/me");
+      const profile = await backendGet<{ national_id?: string }>(
+        "/profiles/me",
+      );
       if (profile?.national_id) nationalId = profile.national_id;
     } catch {}
 
@@ -311,17 +324,23 @@ export const createEmergency = async (
         created = data;
       }
 
-      if (!created) throw new Error("Dispatch created but emergency record not found.");
+      if (!created)
+        throw new Error("Dispatch created but emergency record not found.");
 
       const emergency = normalizeEmergency(created);
       emergency.dispatch_reason = dispatch.reason;
       emergency.eta_minutes = dispatch.eta_minutes ?? undefined;
-      emergency.route_to_patient_url = dispatch.route_to_patient_url ?? undefined;
-      emergency.route_to_hospital_url = dispatch.route_to_hospital_url ?? undefined;
+      emergency.route_to_patient_url =
+        dispatch.route_to_patient_url ?? undefined;
+      emergency.route_to_hospital_url =
+        dispatch.route_to_hospital_url ?? undefined;
 
       return { emergency, error: null };
     } catch (backendErr) {
-      console.warn("Backend dispatch unavailable, using legacy fallback:", backendErr);
+      console.warn(
+        "Backend dispatch unavailable, using legacy fallback:",
+        backendErr,
+      );
     }
 
     // Supabase direct fallback
@@ -353,11 +372,19 @@ export const createEmergency = async (
           .map((a) => {
             const loc = parsePostGISPoint(a.last_known_location);
             if (!loc) return null;
-            const dist = calculateDistance(lat, lng, loc.latitude, loc.longitude);
+            const dist = calculateDistance(
+              lat,
+              lng,
+              loc.latitude,
+              loc.longitude,
+            );
             return { id: a.id, dist };
           })
           .filter(Boolean)
-          .sort((a: any, b: any) => a.dist - b.dist) as { id: string; dist: number }[];
+          .sort((a: any, b: any) => a.dist - b.dist) as {
+          id: string;
+          dist: number;
+        }[];
 
         for (const candidate of ranked.slice(0, 5)) {
           const { success } = await assignAmbulance(emergency.id, candidate.id);
@@ -387,7 +414,9 @@ export const getActiveEmergency = async (
     // Try backend first
     let activeRow: any = null;
     try {
-      const res = await backendGet<{ emergency: any }>("/ops/patient/emergencies/active");
+      const res = await backendGet<{ emergency: any }>(
+        "/ops/patient/emergencies/active",
+      );
       activeRow = res?.emergency ?? null;
     } catch {
       // Fall through to Supabase
@@ -422,7 +451,10 @@ export const getActiveEmergency = async (
           activeRow.status = "assigned";
         }
       } catch (retryError) {
-        console.warn("Active emergency auto-dispatch retry failed:", retryError);
+        console.warn(
+          "Active emergency auto-dispatch retry failed:",
+          retryError,
+        );
       }
     }
 
@@ -459,7 +491,10 @@ export const getEmergencyDetails = async (
         return {
           emergency: normalizeEmergency(res.emergency),
           assignment: assignmentData
-            ? ({ ...assignmentData, status: assignmentData.status ?? "pending" } as EmergencyAssignment)
+            ? ({
+                ...assignmentData,
+                status: assignmentData.status ?? "pending",
+              } as EmergencyAssignment)
             : null,
           ambulance: ambulanceData as AmbulanceInfo | null,
           error: null,
@@ -478,7 +513,12 @@ export const getEmergencyDetails = async (
 
     if (emergencyError) throw emergencyError;
     if (!emergencyData) {
-      return { emergency: null, assignment: null, ambulance: null, error: new Error("Emergency not found") };
+      return {
+        emergency: null,
+        assignment: null,
+        ambulance: null,
+        error: new Error("Emergency not found"),
+      };
     }
 
     let assignmentData: any = null;
@@ -493,9 +533,12 @@ export const getEmergencyDetails = async (
         .limit(1)
         .maybeSingle();
       assignmentData = data;
-    } catch { /* emergency_assignments may not exist */ }
+    } catch {
+      /* emergency_assignments may not exist */
+    }
 
-    const ambulanceId = assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
+    const ambulanceId =
+      assignmentData?.ambulance_id || emergencyData?.assigned_ambulance_id;
 
     if (ambulanceId) {
       const { data: ambulanceData } = await supabase
@@ -537,7 +580,9 @@ export const getEmergencyDetails = async (
             .select("id, phone")
             .in("id", candidateIds)
             .limit(10);
-          resolvedPhone = firstNonEmptyPhone(...(profiles || []).map((p: any) => p.phone));
+          resolvedPhone = firstNonEmptyPhone(
+            ...(profiles || []).map((p: any) => p.phone),
+          );
         }
       }
 
@@ -545,15 +590,29 @@ export const getEmergencyDetails = async (
         ambulance = {
           ...(ambulanceData as any),
           driver_phone: resolvedPhone,
-          phone: firstNonEmptyPhone((ambulanceData as any)?.phone, resolvedPhone),
-          phone_number: firstNonEmptyPhone((ambulanceData as any)?.phone_number, resolvedPhone),
+          phone: firstNonEmptyPhone(
+            (ambulanceData as any)?.phone,
+            resolvedPhone,
+          ),
+          phone_number: firstNonEmptyPhone(
+            (ambulanceData as any)?.phone_number,
+            resolvedPhone,
+          ),
         } as AmbulanceInfo;
 
         if (assignmentData) {
           assignmentData = {
             ...assignmentData,
-            driver_phone: firstNonEmptyPhone(assignmentData.driver_phone, assignmentData.driver_contact, resolvedPhone),
-            driver_contact: firstNonEmptyPhone(assignmentData.driver_contact, assignmentData.driver_phone, resolvedPhone),
+            driver_phone: firstNonEmptyPhone(
+              assignmentData.driver_phone,
+              assignmentData.driver_contact,
+              resolvedPhone,
+            ),
+            driver_contact: firstNonEmptyPhone(
+              assignmentData.driver_contact,
+              assignmentData.driver_phone,
+              resolvedPhone,
+            ),
           };
         }
       }
@@ -562,14 +621,22 @@ export const getEmergencyDetails = async (
     return {
       emergency: normalizeEmergency(emergencyData),
       assignment: assignmentData
-        ? ({ ...assignmentData, status: assignmentData.status ?? "pending" } as EmergencyAssignment)
+        ? ({
+            ...assignmentData,
+            status: assignmentData.status ?? "pending",
+          } as EmergencyAssignment)
         : null,
       ambulance,
       error: null,
     };
   } catch (error) {
     console.error("Error fetching emergency details:", error);
-    return { emergency: null, assignment: null, ambulance: null, error: error as Error };
+    return {
+      emergency: null,
+      assignment: null,
+      ambulance: null,
+      error: error as Error,
+    };
   }
 };
 
@@ -587,7 +654,9 @@ export const updateEmergencyStatus = async (
     | "cancelled",
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    await backendPatch(`/ops/patient/emergencies/${emergencyId}/status`, { status });
+    await backendPatch(`/ops/patient/emergencies/${emergencyId}/status`, {
+      status,
+    });
     return { success: true, error: null };
   } catch (error) {
     console.error("Error updating emergency status:", error);

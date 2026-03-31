@@ -771,7 +771,10 @@ export const getLiveAvailableAmbulances = async (
         error: null,
       };
     } catch (backendError) {
-      console.warn("Backend live ambulance fetch failed, using Supabase fallback", backendError);
+      console.warn(
+        "Backend live ambulance fetch failed, using Supabase fallback",
+        backendError,
+      );
     }
 
     const cutoffIso = new Date(

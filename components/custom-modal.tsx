@@ -120,10 +120,7 @@ export function CustomModal({
             style={[styles.accentBar, { backgroundColor: autoIconColor }]}
           />
           <View
-            style={[
-              styles.glowOrb,
-              { backgroundColor: `${autoIconColor}1F` },
-            ]}
+            style={[styles.glowOrb, { backgroundColor: `${autoIconColor}1F` }]}
           />
           <View style={styles.headerRow}>
             <View

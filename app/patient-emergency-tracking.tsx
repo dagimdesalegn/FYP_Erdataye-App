@@ -1,7 +1,7 @@
 import { FirstAidFab } from "@/components/first-aid-fab";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -158,51 +158,56 @@ export default function PatientEmergencyTrackingScreen() {
   const ambulanceFixesRef = useRef<
     Array<{ latitude: number; longitude: number; at: number }>
   >([]);
-  const lastAmbulanceFixRef = useRef<
-    { latitude: number; longitude: number; at: number } | null
-  >(null);
+  const lastAmbulanceFixRef = useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
   const animatedCoordsRef = useRef<{
     latitude: number;
     longitude: number;
   } | null>(null);
   const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
 
-  const applyAmbulanceFix = useCallback((latitude: number, longitude: number) => {
-    const now = Date.now();
-    const prev = lastAmbulanceFixRef.current;
+  const applyAmbulanceFix = useCallback(
+    (latitude: number, longitude: number) => {
+      const now = Date.now();
+      const prev = lastAmbulanceFixRef.current;
 
-    if (prev) {
-      const jumpMeters = distanceMeters(
-        prev.latitude,
-        prev.longitude,
-        latitude,
-        longitude,
+      if (prev) {
+        const jumpMeters = distanceMeters(
+          prev.latitude,
+          prev.longitude,
+          latitude,
+          longitude,
+        );
+        const elapsedMs = now - prev.at;
+
+        // Drop implausible sudden GPS jumps that cause fake 300m+ distance spikes.
+        if (elapsedMs < 12000 && jumpMeters > 150) {
+          return;
+        }
+        if (jumpMeters < 3) {
+          return;
+        }
+      }
+
+      const fix = { latitude, longitude, at: now };
+      lastAmbulanceFixRef.current = fix;
+      ambulanceFixesRef.current = [...ambulanceFixesRef.current, fix].slice(-3);
+      const count = ambulanceFixesRef.current.length;
+      const smoothed = ambulanceFixesRef.current.reduce(
+        (acc, item) => ({
+          latitude: acc.latitude + item.latitude / count,
+          longitude: acc.longitude + item.longitude / count,
+        }),
+        { latitude: 0, longitude: 0 },
       );
-      const elapsedMs = now - prev.at;
 
-      // Drop implausible sudden GPS jumps that cause fake 300m+ distance spikes.
-      if (elapsedMs < 12000 && jumpMeters > 150) {
-        return;
-      }
-      if (jumpMeters < 3) {
-        return;
-      }
-    }
-
-    const fix = { latitude, longitude, at: now };
-    lastAmbulanceFixRef.current = fix;
-    ambulanceFixesRef.current = [...ambulanceFixesRef.current, fix].slice(-3);
-    const count = ambulanceFixesRef.current.length;
-    const smoothed = ambulanceFixesRef.current.reduce(
-      (acc, item) => ({
-        latitude: acc.latitude + item.latitude / count,
-        longitude: acc.longitude + item.longitude / count,
-      }),
-      { latitude: 0, longitude: 0 },
-    );
-
-    setAmbulanceCoords(smoothed);
-  }, []);
+      setAmbulanceCoords(smoothed);
+    },
+    [],
+  );
 
   const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
@@ -434,10 +439,7 @@ export default function PatientEmergencyTrackingScreen() {
     }
 
     if (!driverPhone) {
-      showAlert(
-        "Unavailable",
-        "Ambulance phone number is not available yet.",
-      );
+      showAlert("Unavailable", "Ambulance phone number is not available yet.");
       return;
     }
     try {
@@ -460,7 +462,10 @@ export default function PatientEmergencyTrackingScreen() {
       const getShareLink = async () => {
         if (cachedShareLink) {
           const expiresMs = new Date(cachedShareLink.expiresAt).getTime();
-          if (Number.isFinite(expiresMs) && expiresMs - Date.now() > 60 * 1000) {
+          if (
+            Number.isFinite(expiresMs) &&
+            expiresMs - Date.now() > 60 * 1000
+          ) {
             return {
               shareUrl: cachedShareLink.shareUrl,
               expiresAt: cachedShareLink.expiresAt,
@@ -485,7 +490,10 @@ export default function PatientEmergencyTrackingScreen() {
 
       const { shareUrl, expiresAt, error: shareError } = await getShareLink();
       if (shareError || !shareUrl) {
-        showError("Share Failed", shareError?.message || "Unable to create share link.");
+        showError(
+          "Share Failed",
+          shareError?.message || "Unable to create share link.",
+        );
         return;
       }
 
@@ -644,7 +652,16 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Loading / Error ──────────────────────────────────
   if (loading)
     return (
-      <View style={[styles.root, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.root,
+          {
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -687,7 +704,11 @@ export default function PatientEmergencyTrackingScreen() {
     : null;
 
   let distanceText = "";
-  if (animatedAmbulanceCoords && patientCoords.latitude && patientCoords.longitude) {
+  if (
+    animatedAmbulanceCoords &&
+    patientCoords.latitude &&
+    patientCoords.longitude
+  ) {
     const km = calculateDistance(
       patientCoords.latitude,
       patientCoords.longitude,
@@ -737,7 +758,11 @@ export default function PatientEmergencyTrackingScreen() {
             },
           )
       : mapPatientCoords
-        ? buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude, 17)
+        ? buildMapHtml(
+            mapPatientCoords.latitude,
+            mapPatientCoords.longitude,
+            17,
+          )
         : null;
 
   const openDetailedRoute = async () => {

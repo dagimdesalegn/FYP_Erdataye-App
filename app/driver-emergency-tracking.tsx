@@ -20,6 +20,7 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet } from "@/utils/api";
 import {
     getDriverAmbulanceId,
     getPatientInfo,
@@ -35,7 +36,6 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
-import { backendGet } from "@/utils/api";
 
 type Tab = "map" | "status";
 
@@ -264,7 +264,12 @@ export default function DriverEmergencyTrackingScreen() {
   // ─── Loading ──────────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[
+          styles.root,
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.tint} />
       </View>
     );
@@ -314,7 +319,6 @@ export default function DriverEmergencyTrackingScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-
       {/* ── Header ───────────────────────────────────── */}
       <View
         style={[

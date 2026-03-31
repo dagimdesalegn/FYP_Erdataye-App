@@ -42,14 +42,20 @@ async function fetchBackend(
   path: string,
   init: RequestInit,
 ): Promise<Response> {
-  const order = [activeBackendBase, ...BACKEND_CANDIDATES.filter((u) => u !== activeBackendBase)];
+  const order = [
+    activeBackendBase,
+    ...BACKEND_CANDIDATES.filter((u) => u !== activeBackendBase),
+  ];
   let lastError: Error | null = null;
 
   for (const base of order) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(`${base}${path}`, { ...init, signal: controller.signal });
+      const res = await fetch(`${base}${path}`, {
+        ...init,
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
       activeBackendBase = base;
       return res;
@@ -208,7 +214,9 @@ export const getRegistrationHospitalOptions = async (): Promise<{
   error: Error | null;
 }> => {
   try {
-    const res = await fetchBackend("/auth/hospitals/available", { method: "GET" });
+    const res = await fetchBackend("/auth/hospitals/available", {
+      method: "GET",
+    });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(
@@ -326,7 +334,10 @@ export const signUp = async (
         password,
         full_name: fullName,
         phone: ethPhone,
-        national_id: nationalId && nationalId.trim().length === 16 ? nationalId.trim() : null,
+        national_id:
+          nationalId && nationalId.trim().length === 16
+            ? nationalId.trim()
+            : null,
         role,
         hospital_id: hospitalId,
         latitude: location?.latitude,
@@ -467,7 +478,9 @@ export const signIn = async (
         dbFullName = dbFullName || profileRow.full_name || "";
         dbPhone = dbPhone || profileRow.phone || "";
         if (!dbRole) {
-          dbRole = isUserRole(profileRow.role) ? normalizeRole(profileRow.role) : null;
+          dbRole = isUserRole(profileRow.role)
+            ? normalizeRole(profileRow.role)
+            : null;
         }
       }
     } catch (e) {
@@ -482,11 +495,13 @@ export const signIn = async (
         fullName: String(authUser.user_metadata?.full_name || ""),
         phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
       });
-      const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
+      const { error: upsertProfileError } =
+        await upsertProfileWithRetry(profilePayload);
       if (upsertProfileError && (upsertProfileError as any).code !== "23503") {
         console.error("Profile ensure error on sign in:", upsertProfileError);
       }
-      dbFullName = dbFullName || String(authUser.user_metadata?.full_name || "");
+      dbFullName =
+        dbFullName || String(authUser.user_metadata?.full_name || "");
       dbPhone = dbPhone || String(authUser.user_metadata?.phone || "");
     }
 
@@ -621,8 +636,8 @@ export const onAuthStateChange = (
         try {
           const role =
             roleFromMetadata ??
-              (await getUserRole(sessionUser.id)) ??
-              "patient";
+            (await getUserRole(sessionUser.id)) ??
+            "patient";
 
           callback({
             id: sessionUser.id,

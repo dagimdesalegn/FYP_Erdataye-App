@@ -36,7 +36,9 @@ export const getUserProfile = async (
     try {
       const data = await backendGet<UserProfile>("/profiles/me");
       if (data) return { profile: data, error: null };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
 
     const { data, error } = await supabase
       .from("profiles")
@@ -61,7 +63,9 @@ export const updateUserProfile = async (
     try {
       await backendPut("/profiles/me", updates);
       return { success: true, error: null };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
 
     const { error } = await supabase
       .from("profiles")
@@ -87,7 +91,9 @@ export const getMedicalProfile = async (
     try {
       const data = await backendGet<MedicalProfile | null>("/profiles/medical");
       if (data) return { profile: data, error: null };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
 
     const { data, error } = await supabase
       .from("medical_profiles")
@@ -117,7 +123,9 @@ export const upsertMedicalProfile = async (
     try {
       await backendPut("/profiles/medical", medicalData);
       return { success: true, error: null };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
 
     const now = new Date().toISOString();
     const { error } = await supabase

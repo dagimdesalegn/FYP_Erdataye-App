@@ -3,18 +3,18 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Animated,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  useWindowDimensions,
-  View,
+    ActivityIndicator,
+    Animated,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    useWindowDimensions,
+    View,
 } from "react-native";
 
 import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
@@ -25,13 +25,13 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-  getRegistrationHospitalOptions,
-  RegistrationHospitalOption,
-  signUp,
+    getRegistrationHospitalOptions,
+    RegistrationHospitalOption,
+    signUp,
 } from "@/utils/auth";
 import {
-  ensureAmbulanceHospitalLink,
-  upsertDriverAmbulance,
+    ensureAmbulanceHospitalLink,
+    upsertDriverAmbulance,
 } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";

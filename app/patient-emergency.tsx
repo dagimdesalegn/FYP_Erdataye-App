@@ -2,13 +2,12 @@
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
     Animated,
     Pressable,
     ScrollView,
     StyleSheet,
     TextInput,
-    View,
+    View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -25,19 +24,18 @@ import {
     buildMapHtml,
     buildPatientRequestMapHtml,
     calculateDistance,
-    getContextualFirstAid,
     getExplainableTriage,
     getLiveAvailableAmbulances,
     getTrafficAwareDispatch,
-    parsePostGISPoint,
+    parsePostGISPoint
 } from "@/utils/emergency";
 import {
-  cancelEmergencyWithinWindow,
+    cancelEmergencyWithinWindow,
     createEmergency,
-  getEmergencyCancelWindowState,
     getActiveEmergency,
+    getEmergencyCancelWindowState,
+    retryEmergencyDispatch,
     subscribeToEmergency,
-  retryEmergencyDispatch,
 } from "@/utils/patient";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -85,9 +83,9 @@ export default function PatientEmergencyScreen() {
   const [activeEmergencyId, setActiveEmergencyId] = useState<string | null>(
     null,
   );
-  const [activeEmergencyStatus, setActiveEmergencyStatus] = useState<string | null>(
-    null,
-  );
+  const [activeEmergencyStatus, setActiveEmergencyStatus] = useState<
+    string | null
+  >(null);
   const [activeEmergencyCreatedAt, setActiveEmergencyCreatedAt] = useState<
     string | null
   >(null);
@@ -101,7 +99,9 @@ export default function PatientEmergencyScreen() {
       distanceKm: number;
     }[]
   >([]);
-  const [smartPreview, setSmartPreview] = useState<string>("Tap to preview smart dispatch guidance.");
+  const [smartPreview, setSmartPreview] = useState<string>(
+    "Tap to preview smart dispatch guidance.",
+  );
   const [triagePreview, setTriagePreview] = useState<{
     priority: string;
     score: number;
@@ -451,7 +451,8 @@ export default function PatientEmergencyScreen() {
   useEffect(() => {
     const startLivePatientTracking = async () => {
       try {
-        const currentPermission = await Location.getForegroundPermissionsAsync();
+        const currentPermission =
+          await Location.getForegroundPermissionsAsync();
         if (currentPermission.status !== "granted") return;
 
         const watcher = await Location.watchPositionAsync(
@@ -634,7 +635,9 @@ export default function PatientEmergencyScreen() {
 
       setHasActiveEmergency(true);
       setActiveEmergencyId(emergency.id);
-      setActiveEmergencyCreatedAt(emergency.created_at || new Date().toISOString());
+      setActiveEmergencyCreatedAt(
+        emergency.created_at || new Date().toISOString(),
+      );
       setActiveEmergencyStatus(emergency.status || "pending");
 
       // Clear form
@@ -832,7 +835,9 @@ export default function PatientEmergencyScreen() {
 
               <View style={styles.liveStatusRow}>
                 <MaterialIcons name="sync" size={14} color="#0EA5E9" />
-                <ThemedText style={styles.liveStatusLabel}>Live Status:</ThemedText>
+                <ThemedText style={styles.liveStatusLabel}>
+                  Live Status:
+                </ThemedText>
                 <ThemedText style={styles.liveStatusValue}>
                   {String(activeEmergencyStatus || "pending")
                     .replaceAll("_", " ")
@@ -873,9 +878,13 @@ export default function PatientEmergencyScreen() {
                 label={
                   canCancelByWindow
                     ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
-                    : ["en_route", "at_scene", "arrived", "transporting", "at_hospital"].includes(
-                          String(activeEmergencyStatus || ""),
-                        )
+                    : [
+                          "en_route",
+                          "at_scene",
+                          "arrived",
+                          "transporting",
+                          "at_hospital",
+                        ].includes(String(activeEmergencyStatus || ""))
                       ? "Cancellation Closed (Ambulance Accepted)"
                       : "Cancellation Window Closed"
                 }
@@ -887,10 +896,9 @@ export default function PatientEmergencyScreen() {
                   styles.secondaryBtn,
                   {
                     borderColor: "#EF4444",
-                    backgroundColor:
-                      canCancelByWindow
-                        ? "rgba(239,68,68,0.08)"
-                        : "rgba(148,163,184,0.08)",
+                    backgroundColor: canCancelByWindow
+                      ? "rgba(239,68,68,0.08)"
+                      : "rgba(148,163,184,0.08)",
                   },
                 ]}
               />
@@ -943,16 +951,22 @@ export default function PatientEmergencyScreen() {
                     </View>
 
                     {!hasNearbyAmbulance ? (
-                      <View style={[styles.section, { alignItems: "center" }]}> 
+                      <View style={[styles.section, { alignItems: "center" }]}>
                         <ThemedText style={styles.sectionTitle}>
                           No ambulances are nearby right now
                         </ThemedText>
-                        <ThemedText style={[styles.nearbyEmpty, { color: colors.text }]}>
-                          We cannot take a request until a unit comes online within range.
-                          Try again shortly or chat with first aid.
+                        <ThemedText
+                          style={[styles.nearbyEmpty, { color: colors.text }]}
+                        >
+                          We cannot take a request until a unit comes online
+                          within range. Try again shortly or chat with first
+                          aid.
                         </ThemedText>
                         <View style={{ marginTop: 18 }}>
-                          <FirstAidFab triggerMode="tag" triggerLabel="Ask Chatbot" />
+                          <FirstAidFab
+                            triggerMode="tag"
+                            triggerLabel="Ask Chatbot"
+                          />
                         </View>
                       </View>
                     ) : (
@@ -966,9 +980,14 @@ export default function PatientEmergencyScreen() {
 
                             <ThemedText style={styles.label}>Name</ThemedText>
                             <TextInput
-                              style={[styles.input, isDark ? styles.inputDark : null]}
+                              style={[
+                                styles.input,
+                                isDark ? styles.inputDark : null,
+                              ]}
                               placeholder="Name of the person who needs help"
-                              placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                              placeholderTextColor={
+                                isDark ? "#6B7280" : "#94A3B8"
+                              }
                               value={otherPersonName}
                               onChangeText={setOtherPersonName}
                             />
@@ -977,9 +996,14 @@ export default function PatientEmergencyScreen() {
                               Contact Number (optional)
                             </ThemedText>
                             <TextInput
-                              style={[styles.input, isDark ? styles.inputDark : null]}
+                              style={[
+                                styles.input,
+                                isDark ? styles.inputDark : null,
+                              ]}
                               placeholder="Their phone number"
-                              placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                              placeholderTextColor={
+                                isDark ? "#6B7280" : "#94A3B8"
+                              }
                               value={otherPersonContact}
                               onChangeText={setOtherPersonContact}
                               keyboardType="phone-pad"
@@ -993,13 +1017,21 @@ export default function PatientEmergencyScreen() {
                             Emergency Severity
                           </ThemedText>
                           <View style={styles.severityGrid}>
-                            <SeverityButton level="low" label="Low" color="#3B82F6" />
+                            <SeverityButton
+                              level="low"
+                              label="Low"
+                              color="#3B82F6"
+                            />
                             <SeverityButton
                               level="medium"
                               label="Medium"
                               color="#F59E0B"
                             />
-                            <SeverityButton level="high" label="High" color="#EF4444" />
+                            <SeverityButton
+                              level="high"
+                              label="High"
+                              color="#EF4444"
+                            />
                             <SeverityButton
                               level="critical"
                               label="Critical"
@@ -1018,13 +1050,18 @@ export default function PatientEmergencyScreen() {
                             Description (optional)
                           </ThemedText>
                           <TextInput
-                            style={[styles.input, isDark ? styles.inputDark : null]}
+                            style={[
+                              styles.input,
+                              isDark ? styles.inputDark : null,
+                            ]}
                             placeholder={
                               isForOther
                                 ? "Describe what happened..."
                                 : "Describe your emergency..."
                             }
-                            placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                            placeholderTextColor={
+                              isDark ? "#6B7280" : "#94A3B8"
+                            }
                             value={description}
                             onChangeText={setDescription}
                             multiline
@@ -1037,13 +1074,18 @@ export default function PatientEmergencyScreen() {
                               : "Your Condition (optional)"}
                           </ThemedText>
                           <TextInput
-                            style={[styles.input, isDark ? styles.inputDark : null]}
+                            style={[
+                              styles.input,
+                              isDark ? styles.inputDark : null,
+                            ]}
                             placeholder={
                               isForOther
                                 ? "Describe their current condition..."
                                 : "Describe your current condition..."
                             }
-                            placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
+                            placeholderTextColor={
+                              isDark ? "#6B7280" : "#94A3B8"
+                            }
                             value={patientCondition}
                             onChangeText={setPatientCondition}
                             multiline
@@ -1070,7 +1112,11 @@ export default function PatientEmergencyScreen() {
                               loading && { opacity: 0.6 },
                             ]}
                           >
-                            <MaterialIcons name="phone" size={32} color="white" />
+                            <MaterialIcons
+                              name="phone"
+                              size={32}
+                              color="white"
+                            />
                             <ThemedText style={styles.sosButtonText}>
                               {isForOther
                                 ? "SOS - Call Ambulance for Them"
@@ -1392,8 +1438,3 @@ const styles = StyleSheet.create({
     color: "#0369A1",
   },
 });
-
-
-
-
-

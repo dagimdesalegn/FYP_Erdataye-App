@@ -3,14 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Image,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    Image,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
@@ -66,7 +66,8 @@ export default function StaffLoginScreen() {
 
     if (key === "phone") {
       let cleaned = value.replace(/[^0-9]/g, "");
-      if (cleaned.startsWith("251") && cleaned.length > 9) cleaned = cleaned.substring(3);
+      if (cleaned.startsWith("251") && cleaned.length > 9)
+        cleaned = cleaned.substring(3);
       if (cleaned.startsWith("0")) cleaned = cleaned.substring(1);
       if (cleaned.length > 9) cleaned = cleaned.substring(0, 9);
       setForm({ ...form, [key]: cleaned });
@@ -111,7 +112,10 @@ export default function StaffLoginScreen() {
         setUser(null);
         setRegistered(false);
         setLoading(false);
-        showError("Access Denied", "This portal is only for admin and hospital accounts.");
+        showError(
+          "Access Denied",
+          "This portal is only for admin and hospital accounts.",
+        );
         return;
       }
 
@@ -175,24 +179,38 @@ export default function StaffLoginScreen() {
         >
           <View style={styles.headerArea}>
             <View style={styles.logoContainer}>
-              <Image source={ambulanceFavicon} style={styles.logoImage} resizeMode="contain" />
+              <Image
+                source={ambulanceFavicon}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
             </View>
             <View style={styles.roleRow}>
               <View style={[styles.roleChip, { backgroundColor: "#FCE7F3" }]}>
-                <ThemedText style={[styles.roleChipText, { color: "#BE185D" }]}>ADMIN</ThemedText>
+                <ThemedText style={[styles.roleChipText, { color: "#BE185D" }]}>
+                  ADMIN
+                </ThemedText>
               </View>
               <View style={[styles.roleChip, { backgroundColor: "#D1FAE5" }]}>
-                <ThemedText style={[styles.roleChipText, { color: "#059669" }]}>HOSPITAL</ThemedText>
+                <ThemedText style={[styles.roleChipText, { color: "#059669" }]}>
+                  HOSPITAL
+                </ThemedText>
               </View>
             </View>
           </View>
 
-          <ThemedText style={[styles.title, { color: textPrimary }]}>Staff Portal Login</ThemedText>
-          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>Sign in with admin or hospital credentials.</ThemedText>
+          <ThemedText style={[styles.title, { color: textPrimary }]}>
+            Staff Portal Login
+          </ThemedText>
+          <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
+            Sign in with admin or hospital credentials.
+          </ThemedText>
 
           <View style={styles.form}>
             <View style={styles.fieldGroup}>
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Phone Number</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>
+                Phone Number
+              </ThemedText>
               <View
                 style={[
                   styles.inputWrap,
@@ -218,7 +236,11 @@ export default function StaffLoginScreen() {
                   }
                   style={styles.inputIcon}
                 />
-                <ThemedText style={[styles.phonePrefix, { color: textPrimary }]}>+251</ThemedText>
+                <ThemedText
+                  style={[styles.phonePrefix, { color: textPrimary }]}
+                >
+                  +251
+                </ThemedText>
                 <TextInput
                   style={[styles.input, { color: textPrimary }]}
                   placeholder="912345678"
@@ -235,11 +257,17 @@ export default function StaffLoginScreen() {
                   editable={!loading}
                 />
               </View>
-              {fieldErrors.phone ? <ThemedText style={styles.fieldError}>{fieldErrors.phone}</ThemedText> : null}
+              {fieldErrors.phone ? (
+                <ThemedText style={styles.fieldError}>
+                  {fieldErrors.phone}
+                </ThemedText>
+              ) : null}
             </View>
 
             <View style={styles.fieldGroup}>
-              <ThemedText style={[styles.label, { color: textPrimary }]}>Password</ThemedText>
+              <ThemedText style={[styles.label, { color: textPrimary }]}>
+                Password
+              </ThemedText>
               <View
                 style={[
                   styles.inputWrap,
@@ -280,7 +308,10 @@ export default function StaffLoginScreen() {
                   onBlur={() => setFocusedField(null)}
                   editable={!loading}
                 />
-                <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
+                <Pressable
+                  onPress={() => setShowPassword((p) => !p)}
+                  hitSlop={8}
+                >
                   <MaterialIcons
                     name={showPassword ? "visibility" : "visibility-off"}
                     size={20}
@@ -288,7 +319,11 @@ export default function StaffLoginScreen() {
                   />
                 </Pressable>
               </View>
-              {fieldErrors.password ? <ThemedText style={styles.fieldError}>{fieldErrors.password}</ThemedText> : null}
+              {fieldErrors.password ? (
+                <ThemedText style={styles.fieldError}>
+                  {fieldErrors.password}
+                </ThemedText>
+              ) : null}
             </View>
 
             <Pressable
@@ -307,11 +342,15 @@ export default function StaffLoginScreen() {
                 style={styles.primaryBtnGradient}
               >
                 {loading ? (
-                  <ThemedText style={styles.primaryBtnText}>Signing In...</ThemedText>
+                  <ThemedText style={styles.primaryBtnText}>
+                    Signing In...
+                  </ThemedText>
                 ) : (
                   <>
                     <MaterialIcons name="login" size={20} color="#fff" />
-                    <ThemedText style={styles.primaryBtnText}>Sign In</ThemedText>
+                    <ThemedText style={styles.primaryBtnText}>
+                      Sign In
+                    </ThemedText>
                   </>
                 )}
               </LinearGradient>
@@ -326,7 +365,9 @@ export default function StaffLoginScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    ...(Platform.OS === "web" ? { minHeight: "100vh" as any, overflow: "auto" as any } : {}),
+    ...(Platform.OS === "web"
+      ? { minHeight: "100vh" as any, overflow: "auto" as any }
+      : {}),
   },
   flex: {
     flex: 1,
@@ -389,7 +430,12 @@ const styles = StyleSheet.create({
   },
   form: { gap: 16 },
   fieldGroup: { gap: 6 },
-  label: { fontSize: 13, fontWeight: "700", fontFamily: Fonts.sans, letterSpacing: 0.2 },
+  label: {
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.2,
+  },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -399,7 +445,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   inputIcon: { marginRight: 10 },
-  phonePrefix: { fontSize: 15, fontWeight: "600", fontFamily: Fonts.sans, marginRight: 6 },
+  phonePrefix: {
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    marginRight: 6,
+  },
   input: {
     flex: 1,
     fontSize: 15,

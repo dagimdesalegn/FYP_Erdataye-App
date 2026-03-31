@@ -238,7 +238,16 @@ export default function DriverEmergencyScreen() {
   // ─── Loading / empty ─────────────────────────────────────
   if (loading) {
     return (
-      <View style={[styles.root, { backgroundColor: Colors[colorScheme].background, alignItems: "center", justifyContent: "center" }]}>
+      <View
+        style={[
+          styles.root,
+          {
+            backgroundColor: Colors[colorScheme].background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
       </View>
     );
@@ -313,7 +322,6 @@ export default function DriverEmergencyScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-
       <View
         style={[
           styles.topEmergencyBox,
@@ -733,7 +741,9 @@ export default function DriverEmergencyScreen() {
               ) : (
                 <>
                   <MaterialIcons name="check" size={18} color="#FFF" />
-                  <ThemedText style={styles.acceptBtnText}>Accept & Go</ThemedText>
+                  <ThemedText style={styles.acceptBtnText}>
+                    Accept & Go
+                  </ThemedText>
                 </>
               )}
             </LinearGradient>

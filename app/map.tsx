@@ -4,19 +4,19 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet } from "@/utils/api";
 import {
     Ambulance,
     buildMapHtml,
     EmergencyRequest,
     formatCoords,
-    getLiveAvailableAmbulances,
     getHospitals,
+    getLiveAvailableAmbulances,
     Hospital,
     normalizeEmergency,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
-import { backendGet } from "@/utils/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
@@ -38,7 +38,10 @@ export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [ambulances, setAmbulances] = useState<
     (Ambulance & { lat: number; lng: number })[]
@@ -51,7 +54,6 @@ export default function MapScreen() {
   const locationWatcherRef = React.useRef<Location.LocationSubscription | null>(
     null,
   );
-  
 
   const textColor = colors.text;
   const subText = colors.textMuted;
@@ -70,8 +72,10 @@ export default function MapScreen() {
     const dLng = toRad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
   };
@@ -113,7 +117,10 @@ export default function MapScreen() {
       });
       if (lastKnown) {
         setLocation(lastKnown);
-        setMapCenter({ lat: lastKnown.coords.latitude, lng: lastKnown.coords.longitude });
+        setMapCenter({
+          lat: lastKnown.coords.latitude,
+          lng: lastKnown.coords.longitude,
+        });
       }
 
       try {
@@ -125,7 +132,10 @@ export default function MapScreen() {
           mayShowUserSettingsDialog: true,
         });
         setLocation(currentLocation);
-        setMapCenter({ lat: currentLocation.coords.latitude, lng: currentLocation.coords.longitude });
+        setMapCenter({
+          lat: currentLocation.coords.latitude,
+          lng: currentLocation.coords.longitude,
+        });
         return currentLocation;
       } catch (positionError) {
         if (lastKnown) {
@@ -139,7 +149,10 @@ export default function MapScreen() {
         }).catch(() => null);
         if (fallbackLocation) {
           setLocation(fallbackLocation);
-          setMapCenter({ lat: fallbackLocation.coords.latitude, lng: fallbackLocation.coords.longitude });
+          setMapCenter({
+            lat: fallbackLocation.coords.latitude,
+            lng: fallbackLocation.coords.longitude,
+          });
           setLocationError(
             "GPS signal is weak. Using lower-accuracy location.",
           );
@@ -182,7 +195,9 @@ export default function MapScreen() {
 
   const fetchEmergencies = async () => {
     try {
-      const res = await backendGet<{ emergencies: any[] }>("/ops/emergencies/active");
+      const res = await backendGet<{ emergencies: any[] }>(
+        "/ops/emergencies/active",
+      );
       setEmergencies((res.emergencies || []).map(normalizeEmergency));
     } catch (error) {
       console.error("Error fetching emergencies:", error);
@@ -233,7 +248,8 @@ export default function MapScreen() {
         { event: "*", schema: "public", table: "emergency_requests" },
         () => fetchEmergencies(),
       )
-      .subscribe();    void (async () => {
+      .subscribe();
+    void (async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") return;
@@ -250,7 +266,12 @@ export default function MapScreen() {
 
             setMapCenter((prev) => {
               if (!prev) return { lat: nextLat, lng: nextLng };
-              const moved = distanceMeters(prev.lat, prev.lng, nextLat, nextLng);
+              const moved = distanceMeters(
+                prev.lat,
+                prev.lng,
+                nextLat,
+                nextLng,
+              );
               return moved >= 20 ? { lat: nextLat, lng: nextLng } : prev;
             });
           },
@@ -478,8 +499,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-
-
-
-
-

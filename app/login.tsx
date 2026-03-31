@@ -2,14 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Animated,
-  Image,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  TextInput,
-  View,
+    Animated,
+    Image,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 import faydaLogo from "@/assets/images/fayda-logo.webp";
@@ -440,7 +440,6 @@ export default function LoginScreen() {
                 Continue with Fayda
               </ThemedText>
             </Pressable>
-          
           </View>
 
           {/* Create Account */}
