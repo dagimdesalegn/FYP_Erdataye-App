@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.erdatayeambulance",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -35,7 +35,7 @@
     "ios": {
       "supportsTablet": true
     },
-    "name": "እርዳታዬ Erdataye",
+    "name": "እርዳታዬ",
     "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
@@ -70,7 +70,7 @@
     "web": {
       "favicon": "./assets/images/ambulance-favicon.png",
       "output": "static",
-      "title": "እርዳታዬ Erdataye Ambulance",
+      "title": "እርዳታዬ",
       "bundler": "metro"
     },
     "extra": {

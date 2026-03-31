@@ -56,7 +56,7 @@ function ThemedRoot() {
 
   useEffect(() => {
     if (Platform.OS === "web") {
-      document.title = "እርዳታዬ Erdataye";
+      document.title = "እርዳታዬ";
     }
     if (Platform.OS !== "android") return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);
@@ -68,11 +68,11 @@ function ThemedRoot() {
         <Stack>
           <Stack.Screen
             name="index"
-            options={{ headerShown: false, title: "እርዳታዬ Erdataye" }}
+            options={{ headerShown: false, title: "እርዳታዬ" }}
           />
           <Stack.Screen
             name="(tabs)"
-            options={{ headerShown: false, title: "እርዳታዬ Erdataye" }}
+            options={{ headerShown: false, title: "እርዳታዬ" }}
           />
           <Stack.Screen
             name="login"

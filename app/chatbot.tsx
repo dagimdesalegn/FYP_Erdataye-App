@@ -61,7 +61,7 @@ export default function ChatbotPage() {
           messages.map((m) => ({ role: m.role, text: m.message }) as Message),
         );
       }
-    });
+    }).catch(() => {});
   }, [user?.id]);
 
   useEffect(() => {

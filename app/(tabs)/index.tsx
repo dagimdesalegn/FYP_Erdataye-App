@@ -31,7 +31,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof document !== "undefined") {
-      document.title = "እርዳታዬ Erdataye Ambulance";
+      document.title = "እርዳታዬ";
     }
   }, []);
 

@@ -402,7 +402,10 @@ export default function PatientEmergencyScreen() {
 
   const requestLocationPermission = async () => {
     try {
-      const currentPermission = await Location.getForegroundPermissionsAsync();
+      let currentPermission = await Location.getForegroundPermissionsAsync();
+      if (currentPermission.status !== "granted") {
+        currentPermission = await Location.requestForegroundPermissionsAsync();
+      }
       if (currentPermission.status !== "granted") {
         if (location) return;
         const msg =

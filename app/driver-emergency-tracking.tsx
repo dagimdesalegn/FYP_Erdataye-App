@@ -201,15 +201,19 @@ export default function DriverEmergencyTrackingScreen() {
             distanceInterval: 5,
           },
           async (loc) => {
-            setDriverCoords({
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            });
-            await sendLocationUpdate(
-              ambulanceId,
-              loc.coords.latitude,
-              loc.coords.longitude,
-            );
+            try {
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (e) {
+              console.warn("Location update failed:", e);
+            }
           },
         );
       } catch (error) {

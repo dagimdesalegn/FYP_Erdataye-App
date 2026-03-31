@@ -1,4 +1,3 @@
-import { processLock } from '@supabase/auth-js';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -16,10 +15,6 @@ if (!supabaseKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    lock: processLock,
-  },
-});
+export const supabase = createClient(supabaseUrl, supabaseKey);
 
 export default supabase;

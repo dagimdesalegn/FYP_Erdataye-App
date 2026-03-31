@@ -277,7 +277,7 @@ export default function HelpScreen() {
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="እርዳታዬ Erdataye"
+        title="እርዳታዬ"
         onProfilePress={() => setProfileOpen(!profileOpen)}
       />
 
