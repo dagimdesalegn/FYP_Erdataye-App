@@ -1080,7 +1080,7 @@ export default function AdminScreen() {
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="Erdataya Admin"
+        title="እርዳታዬ Admin"
         onProfilePress={() => setProfileVisible(true)}
       />
 
@@ -1903,7 +1903,7 @@ export default function AdminScreen() {
                 <ThemedText
                   style={[styles.dropdownName, { color: colors.text }]}
                 >
-                  Erdataya Admin
+                  እርዳታዬ Admin
                 </ThemedText>
                 <ThemedText style={[styles.dropdownPhone, { color: subText }]}>
                   {user?.phone || ""}

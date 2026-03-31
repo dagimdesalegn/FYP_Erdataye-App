@@ -16,7 +16,7 @@ export default function IndexScreen() {
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'Erdataya Ambulance';
+      document.title = 'እርዳታዬ Erdataye';
     }
   }, []);
 

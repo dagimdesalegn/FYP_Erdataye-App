@@ -292,7 +292,7 @@ export default function MapScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <AppHeader title="Erdataya Ambulance" />
+        <AppHeader title="እርዳታዬ Erdataye" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color={accentColor} />
           <ThemedText
@@ -311,7 +311,7 @@ export default function MapScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="Erdataya Ambulance" />
+      <AppHeader title="እርዳታዬ Erdataye" />
 
       {/* Map via HtmlMapView (works on both web & native) */}
       <View style={styles.mapContainer}>

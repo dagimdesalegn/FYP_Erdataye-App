@@ -400,7 +400,7 @@ export default function DriverHomeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* App Header with project name top-left, theme toggle + profile icon top-right */}
       <AppHeader
-        title="Erdataya Ambulance"
+        title="እርዳታዬ Erdataye"
         onProfilePress={handleProfilePress}
       />
 
