@@ -16,7 +16,6 @@ import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -756,12 +755,6 @@ export default function PatientEmergencyScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Requesting ambulance..."
-      />
-
       <ScrollView
         contentContainerStyle={[
           styles.scroll,

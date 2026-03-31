@@ -2,6 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -14,7 +15,6 @@ import {
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -271,11 +271,9 @@ export default function PatientProfileScreen() {
 
   if (loading) {
     return (
-      <LoadingModal
-        visible={true}
-        colorScheme={colorScheme}
-        message="Loading profile..."
-      />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
@@ -288,12 +286,6 @@ export default function PatientProfileScreen() {
 
   return (
     <View style={[styles.bg, { backgroundColor: bg }]}>
-      <LoadingModal
-        visible={saving}
-        colorScheme={colorScheme}
-        message="Saving profile..."
-      />
-
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}

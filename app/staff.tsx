@@ -14,7 +14,6 @@ import {
 } from "react-native";
 
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -149,8 +148,6 @@ export default function StaffLoginScreen() {
         translucent
         backgroundColor="transparent"
       />
-      <LoadingModal visible={loading} colorScheme={colorScheme} message="Signing in..." />
-
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}

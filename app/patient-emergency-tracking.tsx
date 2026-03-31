@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Animated,
     Linking,
     Platform,
@@ -21,7 +22,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -644,11 +644,9 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Loading / Error ──────────────────────────────────
   if (loading)
     return (
-      <LoadingModal
-        visible
-        colorScheme={colorScheme}
-        message="Loading emergency..."
-      />
+      <View style={[styles.root, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
 
   if (error || !emergency) {

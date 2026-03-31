@@ -20,7 +20,6 @@ import {
 import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import faydaLogo from "@/assets/images/fayda-logo.webp";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -433,11 +432,6 @@ export default function RegisterScreen() {
         barStyle={isDark ? "light-content" : "dark-content"}
         translucent
         backgroundColor="transparent"
-      />
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Creating your account..."
       />
       {/* Top accent gradient */}
       <LinearGradient

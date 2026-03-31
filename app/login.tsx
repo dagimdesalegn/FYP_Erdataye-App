@@ -14,7 +14,6 @@ import {
 
 import faydaLogo from "@/assets/images/fayda-logo.webp";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -165,12 +164,6 @@ export default function LoginScreen() {
         translucent
         backgroundColor="transparent"
       />
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Signing in..."
-      />
-
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -447,6 +440,7 @@ export default function LoginScreen() {
                 Continue with Fayda
               </ThemedText>
             </Pressable>
+          
           </View>
 
           {/* Create Account */}
