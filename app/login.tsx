@@ -193,7 +193,7 @@ export default function LoginScreen() {
               minWidth: 340,
               maxWidth: 400,
               width: "100%",
-              boxShadow: "0 4px 24px #0001",
+              elevation: 4,
             },
           ]}
         >
@@ -502,7 +502,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 28,
     paddingVertical: 32,
-    boxShadow: "0px 16px 32px rgba(0, 0, 0, 0.10)",
+    boxShadow: undefined,
+    elevation: 8,
   },
   /* ---- Header ---- */
   headerArea: { alignItems: "center", marginBottom: 24 },
@@ -514,7 +515,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    boxShadow: "0px 8px 16px rgba(220, 38, 38, 0.25)",
+    boxShadow: undefined,
+    elevation: 4,
     borderWidth: 1,
     borderColor: "rgba(220, 38, 38, 0.12)",
   },
@@ -588,7 +590,8 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     gap: 8,
-    boxShadow: "0px 4px 12px rgba(220, 38, 38, 0.30)",
+    boxShadow: undefined,
+    elevation: 3,
   },
   primaryBtnText: {
     color: "#fff",

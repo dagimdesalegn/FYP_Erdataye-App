@@ -468,7 +468,7 @@ export default function RegisterScreen() {
                 minWidth: 340,
                 maxWidth: 400,
                 width: "100%",
-                boxShadow: "0 4px 24px #0001",
+                elevation: 4,
               },
               isSmallScreen && styles.cardMobile,
             ]}
@@ -1264,7 +1264,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 28,
     paddingVertical: 28,
-    boxShadow: "0px 16px 32px rgba(0, 0, 0, 0.10)",
+    boxShadow: undefined,
+    elevation: 8,
   },
   cardMobile: {
     width: "100%",
@@ -1288,7 +1289,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 8,
-    boxShadow: "0px 6px 12px rgba(220, 38, 38, 0.22)",
+    boxShadow: undefined,
+    elevation: 4,
     borderWidth: 1,
     borderColor: "rgba(220, 38, 38, 0.12)",
   },
@@ -1450,7 +1452,7 @@ const styles = StyleSheet.create({
     minHeight: 94,
   },
   hospitalCardSelected: {
-    boxShadow: "0px 6px 14px rgba(220, 38, 38, 0.22)",
+    elevation: 3,
   },
   hospitalCardTop: {
     flexDirection: "row",
@@ -1527,7 +1529,8 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 12,
     gap: 8,
-    boxShadow: "0px 4px 12px rgba(220, 38, 38, 0.30)",
+    boxShadow: undefined,
+    elevation: 3,
   },
   primaryBtnText: {
     color: "#fff",

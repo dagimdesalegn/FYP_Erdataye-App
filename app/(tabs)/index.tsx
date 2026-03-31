@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
     borderWidth: 0,
-    boxShadow: "none",
+    elevation: 0,
   },
   logoImage: {
     width: 64,
@@ -264,7 +264,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     textAlign: "center",
     fontFamily: Platform.OS === "android" ? "sans-serif" : Fonts.rounded,
-    textShadow: "0px 2px 12px rgba(220, 38, 38, 0.3)",
     marginBottom: 14,
     paddingHorizontal: 20,
     paddingVertical: 6,
@@ -301,7 +300,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   btnPrimary: {
-    boxShadow: "0px 6px 16px rgba(220, 38, 38, 0.35)",
+    elevation: 6,
   },
   btnGradient: {
     flexDirection: "row",
