@@ -1,23 +1,65 @@
 import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
 const ENV_BACKEND_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
 
-function resolveBackendUrl(): string {
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    const isLocalWeb = host === "localhost" || host === "127.0.0.1";
-    const pointsToTunnel =
-      ENV_BACKEND_URL.includes("ngrok") || ENV_BACKEND_URL.includes(".dev");
-    if (isLocalWeb && pointsToTunnel) {
-      return "http://localhost:8000";
-    }
-  }
-  return ENV_BACKEND_URL;
+/**
+ * Build an ordered list of backend base URLs to try, matching the same logic
+ * used in api.ts so that auth calls (register, login) also benefit from
+ * the ngrok / LAN / emulator fallback chain.
+ */
+function buildBackendCandidates(): string[] {
+  const list: string[] = [];
+  const add = (url?: string | null) => {
+    if (url && /^https?:\/\//i.test(url) && !list.includes(url)) list.push(url);
+  };
+
+  add(ENV_BACKEND_URL);
+  BACKEND_FALLBACKS.forEach(add);
+
+  // Platform-specific localhost alternatives for emulators
+  if (Platform.OS === "android") add("http://10.0.2.2:8000");
+  add("http://localhost:8000");
+  add("http://127.0.0.1:8000");
+
+  return list.length > 0 ? list : ["http://localhost:8000"];
 }
 
-const BACKEND_URL = resolveBackendUrl();
+const BACKEND_CANDIDATES = buildBackendCandidates();
+let activeBackendBase = BACKEND_CANDIDATES[0];
+
+/**
+ * fetch() wrapper that tries every candidate backend URL in order.
+ * Sticks with the last successful base for subsequent calls.
+ */
+async function fetchBackend(
+  path: string,
+  init: RequestInit,
+): Promise<Response> {
+  const order = [activeBackendBase, ...BACKEND_CANDIDATES.filter((u) => u !== activeBackendBase)];
+  let lastError: Error | null = null;
+
+  for (const base of order) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(`${base}${path}`, { ...init, signal: controller.signal });
+      clearTimeout(timeout);
+      activeBackendBase = base;
+      return res;
+    } catch (err: any) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError ?? new Error("All backend URLs unreachable");
+}
 
 export type UserRole =
   | "patient"
@@ -166,7 +208,7 @@ export const getRegistrationHospitalOptions = async (): Promise<{
   error: Error | null;
 }> => {
   try {
-    const res = await fetch(`${BACKEND_URL}/auth/hospitals/available`);
+    const res = await fetchBackend("/auth/hospitals/available", { method: "GET" });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(
@@ -213,7 +255,7 @@ export const updateAuthLoginPhone = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
-    const res = await fetch(`${BACKEND_URL}/auth/update-phone`, {
+    const res = await fetchBackend("/auth/update-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -271,27 +313,12 @@ export const signUp = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
-    // Profile table is the source of truth for app account uniqueness.
-    // Check it first so users get a clear, app-specific message.
-    const existingProfile = await findExistingProfileByPhone(phone);
-    if (existingProfile) {
-      const existingRole = isUserRole(existingProfile.role)
-        ? normalizeRole(existingProfile.role)
-        : "account";
-      const roleNote =
-        existingRole !== role
-          ? ` This phone is already registered as ${existingRole}.`
-          : "";
-      return {
-        user: null,
-        error: new Error(
-          `This phone number already exists in profiles. Please sign in instead.${roleNote}`,
-        ) as AuthError,
-      };
-    }
+    // Duplicate-phone detection is handled server-side (service-role key
+    // bypasses RLS).  A client-side query on `profiles` triggers RLS
+    // infinite-recursion on some Supabase setups, so we skip it here.
 
     // Create account via backend (service-role key stays server-side)
-    const res = await fetch(`${BACKEND_URL}/auth/register`, {
+    const res = await fetchBackend("/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -299,7 +326,7 @@ export const signUp = async (
         password,
         full_name: fullName,
         phone: ethPhone,
-        national_id: nationalId || "",
+        national_id: nationalId && nationalId.trim().length === 16 ? nationalId.trim() : null,
         role,
         hospital_id: hospitalId,
         latitude: location?.latitude,
@@ -319,23 +346,17 @@ export const signUp = async (
       const detail =
         resBody?.detail ?? "Registration failed. Please try again.";
 
-      // If backend/auth says "already exists", re-check profile table and show a clear DB-driven message.
+      // Backend returns 409 for duplicate accounts — show user-friendly message
       if (
         String(detail).toLowerCase().includes("already exists") ||
         String(detail).toLowerCase().includes("already registered")
       ) {
-        const profileNow = await findExistingProfileByPhone(phone);
-        if (profileNow) {
-          const existingRole = isUserRole(profileNow.role)
-            ? normalizeRole(profileNow.role)
-            : "account";
-          return {
-            user: null,
-            error: new Error(
-              `This phone number already exists in profiles as ${existingRole}. Please sign in instead.`,
-            ) as AuthError,
-          };
-        }
+        return {
+          user: null,
+          error: new Error(
+            "This phone number is already registered. Please sign in instead.",
+          ) as AuthError,
+        };
       }
 
       return {
@@ -384,7 +405,7 @@ export const signIn = async (
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
     // Authenticate via one phone-based backend endpoint (role-aware response)
-    const res = await fetch(`${BACKEND_URL}/auth/login-phone`, {
+    const res = await fetchBackend("/auth/login-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, password }),
@@ -424,14 +445,17 @@ export const signIn = async (
     const authUser = sessionData.user ?? sessionData.session.user;
 
     // ── Profile resolution ──────────────────────────────────────
+    // Use data returned from the backend login response (service-role, bypasses RLS)
     const roleFromMetadata =
       getRoleFromMetadata(tokenData?.role) ??
       getRoleFromMetadata(authUser.user_metadata?.role);
 
-    let dbFullName = "";
-    let dbPhone = "";
+    let dbFullName = tokenData?.full_name || "";
+    let dbPhone = tokenData?.phone || "";
     let profileExists = false;
-    let dbRole: UserRole | null = null;
+    let dbRole: UserRole | null = getRoleFromMetadata(tokenData?.role) ?? null;
+
+    // Read profile from DB for extra reliability
     try {
       const { data: profileRow } = await supabase
         .from("profiles")
@@ -440,11 +464,11 @@ export const signIn = async (
         .maybeSingle();
       if (profileRow) {
         profileExists = true;
-        dbFullName = profileRow.full_name || "";
-        dbPhone = profileRow.phone || "";
-        dbRole = isUserRole(profileRow.role)
-          ? normalizeRole(profileRow.role)
-          : null;
+        dbFullName = dbFullName || profileRow.full_name || "";
+        dbPhone = dbPhone || profileRow.phone || "";
+        if (!dbRole) {
+          dbRole = isUserRole(profileRow.role) ? normalizeRole(profileRow.role) : null;
+        }
       }
     } catch (e) {
       console.warn("Could not read profile from DB on sign-in:", e);
@@ -458,13 +482,12 @@ export const signIn = async (
         fullName: String(authUser.user_metadata?.full_name || ""),
         phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
       });
-      const { error: upsertProfileError } =
-        await upsertProfileWithRetry(profilePayload);
-      if (upsertProfileError && upsertProfileError.code !== "23503") {
+      const { error: upsertProfileError } = await upsertProfileWithRetry(profilePayload);
+      if (upsertProfileError && (upsertProfileError as any).code !== "23503") {
         console.error("Profile ensure error on sign in:", upsertProfileError);
       }
-      dbFullName = String(authUser.user_metadata?.full_name || "");
-      dbPhone = String(authUser.user_metadata?.phone || "");
+      dbFullName = dbFullName || String(authUser.user_metadata?.full_name || "");
+      dbPhone = dbPhone || String(authUser.user_metadata?.phone || "");
     }
 
     const role = normalizeRole(
@@ -494,23 +517,29 @@ export const signIn = async (
 };
 
 /**
- * Get user role from profiles table
+ * Get user role — try metadata first, then profiles DB fallback.
  */
 export const getUserRole = async (userId: string): Promise<UserRole | null> => {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase.auth.getUser();
+    if (data?.user) {
+      const metaRole = getRoleFromMetadata(data.user.user_metadata?.role);
+      if (metaRole) return metaRole;
+    }
+
+    const { data: roleRow, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
 
-    if (error || !data) {
+    if (error || !roleRow) {
       console.error("Error fetching user role:", error);
       return null;
     }
 
-    if (!isUserRole(data.role)) return null;
-    return normalizeRole(data.role);
+    if (!isUserRole(roleRow.role)) return null;
+    return normalizeRole(roleRow.role);
   } catch (error) {
     console.error("Exception fetching user role:", error);
     return null;
@@ -587,27 +616,19 @@ export const onAuthStateChange = (
         phone: String(meta.phone || ""),
       };
 
-      // Always try to load full profile from DB (async, deferred).
+      // Use auth user_metadata directly (avoids RLS issues on profiles table).
       setTimeout(async () => {
         try {
-          const { data: profileRow } = await supabase
-            .from("profiles")
-            .select("full_name, phone, role")
-            .eq("id", sessionUser.id)
-            .maybeSingle();
-
           const role =
-            profileRow?.role && isUserRole(profileRow.role)
-              ? normalizeRole(profileRow.role)
-              : (roleFromMetadata ??
-                (await getUserRole(sessionUser.id)) ??
-                "patient");
+            roleFromMetadata ??
+              (await getUserRole(sessionUser.id)) ??
+              "patient";
 
           callback({
             id: sessionUser.id,
             role,
-            fullName: profileRow?.full_name || fallbackUser.fullName || "",
-            phone: profileRow?.phone || fallbackUser.phone || "",
+            fullName: String(meta.full_name || ""),
+            phone: String(meta.phone || ""),
           });
         } catch (error) {
           console.error(

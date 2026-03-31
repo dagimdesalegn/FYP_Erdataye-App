@@ -58,7 +58,7 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=72, description="Min 6 characters")
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=9, max_length=16)
-    national_id: str | None = Field(default=None, min_length=5, max_length=32, description="National ID number (optional)")
+    national_id: str | None = Field(default=None, min_length=16, max_length=16, pattern=r"^\d{16}$", description="Fayda FAN number (16 digits, optional)")
     role: Literal["patient", "ambulance", "driver"] = "patient"
     hospital_id: str | None = Field(default=None, description="Optional selected hospital for ambulance/driver")
     latitude: float | None = Field(default=None, ge=-90, le=90)
@@ -217,18 +217,18 @@ async def _create_user_with_profile(
     )
 
     if code not in (200, 201) or not user_data.get("id"):
-        detail: str = (
+        raw_detail: str = (
             user_data.get("msg")
             or user_data.get("message")
             or user_data.get("error_description")
-            or "Registration failed. Please try again."
-        )
-        if code == 422 or "already" in detail.lower() or "exists" in detail.lower():
+            or ""
+        ).lower()
+        if code == 422 or "already" in raw_detail or "exists" in raw_detail:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="An account with this identifier already exists.",
             )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Registration failed. Please try again.")
 
     user_id: str = user_data["id"]
     now = datetime.now(timezone.utc).isoformat()
@@ -257,8 +257,19 @@ async def _create_user_with_profile(
     )
 
 
-def _parse_point_wkt(value: str | None) -> tuple[float, float] | None:
+def _parse_point_wkt(value) -> tuple[float, float] | None:
     if not value:
+        return None
+    # Handle GeoJSON dict (PostgREST may return geometry as GeoJSON)
+    if isinstance(value, dict):
+        coords = value.get("coordinates")
+        if isinstance(coords, (list, tuple)) and len(coords) >= 2:
+            try:
+                return float(coords[1]), float(coords[0])  # (lat, lon)
+            except (ValueError, TypeError):
+                return None
+        return None
+    if not isinstance(value, str):
         return None
     try:
         point_part = value.split(";")[-1]
@@ -570,15 +581,9 @@ async def login(req: LoginRequest) -> TokenResponse:
     data, code = await auth_sign_in(req.email, req.password)
 
     if not data.get("access_token"):
-        detail: str = (
-            data.get("error_description")
-            or data.get("msg")
-            or data.get("error")
-            or "Invalid email or password."
-        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=detail,
+            detail="Invalid email or password.",
         )
 
     return TokenResponse(
@@ -600,13 +605,7 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
 
     data, code = await auth_sign_in(pseudo_email, req.password)
     if not data.get("access_token"):
-        detail: str = (
-            data.get("error_description")
-            or data.get("msg")
-            or data.get("error")
-            or "Invalid phone or password."
-        )
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid phone or password.")
 
     user_obj = data.get("user") or {}
     metadata = user_obj.get("user_metadata") or {}
@@ -748,12 +747,6 @@ async def update_phone(req: UpdatePhoneRequest) -> UpdatePhoneResponse:
     )
 
     if code not in (200, 201):
-        detail = (
-            data.get("msg")
-            or data.get("message")
-            or data.get("error_description")
-            or "Failed to update auth phone"
-        )
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update auth phone.")
 
     return UpdatePhoneResponse(success=True, message="Auth phone updated")

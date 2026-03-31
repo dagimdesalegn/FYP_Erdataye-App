@@ -1,5 +1,6 @@
 import { FirstAidFab } from "@/components/first-aid-fab";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import * as Location from "expo-location";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -94,6 +95,26 @@ const STATUS_NOTIFICATIONS: Record<
 };
 
 export default function PatientEmergencyTrackingScreen() {
+  const distanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const earthRadius = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadius * c;
+  };
+
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
@@ -115,6 +136,10 @@ export default function PatientEmergencyTrackingScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const [patientLiveCoords, setPatientLiveCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
   const [sharingLink, setSharingLink] = useState(false);
   const [cachedShareLink, setCachedShareLink] = useState<{
     shareUrl: string;
@@ -130,12 +155,54 @@ export default function PatientEmergencyTrackingScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const ambulanceFixesRef = useRef<
+    Array<{ latitude: number; longitude: number; at: number }>
+  >([]);
+  const lastAmbulanceFixRef = useRef<
+    { latitude: number; longitude: number; at: number } | null
+  >(null);
   const animatedCoordsRef = useRef<{
     latitude: number;
     longitude: number;
   } | null>(null);
-  const movementTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
+
+  const applyAmbulanceFix = useCallback((latitude: number, longitude: number) => {
+    const now = Date.now();
+    const prev = lastAmbulanceFixRef.current;
+
+    if (prev) {
+      const jumpMeters = distanceMeters(
+        prev.latitude,
+        prev.longitude,
+        latitude,
+        longitude,
+      );
+      const elapsedMs = now - prev.at;
+
+      // Drop implausible sudden GPS jumps that cause fake 300m+ distance spikes.
+      if (elapsedMs < 12000 && jumpMeters > 150) {
+        return;
+      }
+      if (jumpMeters < 3) {
+        return;
+      }
+    }
+
+    const fix = { latitude, longitude, at: now };
+    lastAmbulanceFixRef.current = fix;
+    ambulanceFixesRef.current = [...ambulanceFixesRef.current, fix].slice(-3);
+    const count = ambulanceFixesRef.current.length;
+    const smoothed = ambulanceFixesRef.current.reduce(
+      (acc, item) => ({
+        latitude: acc.latitude + item.latitude / count,
+        longitude: acc.longitude + item.longitude / count,
+      }),
+      { latitude: 0, longitude: 0 },
+    );
+
+    setAmbulanceCoords(smoothed);
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
@@ -165,7 +232,7 @@ export default function PatientEmergencyTrackingScreen() {
         }
         if (amb?.last_known_location) {
           const parsed = parsePostGISPoint(amb.last_known_location);
-          if (parsed) setAmbulanceCoords(parsed);
+          if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
         }
       }
     } catch (e) {
@@ -178,7 +245,7 @@ export default function PatientEmergencyTrackingScreen() {
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, applyAmbulanceFix]);
 
   // Realtime: emergency status changes
   useEffect(() => {
@@ -195,13 +262,13 @@ export default function PatientEmergencyTrackingScreen() {
           });
           if (ambulance?.last_known_location) {
             const parsed = parsePostGISPoint(ambulance.last_known_location);
-            if (parsed) setAmbulanceCoords(parsed);
+            if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
           }
         },
       );
     });
     return unsub;
-  }, [emergencyId]);
+  }, [emergencyId, applyAmbulanceFix]);
 
   // Polling fallback: check status every 8s in case realtime misses updates
   useEffect(() => {
@@ -222,13 +289,13 @@ export default function PatientEmergencyTrackingScreen() {
           setAmbulance(amb);
           if (amb.last_known_location) {
             const parsed = parsePostGISPoint(amb.last_known_location);
-            if (parsed) setAmbulanceCoords(parsed);
+            if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
           }
         }
       } catch {}
     }, 8000);
     return () => clearInterval(interval);
-  }, [emergencyId, emergency?.status]);
+  }, [emergencyId, emergency?.status, applyAmbulanceFix]);
 
   // Show notification toast when status changes
   useEffect(() => {
@@ -264,62 +331,68 @@ export default function PatientEmergencyTrackingScreen() {
   useEffect(() => {
     if (!ambulance?.id) return;
     const unsub = subscribeToAmbulanceLocation(ambulance.id, (lat, lng) => {
-      setAmbulanceCoords({ latitude: lat, longitude: lng });
+      applyAmbulanceFix(lat, lng);
     });
     return unsub;
-  }, [ambulance?.id]);
+  }, [ambulance?.id, applyAmbulanceFix]);
 
-  // Smooth transition of ambulance marker between live updates.
+  // Use patient's live location for more accurate distance during tracking.
   useEffect(() => {
-    if (!ambulanceCoords) return;
+    let watcher: Location.LocationSubscription | null = null;
+    let mounted = true;
 
-    const target = ambulanceCoords;
-    const current = animatedCoordsRef.current;
+    const startPatientTracking = async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") return;
 
-    if (!current) {
-      animatedCoordsRef.current = target;
-      setAnimatedAmbulanceCoords(target);
-      return;
-    }
+        const current = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        if (
+          mounted &&
+          Number.isFinite(current.coords.latitude) &&
+          Number.isFinite(current.coords.longitude) &&
+          (current.coords.accuracy ?? 999) <= 120
+        ) {
+          setPatientLiveCoords({
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          });
+        }
 
-    const samePoint =
-      Math.abs(current.latitude - target.latitude) < 0.000001 &&
-      Math.abs(current.longitude - target.longitude) < 0.000001;
-    if (samePoint) return;
-
-    if (movementTimerRef.current) {
-      clearInterval(movementTimerRef.current);
-      movementTimerRef.current = null;
-    }
-
-    const steps = 12;
-    const intervalMs = 100;
-    const from = current;
-    let step = 0;
-
-    movementTimerRef.current = setInterval(() => {
-      step += 1;
-      const t = Math.min(step / steps, 1);
-      const next = {
-        latitude: from.latitude + (target.latitude - from.latitude) * t,
-        longitude: from.longitude + (target.longitude - from.longitude) * t,
-      };
-
-      animatedCoordsRef.current = next;
-      setAnimatedAmbulanceCoords(next);
-
-      if (t >= 1 && movementTimerRef.current) {
-        clearInterval(movementTimerRef.current);
-        movementTimerRef.current = null;
-      }
-    }, intervalMs);
-
-    return () => {
-      if (movementTimerRef.current) {
-        clearInterval(movementTimerRef.current);
-        movementTimerRef.current = null;
+        watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          (loc) => {
+            if (!mounted) return;
+            if ((loc.coords.accuracy ?? 999) > 120) return;
+            setPatientLiveCoords({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+          },
+        );
+      } catch {
+        // Keep fallback to emergency request location when live tracking is unavailable.
       }
     };
+
+    void startPatientTracking();
+    return () => {
+      mounted = false;
+      if (watcher) watcher.remove();
+    };
+  }, []);
+
+  // Keep displayed ambulance coordinates in sync with realtime updates.
+  useEffect(() => {
+    if (!ambulanceCoords) return;
+    animatedCoordsRef.current = ambulanceCoords;
+    setAnimatedAmbulanceCoords(ambulanceCoords);
   }, [ambulanceCoords]);
 
   const onRefresh = async () => {
@@ -597,13 +670,26 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Computed values ──────────────────────────────────
   const st = statusMeta(emergency.status);
   const sev = sevMeta(emergency.emergency_type);
-  const patientCoords = {
+  const fallbackPatientCoords = {
     latitude: Number(emergency.latitude || 0),
     longitude: Number(emergency.longitude || 0),
   };
+  const patientCoords = patientLiveCoords ?? fallbackPatientCoords;
+  const mapPatientCoords = patientCoords.latitude
+    ? {
+        latitude: Number(patientCoords.latitude.toFixed(4)),
+        longitude: Number(patientCoords.longitude.toFixed(4)),
+      }
+    : null;
+  const mapAmbulanceCoords = animatedAmbulanceCoords
+    ? {
+        latitude: Number(animatedAmbulanceCoords.latitude.toFixed(4)),
+        longitude: Number(animatedAmbulanceCoords.longitude.toFixed(4)),
+      }
+    : null;
 
   let distanceText = "";
-  if (animatedAmbulanceCoords && patientCoords.latitude) {
+  if (animatedAmbulanceCoords && patientCoords.latitude && patientCoords.longitude) {
     const km = calculateDistance(
       patientCoords.latitude,
       patientCoords.longitude,
@@ -628,11 +714,11 @@ export default function PatientEmergencyTrackingScreen() {
 
   // Map route: ambulance -> patient by default, then ambulance -> hospital during transport.
   const mapHtml =
-    animatedAmbulanceCoords && patientCoords.latitude
+    mapAmbulanceCoords && mapPatientCoords
       ? isTransportPhase && hospitalCoords
         ? buildDriverPatientMapHtml(
-            animatedAmbulanceCoords.latitude,
-            animatedAmbulanceCoords.longitude,
+            mapAmbulanceCoords.latitude,
+            mapAmbulanceCoords.longitude,
             hospitalCoords.latitude,
             hospitalCoords.longitude,
             {
@@ -641,10 +727,10 @@ export default function PatientEmergencyTrackingScreen() {
             },
           )
         : buildDriverPatientMapHtml(
-            animatedAmbulanceCoords.latitude,
-            animatedAmbulanceCoords.longitude,
-            patientCoords.latitude,
-            patientCoords.longitude,
+            mapAmbulanceCoords.latitude,
+            mapAmbulanceCoords.longitude,
+            mapPatientCoords.latitude,
+            mapPatientCoords.longitude,
             {
               blueLabel: "Ambulance",
               redLabel: "You",
@@ -652,8 +738,8 @@ export default function PatientEmergencyTrackingScreen() {
               redPopup: "📍 Your Location",
             },
           )
-      : patientCoords.latitude
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 17)
+      : mapPatientCoords
+        ? buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude, 17)
         : null;
 
   const openDetailedRoute = async () => {

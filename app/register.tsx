@@ -146,6 +146,11 @@ export default function RegisterScreen() {
       setForm({ ...form, [key]: cleaned });
       return;
     }
+    if (key === "nationalId") {
+      const cleaned = value.replace(/[^0-9]/g, "").slice(0, 16);
+      setForm({ ...form, nationalId: cleaned });
+      return;
+    }
     setForm({ ...form, [key]: value });
   };
 
@@ -160,9 +165,9 @@ export default function RegisterScreen() {
       errors.fullName = "Enter first and last name (e.g. Abebe Kebede)";
     }
 
-    // National ID validation (optional — users without Fayda can skip)
-    if (form.nationalId.trim() && form.nationalId.trim().length < 5) {
-      errors.nationalId = "National ID must be at least 5 characters";
+    // National ID / FAN validation (optional — users without Fayda can skip)
+    if (form.nationalId.trim() && !/^\d{16}$/.test(form.nationalId.trim())) {
+      errors.nationalId = "FAN number must be exactly 16 digits";
     }
 
     // Phone validation
@@ -638,10 +643,10 @@ export default function RegisterScreen() {
                     </ThemedText>
                   ) : null}
                 </View>
-                {/* National ID (optional) */}
+                {/* National ID / FAN Number (optional) */}
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    National ID
+                    National ID / FAN Number
                   </ThemedText>
                   <View
                     style={[
@@ -662,9 +667,10 @@ export default function RegisterScreen() {
                     />
                     <TextInput
                       style={[styles.input, { color: textPrimary }]}
-                      placeholder="e.g. ETH-12345678"
+                      placeholder="2851274263840893"
                       placeholderTextColor={placeholderColor}
-                      autoCapitalize="characters"
+                      keyboardType="numeric"
+                      maxLength={16}
                       value={form.nationalId}
                       onChangeText={(t) => handleChange("nationalId", t)}
                       editable={!loading}

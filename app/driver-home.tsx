@@ -1,18 +1,18 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useState } from "react";
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
+import { calculateDistance } from "@/utils/emergency";
 
 import {
     ensureAmbulanceHospitalLink,
@@ -21,6 +21,7 @@ import {
     getDriverAssignment,
     getDriverHistory,
     getDriverStats,
+    getHospitalSummary,
     sendLocationUpdate,
     subscribeToAssignments,
     toggleAmbulanceAvailability,
@@ -39,7 +40,7 @@ export default function DriverHomeScreen() {
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
   const { user, setUser } = useAppState();
-  const { showAlert, showError, showConfirm, showSuccess } = useModal();
+  const { showAlert, showError, showConfirm } = useModal();
 
   const confirmAvailabilityChange = (newVal: boolean) =>
     new Promise<boolean>((resolve) => {
@@ -54,7 +55,7 @@ export default function DriverHomeScreen() {
     });
 
   const [isAvailable, setIsAvailable] = useState(false);
-  const [loading] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
@@ -66,6 +67,8 @@ export default function DriverHomeScreen() {
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const lastSentLocationRef = useRef<{ latitude: number; longitude: number } | null>(null);
+  const lastSentAtRef = useRef<number>(0);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
@@ -113,6 +116,24 @@ export default function DriverHomeScreen() {
 
     loadAmbulance();
 
+    // Push current GPS to ambulance row on screen load so the DB always has
+    // a reasonably fresh location even before the driver toggles Available.
+    const pushInitialLocation = async () => {
+      try {
+        const { ambulanceId: id } = await getDriverAmbulanceId(user.id);
+        if (!id) return;
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        await sendLocationUpdate(id, pos.coords.latitude, pos.coords.longitude);
+      } catch (e) {
+        console.warn("Initial location push failed:", e);
+      }
+    };
+    pushInitialLocation();
+
     // Load stats
     const loadStats = async () => {
       const { active, completed } = await getDriverStats(user.id);
@@ -137,18 +158,13 @@ export default function DriverHomeScreen() {
         return;
       }
 
-      const { data, error } = await supabase
-        .from("hospitals")
-        .select("name")
-        .eq("id", hospitalId)
-        .maybeSingle();
-
-      if (error) {
+      const { hospital, error } = await getHospitalSummary(hospitalId);
+      if (error || !hospital) {
         setHospitalDisplayName("Assigned hospital");
         return;
       }
 
-      setHospitalDisplayName(String(data?.name || hospitalId));
+      setHospitalDisplayName(hospital.name || "Assigned hospital");
     };
 
     resolveHospitalName();
@@ -202,12 +218,29 @@ export default function DriverHomeScreen() {
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startLocationTracking = async () => {
-      try {
-        showAlert(
-          "Location Tracking Required",
-          "Patients need to see your real-time location to know when help arrives.",
-        );
+      const maybeSendLocation = async (lat: number, lng: number) => {
 
+        const now = Date.now();
+        const previous = lastSentLocationRef.current;
+        if (previous) {
+          const movedMeters = calculateDistance(
+            previous.latitude,
+            previous.longitude,
+            lat,
+            lng,
+          ) * 1000;
+          const elapsed = now - lastSentAtRef.current;
+          if (movedMeters < 4 && elapsed < 15000) {
+            return;
+          }
+        }
+
+        await sendLocationUpdate(ambulanceId, lat, lng);
+        lastSentLocationRef.current = { latitude: lat, longitude: lng };
+        lastSentAtRef.current = now;
+      };
+
+      try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
           showError(
@@ -218,14 +251,23 @@ export default function DriverHomeScreen() {
           return;
         }
 
+        // Send an immediate location snapshot once tracking is enabled.
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          await maybeSendLocation(initial.coords.latitude, initial.coords.longitude);
+        } catch (initialErr) {
+          console.warn("Initial location snapshot failed:", initialErr);
+        }
+
         if (Platform.OS === "web") {
           intervalId = setInterval(async () => {
             try {
               const loc = await Location.getCurrentPositionAsync({
                 accuracy: Location.Accuracy.Balanced,
               });
-              await sendLocationUpdate(
-                ambulanceId,
+              await maybeSendLocation(
                 loc.coords.latitude,
                 loc.coords.longitude,
               );
@@ -241,8 +283,7 @@ export default function DriverHomeScreen() {
               distanceInterval: 5,
             },
             async (loc) => {
-              await sendLocationUpdate(
-                ambulanceId,
+              await maybeSendLocation(
                 loc.coords.latitude,
                 loc.coords.longitude,
               );
@@ -342,12 +383,6 @@ export default function DriverHomeScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Loading..."
-      />
-
       {/* App Header with project name top-left, theme toggle + profile icon top-right */}
       <AppHeader
         title="Erdataya Ambulance"
@@ -409,6 +444,7 @@ export default function DriverHomeScreen() {
               const ok = await confirmAvailabilityChange(newVal);
               if (!ok) return;
 
+              setToggleLoading(true);
               setIsAvailable(newVal);
 
               if (ambulanceId) {
@@ -423,16 +459,31 @@ export default function DriverHomeScreen() {
                     "Status Update Failed",
                     "Could not update ambulance availability. Please try again.",
                   );
+                  setToggleLoading(false);
                   return;
+                }
+
+                if (newVal) {
+                  // Push one immediate location update so patient nearby list can populate quickly.
+                  try {
+                    const { status } = await Location.getForegroundPermissionsAsync();
+                    if (status === "granted") {
+                      const current = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                      });
+                      await sendLocationUpdate(
+                        ambulanceId,
+                        current.coords.latitude,
+                        current.coords.longitude,
+                      );
+                    }
+                  } catch (initialSendErr) {
+                    console.warn("Immediate location update failed:", initialSendErr);
+                  }
                 }
               }
 
-              showSuccess(
-                "Status Updated",
-                newVal
-                  ? "You are now available for emergency assignments."
-                  : "You are now offline and will not receive new assignments.",
-              );
+              setTimeout(() => setToggleLoading(false), 100);
             }}
             style={[
               styles.statusToggle,
@@ -441,11 +492,17 @@ export default function DriverHomeScreen() {
               },
             ]}
           >
-            <MaterialIcons
-              name={isAvailable ? "check-circle" : "radio-button-unchecked"}
-              size={32}
-              color="#fff"
-            />
+            {toggleLoading ? (
+              <View style={{ width: 32, height: 32, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator color="#fff" size="small" />
+              </View>
+            ) : (
+              <MaterialIcons
+                name={isAvailable ? "check-circle" : "radio-button-unchecked"}
+                size={32}
+                color="#fff"
+              />
+            )}
             <View style={{ marginLeft: 12 }}>
               <ThemedText style={styles.statusLabel}>
                 {isAvailable ? "Available" : "Offline"}

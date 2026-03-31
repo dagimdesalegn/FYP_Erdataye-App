@@ -2,14 +2,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Animated,
-    Image,
-    Platform,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    TextInput,
-    View,
+  Animated,
+  Image,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  TextInput,
+  View,
 } from "react-native";
 
 import faydaLogo from "@/assets/images/fayda-logo.webp";
@@ -110,6 +110,17 @@ export default function LoginScreen() {
         showError("Login Failed", error?.message || "Failed to sign in");
         return;
       }
+      if (user.role === "admin" || user.role === "hospital") {
+        await (await import("@/utils/auth")).signOut();
+        setUser(null);
+        setRegistered(false);
+        setLoading(false);
+        showAlert(
+          "Staff Portal Required",
+          "Admin and hospital accounts must log in through the Staff Portal at /staff.",
+        );
+        return;
+      }
       setUser(user);
       setRegistered(true);
       let route: any;
@@ -117,12 +128,6 @@ export default function LoginScreen() {
         case "ambulance":
         case "driver":
           route = "/driver-home";
-          break;
-        case "admin":
-          route = "/admin";
-          break;
-        case "hospital":
-          route = "/hospital";
           break;
         default:
           route = "/help";
@@ -442,16 +447,6 @@ export default function LoginScreen() {
                 Continue with Fayda
               </ThemedText>
             </Pressable>
-            <ThemedText
-              style={{
-                marginTop: 6,
-                fontSize: 11,
-                color: textSecondary,
-                textAlign: "center",
-              }}
-            >
-              Sign in instantly using your Fayda National ID
-            </ThemedText>
           </View>
 
           {/* Create Account */}

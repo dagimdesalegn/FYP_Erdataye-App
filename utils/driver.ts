@@ -1,6 +1,6 @@
 import { supabase } from "./supabase";
 
-import { backendGet, backendPost } from "./api";
+import { backendGet, backendPatch, backendPost, backendPut } from "./api";
 import { calculateDistance, parsePostGISPoint, toPostGISPoint } from "./emergency";
 
 export interface AmbulanceAssignment {
@@ -57,13 +57,27 @@ export interface AmbulanceDetails {
   updated_at: string;
 }
 
+export interface HospitalSummary {
+  id: string;
+  name?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  is_accepting_emergencies?: boolean | null;
+}
+
 /**
- * Get ambulance ID for a driver (DB column: current_driver_id)
+ * Get ambulance ID for a driver (backend-first, Supabase fallback)
  */
 export const getDriverAmbulanceId = async (
   driverId: string,
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
+    try {
+      const res = await backendGet<{ ambulance: any | null }>("/ops/driver/ambulance");
+      const amb = res?.ambulance;
+      if (amb?.id) return { ambulanceId: amb.id, error: null };
+    } catch { /* fall through to Supabase */ }
+
     let { data, error } = await supabase
       .from("ambulances")
       .select("id")
@@ -71,36 +85,21 @@ export const getDriverAmbulanceId = async (
       .limit(1)
       .maybeSingle();
 
-    // Legacy schema fallback: some projects still use different driver-link columns.
     if (error && isMissingColumnError(error, "current_driver_id")) {
       const { data: legacyRows, error: legacyError } = await supabase
         .from("ambulances")
         .select("*")
         .limit(200);
-
-      if (legacyError) {
-        throw legacyError;
-      }
-
+      if (legacyError) throw legacyError;
       const legacyMatch = (legacyRows || []).find((row: any) => {
-        const candidates = [
-          row?.current_driver_id,
-          row?.driver_id,
-          row?.user_id,
-          row?.driver_user_id,
-          row?.assigned_driver_id,
-        ];
+        const candidates = [row?.current_driver_id, row?.driver_id, row?.user_id, row?.driver_user_id, row?.assigned_driver_id];
         return candidates.some((value) => String(value ?? "") === driverId);
       });
-
       data = legacyMatch ? { id: legacyMatch.id } : null;
       error = null;
     }
 
-    if (error) {
-      throw error;
-    }
-
+    if (error) throw error;
     return { ambulanceId: data?.id ?? null, error: null };
   } catch (error) {
     console.error("Error fetching driver ambulance:", error);
@@ -115,16 +114,55 @@ export const toggleAmbulanceAvailability = async (
   ambulanceId: string,
   isAvailable: boolean,
 ): Promise<{ success: boolean; error: Error | null }> => {
+  const isTransientBackendFailure = (error: unknown): boolean => {
+    const message = String((error as any)?.message ?? "").toLowerCase();
+    return (
+      message.includes("backend error 502") ||
+      message.includes("backend error 503") ||
+      message.includes("backend error 504") ||
+      message.includes("timeout") ||
+      message.includes("network request failed")
+    );
+  };
+
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, ms);
+    });
+
   try {
-    const { error } = await supabase
+    let backendOk = false;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await backendPut("/ops/driver/ambulance/availability", {
+          ambulance_id: ambulanceId,
+          is_available: isAvailable,
+        });
+        backendOk = true;
+        break;
+      } catch (error) {
+        lastError = error as Error;
+        if (!isTransientBackendFailure(error) || attempt === 2) break;
+        await wait(350 * (attempt + 1));
+      }
+    }
+
+    const { error: fallbackError } = await supabase
       .from("ambulances")
-      .update({
-        is_available: isAvailable,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ is_available: isAvailable, updated_at: new Date().toISOString() })
       .eq("id", ambulanceId);
-    if (error) throw error;
-    return { success: true, error: null };
+
+    if (backendOk || !fallbackError) {
+      return { success: true, error: null };
+    }
+
+    if (lastError) {
+      return { success: false, error: new Error(fallbackError.message || lastError.message) };
+    }
+
+    return { success: false, error: new Error(fallbackError.message || "Failed to update availability") };
   } catch (error) {
     console.error("Error toggling ambulance availability:", error);
     return { success: false, error: error as Error };
@@ -138,28 +176,26 @@ export const getDriverAmbulanceDetails = async (
   driverId: string,
 ): Promise<{ ambulance: AmbulanceDetails | null; error: Error | null }> => {
   try {
+    try {
+      const res = await backendGet<{ ambulance: any | null }>("/ops/driver/ambulance");
+      if (res?.ambulance) return { ambulance: res.ambulance as AmbulanceDetails, error: null };
+    } catch { /* fall through to Supabase */ }
+
     let { data, error } = await supabase
       .from("ambulances")
-      .select(
-        "id, vehicle_number, registration_number, type, is_available, hospital_id, created_at, updated_at",
-      )
+      .select("id, vehicle_number, registration_number, type, is_available, hospital_id, created_at, updated_at")
       .eq("current_driver_id", driverId)
       .limit(1)
       .maybeSingle();
 
-    // Fallback if registration_number column doesn't exist yet
     if (error && isMissingColumnError(error, "registration_number")) {
       const fallback = await supabase
         .from("ambulances")
-        .select(
-          "id, vehicle_number, type, is_available, hospital_id, created_at, updated_at",
-        )
+        .select("id, vehicle_number, type, is_available, hospital_id, created_at, updated_at")
         .eq("current_driver_id", driverId)
         .limit(1)
         .maybeSingle();
-      data = fallback.data
-        ? { ...fallback.data, registration_number: null }
-        : null;
+      data = fallback.data ? { ...fallback.data, registration_number: null } : null;
       error = fallback.error;
     }
 
@@ -168,6 +204,33 @@ export const getDriverAmbulanceDetails = async (
   } catch (error) {
     console.error("Error fetching ambulance details:", error);
     return { ambulance: null, error: error as Error };
+  }
+};
+
+export const getHospitalSummary = async (
+  hospitalId: string,
+): Promise<{ hospital: HospitalSummary | null; error: Error | null }> => {
+  try {
+    if (!hospitalId) {
+      throw new Error("Hospital ID required");
+    }
+    try {
+      const hospital = await backendGet<HospitalSummary>(
+        `/ops/hospitals/${encodeURIComponent(hospitalId)}/basic`,
+      );
+      if (hospital) return { hospital, error: null };
+    } catch { /* fall through to Supabase */ }
+
+    const { data, error } = await supabase
+      .from("hospitals")
+      .select("id, name, address, phone, is_accepting_emergencies")
+      .eq("id", hospitalId)
+      .maybeSingle();
+    if (error) throw error;
+    return { hospital: data as HospitalSummary | null, error: null };
+  } catch (error) {
+    console.error("Error fetching hospital summary:", error);
+    return { hospital: null, error: error as Error };
   }
 };
 
@@ -182,9 +245,17 @@ export const upsertDriverAmbulance = async (
   hospitalId?: string,
 ): Promise<{ ambulanceId: string | null; error: Error | null }> => {
   try {
+    try {
+      const res = await backendPost<{ ambulance_id: string | null }>("/ops/driver/ambulance", {
+        vehicle_number: vehicleNumber,
+        type: ambulanceType,
+        hospital_id: hospitalId || undefined,
+      });
+      if (res?.ambulance_id) return { ambulanceId: res.ambulance_id, error: null };
+    } catch { /* fall through to Supabase */ }
+
     const now = new Date().toISOString();
     const db = supabase;
-    // Check if an ambulance with this vehicle_number already exists
     const { data: existing } = await db
       .from("ambulances")
       .select("id")
@@ -192,20 +263,17 @@ export const upsertDriverAmbulance = async (
       .maybeSingle();
 
     if (existing) {
-      // Link the driver to the existing ambulance
       const updatePayload: any = {
         current_driver_id: driverId,
         type: ambulanceType,
         updated_at: now,
       };
       if (hospitalId) updatePayload.hospital_id = hospitalId;
-      if (registrationNumber)
-        updatePayload.registration_number = registrationNumber;
+      if (registrationNumber) updatePayload.registration_number = registrationNumber;
       const { error: updateErr } = await db
         .from("ambulances")
         .update(updatePayload)
         .eq("id", existing.id);
-      // Retry without registration_number if column doesn't exist
       if (updateErr && isMissingColumnError(updateErr, "registration_number")) {
         const { error: retryErr } = await db
           .from("ambulances")
@@ -216,7 +284,6 @@ export const upsertDriverAmbulance = async (
       return { ambulanceId: existing.id, error: null };
     }
 
-    // Insert new ambulance
     const insertPayload: any = {
       vehicle_number: vehicleNumber,
       current_driver_id: driverId,
@@ -226,61 +293,25 @@ export const upsertDriverAmbulance = async (
       updated_at: now,
     };
     if (hospitalId) insertPayload.hospital_id = hospitalId;
-    if (registrationNumber)
-      insertPayload.registration_number = registrationNumber;
+    if (registrationNumber) insertPayload.registration_number = registrationNumber;
 
-    let insertResult = await db
-      .from("ambulances")
-      .insert(insertPayload)
-      .select("id")
-      .single();
+    let insertResult = await db.from("ambulances").insert(insertPayload).select("id").single();
 
-    // Retry without registration_number if column doesn't exist
-    if (
-      insertResult.error &&
-      isMissingColumnError(insertResult.error, "registration_number")
-    ) {
+    if (insertResult.error && isMissingColumnError(insertResult.error, "registration_number")) {
       delete insertPayload.registration_number;
-      insertResult = await db
-        .from("ambulances")
-        .insert(insertPayload)
-        .select("id")
-        .single();
+      insertResult = await db.from("ambulances").insert(insertPayload).select("id").single();
     }
 
-    // Retry without type if check constraint fails (code 23514)
     if (insertResult.error && (insertResult.error as any).code === "23514") {
       delete insertPayload.type;
-      delete insertPayload.registration_number; // also strip in case column missing
-      insertResult = await db
-        .from("ambulances")
-        .insert(insertPayload)
-        .select("id")
-        .single();
+      delete insertPayload.registration_number;
+      insertResult = await db.from("ambulances").insert(insertPayload).select("id").single();
     }
 
-    if (insertResult.error) {
-      // Enhanced error handling for RLS violations
-      if (
-        insertResult.error.code === "42501" &&
-        insertResult.error.message.includes("row-level security")
-      ) {
-        console.error(
-          "Ambulance creation failed due to RLS policy:",
-          insertResult.error,
-        );
-        alert(
-          "Ambulance creation failed due to security policy. Please contact admin to enable ambulance creation for drivers.",
-        );
-      } else {
-        console.error("Error upserting driver ambulance:", insertResult.error);
-      }
-      return { ambulanceId: null, error: insertResult.error };
-    }
+    if (insertResult.error) throw insertResult.error;
     return { ambulanceId: insertResult.data?.id ?? null, error: null };
   } catch (error) {
     console.error("Error upserting driver ambulance:", error);
-    alert("Ambulance creation failed. Please contact admin.");
     return { ambulanceId: null, error: error as Error };
   }
 };
@@ -292,17 +323,21 @@ export const getDriverAssignment = async (
   driverId: string,
 ): Promise<{ assignment: AmbulanceAssignment | null; error: Error | null }> => {
   try {
-    const { ambulanceId, error: ambulanceError } =
-      await getDriverAmbulanceId(driverId);
+    try {
+      const res = await backendGet<{ assignment: any | null }>("/ops/driver/assignment");
+      const data = res?.assignment;
+      if (data) return { assignment: { ...data, status: data.status ?? "pending" } as AmbulanceAssignment, error: null };
+      if (res && !data) return { assignment: null, error: null };
+    } catch { /* fall through to Supabase */ }
+
+    const { ambulanceId, error: ambulanceError } = await getDriverAmbulanceId(driverId);
     if (ambulanceError) throw ambulanceError;
     if (!ambulanceId) return { assignment: null, error: null };
 
     const db = supabase;
-
     let data: any = null;
     let error: any = null;
 
-    // Get the latest non-completed assignment with its emergency request
     ({ data, error } = await db
       .from("emergency_assignments")
       .select("*, emergency_requests(*)")
@@ -312,75 +347,30 @@ export const getDriverAssignment = async (
       .limit(1)
       .maybeSingle());
 
-    // Filter out assignments whose emergency is completed/cancelled
     if (!error && data && data.emergency_requests) {
       const erStatus = data.emergency_requests.status;
       if (erStatus === "completed" || erStatus === "cancelled") {
-        // Close this assignment with a DB-valid terminal value
-        await db
-          .from("emergency_assignments")
-          .update({
-            status: "declined",
-            completed_at: new Date().toISOString(),
-          })
-          .eq("id", data.id);
+        await db.from("emergency_assignments").update({ status: "declined", completed_at: new Date().toISOString() }).eq("id", data.id);
         return { assignment: null, error: null };
       }
     }
 
-    // If join returned null emergency_requests but assignment exists, fetch emergency separately
     if (!error && data && !data.emergency_requests) {
-      const { data: erData } = await db
-        .from("emergency_requests")
-        .select("*")
-        .eq("id", data.emergency_id)
-        .maybeSingle();
+      const { data: erData } = await db.from("emergency_requests").select("*").eq("id", data.emergency_id).maybeSingle();
       if (erData) {
         if (erData.status === "completed" || erData.status === "cancelled") {
-          await db
-            .from("emergency_assignments")
-            .update({
-              status: "declined",
-              completed_at: new Date().toISOString(),
-            })
-            .eq("id", data.id);
+          await db.from("emergency_assignments").update({ status: "declined", completed_at: new Date().toISOString() }).eq("id", data.id);
           return { assignment: null, error: null };
         }
         data.emergency_requests = erData;
       }
     }
 
-    // Fallback without status filter if column missing
-    if (
-      error &&
-      (error.code === "42703" ||
-        String(error.message || "")
-          .toLowerCase()
-          .includes("status"))
-    ) {
-      ({ data, error } = await db
-        .from("emergency_assignments")
-        .select("*, emergency_requests(*)")
-        .eq("ambulance_id", ambulanceId)
-        .order("assigned_at", { ascending: false })
-        .limit(1)
-        .maybeSingle());
+    if (error && (error.code === "42703" || String(error.message || "").toLowerCase().includes("status"))) {
+      ({ data, error } = await db.from("emergency_assignments").select("*, emergency_requests(*)").eq("ambulance_id", ambulanceId).order("assigned_at", { ascending: false }).limit(1).maybeSingle());
     }
 
-    // CRITICAL FALLBACK: If emergency_assignments table doesn't exist at all,
-    // query emergency_requests directly by assigned_ambulance_id
-    if (
-      error &&
-      (error.code === "42P01" ||
-        error.code === "PGRST204" ||
-        error.code === "PGRST205" ||
-        String(error.message || "")
-          .toLowerCase()
-          .includes("could not find"))
-    ) {
-      console.warn(
-        "emergency_assignments table not found, falling back to emergency_requests",
-      );
+    if (error && (error.code === "42P01" || error.code === "PGRST204" || error.code === "PGRST205" || String(error.message || "").toLowerCase().includes("could not find"))) {
       const { data: emergencyData, error: emergencyError } = await db
         .from("emergency_requests")
         .select("*")
@@ -389,9 +379,7 @@ export const getDriverAssignment = async (
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (emergencyError) throw emergencyError;
-
       if (emergencyData) {
         return {
           assignment: {
@@ -409,11 +397,7 @@ export const getDriverAssignment = async (
     }
 
     if (error) throw error;
-
-    const assignment = data
-      ? ({ ...data, status: data.status ?? "pending" } as AmbulanceAssignment)
-      : null;
-
+    const assignment = data ? ({ ...data, status: data.status ?? "pending" } as AmbulanceAssignment) : null;
     return { assignment, error: null };
   } catch (error) {
     console.error("Error fetching driver assignment:", error);
@@ -429,27 +413,23 @@ export const acceptEmergency = async (
   emergencyId: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    // Update assignment status (non-blocking — table may not exist for fallback path)
     try {
-      await supabase
-        .from("emergency_assignments")
-        .update({ status: "accepted" })
-        .eq("id", assignmentId);
-    } catch {
-      /* ignore if table missing */
-    }
+      await backendPost(`/ops/driver/assignment/${assignmentId}/accept`, { emergency_id: emergencyId });
+      console.log("Emergency accepted:", assignmentId);
+      return { success: true, error: null };
+    } catch { /* fall through to Supabase */ }
 
-    // Update emergency status to 'en_route' (driver is now heading to patient)
+    try {
+      await supabase.from("emergency_assignments").update({ status: "accepted" }).eq("id", assignmentId);
+    } catch { /* ignore if table missing */ }
+
     const { error: emergencyError } = await supabase
       .from("emergency_requests")
       .update({ status: "en_route", updated_at: new Date().toISOString() })
       .eq("id", emergencyId);
+    if (emergencyError) throw emergencyError;
 
-    if (emergencyError) {
-      throw emergencyError;
-    }
-
-    console.log("Emergency accepted:", assignmentId);
+    console.log("Emergency accepted (Supabase fallback):", assignmentId);
     return { success: true, error: null };
   } catch (error) {
     console.error("Error accepting emergency:", error);
@@ -458,32 +438,54 @@ export const acceptEmergency = async (
 };
 
 /**
- * Decline emergency assignment
+ * Decline emergency assignment — puts the emergency back to pending for re-dispatch
  */
 export const declineEmergency = async (
   assignmentId: string,
   emergencyId?: string,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    // Try emergency_assignments table first
     try {
-      await supabase
-        .from("emergency_assignments")
-        .update({ status: "declined" })
-        .eq("id", assignmentId);
-    } catch {
-      /* ignore if table missing */
-    }
+      await backendPost(`/ops/driver/assignment/${assignmentId}/decline`, { emergency_id: emergencyId || assignmentId });
+      console.log("Emergency declined:", assignmentId);
+      return { success: true, error: null };
+    } catch { /* fall through to Supabase */ }
 
-    // Cancel the emergency request
-    // Use emergencyId if provided (normal path), otherwise assignmentId (fallback path where they're the same)
+    const now = new Date().toISOString();
+
+    // Mark the assignment as declined
+    try {
+      await supabase.from("emergency_assignments").update({ status: "declined", completed_at: now }).eq("id", assignmentId);
+    } catch { /* ignore if table missing */ }
+
     const erId = emergencyId || assignmentId;
+
+    // Get the ambulance that was assigned so we can re-enable it
+    const { data: erRow } = await supabase
+      .from("emergency_requests")
+      .select("assigned_ambulance_id")
+      .eq("id", erId)
+      .maybeSingle();
+
+    // Reset emergency back to pending for re-dispatch (not cancelled)
     await supabase
       .from("emergency_requests")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .update({
+        status: "pending",
+        assigned_ambulance_id: null,
+        updated_at: now,
+      })
       .eq("id", erId);
 
-    console.log("Emergency declined:", assignmentId);
+    // Re-enable the ambulance
+    if (erRow?.assigned_ambulance_id) {
+      await supabase
+        .from("ambulances")
+        .update({ is_available: true, updated_at: now })
+        .eq("id", erRow.assigned_ambulance_id);
+    }
+
+    console.log("Emergency declined (Supabase fallback) — reset to pending:", assignmentId);
     return { success: true, error: null };
   } catch (error) {
     console.error("Error declining emergency:", error);
@@ -498,20 +500,21 @@ export const getDriverStats = async (
   driverId: string,
 ): Promise<{ active: number; completed: number; error: Error | null }> => {
   try {
+    try {
+      const res = await backendGet<{ active: number; completed: number }>("/ops/driver/stats");
+      if (res) return { active: res.active ?? 0, completed: res.completed ?? 0, error: null };
+    } catch { /* fall through to Supabase */ }
+
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
-    if (ambErr || !ambulanceId)
-      return { active: 0, completed: 0, error: ambErr };
+    if (ambErr || !ambulanceId) return { active: 0, completed: 0, error: ambErr };
 
     const db = supabase;
-
-    // Active = assigned + en_route + at_scene + transporting + at_hospital
     const { count: active } = await db
       .from("emergency_requests")
       .select("id", { count: "exact", head: true })
       .eq("assigned_ambulance_id", ambulanceId)
       .not("status", "in", "(completed,cancelled,pending)");
 
-    // Completed
     const { count: completed } = await db
       .from("emergency_requests")
       .select("id", { count: "exact", head: true })
@@ -541,39 +544,26 @@ export const updateEmergencyStatus = async (
     | "cancelled",
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
+    try {
+      await backendPatch(`/ops/patient/emergencies/${emergencyId}/status`, { status });
+      console.log(`Emergency status updated to ${status}:`, emergencyId);
+      return { success: true, error: null };
+    } catch { /* fall through to Supabase */ }
+
     const db = supabase;
     const now = new Date().toISOString();
-
-    const { error } = await db
-      .from("emergency_requests")
-      .update({ status, updated_at: now })
-      .eq("id", emergencyId);
-
+    const { error } = await db.from("emergency_requests").update({ status, updated_at: now }).eq("id", emergencyId);
     if (error) throw error;
 
-    // When completing/cancelling, close associated assignment with valid status
     if (status === "completed" || status === "cancelled") {
-      await db
-        .from("emergency_assignments")
-        .update({ status: "declined", completed_at: now })
-        .eq("emergency_id", emergencyId)
-        .in("status", ["pending", "accepted"]);
-
-      // Also re-enable ambulance availability
-      const { data: er } = await db
-        .from("emergency_requests")
-        .select("assigned_ambulance_id")
-        .eq("id", emergencyId)
-        .maybeSingle();
+      await db.from("emergency_assignments").update({ status: "declined", completed_at: now }).eq("emergency_id", emergencyId).in("status", ["pending", "accepted"]);
+      const { data: er } = await db.from("emergency_requests").select("assigned_ambulance_id").eq("id", emergencyId).maybeSingle();
       if (er?.assigned_ambulance_id) {
-        await db
-          .from("ambulances")
-          .update({ is_available: true, updated_at: now })
-          .eq("id", er.assigned_ambulance_id);
+        await db.from("ambulances").update({ is_available: true, updated_at: now }).eq("id", er.assigned_ambulance_id);
       }
     }
 
-    console.log(`Emergency status updated to ${status}:`, emergencyId);
+    console.log(`Emergency status updated to ${status} (Supabase fallback):`, emergencyId);
     return { success: true, error: null };
   } catch (error) {
     console.error("Error updating emergency status:", error);
@@ -590,7 +580,44 @@ export const sendLocationUpdate = async (
   longitude: number,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    const { error } = await supabase
+    const isTransientBackendFailure = (error: unknown): boolean => {
+      const message = String((error as any)?.message ?? "").toLowerCase();
+      return (
+        message.includes("backend error 502") ||
+        message.includes("backend error 503") ||
+        message.includes("backend error 504") ||
+        message.includes("timeout") ||
+        message.includes("network request failed")
+      );
+    };
+
+    const wait = (ms: number) =>
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, ms);
+      });
+
+    let backendOk = false;
+    let lastError: Error | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        await backendPut("/ops/driver/ambulance/location", {
+          ambulance_id: ambulanceId,
+          latitude,
+          longitude,
+        });
+        backendOk = true;
+        break;
+      } catch (error) {
+        lastError = error as Error;
+        if (!isTransientBackendFailure(error) || attempt === 2) {
+          break;
+        }
+        await wait(350 * (attempt + 1));
+      }
+    }
+
+    // Always try direct Supabase write as a safety net.
+    const { error: fallbackError } = await supabase
       .from("ambulances")
       .update({
         last_known_location: toPostGISPoint(latitude, longitude),
@@ -598,11 +625,18 @@ export const sendLocationUpdate = async (
       })
       .eq("id", ambulanceId);
 
-    if (error) {
-      throw error;
+    if (backendOk || !fallbackError) {
+      return { success: true, error: null };
     }
 
-    return { success: true, error: null };
+    if (lastError) {
+      return {
+        success: false,
+        error: new Error(fallbackError.message || lastError.message),
+      };
+    }
+
+    return { success: false, error: new Error(fallbackError.message || "Failed to send location update") };
   } catch (error) {
     console.error("Error sending location update:", error);
     return { success: false, error: error as Error };
@@ -620,18 +654,21 @@ export const getDriverHistory = async (
   limit: number = 20,
 ): Promise<{ history: any[]; error: Error | null }> => {
   try {
+    try {
+      const res = await backendGet<{ history: any[] }>(`/ops/driver/history?limit=${limit}`);
+      if (res?.history) return { history: res.history, error: null };
+    } catch { /* fall through to Supabase */ }
+
     const { ambulanceId, error: ambErr } = await getDriverAmbulanceId(driverId);
     if (ambErr || !ambulanceId) return { history: [], error: ambErr };
 
-    const db = supabase;
-    const { data, error } = await db
+    const { data, error } = await supabase
       .from("emergency_requests")
       .select("*")
       .eq("assigned_ambulance_id", ambulanceId)
       .eq("status", "completed")
       .order("updated_at", { ascending: false })
       .limit(limit);
-
     if (error) throw error;
     return { history: data || [], error: null };
   } catch (error) {
@@ -683,7 +720,6 @@ export const getPatientInfo = async (
 
     let medicalProfiles: any[] = [];
 
-    // Preferred path: medical_profiles.user_id references profile id.
     try {
       const { data } = await supabase
         .from("medical_profiles")
@@ -692,11 +728,8 @@ export const getPatientInfo = async (
         .order("updated_at", { ascending: false })
         .limit(1);
       if (data && data.length > 0) medicalProfiles = data;
-    } catch {
-      // ignore and continue fallback paths
-    }
+    } catch { /* ignore */ }
 
-    // Fallback path: some datasets use medical_profiles.id as patient id.
     if (medicalProfiles.length === 0) {
       try {
         const { data } = await supabase
@@ -705,12 +738,9 @@ export const getPatientInfo = async (
           .eq("id", patientId)
           .limit(1);
         if (data && data.length > 0) medicalProfiles = data;
-      } catch {
-        // ignore and continue
-      }
+      } catch { /* ignore */ }
     }
 
-    // Fallback path: resolve profile IDs by phone and query medical_profiles.user_id.
     const phoneCandidates = toPhoneCandidates(profileData?.phone);
     if (medicalProfiles.length === 0 && phoneCandidates.length > 0) {
       try {
@@ -719,7 +749,6 @@ export const getPatientInfo = async (
           .select("id")
           .in("phone", phoneCandidates)
           .limit(5);
-
         const ids = (profileRows || []).map((p: any) => p.id).filter(Boolean);
         if (ids.length > 0) {
           const { data } = await supabase
@@ -730,12 +759,9 @@ export const getPatientInfo = async (
             .limit(1);
           if (data && data.length > 0) medicalProfiles = data;
         }
-      } catch {
-        // ignore and continue
-      }
+      } catch { /* ignore */ }
     }
 
-    // Final fallback: emergency contact phone mapping in legacy rows.
     if (medicalProfiles.length === 0 && phoneCandidates.length > 0) {
       for (const p of phoneCandidates) {
         try {
@@ -749,9 +775,7 @@ export const getPatientInfo = async (
             medicalProfiles = data;
             break;
           }
-        } catch {
-          // ignore and try next
-        }
+        } catch { /* ignore */ }
       }
     }
 
@@ -877,20 +901,20 @@ export const ensureAmbulanceHospitalLink = async (
   error: Error | null;
 }> => {
   try {
+    try {
+      const res = await backendGet<{ success: boolean; hospital_id: string | null; distance_km: number | null }>(
+        `/ops/driver/hospital-link?ambulance_id=${encodeURIComponent(ambulanceId)}&latitude=${opts?.latitude ?? 0}&longitude=${opts?.longitude ?? 0}&force=${opts?.force ?? false}`,
+      );
+      if (res?.success) return { success: true, hospitalId: res.hospital_id, distanceKm: res.distance_km, error: null };
+    } catch { /* fall through to Supabase */ }
+
     const { data: amb, error: ambError } = await supabase
       .from("ambulances")
       .select("id,hospital_id,last_known_location,current_driver_id")
       .eq("id", ambulanceId)
       .maybeSingle();
     if (ambError) throw ambError;
-    if (!amb) {
-      return {
-        success: false,
-        hospitalId: null,
-        distanceKm: null,
-        error: new Error("Ambulance not found"),
-      };
-    }
+    if (!amb) return { success: false, hospitalId: null, distanceKm: null, error: new Error("Ambulance not found") };
 
     if (amb.hospital_id && !opts?.force) {
       return { success: true, hospitalId: amb.hospital_id, distanceKm: null, error: null };
@@ -900,24 +924,14 @@ export const ensureAmbulanceHospitalLink = async (
     let longitude = opts?.longitude;
     if (latitude === undefined || longitude === undefined) {
       const parsed = parsePostGISPoint(amb.last_known_location);
-      if (parsed) {
-        latitude = parsed.latitude;
-        longitude = parsed.longitude;
-      }
+      if (parsed) { latitude = parsed.latitude; longitude = parsed.longitude; }
     }
 
     if (latitude === undefined || longitude === undefined) {
-      return {
-        success: false,
-        hospitalId: null,
-        distanceKm: null,
-        error: new Error("Live location unavailable for hospital linking"),
-      };
+      return { success: false, hospitalId: null, distanceKm: null, error: new Error("Live location unavailable for hospital linking") };
     }
 
-    const { data: hospitals, error: hospError } = await supabase
-      .from("hospitals")
-      .select("id,location,is_accepting_emergencies");
+    const { data: hospitals, error: hospError } = await supabase.from("hospitals").select("id,location,is_accepting_emergencies");
     if (hospError) throw hospError;
 
     let bestHospitalId: string | null = null;
@@ -927,48 +941,22 @@ export const ensureAmbulanceHospitalLink = async (
       const loc = parsePostGISPoint(hospital?.location);
       if (!loc) continue;
       const dist = calculateDistance(latitude, longitude, loc.latitude, loc.longitude);
-      if (dist < bestDistance) {
-        bestDistance = dist;
-        bestHospitalId = String(hospital.id);
-      }
+      if (dist < bestDistance) { bestDistance = dist; bestHospitalId = String(hospital.id); }
     }
 
-    if (!bestHospitalId) {
-      return {
-        success: false,
-        hospitalId: null,
-        distanceKm: null,
-        error: new Error("No eligible hospital found"),
-      };
-    }
+    if (!bestHospitalId) return { success: false, hospitalId: null, distanceKm: null, error: new Error("No eligible hospital found") };
 
     const now = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from("ambulances")
-      .update({ hospital_id: bestHospitalId, updated_at: now })
-      .eq("id", ambulanceId);
+    const { error: updateError } = await supabase.from("ambulances").update({ hospital_id: bestHospitalId, updated_at: now }).eq("id", ambulanceId);
     if (updateError) throw updateError;
 
     if (amb.current_driver_id) {
-      await supabase
-        .from("profiles")
-        .update({ hospital_id: bestHospitalId, updated_at: now })
-        .eq("id", amb.current_driver_id);
+      await supabase.from("profiles").update({ hospital_id: bestHospitalId, updated_at: now }).eq("id", amb.current_driver_id);
     }
 
-    return {
-      success: true,
-      hospitalId: bestHospitalId,
-      distanceKm: Number.isFinite(bestDistance) ? Math.round(bestDistance * 100) / 100 : null,
-      error: null,
-    };
+    return { success: true, hospitalId: bestHospitalId, distanceKm: Number.isFinite(bestDistance) ? Math.round(bestDistance * 100) / 100 : null, error: null };
   } catch (error) {
     console.error("Error linking ambulance to nearest hospital:", error);
-    return {
-      success: false,
-      hospitalId: null,
-      distanceKm: null,
-      error: error as Error,
-    };
+    return { success: false, hospitalId: null, distanceKm: null, error: error as Error };
   }
 };

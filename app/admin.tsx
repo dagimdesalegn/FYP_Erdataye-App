@@ -120,6 +120,9 @@ export default function AdminScreen() {
   const [apiKeySet, setApiKeySet] = useState(false);
   const [newApiKey, setNewApiKey] = useState("");
   const [savingApiKey, setSavingApiKey] = useState(false);
+  const [activeProvider, setActiveProvider] = useState("deepseek");
+  const [availableProviders, setAvailableProviders] = useState<string[]>(["deepseek", "openai", "groq"]);
+  const [totalChatRequests, setTotalChatRequests] = useState(0);
 
   const [filterRole, setFilterRole] = useState<FilterRole>("all");
   const [emergencyFilter, setEmergencyFilter] =
@@ -170,10 +173,16 @@ export default function AdminScreen() {
       const data = await backendGet<{
         deepseek_api_key_set: boolean;
         deepseek_api_key_preview: string;
+        active_provider: string;
+        available_providers: string[];
+        total_chat_requests: number;
       }>("/ops/admin/settings");
       if (data) {
         setApiKeySet(data.deepseek_api_key_set);
         setApiKeyPreview(data.deepseek_api_key_preview);
+        setActiveProvider(data.active_provider || "deepseek");
+        if (data.available_providers?.length) setAvailableProviders(data.available_providers);
+        setTotalChatRequests(data.total_chat_requests || 0);
       }
     } catch (err) {
       console.error("Settings fetch error:", err);
@@ -188,11 +197,12 @@ export default function AdminScreen() {
     setSavingApiKey(true);
     try {
       await backendPut("/ops/admin/settings/api-key", {
-        deepseek_api_key: newApiKey.trim(),
+        api_key: newApiKey.trim(),
+        provider: activeProvider,
       });
       showSuccess(
         "API Key Updated",
-        "The first aid chatbot API key has been updated successfully.",
+        `Chatbot now using ${activeProvider.toUpperCase()} provider.`,
       );
       setNewApiKey("");
       fetchSettings();
@@ -1222,101 +1232,177 @@ export default function AdminScreen() {
 
           {/* Data list */}
           {activeTab === "settings" ? (
-            <View
-              style={[
-                styles.settingsPanel,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-              ]}
-            >
-              <View style={styles.settingsHeader}>
-                <MaterialIcons name="vpn-key" size={24} color="#DC2626" />
-                <ThemedText
-                  style={[styles.settingsTitle, { color: colors.text }]}
-                >
-                  First Aid Chatbot API Key
-                </ThemedText>
-              </View>
-              <ThemedText style={[styles.settingsDesc, { color: subText }]}>
-                The first aid chatbot uses DeepSeek AI. You can update the API
-                key here without restarting the server.
-              </ThemedText>
-
+            <View style={{ gap: 16 }}>
+              {/* ── Chatbot Stats Card ── */}
               <View
                 style={[
-                  styles.settingsKeyStatus,
-                  { backgroundColor: inputBg, borderColor: inputBorder },
+                  styles.settingsPanel,
+                  { backgroundColor: cardBg, borderColor: cardBorder },
                 ]}
               >
-                <MaterialIcons
-                  name={apiKeySet ? "check-circle" : "error-outline"}
-                  size={18}
-                  color={apiKeySet ? "#10B981" : "#F59E0B"}
-                />
-                <ThemedText
-                  style={{
-                    color: colors.text,
-                    fontSize: 13,
-                    fontFamily: Fonts.sans,
-                    flex: 1,
-                  }}
-                >
-                  Current key: {apiKeyPreview || "(loading...)"}
-                </ThemedText>
-                <Pressable onPress={fetchSettings} hitSlop={8}>
-                  <MaterialIcons name="refresh" size={18} color={subText} />
-                </Pressable>
+                <View style={styles.settingsHeader}>
+                  <MaterialIcons name="analytics" size={24} color="#8B5CF6" />
+                  <ThemedText
+                    style={[styles.settingsTitle, { color: colors.text }]}
+                  >
+                    Chatbot Usage
+                  </ThemedText>
+                </View>
+                <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                  <View
+                    style={[
+                      styles.settingsStatCard,
+                      { backgroundColor: inputBg, borderColor: inputBorder },
+                    ]}
+                  >
+                    <ThemedText style={[styles.settingsStatNumber, { color: "#8B5CF6" }]}>
+                      {totalChatRequests}
+                    </ThemedText>
+                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                      Total Requests
+                    </ThemedText>
+                  </View>
+                  <View
+                    style={[
+                      styles.settingsStatCard,
+                      { backgroundColor: inputBg, borderColor: inputBorder },
+                    ]}
+                  >
+                    <ThemedText style={[styles.settingsStatNumber, { color: "#10B981" }]}>
+                      {activeProvider.toUpperCase()}
+                    </ThemedText>
+                    <ThemedText style={[styles.settingsStatLabel, { color: subText }]}>
+                      Active Provider
+                    </ThemedText>
+                  </View>
+                </View>
               </View>
 
-              <ThemedText
+              {/* ── Provider & API Key Card ── */}
+              <View
                 style={[
-                  styles.label,
-                  {
-                    color: colors.text,
-                    marginTop: 14,
-                    marginBottom: 6,
-                    fontSize: 13,
-                    fontWeight: "700",
-                    fontFamily: Fonts.sans,
-                  },
+                  styles.settingsPanel,
+                  { backgroundColor: cardBg, borderColor: cardBorder },
                 ]}
               >
-                New API Key
-              </ThemedText>
-              <TextInput
-                style={[
-                  styles.settingsInput,
-                  {
-                    color: colors.text,
-                    borderColor: inputBorder,
-                    backgroundColor: inputBg,
-                  },
-                ]}
-                placeholder="sk-..."
-                placeholderTextColor={subText}
-                value={newApiKey}
-                onChangeText={setNewApiKey}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry
-              />
-
-              <Pressable
-                style={[
-                  styles.settingsSaveBtn,
-                  savingApiKey && { opacity: 0.7 },
-                ]}
-                onPress={handleSaveApiKey}
-                disabled={savingApiKey}
-              >
-                {savingApiKey ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <MaterialIcons name="save" size={18} color="#FFF" />
-                )}
-                <ThemedText style={styles.settingsSaveBtnText}>
-                  {savingApiKey ? "Saving..." : "Update API Key"}
+                <View style={styles.settingsHeader}>
+                  <MaterialIcons name="vpn-key" size={24} color="#DC2626" />
+                  <ThemedText
+                    style={[styles.settingsTitle, { color: colors.text }]}
+                  >
+                    AI Provider & API Key
+                  </ThemedText>
+                </View>
+                <ThemedText style={[styles.settingsDesc, { color: subText }]}>
+                  Switch between AI providers for the first aid chatbot. Each
+                  provider requires its own API key.
                 </ThemedText>
-              </Pressable>
+
+                {/* Provider selector */}
+                <ThemedText
+                  style={[styles.settingsLabel, { color: colors.text }]}
+                >
+                  Provider
+                </ThemedText>
+                <View style={styles.settingsProviderRow}>
+                  {availableProviders.map((p) => (
+                    <Pressable
+                      key={p}
+                      onPress={() => setActiveProvider(p)}
+                      style={[
+                        styles.settingsProviderBtn,
+                        {
+                          backgroundColor:
+                            activeProvider === p ? "#DC2626" : inputBg,
+                          borderColor:
+                            activeProvider === p ? "#DC2626" : inputBorder,
+                        },
+                      ]}
+                    >
+                      <ThemedText
+                        style={{
+                          color: activeProvider === p ? "#FFF" : colors.text,
+                          fontSize: 13,
+                          fontWeight: "700",
+                          fontFamily: Fonts.sans,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {p}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Current key status */}
+                <View
+                  style={[
+                    styles.settingsKeyStatus,
+                    { backgroundColor: inputBg, borderColor: inputBorder },
+                  ]}
+                >
+                  <MaterialIcons
+                    name={apiKeySet ? "check-circle" : "error-outline"}
+                    size={18}
+                    color={apiKeySet ? "#10B981" : "#F59E0B"}
+                  />
+                  <ThemedText
+                    style={{
+                      color: colors.text,
+                      fontSize: 13,
+                      fontFamily: Fonts.sans,
+                      flex: 1,
+                    }}
+                  >
+                    Current key: {apiKeyPreview || "(loading...)"}
+                  </ThemedText>
+                  <Pressable onPress={fetchSettings} hitSlop={8}>
+                    <MaterialIcons name="refresh" size={18} color={subText} />
+                  </Pressable>
+                </View>
+
+                {/* New key input */}
+                <ThemedText
+                  style={[styles.settingsLabel, { color: colors.text }]}
+                >
+                  New API Key
+                </ThemedText>
+                <TextInput
+                  style={[
+                    styles.settingsInput,
+                    {
+                      color: colors.text,
+                      borderColor: inputBorder,
+                      backgroundColor: inputBg,
+                    },
+                  ]}
+                  placeholder="sk-..."
+                  placeholderTextColor={subText}
+                  value={newApiKey}
+                  onChangeText={setNewApiKey}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry
+                />
+
+                <Pressable
+                  style={[
+                    styles.settingsSaveBtn,
+                    savingApiKey && { opacity: 0.7 },
+                  ]}
+                  onPress={handleSaveApiKey}
+                  disabled={savingApiKey}
+                >
+                  {savingApiKey ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <MaterialIcons name="save" size={18} color="#FFF" />
+                  )}
+                  <ThemedText style={styles.settingsSaveBtnText}>
+                    {savingApiKey ? "Saving..." : `Update ${activeProvider.toUpperCase()} Key`}
+                  </ThemedText>
+                </Pressable>
+              </View>
             </View>
           ) : loading ? (
             <View style={styles.loadingWrap}>
@@ -2222,5 +2308,42 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     fontFamily: Fonts.sans,
+  },
+  settingsLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  settingsProviderRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  settingsProviderBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  settingsStatCard: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    alignItems: "center",
+    gap: 4,
+  },
+  settingsStatNumber: {
+    fontSize: 22,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
+  settingsStatLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
 });

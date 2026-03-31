@@ -16,6 +16,7 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
+import { backendGet } from "@/utils/api";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import React, { useEffect, useState } from "react";
@@ -181,12 +182,8 @@ export default function MapScreen() {
 
   const fetchEmergencies = async () => {
     try {
-      const { data, error } = await supabase
-        .from("emergency_requests")
-        .select("*")
-        .in("status", ["pending", "assigned", "en_route", "arrived"]);
-      if (error) throw error;
-      setEmergencies((data || []).map(normalizeEmergency));
+      const res = await backendGet<{ emergencies: any[] }>("/ops/emergencies/active");
+      setEmergencies((res.emergencies || []).map(normalizeEmergency));
     } catch (error) {
       console.error("Error fetching emergencies:", error);
     }

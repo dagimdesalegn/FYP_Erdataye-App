@@ -11,12 +11,16 @@ Usage:
         user_id = current_user["sub"]
 """
 
+import logging
+
 import httpx
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from config import settings
+from services.supabase import _client as _shared_client
 
+logger = logging.getLogger("deps")
 _bearer = HTTPBearer(auto_error=True)
 
 
@@ -25,19 +29,20 @@ async def get_current_user(
 ) -> dict:
     """
     Verify the Supabase JWT by calling the Supabase auth API.
+    Reuses the shared httpx connection pool for performance.
     Returns a dict with at least {"sub": "<user-uuid>"}.
     Raises HTTP 401 on any failure.
     """
     token = creds.credentials
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(
-                f"{settings.supabase_url}/auth/v1/user",
-                headers={
-                    "apikey": settings.supabase_service_role_key,
-                    "Authorization": f"Bearer {token}",
-                },
-            )
+        client = _shared_client()
+        res = await client.get(
+            "/auth/v1/user",
+            headers={
+                "apikey": settings.supabase_service_role_key,
+                "Authorization": f"Bearer {token}",
+            },
+        )
         if res.status_code != 200:
             body = res.json() if res.content else {}
             msg = body.get("msg") or body.get("error_description") or "Invalid or expired token"
@@ -53,8 +58,9 @@ async def get_current_user(
                 detail="Token missing user identity.",
             )
         return {"sub": user_id, **user_data}
-    except httpx.RequestError as exc:
+    except httpx.RequestError:
+        logger.exception("Auth service unreachable")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Could not reach auth service: {exc}",
-        ) from exc
+            detail="Authentication service is temporarily unavailable. Please try again.",
+        )

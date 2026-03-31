@@ -2,7 +2,7 @@
  * HtmlMapView — renders an HTML map string inside a WebView (native) or iframe (web).
  * Provides a single cross-platform API for all map screens.
  */
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Platform, StyleProp, Text, View, ViewStyle } from "react-native";
 import { WebView } from "react-native-webview";
 
@@ -41,11 +41,15 @@ export function HtmlMapView({ html, style, title = "Map" }: HtmlMapViewProps) {
 
   // Google Maps embed URLs require being inside an iframe.
   // Wrap the embed URL in a minimal HTML document with a full-size iframe.
-  const iframeHtml = `<!DOCTYPE html>
+  const iframeHtml = useMemo(
+    () => `<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}
 iframe{width:100%;height:100%;border:none}</style></head>
-<body><iframe src="${html}" allowfullscreen loading="eager"></iframe></body></html>`;
+<body><iframe src="${html}" allowfullscreen loading="eager"></iframe></body></html>`,
+    [html],
+  );
+  const webViewSource = useMemo(() => ({ html: iframeHtml }), [iframeHtml]);
 
   return (
     <View style={style}>
@@ -66,7 +70,7 @@ iframe{width:100%;height:100%;border:none}</style></head>
         </View>
       ) : (
         <WebView
-          source={{ html: iframeHtml }}
+          source={webViewSource}
           style={{ flex: 1, backgroundColor: "transparent" }}
           originWhitelist={["*"]}
           javaScriptEnabled

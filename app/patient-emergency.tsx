@@ -1,6 +1,6 @@
 ﻿import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
     Animated,
@@ -30,8 +30,6 @@ import {
     getExplainableTriage,
     getLiveAvailableAmbulances,
     getTrafficAwareDispatch,
-    findNearestAmbulance,
-    assignAmbulance,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
@@ -67,6 +65,12 @@ export default function PatientEmergencyScreen() {
   const [hasActiveEmergency, setHasActiveEmergency] = useState(false);
   const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(
+    hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
+  );
+  const [mapLocation, setMapLocation] = useState<{
     latitude: number;
     longitude: number;
   } | null>(
@@ -111,6 +115,10 @@ export default function PatientEmergencyScreen() {
   const [firstAidTips, setFirstAidTips] = useState<string[]>([]);
   const [fallbackAssigning, setFallbackAssigning] = useState(false);
   const [tipsLoading, setTipsLoading] = useState(false);
+  const locationWatchRef = useRef<Location.LocationSubscription | null>(null);
+  const recentLocationFixesRef = useRef<
+    Array<{ latitude: number; longitude: number }>
+  >([]);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
   const canCancelByWindow =
@@ -120,6 +128,17 @@ export default function PatientEmergencyScreen() {
   const hasNearbyAmbulance = nearbyAmbulances.length > 0;
   const lastDispatchRetry = React.useRef<number>(0);
   const lastFallbackAssign = React.useRef<number>(0);
+  const fetchingNearbyRef = React.useRef(false);
+  const lastNearbyFetchRef = useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
+  const lastMapUpdateRef = useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
 
   useEffect(() => {
     checkActiveEmergency();
@@ -130,39 +149,76 @@ export default function PatientEmergencyScreen() {
 
   // Reload ambulances when location changes
   useEffect(() => {
-    if (location) loadNearbyAmbulances();
+    if (!location) return;
+    const prev = lastNearbyFetchRef.current;
+    const now = Date.now();
+    if (prev) {
+      const movedMeters =
+        calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          location.latitude,
+          location.longitude,
+        ) * 1000;
+      const elapsed = now - prev.at;
+      // Ignore tiny location drift so map and list don't keep reloading.
+      if (movedMeters < 20 && elapsed < 20000) return;
+    }
+    lastNearbyFetchRef.current = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      at: now,
+    };
+    loadNearbyAmbulances();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
 
-  // When we have a pending emergency and a nearby ambulance, try dispatch retry once per appearance.
+  // Keep map stable: update map center only on meaningful movement or elapsed time.
   useEffect(() => {
-    attemptDispatchRetry();
-    // If backend retry fails silently, ensure fallback assign is attempted too
-    attemptFallbackAssign();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasNearbyAmbulance, activeEmergencyStatus, activeEmergencyId]);
+    if (!location) return;
+    const now = Date.now();
+    const prev = lastMapUpdateRef.current;
+    if (prev) {
+      const movedMeters =
+        calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          location.latitude,
+          location.longitude,
+        ) * 1000;
+      const elapsed = now - prev.at;
+      if (movedMeters < 25 && elapsed < 30000) return;
+    }
 
-  // Auto-refresh ambulance count every 15s (picks up driver availability toggles)
+    const stable = {
+      latitude: Number(location.latitude.toFixed(5)),
+      longitude: Number(location.longitude.toFixed(5)),
+    };
+    lastMapUpdateRef.current = { ...stable, at: now };
+    setMapLocation(stable);
+  }, [location?.latitude, location?.longitude]);
+
+  // Auto-refresh ambulance count every 30s.
   useEffect(() => {
     const interval = setInterval(() => {
       loadNearbyAmbulances();
-    }, 15000);
+    }, 30000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
 
-  // Realtime: instantly refresh when any driver toggles availability
+  // Realtime: refresh only when availability status actually changes.
   useEffect(() => {
     const channel = supabase
       .channel("ambulance-availability")
       .on(
         "postgres_changes" as any,
-        { event: "*", schema: "public", table: "ambulances" },
-        () => {
+        { event: "UPDATE", schema: "public", table: "ambulances" },
+        (payload: any) => {
+          const prevAvail = Boolean(payload?.old?.is_available);
+          const nextAvail = Boolean(payload?.new?.is_available);
+          if (prevAvail === nextAvail) return;
           loadNearbyAmbulances();
-          // If we have a pending emergency and a fresh ambulance just came online, trigger a retry
-          attemptDispatchRetry();
-          attemptFallbackAssign();
         },
       )
       .subscribe();
@@ -204,10 +260,15 @@ export default function PatientEmergencyScreen() {
   };
 
   const loadNearbyAmbulances = async () => {
+    if (fetchingNearbyRef.current) return;
+    fetchingNearbyRef.current = true;
     try {
       const { ambulances: data } = await getLiveAvailableAmbulances(10);
-      if (!data) return;
-      const parsed = data
+      if (!data) {
+        // Keep previous list on transient fetch failures.
+        return;
+      }
+      const parsedAll = data
         .map((a: any) => {
           const loc = parsePostGISPoint(a.last_known_location);
           if (!loc) return null;
@@ -219,8 +280,6 @@ export default function PatientEmergencyScreen() {
                 loc.longitude,
               )
             : null;
-          // Filter out ambulances that are too far away
-          if (dist !== null && dist > MAX_AMBULANCE_DISTANCE_KM) return null;
           return {
             lat: loc.latitude,
             lng: loc.longitude,
@@ -237,9 +296,39 @@ export default function PatientEmergencyScreen() {
         })
         .filter(Boolean)
         .sort((a: any, b: any) => a.distanceRaw - b.distanceRaw);
-      setNearbyAmbulances((parsed as any[]).slice(0, 1));
+
+      const inRange = (parsedAll as any[]).filter(
+        (a: any) => a.distanceKm <= MAX_AMBULANCE_DISTANCE_KM,
+      );
+
+      const finalList = inRange.length > 0 ? inRange : (parsedAll as any[]);
+      // Show up to 3 nearest ambulances and avoid unnecessary state churn.
+      const nextList = finalList.slice(0, 3) as Array<{
+        lat: number;
+        lng: number;
+        label: string;
+        distance: string;
+        distanceKm: number;
+      }>;
+
+      setNearbyAmbulances((prev) => {
+        if (prev.length !== nextList.length) return nextList;
+        for (let i = 0; i < prev.length; i += 1) {
+          const a = prev[i];
+          const b = nextList[i];
+          if (!b) return nextList;
+          const movedMeters =
+            calculateDistance(a.lat, a.lng, b.lat, b.lng) * 1000;
+          if (movedMeters > 12 || a.label !== b.label) {
+            return nextList;
+          }
+        }
+        return prev;
+      });
     } catch (err) {
       console.error("Error loading ambulances:", err);
+    } finally {
+      fetchingNearbyRef.current = false;
     }
   };
 
@@ -329,13 +418,34 @@ export default function PatientEmergencyScreen() {
       }
 
       const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
       });
 
-      setLocation({
+      const accuracy = currentLocation.coords.accuracy ?? 999;
+      if (accuracy > 120) {
+        return;
+      }
+
+      const nextFix = {
         latitude: currentLocation.coords.latitude,
         longitude: currentLocation.coords.longitude,
-      });
+      };
+
+      recentLocationFixesRef.current = [
+        ...recentLocationFixesRef.current,
+        nextFix,
+      ].slice(-3);
+
+      const count = recentLocationFixesRef.current.length;
+      const smoothed = recentLocationFixesRef.current.reduce(
+        (acc, item) => ({
+          latitude: acc.latitude + item.latitude / count,
+          longitude: acc.longitude + item.longitude / count,
+        }),
+        { latitude: 0, longitude: 0 },
+      );
+
+      setLocation(smoothed);
     } catch (error) {
       console.error("Error getting location:", error);
       const msg =
@@ -343,6 +453,70 @@ export default function PatientEmergencyScreen() {
       showError("Location Error", msg);
     }
   };
+
+  useEffect(() => {
+    const startLivePatientTracking = async () => {
+      try {
+        const currentPermission = await Location.getForegroundPermissionsAsync();
+        if (currentPermission.status !== "granted") return;
+
+        const watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          (loc) => {
+            const accuracy = loc.coords.accuracy ?? 999;
+            if (accuracy > 120) return;
+
+            const nextFix = {
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            };
+
+            recentLocationFixesRef.current = [
+              ...recentLocationFixesRef.current,
+              nextFix,
+            ].slice(-3);
+            const count = recentLocationFixesRef.current.length;
+            const smoothed = recentLocationFixesRef.current.reduce(
+              (acc, item) => ({
+                latitude: acc.latitude + item.latitude / count,
+                longitude: acc.longitude + item.longitude / count,
+              }),
+              { latitude: 0, longitude: 0 },
+            );
+
+            setLocation((prev) => {
+              if (!prev) return smoothed;
+              const movedMeters =
+                calculateDistance(
+                  prev.latitude,
+                  prev.longitude,
+                  smoothed.latitude,
+                  smoothed.longitude,
+                ) * 1000;
+              if (movedMeters < 4) return prev;
+              return smoothed;
+            });
+          },
+        );
+
+        locationWatchRef.current = watcher;
+      } catch {
+        // Keep fallback behavior if live tracking is unavailable.
+      }
+    };
+
+    void startLivePatientTracking();
+    return () => {
+      if (locationWatchRef.current) {
+        locationWatchRef.current.remove();
+        locationWatchRef.current = null;
+      }
+    };
+  }, []);
 
   const handleSOS = async () => {
     if (!user?.id) {
@@ -411,18 +585,11 @@ export default function PatientEmergencyScreen() {
 
     setFallbackAssigning(true);
     try {
-      const { ambulanceId } = await findNearestAmbulance(
-        location.latitude,
-        location.longitude,
+      const { success, emergency } = await retryEmergencyDispatch(
+        activeEmergencyId,
         80,
       );
-      if (!ambulanceId) return;
-
-      const { success, error } = await assignAmbulance(
-        activeEmergencyId,
-        ambulanceId,
-      );
-      if (success) {
+      if (success && emergency?.assigned_ambulance_id) {
         setActiveEmergencyStatus("assigned");
         showAlert(
           "Ambulance Assigned",
@@ -431,8 +598,6 @@ export default function PatientEmergencyScreen() {
         router.push(
           `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
         );
-      } else if (error) {
-        console.warn("Fallback assign error", error);
       }
     } catch (err) {
       console.warn("Fallback assign failed", err);
@@ -484,37 +649,8 @@ export default function PatientEmergencyScreen() {
       setOtherPersonName("");
       setOtherPersonContact("");
 
-      const etaNote =
-        typeof emergency.eta_minutes === "number"
-          ? `\nEstimated ambulance arrival: ${emergency.eta_minutes} min.`
-          : "";
-
-      let hospitalNote = "";
-      if (emergency.hospital_id) {
-        const { data: hospRow, error: hospErr } = await supabase
-          .from("hospitals")
-          .select("name")
-          .eq("id", emergency.hospital_id)
-          .maybeSingle();
-
-        if (!hospErr && hospRow?.name) {
-          hospitalNote = `\nNearest hospital linked: ${hospRow.name}.`;
-        } else {
-          hospitalNote = "\nNearest hospital has been linked to your request.";
-        }
-      }
-
-      const successMsg =
-        "Your emergency request has been sent. Ambulance dispatch is in progress." +
-        etaNote +
-        hospitalNote +
-        "\n\nStay calm and follow dispatcher instructions.";
-      showSuccess("Emergency Request Sent", successMsg);
-
-      // Navigate to tracking screen
-      setTimeout(() => {
-        router.push(`/patient-emergency-tracking?emergencyId=${emergency.id}`);
-      }, 1000);
+      // Navigate immediately to tracking without bulky popup.
+      router.push(`/patient-emergency-tracking?emergencyId=${emergency.id}`);
     } catch (error) {
       console.error("Error creating emergency:", error);
       const errMsg = `Failed to request emergency services: ${error}`;
@@ -775,7 +911,7 @@ export default function PatientEmergencyScreen() {
             // No Emergency View
             <>
               {/* Map: Your location + nearby ambulances */}
-              {location && (
+              {mapLocation && (
                 <View
                   style={[styles.mapSection, { borderColor: colors.border }]}
                 >
@@ -783,13 +919,13 @@ export default function PatientEmergencyScreen() {
                     const mapHtml =
                       nearbyAmbulances.length > 0
                         ? buildPatientRequestMapHtml(
-                            location.latitude,
-                            location.longitude,
+                            mapLocation.latitude,
+                            mapLocation.longitude,
                             nearbyAmbulances,
                           )
                         : buildMapHtml(
-                            location.latitude,
-                            location.longitude,
+                            mapLocation.latitude,
+                            mapLocation.longitude,
                             17,
                           );
                     return (

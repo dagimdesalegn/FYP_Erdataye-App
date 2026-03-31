@@ -7,11 +7,12 @@ Message storage endpoints require authentication.
 """
 
 import json
+import logging
 import re
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from openai import OpenAI, OpenAIError
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 from config import settings
@@ -19,16 +20,20 @@ from deps import get_current_user
 from services.supabase import db_insert, db_select, db_delete
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
+logger = logging.getLogger("chat_router")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DeepSeek client (OpenAI-compatible SDK)
+# DeepSeek client (OpenAI-compatible SDK) — async for non-blocking I/O
 # The API key never reaches the mobile client.
 # ─────────────────────────────────────────────────────────────────────────────
 
-_deepseek = OpenAI(
+_deepseek = AsyncOpenAI(
     api_key=settings.deepseek_api_key,
     base_url="https://api.deepseek.com",
 )
+
+# Mutable model name — can be changed at runtime via admin settings endpoint
+_MODEL = "deepseek-chat"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System prompt — WHO first aid domain + Ethiopian context
@@ -97,17 +102,18 @@ async def chat(req: ChatRequest) -> ChatResponse:
     messages.append({"role": "user", "content": req.message.strip()})
 
     try:
-        completion = _deepseek.chat.completions.create(
-            model="deepseek-chat",
+        completion = await _deepseek.chat.completions.create(
+            model=_MODEL,
             messages=messages,
             temperature=0.35,  # lower = more factual / consistent for medical guidance
             max_tokens=1024,
         )
-    except OpenAIError as exc:
+    except OpenAIError:
+        logger.exception("DeepSeek API call failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"DeepSeek API error: {exc}",
-        ) from exc
+            detail="AI service is temporarily unavailable. Please try again shortly.",
+        )
 
     raw: str = completion.choices[0].message.content or ""
 
@@ -185,7 +191,11 @@ async def add_message(
     response_model=MessagesResponse,
     summary="Get chatbot history for the current user",
 )
-async def get_messages(current_user: dict = Depends(get_current_user)) -> MessagesResponse:
+async def get_messages(
+    current_user: dict = Depends(get_current_user),
+    limit: int = Query(default=200, ge=1, le=1000, description="Max messages to return"),
+    offset: int = Query(default=0, ge=0, description="Number of messages to skip"),
+) -> MessagesResponse:
     uid = current_user["sub"]
     data, code = await db_select(
         "chatbot_messages",
@@ -194,9 +204,10 @@ async def get_messages(current_user: dict = Depends(get_current_user)) -> Messag
     )
     if code not in (200,):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load messages")
-    # Sort by created_at ascending
+    # Sort by created_at ascending, then paginate
     data.sort(key=lambda r: r.get("created_at", ""))
-    return MessagesResponse(messages=[MessageRow(**r) for r in data])
+    page = data[offset : offset + limit]
+    return MessagesResponse(messages=[MessageRow(**r) for r in page])
 
 
 @router.delete(

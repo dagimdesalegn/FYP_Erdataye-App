@@ -3,6 +3,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Linking,
     Pressable,
     ScrollView,
@@ -14,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -50,26 +50,6 @@ interface PatientInfo {
   medical_profiles?: MedicalProfile[];
 }
 
-const toPhoneCandidates = (raw?: string): string[] => {
-  if (!raw) return [];
-  const digits = raw.replace(/[^0-9]/g, "");
-  if (!digits) return [];
-
-  const local = digits.startsWith("251")
-    ? `0${digits.slice(3)}`
-    : digits.startsWith("0")
-      ? digits
-      : digits.length === 9
-        ? `0${digits}`
-        : digits;
-
-  const intl = local.startsWith("0") ? `+251${local.slice(1)}` : `+${digits}`;
-
-  return Array.from(
-    new Set([raw, digits, local, local.replace(/^0/, ""), intl]),
-  );
-};
-
 export default function DriverEmergencyScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
@@ -90,112 +70,6 @@ export default function DriverEmergencyScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
-
-  const fetchLatestMedicalProfile = useCallback(
-    async (patientId: string, patientPhone?: string, patientName?: string) => {
-      const columns =
-        "blood_type,allergies,medical_conditions,emergency_contact_name,emergency_contact_phone,updated_at";
-
-      try {
-        // Preferred path: medical_profiles.user_id references patient user id.
-        const { data, error } = await supabase
-          .from("medical_profiles")
-          .select(columns)
-          .eq("user_id", patientId)
-          .order("updated_at", { ascending: false })
-          .limit(1);
-
-        if (!error && data && data.length > 0) {
-          return data as MedicalProfile[];
-        }
-
-        // Fallback path: some schemas store patient id as row id.
-        const { data: byId, error: byIdError } = await supabase
-          .from("medical_profiles")
-          .select(columns)
-          .eq("id", patientId)
-          .limit(1);
-
-        if (!byIdError && byId && byId.length > 0) {
-          return byId as MedicalProfile[];
-        }
-
-        // Fallback path: resolve profile id by phone, then read medical_profiles.user_id.
-        const phoneCandidates = toPhoneCandidates(patientPhone);
-        if (phoneCandidates.length > 0) {
-          const { data: profileRows, error: profileErr } = await supabase
-            .from("profiles")
-            .select("id, phone")
-            .in("phone", phoneCandidates)
-            .limit(3);
-
-          if (!profileErr && profileRows && profileRows.length > 0) {
-            const ids = profileRows.map((p: any) => p.id).filter(Boolean);
-            if (ids.length > 0) {
-              const { data: medByResolvedId, error: medByResolvedErr } =
-                await supabase
-                  .from("medical_profiles")
-                  .select(columns)
-                  .in("user_id", ids)
-                  .order("updated_at", { ascending: false })
-                  .limit(1);
-
-              if (
-                !medByResolvedErr &&
-                medByResolvedId &&
-                medByResolvedId.length > 0
-              ) {
-                return medByResolvedId as MedicalProfile[];
-              }
-            }
-          }
-        }
-
-        // Last fallback: match rows by emergency-contact fields when linkage is inconsistent.
-        // Useful when medical_profiles.user_id doesn't point to profiles.id in older data.
-        const name = (patientName || "").trim();
-        if (name) {
-          const { data: byName, error: byNameErr } = await supabase
-            .from("medical_profiles")
-            .select(columns)
-            .eq("emergency_contact_name", name)
-            .order("updated_at", { ascending: false })
-            .limit(1);
-
-          if (!byNameErr && byName && byName.length > 0) {
-            return byName as MedicalProfile[];
-          }
-        }
-
-        const contactPhoneCandidates = toPhoneCandidates(patientPhone).map(
-          (p) => p.replace(/^\+251/, "0").replace(/^251/, "0"),
-        );
-        for (const p of contactPhoneCandidates) {
-          const { data: byContactPhone, error: byContactPhoneErr } =
-            await supabase
-              .from("medical_profiles")
-              .select(columns)
-              .eq("emergency_contact_phone", p)
-              .order("updated_at", { ascending: false })
-              .limit(1);
-
-          if (
-            !byContactPhoneErr &&
-            byContactPhone &&
-            byContactPhone.length > 0
-          ) {
-            return byContactPhone as MedicalProfile[];
-          }
-        }
-
-        return [] as MedicalProfile[];
-      } catch (e) {
-        console.warn("Medical profile fetch fallback failed:", e);
-        return [] as MedicalProfile[];
-      }
-    },
-    [],
-  );
 
   const loadAssignment = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -218,7 +92,7 @@ export default function DriverEmergencyScreen() {
 
         setAssignment(asgn);
 
-        // Load patient info
+        // Load patient info (backend returns medical_profiles via service-role)
         const pid = asgn.emergency_requests?.patient_id || "";
         if (pid) {
           const { info } = await getPatientInfo(
@@ -226,60 +100,7 @@ export default function DriverEmergencyScreen() {
             asgn.emergency_id || asgn.emergency_requests?.id,
           );
           if (info) {
-            // Always prefer latest DB profile for conditions/contact/blood/allergies.
-            const medData = await fetchLatestMedicalProfile(
-              pid,
-              info.phone,
-              info.full_name,
-            );
-
-            const scoreMedical = (row: any) => {
-              if (!row) return 0;
-              const values = [
-                row.blood_type,
-                row.allergies,
-                row.medical_conditions,
-                row.emergency_contact_name,
-                row.emergency_contact_phone,
-              ];
-              return values.reduce(
-                (acc, v) => acc + (typeof v === "string" && v.trim() ? 1 : 0),
-                0,
-              );
-            };
-
-            const candidateA = medData[0] ?? null;
-            const candidateB = info.medical_profiles?.[0] ?? null;
-            const bestMedical =
-              scoreMedical(candidateA) >= scoreMedical(candidateB)
-                ? candidateA
-                : candidateB;
-
-            setPatientInfo({
-              ...info,
-              medical_profiles: bestMedical ? [bestMedical] : [],
-            });
-          } else {
-            // Fallback if patient info query misses but assignment has a patient id.
-            const { data: basicProfile } = await supabase
-              .from("profiles")
-              .select("id, full_name, phone")
-              .eq("id", pid)
-              .maybeSingle();
-
-            if (basicProfile) {
-              const medData = await fetchLatestMedicalProfile(
-                pid,
-                basicProfile.phone,
-                basicProfile.full_name,
-              );
-              setPatientInfo({
-                id: basicProfile.id,
-                full_name: basicProfile.full_name || "Unknown patient",
-                phone: basicProfile.phone || "",
-                medical_profiles: medData,
-              });
-            }
+            setPatientInfo(info);
           }
         }
 
@@ -304,7 +125,7 @@ export default function DriverEmergencyScreen() {
         }
       }
     },
-    [router, user, showAlert, fetchLatestMedicalProfile],
+    [router, user, showAlert],
   );
 
   useEffect(() => {
@@ -417,11 +238,9 @@ export default function DriverEmergencyScreen() {
   // ─── Loading / empty ─────────────────────────────────────
   if (loading) {
     return (
-      <LoadingModal
-        visible
-        colorScheme={colorScheme}
-        message="Loading assignment..."
-      />
+      <View style={[styles.root, { backgroundColor: Colors[colorScheme].background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+      </View>
     );
   }
 
@@ -494,11 +313,6 @@ export default function DriverEmergencyScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={processing}
-        colorScheme={colorScheme}
-        message="Processing..."
-      />
 
       <View
         style={[
@@ -889,8 +703,14 @@ export default function DriverEmergencyScreen() {
               processing && { opacity: 0.6 },
             ]}
           >
-            <MaterialIcons name="close" size={18} color="#DC2626" />
-            <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+            {processing ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <>
+                <MaterialIcons name="close" size={18} color="#DC2626" />
+                <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+              </>
+            )}
           </Pressable>
 
           <Pressable
@@ -908,8 +728,14 @@ export default function DriverEmergencyScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.acceptGradient}
             >
-              <MaterialIcons name="check" size={18} color="#FFF" />
-              <ThemedText style={styles.acceptBtnText}>Accept & Go</ThemedText>
+              {processing ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <MaterialIcons name="check" size={18} color="#FFF" />
+                  <ThemedText style={styles.acceptBtnText}>Accept & Go</ThemedText>
+                </>
+              )}
             </LinearGradient>
           </Pressable>
         </View>

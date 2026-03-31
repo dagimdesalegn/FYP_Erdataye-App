@@ -1,8 +1,9 @@
 import { backendGet, backendPost } from "./api";
 import { supabase } from "./supabase";
 
-function mapCacheToken(...values: number[]): string {
-  return values.map((v) => v.toFixed(5)).join("_");
+function roundCoord(value: number, decimals: number = 5): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
 }
 
 // ─── PostGIS helpers ─────────────────────────────────────────────────
@@ -31,8 +32,9 @@ export function buildMapHtml(
   zoom: number = 17,
 ): string {
   // t=m uses the standard roadmap view (roads + building labels).
-  const cb = mapCacheToken(lat, lng, zoom);
-  return `https://maps.google.com/maps?q=${lat},${lng}&z=${zoom}&t=m&output=embed&cb=${cb}`;
+  const latR = roundCoord(lat);
+  const lngR = roundCoord(lng);
+  return `https://maps.google.com/maps?q=${latR},${lngR}&z=${zoom}&t=m&output=embed`;
 }
 
 /**
@@ -56,14 +58,16 @@ export function buildDriverPatientMapHtml(
   // Keep map clear: if units are far apart, center on destination with tighter zoom
   // instead of the very wide auto-fitted directions frame.
   const km = calculateDistance(driverLat, driverLng, patientLat, patientLng);
+  const dLat = roundCoord(driverLat);
+  const dLng = roundCoord(driverLng);
+  const pLat = roundCoord(patientLat);
+  const pLng = roundCoord(patientLng);
   if (km > 10) {
-    const cb = mapCacheToken(driverLat, driverLng, patientLat, patientLng, km);
-    return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=15&t=m&output=embed&cb=${cb}`;
+    return `https://maps.google.com/maps?q=${pLat},${pLng}&z=15&t=m&output=embed`;
   }
 
   // For closer distances, use embedded directions for route context.
-  const cb = mapCacheToken(driverLat, driverLng, patientLat, patientLng, km);
-  return `https://maps.google.com/maps?saddr=${driverLat},${driverLng}&daddr=${patientLat},${patientLng}&dirflg=d&t=m&output=embed&cb=${cb}`;
+  return `https://maps.google.com/maps?saddr=${dLat},${dLng}&daddr=${pLat},${pLng}&dirflg=d&t=m&output=embed`;
 }
 
 /**
@@ -101,28 +105,13 @@ export function buildPatientRequestMapHtml(
 
     // Avoid very wide map in request screen when nearest unit is far.
     if (bestDistance > 10) {
-      const cb = mapCacheToken(
-        patientLat,
-        patientLng,
-        nearest.lat,
-        nearest.lng,
-        bestDistance,
-      );
-      return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=15&t=m&output=embed&cb=${cb}`;
+      return `https://maps.google.com/maps?q=${roundCoord(patientLat)},${roundCoord(patientLng)}&z=15&t=m&output=embed`;
     }
 
-    const cb = mapCacheToken(
-      patientLat,
-      patientLng,
-      nearest.lat,
-      nearest.lng,
-      bestDistance,
-    );
-    return `https://maps.google.com/maps?saddr=${nearest.lat},${nearest.lng}&daddr=${patientLat},${patientLng}&dirflg=d&t=m&output=embed&cb=${cb}`;
+    return `https://maps.google.com/maps?saddr=${roundCoord(nearest.lat)},${roundCoord(nearest.lng)}&daddr=${roundCoord(patientLat)},${roundCoord(patientLng)}&dirflg=d&t=m&output=embed`;
   }
 
-  const cb = mapCacheToken(patientLat, patientLng, 16);
-  return `https://maps.google.com/maps?q=${patientLat},${patientLng}&z=16&t=m&output=embed&cb=${cb}`;
+  return `https://maps.google.com/maps?q=${roundCoord(patientLat)},${roundCoord(patientLng)}&z=16&t=m&output=embed`;
 }
 
 /** Build an EWKT Point string suitable for Supabase inserts into geometry columns. */
@@ -148,6 +137,28 @@ export function parsePostGISPoint(
   }
 
   if (typeof geometry !== "string") return null;
+
+  // WKT/EWKT string, e.g. "POINT(lon lat)" or "SRID=4326;POINT(lon lat)"
+  const maybePoint = geometry.includes("POINT(") ? geometry : "";
+  if (maybePoint) {
+    try {
+      const pointPart = maybePoint.includes(";")
+        ? maybePoint.split(";").pop() || ""
+        : maybePoint;
+      const inside = pointPart.slice(
+        pointPart.indexOf("(") + 1,
+        pointPart.lastIndexOf(")"),
+      );
+      const [lonRaw, latRaw] = inside.trim().split(/\s+/);
+      const lon = Number(lonRaw);
+      const lat = Number(latRaw);
+      if (Number.isFinite(lon) && Number.isFinite(lat)) {
+        return { latitude: lat, longitude: lon };
+      }
+    } catch {
+      // Continue to WKB parsing fallback.
+    }
+  }
 
   try {
     const hex = geometry;
@@ -543,9 +554,9 @@ export const recommendBestDispatch = async (
 
 /**
  * Assign ambulance to emergency request.
+ * - Atomically reserves the ambulance (CAS: only if still available)
  * - Updates emergency_requests.assigned_ambulance_id & status
  * - Inserts a row into emergency_assignments so drivers are notified via realtime
- * - Marks the ambulance as unavailable
  */
 export const assignAmbulance = async (
   emergencyId: string,
@@ -553,6 +564,27 @@ export const assignAmbulance = async (
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
     const now = new Date().toISOString();
+
+    // ── CAS guard: reserve ambulance only if it is still available ──
+    const { data: reserved, error: reserveError } = await supabase
+      .from("ambulances")
+      .update({ is_available: false, updated_at: now })
+      .eq("id", ambulanceId)
+      .eq("is_available", true)
+      .select("id, hospital_id")
+      .maybeSingle();
+
+    if (reserveError) throw reserveError;
+    if (!reserved) {
+      // Another request already grabbed this ambulance
+      return {
+        success: false,
+        error: new Error("Ambulance is no longer available. Trying another…"),
+      };
+    }
+
+    const hospitalId = reserved.hospital_id ?? null;
+
     let assignmentNotes: string | null = null;
 
     const { data: emergencyRow } = await supabase
@@ -588,14 +620,6 @@ export const assignAmbulance = async (
       }
     }
 
-    const { data: ambulanceRow } = await supabase
-      .from("ambulances")
-      .select("hospital_id")
-      .eq("id", ambulanceId)
-      .maybeSingle();
-
-    const hospitalId = ambulanceRow?.hospital_id ?? null;
-
     // 1. Update emergency request
     const { error } = await supabase
       .from("emergency_requests")
@@ -607,7 +631,14 @@ export const assignAmbulance = async (
       })
       .eq("id", emergencyId);
 
-    if (error) throw error;
+    if (error) {
+      // Rollback: re-enable the ambulance we just reserved
+      await supabase
+        .from("ambulances")
+        .update({ is_available: true, updated_at: now })
+        .eq("id", ambulanceId);
+      throw error;
+    }
 
     // 2. Insert into emergency_assignments (triggers driver realtime subscription)
     const { error: assignError } = await supabase
@@ -626,12 +657,6 @@ export const assignAmbulance = async (
         assignError,
       );
     }
-
-    // 3. Mark ambulance as unavailable
-    await supabase
-      .from("ambulances")
-      .update({ is_available: false, updated_at: now })
-      .eq("id", ambulanceId);
 
     return { success: true, error: null };
   } catch (error) {
@@ -733,15 +758,44 @@ export const getLiveAvailableAmbulances = async (
   error: Error | null;
 }> => {
   try {
+    try {
+      const params = new URLSearchParams({
+        max_age_minutes: String(Math.max(0, maxAgeMinutes)),
+        limit: "100",
+      });
+      const res = await backendGet<{ ambulances: Ambulance[] }>(
+        `/ops/patient/ambulances/live?${params.toString()}`,
+      );
+      return {
+        ambulances: (res?.ambulances || []).map(normalizeAmbulance),
+        error: null,
+      };
+    } catch (backendError) {
+      console.warn("Backend live ambulance fetch failed, using Supabase fallback", backendError);
+    }
+
     const cutoffIso = new Date(
       Date.now() - maxAgeMinutes * 60 * 1000,
     ).toISOString();
-    const { data, error } = await supabase
+
+    const { data: freshData, error: freshError } = await supabase
       .from("ambulances")
       .select("*")
       .eq("is_available", true)
       .not("last_known_location", "is", null)
       .gte("updated_at", cutoffIso)
+      .order("updated_at", { ascending: false });
+
+    if (freshError) throw freshError;
+    if (freshData && freshData.length > 0) {
+      return { ambulances: freshData.map(normalizeAmbulance), error: null };
+    }
+
+    const { data, error } = await supabase
+      .from("ambulances")
+      .select("*")
+      .eq("is_available", true)
+      .not("last_known_location", "is", null)
       .order("updated_at", { ascending: false });
 
     if (error) throw error;

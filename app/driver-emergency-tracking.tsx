@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
+    ActivityIndicator,
     Linking,
     Platform,
     Pressable,
@@ -15,7 +16,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -35,6 +35,7 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
+import { backendGet } from "@/utils/api";
 
 type Tab = "map" | "status";
 
@@ -118,22 +119,19 @@ export default function DriverEmergencyTrackingScreen() {
           }
         }
 
-        // Get emergency request for patient location + status
-        const { data: emergData } = await supabase
-          .from("emergency_requests")
-          .select("*")
-          .eq("id", emergencyId as string)
-          .maybeSingle();
+        // Get emergency details via backend (bypasses RLS)
+        const detailRes = await backendGet<{ emergency: any }>(
+          `/ops/patient/emergencies/${emergencyId}/detail`,
+        );
+        const emergData = detailRes?.emergency;
 
         if (emergData) {
           setCurrentStatus(emergData.status || "assigned");
-          // Parse patient location from PostGIS geometry
           const patLoc = parsePostGISPoint(emergData.patient_location);
           if (patLoc) {
             setPatientCoords(patLoc);
           }
 
-          // Get patient info
           if (emergData.patient_id) {
             const { info } = await getPatientInfo(
               emergData.patient_id,
@@ -266,7 +264,9 @@ export default function DriverEmergencyTrackingScreen() {
   // ─── Loading ──────────────────────────────────────────
   if (loading) {
     return (
-      <LoadingModal visible colorScheme={colorScheme} message="Loading..." />
+      <View style={[styles.root, { alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={colors.tint} />
+      </View>
     );
   }
 
@@ -314,11 +314,6 @@ export default function DriverEmergencyTrackingScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={updating}
-        colorScheme={colorScheme}
-        message="Updating..."
-      />
 
       {/* ── Header ───────────────────────────────────── */}
       <View
@@ -524,12 +519,19 @@ export default function DriverEmergencyTrackingScreen() {
               style={({ pressed }) => [
                 styles.floatingBtn,
                 pressed && { opacity: 0.8 },
+                updating && { opacity: 0.7 },
               ]}
             >
-              <MaterialIcons name="update" size={18} color="#FFF" />
-              <ThemedText style={styles.floatingBtnText}>
-                → {nextStatus.replace(/_/g, " ").toUpperCase()}
-              </ThemedText>
+              {updating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <MaterialIcons name="update" size={18} color="#FFF" />
+                  <ThemedText style={styles.floatingBtnText}>
+                    → {nextStatus.replace(/_/g, " ").toUpperCase()}
+                  </ThemedText>
+                </>
+              )}
             </Pressable>
           )}
         </View>
