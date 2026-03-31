@@ -60,7 +60,8 @@
           "isAndroidForegroundServiceEnabled": false,
           "locationWhenInUsePermission": "Allow Erdataya Ambulance to access your location while using the app."
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",

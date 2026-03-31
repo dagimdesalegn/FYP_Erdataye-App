@@ -10,6 +10,7 @@ import { getFirstAidAiResponse } from "@/utils/first-aid-ai";
 import type { Message } from "@/utils/first-aid-chatbot";
 import { LANG_LABELS, UI, type Lang } from "@/utils/i18n-first-aid";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { requireOptionalNativeModule } from "expo";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -33,13 +34,23 @@ export default function ChatbotPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
-  const { showConfirm } = useModal();
+  const { showAlert, showConfirm } = useModal();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const speechModuleRef = useRef<any>(
+    requireOptionalNativeModule("ExpoSpeechRecognition"),
+  );
+  const speechModule = speechModuleRef.current;
+  const [isListening, setIsListening] = useState(false);
+  const [speechAvailable, setSpeechAvailable] = useState(
+    Platform.OS !== "web" && Boolean(speechModule),
+  );
+  const [voiceDraft, setVoiceDraft] = useState("");
   const [typingAnim] = useState(new Animated.Value(0));
   const [lang, setLang] = useState<Lang>("en");
   const flatListRef = useRef<FlatList>(null);
+  const voiceBaseRef = useRef("");
 
   // Load chatbot history for user
   useEffect(() => {
@@ -78,18 +89,156 @@ export default function ChatbotPage() {
     }
   }, [isTyping, typingAnim]);
 
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      setSpeechAvailable(false);
+      return;
+    }
+    try {
+      if (!speechModule) {
+        setSpeechAvailable(false);
+        return;
+      }
+      setSpeechAvailable(speechModule.isRecognitionAvailable());
+    } catch {
+      setSpeechAvailable(false);
+    }
+  }, [speechModule]);
+
+  useEffect(() => {
+    if (!speechModule?.addListener) return;
+
+    const startSub = speechModule.addListener("start", () => {
+      setIsListening(true);
+      setVoiceDraft("");
+    });
+
+    const resultSub = speechModule.addListener("result", (event: any) => {
+      const transcript = event?.results?.[0]?.transcript?.trim();
+      if (!transcript) return;
+      setVoiceDraft(transcript);
+
+      const base = voiceBaseRef.current;
+      const merged = base ? `${base} ${transcript}` : transcript;
+      setInputText(merged.slice(0, 500));
+    });
+
+    const endSub = speechModule.addListener("end", () => {
+      setIsListening(false);
+      setVoiceDraft("");
+    });
+
+    const errorSub = speechModule.addListener("error", (event: any) => {
+      setIsListening(false);
+      setVoiceDraft("");
+      const msg =
+        event?.message || "Voice recognition failed on this device.";
+      showAlert("Voice input", msg);
+    });
+
+    return () => {
+      startSub?.remove?.();
+      resultSub?.remove?.();
+      endSub?.remove?.();
+      errorSub?.remove?.();
+    };
+  }, [showAlert, speechModule]);
+
+  useEffect(
+    () => () => {
+      try {
+        speechModule?.abort?.();
+      } catch {
+        // No-op: recognition may already be stopped.
+      }
+    },
+    [speechModule],
+  );
+
+  const startVoiceInput = async () => {
+    if (lang !== "en") {
+      showAlert(
+        "English voice only",
+        "Voice recording is available in English only for now. Switch to EN to record.",
+      );
+      return;
+    }
+    if (Platform.OS === "web") {
+      showAlert(
+        "Voice input",
+        "Voice recording is currently available on Android and iOS only.",
+      );
+      return;
+    }
+    if (!speechModule) {
+      showAlert(
+        "Voice input unavailable",
+        "Voice recording needs a development build (not Expo Go). You can still type your message.",
+      );
+      return;
+    }
+    if (!speechAvailable) {
+      showAlert(
+        "Voice input",
+        "Speech recognition is not available on this device.",
+      );
+      return;
+    }
+
+    try {
+      const perms = await speechModule.requestPermissionsAsync();
+      if (!perms.granted) {
+        showAlert(
+          "Permission needed",
+          "Please allow microphone/speech permissions to use voice input.",
+        );
+        return;
+      }
+
+      voiceBaseRef.current = inputText.trim();
+      setVoiceDraft("");
+
+      speechModule.start({
+        lang: "en-US",
+        interimResults: true,
+        continuous: false,
+        maxAlternatives: 1,
+        addsPunctuation: true,
+      });
+    } catch (error) {
+      console.error("startVoiceInput error:", error);
+      showAlert(
+        "Voice input",
+        "Couldn't start voice recording. You can still type your message.",
+      );
+    }
+  };
+
+  const stopVoiceInput = () => {
+    try {
+      speechModule?.stop?.();
+    } catch (error) {
+      console.error("stopVoiceInput error:", error);
+    }
+  };
+
   const sendMessage = async () => {
-    const trimmed = inputText.trim();
-    if (!trimmed || isTyping || !user?.id) return;
-    setMessages((prev) => [...prev, { role: "user", text: trimmed }]);
+    const trimmed = inputText.replace(/\s+/g, " ").trim();
+    if (!trimmed || isTyping || isListening) return;
+
+    const userMsg: Message = { role: "user", text: trimmed };
+    const historyForReply = [...messages, userMsg];
+    setMessages((prev) => [...prev, userMsg]);
     setInputText("");
     setIsTyping(true);
     const typingStartedAt = Date.now();
 
     try {
-      await addChatbotMessage(user.id, "user", trimmed);
+      if (user?.id) {
+        await addChatbotMessage(user.id, "user", trimmed);
+      }
 
-      const aiReply = await getFirstAidAiResponse(trimmed, messages, lang);
+      const aiReply = await getFirstAidAiResponse(trimmed, historyForReply, lang);
       const botMsg = aiReply ?? {
         role: "bot" as const,
         text: "Sorry, I couldn't reach the AI service right now. Please check your connection and try again.",
@@ -103,7 +252,9 @@ export default function ChatbotPage() {
       }
 
       setMessages((prev) => [...prev, { role: "bot", text: botMsg.text }]);
-      await addChatbotMessage(user.id, "bot", botMsg.text);
+      if (user?.id) {
+        await addChatbotMessage(user.id, "bot", botMsg.text);
+      }
     } finally {
       setIsTyping(false);
     }
@@ -124,6 +275,9 @@ export default function ChatbotPage() {
   const handleSubmit = () => {
     void sendMessage();
   };
+
+  const normalizedInput = inputText.replace(/\s+/g, " ").trim();
+  const canSend = Boolean(normalizedInput) && !isTyping && !isListening;
 
   return (
     <KeyboardAvoidingView
@@ -270,19 +424,58 @@ export default function ChatbotPage() {
                 multiline={false}
                 maxLength={500}
                 blurOnSubmit={false}
+                editable={!isTyping && !isListening}
               />
               <Pressable
+                onPress={() => {
+                  if (isListening) {
+                    stopVoiceInput();
+                  } else {
+                    void startVoiceInput();
+                  }
+                }}
+                disabled={isTyping}
+                style={({ pressed }) => [
+                  styles.voiceBtn,
+                  isListening
+                    ? { backgroundColor: "#DC2626" }
+                    : lang === "en" && speechAvailable
+                      ? { backgroundColor: "#1E293B" }
+                      : { backgroundColor: "#334155", opacity: 0.7 },
+                  pressed ? { opacity: 0.8 } : null,
+                ]}
+                accessibilityLabel={
+                  isListening ? "Stop voice recording" : "Start voice recording"
+                }
+              >
+                <MaterialIcons
+                  name={isListening ? "stop-circle" : "keyboard-voice"}
+                  size={20}
+                  color="#FFFFFF"
+                />
+              </Pressable>
+              <Pressable
                 onPress={handleSubmit}
-                disabled={!inputText.trim() || isTyping}
-                style={styles.sendBtn}
+                disabled={!canSend}
+                style={[
+                  styles.sendBtn,
+                  canSend ? styles.sendBtnActive : styles.sendBtnDisabled,
+                ]}
               >
                 <MaterialIcons
                   name="send"
                   size={20}
-                  color={inputText.trim() && !isTyping ? "#FFFFFF" : "#aaa"}
+                  color={canSend ? "#FFFFFF" : "#9CA3AF"}
                 />
               </Pressable>
             </View>
+            {isListening ? (
+              <Text style={styles.voiceStatus}>Listening in English... tap mic again to stop.</Text>
+            ) : voiceDraft ? (
+              <Text style={styles.voiceStatus}>Transcribed: {voiceDraft}</Text>
+            ) : lang !== "en" ? (
+              <Text style={styles.voiceHint}>Voice input currently supports English only.</Text>
+            ) : null}
           </View>
         </View>
       </View>
@@ -487,5 +680,34 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
+  },
+  sendBtnActive: {
+    backgroundColor: "#2563EB",
+  },
+  sendBtnDisabled: {
+    backgroundColor: "#334155",
+  },
+  voiceBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#475569",
+  },
+  voiceStatus: {
+    color: "#BFDBFE",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  voiceHint: {
+    color: "#94A3B8",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 8,
+    textAlign: "center",
   },
 });
