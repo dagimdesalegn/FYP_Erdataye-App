@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        # Single .env file in the workspace root (one level up from backend/)
-        env_file="../.env",
+        # Local dev: reads ../.env; Render/production: reads OS env vars
+        env_file=("../.env", ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
