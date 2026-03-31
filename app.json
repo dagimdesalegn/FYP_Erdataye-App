@@ -36,7 +36,7 @@
       "supportsTablet": true
     },
     "name": "እርዳታዬ Erdataye",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
       "expo-router",
