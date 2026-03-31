@@ -1,6 +1,6 @@
+import { backendPost } from "./api";
 import type { BotMessage, Message } from "./first-aid-chatbot";
 import type { Lang } from "./i18n-first-aid";
-import { backendPost } from "./api";
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

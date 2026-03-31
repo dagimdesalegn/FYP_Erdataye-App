@@ -131,8 +131,7 @@ export default function ChatbotPage() {
     const errorSub = speechModule.addListener("error", (event: any) => {
       setIsListening(false);
       setVoiceDraft("");
-      const msg =
-        event?.message || "Voice recognition failed on this device.";
+      const msg = event?.message || "Voice recognition failed on this device.";
       showAlert("Voice input", msg);
     });
 
@@ -238,7 +237,11 @@ export default function ChatbotPage() {
         await addChatbotMessage(user.id, "user", trimmed);
       }
 
-      const aiReply = await getFirstAidAiResponse(trimmed, historyForReply, lang);
+      const aiReply = await getFirstAidAiResponse(
+        trimmed,
+        historyForReply,
+        lang,
+      );
       const botMsg = aiReply ?? {
         role: "bot" as const,
         text: "Sorry, I couldn't reach the AI service right now. Please check your connection and try again.",
@@ -470,11 +473,15 @@ export default function ChatbotPage() {
               </Pressable>
             </View>
             {isListening ? (
-              <Text style={styles.voiceStatus}>Listening in English... tap mic again to stop.</Text>
+              <Text style={styles.voiceStatus}>
+                Listening in English... tap mic again to stop.
+              </Text>
             ) : voiceDraft ? (
               <Text style={styles.voiceStatus}>Transcribed: {voiceDraft}</Text>
             ) : lang !== "en" ? (
-              <Text style={styles.voiceHint}>Voice input currently supports English only.</Text>
+              <Text style={styles.voiceHint}>
+                Voice input currently supports English only.
+              </Text>
             ) : null}
           </View>
         </View>
