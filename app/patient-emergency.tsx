@@ -338,12 +338,7 @@ export default function PatientEmergencyScreen() {
       const status = updated?.status;
       setActiveEmergencyStatus(status ?? null);
       if (status === "en_route" || status === "assigned") {
-        // Ambulance accepted -> show notification and go to tracking
-        const msg =
-          status === "en_route"
-            ? "An ambulance is now on its way to your location!"
-            : "An ambulance has been assigned to your emergency.";
-        showAlert("Ambulance Update", msg);
+        // Ambulance accepted -> auto-navigate to tracking (no popup)
         router.push(
           `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
         );

@@ -92,6 +92,7 @@ export default function DriverHomeScreen() {
       const { ambulance } = await getDriverAmbulanceDetails(user.id);
       if (ambulance) {
         setAmbulanceDetails(ambulance);
+        setIsAvailable(Boolean(ambulance.is_available));
 
         if (!ambulance.hospital_id && id) {
           try {
@@ -105,7 +106,10 @@ export default function DriverHomeScreen() {
                 longitude: current.coords.longitude,
               });
               const { ambulance: refreshed } = await getDriverAmbulanceDetails(user.id);
-              if (refreshed) setAmbulanceDetails(refreshed);
+              if (refreshed) {
+                setAmbulanceDetails(refreshed);
+                setIsAvailable(Boolean(refreshed.is_available));
+              }
             }
           } catch (linkErr) {
             console.warn("Ambulance-hospital auto-link failed:", linkErr);
@@ -203,7 +207,7 @@ export default function DriverHomeScreen() {
       if (verified) {
         setHasAssignment(true);
         setAssignmentCount(1);
-        showAlert("New Emergency", "You have a new emergency assignment");
+        // Removed popup for new emergency assignment
       }
     });
 
@@ -247,7 +251,6 @@ export default function DriverHomeScreen() {
             "Location Tracking Disabled",
             "Enable location access in your device settings to track ambulance location.",
           );
-          setIsAvailable(false);
           return;
         }
 

@@ -198,6 +198,7 @@ async def _create_user_with_profile(
     phone: str,
     role: Literal["patient", "ambulance", "driver", "admin", "hospital"],
     hospital_id: str | None = None,
+    national_id: str | None = None,
     persist_profile: bool = True,
 ) -> RegisterResponse:
     canonical_role = "ambulance" if role == "driver" else role
@@ -243,6 +244,8 @@ async def _create_user_with_profile(
         }
         if hospital_id:
             profile_payload["hospital_id"] = hospital_id
+        if national_id:
+            profile_payload["national_id"] = national_id
 
         await db_upsert("profiles", profile_payload, on_conflict="id")
     else:
@@ -396,6 +399,7 @@ async def register(req: RegisterRequest) -> RegisterResponse:
         phone=req.phone,
         role=req.role,
         hospital_id=resolved_hospital_id,
+        national_id=req.national_id,
     )
 
 
