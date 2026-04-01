@@ -40,7 +40,7 @@ function buildLeafletHtml(
 </head><body><div id="map"></div>
 <script>
 var map=L.map('map',{zoomControl:false,attributionControl:false}).setView([${center[0]},${center[1]}],${zoom});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',{maxZoom:20}).addTo(map);
 L.control.attribution({prefix:false}).addTo(map);
 var MK={};var RL=null;
 function svg(c){return '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="38" viewBox="0 0 26 38"><path d="M13 0C5.8 0 0 5.8 0 13c0 9.8 13 25 13 25s13-15.2 13-25C26 5.8 20.2 0 13 0z" fill="'+c+'" stroke="#fff" stroke-width="1.5"/><circle cx="13" cy="13" r="5" fill="#fff"/></svg>';}

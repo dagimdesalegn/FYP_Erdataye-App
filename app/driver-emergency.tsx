@@ -151,41 +151,47 @@ export default function DriverEmergencyScreen() {
         }
 
         setAssignment(asgn);
+        // Show UI immediately — load details in parallel without blocking
+        if (!options?.silent) setLoading(false);
 
-        // Load patient info (backend returns medical_profiles via service-role)
         const pid = asgn.emergency_requests?.patient_id || "";
+        const detailPromises: Promise<void>[] = [];
+
+        // Load patient info in parallel
         if (pid) {
-          const { info } = await getPatientInfo(
-            pid,
-            asgn.emergency_id || asgn.emergency_requests?.id,
+          detailPromises.push(
+            getPatientInfo(pid, asgn.emergency_id || asgn.emergency_requests?.id)
+              .then(({ info }) => { if (info) setPatientInfo(info); })
+              .catch(() => {}),
           );
-          if (info) {
-            setPatientInfo(info);
-          }
         }
 
-        // Load driver's ambulance location from DB as initial fallback
-        // (live GPS will override this once it gets a fix)
+        // Load driver's ambulance location fallback in parallel
         if (!liveLocationRef.current) {
-          const { ambulanceId } = await getDriverAmbulanceId(user.id);
-          if (ambulanceId) {
-            const { data } = await supabase
-              .from("ambulances")
-              .select("last_known_location")
-              .eq("id", ambulanceId)
-              .maybeSingle();
-            if (data?.last_known_location) {
-              const parsed = parsePostGISPoint(data.last_known_location);
-              if (parsed) setDriverCoords(parsed);
-            }
-          }
+          detailPromises.push(
+            getDriverAmbulanceId(user.id)
+              .then(async ({ ambulanceId }) => {
+                if (!ambulanceId) return;
+                const { data } = await supabase
+                  .from("ambulances")
+                  .select("last_known_location")
+                  .eq("id", ambulanceId)
+                  .maybeSingle();
+                if (data?.last_known_location) {
+                  const parsed = parsePostGISPoint(data.last_known_location);
+                  if (parsed) setDriverCoords(parsed);
+                }
+              })
+              .catch(() => {}),
+          );
         }
+
+        await Promise.all(detailPromises);
       } catch (err) {
         console.error("Error loading assignment:", err);
       } finally {
-        if (!options?.silent) {
-          setLoading(false);
-        }
+        // loading already cleared after assignment fetch above
+        if (!options?.silent) setLoading(false);
       }
     },
     [router, user, showAlert],
@@ -475,7 +481,7 @@ export default function DriverEmergencyScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && (
+        {mapMarkers.length > 0 && (
           <View
             style={[
               styles.mapCard,
