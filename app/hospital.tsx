@@ -16,9 +16,10 @@ import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Animated,
     FlatList,
     Modal,
     Platform,
@@ -125,6 +126,47 @@ export default function HospitalDashboard() {
   const inputBorder = colors.border;
   const subText = colors.textMuted;
 
+  /* ─── Notification banner ───────────────────────────────────── */
+  const [notification, setNotification] = useState<{
+    message: string;
+    color: string;
+  } | null>(null);
+  const notifOpacity = useRef(new Animated.Value(0)).current;
+  const prevStatusMap = useRef<Record<string, string>>({});
+
+  const showNotification = useCallback(
+    (message: string, color: string) => {
+      setNotification({ message, color });
+      notifOpacity.setValue(0);
+      Animated.sequence([
+        Animated.timing(notifOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.delay(4000),
+        Animated.timing(notifOpacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setNotification(null));
+    },
+    [notifOpacity],
+  );
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: "New Emergency Request",
+    assigned: "Ambulance Assigned",
+    en_route: "Ambulance En Route",
+    at_scene: "Ambulance At Scene",
+    arrived: "Ambulance Arrived at Patient",
+    transporting: "Patient Being Transported",
+    at_hospital: "Patient Arriving at Hospital",
+    completed: "Emergency Completed",
+    cancelled: "Emergency Cancelled",
+  };
+
   /* ─── Data fetching ─────────────────────────────────────────── */
 
   const fetchEmergencies = useCallback(async () => {
@@ -141,17 +183,20 @@ export default function HospitalDashboard() {
       }
 
       const data = emergencyResult.value;
-      setEmergencies(
-        data.map(
-          (e) =>
-            ({
-              ...normalizeEmergency(e),
-              patient_profile: e.patient_profile,
-              patient_medical: e.patient_medical,
-              national_id: (e as any).national_id ?? null,
-            }) as EmergencyWithPatient,
-        ),
+      const mapped = data.map(
+        (e) =>
+          ({
+            ...normalizeEmergency(e),
+            patient_profile: e.patient_profile,
+            patient_medical: e.patient_medical,
+            national_id: (e as any).national_id ?? null,
+          }) as EmergencyWithPatient,
       );
+      setEmergencies(mapped);
+      // Track statuses for notification diffing
+      const newMap: Record<string, string> = {};
+      for (const e of mapped) newMap[e.id] = e.status;
+      prevStatusMap.current = newMap;
 
       if (fleetResult.status === "fulfilled") {
         setFleet(fleetResult.value);
@@ -236,7 +281,30 @@ export default function HospitalDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
-        () => fetchEmergencies(),
+        (payload: any) => {
+          // Show notification for status updates (before re-fetch overwrites prevStatusMap)
+          if (payload.eventType === "UPDATE" && payload.new) {
+            const emergencyId = payload.new.id;
+            const newStatus = payload.new.status;
+            const oldStatus = prevStatusMap.current[emergencyId];
+            if (oldStatus && oldStatus !== newStatus) {
+              const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
+              const label = STATUS_LABELS[newStatus] || newStatus.replace(/_/g, " ");
+              const color = STATUS_COLORS[newStatus] || "#3B82F6";
+              showNotification(
+                `${label} — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
+                color,
+              );
+            }
+          } else if (payload.eventType === "INSERT" && payload.new) {
+            const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
+            showNotification(
+              `New Emergency — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
+              "#F59E0B",
+            );
+          }
+          fetchEmergencies();
+        },
       )
       .on(
         "postgres_changes",
@@ -570,6 +638,19 @@ export default function HospitalDashboard() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
+      {/* ─── Status notification banner ─── */}
+      {notification && (
+        <Animated.View
+          style={[
+            styles.notifBanner,
+            { backgroundColor: notification.color, opacity: notifOpacity },
+          ]}
+        >
+          <MaterialIcons name="notifications-active" size={20} color="#fff" />
+          <ThemedText style={styles.notifText}>{notification.message}</ThemedText>
+        </Animated.View>
+      )}
+
       <AppHeader
         title={hospitalName}
         onProfilePress={() => setProfileVisible(true)}
@@ -1387,6 +1468,31 @@ const infoStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   bg: { flex: 1 },
+  notifBanner: {
+    position: "absolute",
+    top: Platform.OS === "web" ? 60 : 100,
+    left: 16,
+    right: 16,
+    zIndex: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  notifText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    flex: 1,
+  },
   scrollOuter: { flex: 1 },
   scrollContent: { paddingTop: 16, paddingBottom: 60 },
   container: {

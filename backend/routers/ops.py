@@ -1349,6 +1349,7 @@ async def hospital_emergencies(
                 updated_at=str(raw.get("updated_at") or ""),
                 patient_profile=profiles_by_id.get(pid),
                 patient_medical=medical_by_id.get(pid),
+                national_id=raw.get("national_id"),
             )
         )
 
