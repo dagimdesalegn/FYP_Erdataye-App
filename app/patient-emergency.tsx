@@ -360,7 +360,7 @@ export default function PatientEmergencyScreen() {
         const prettyStatus = String(status || "pending")
           .replaceAll("_", " ")
           .replace(/\b\w/g, (c) => c.toUpperCase());
-        showAlert("Live Status Update", `Emergency status: ${prettyStatus}`);
+        setActiveEmergencyStatus(status);
       }
     });
     return unsub;

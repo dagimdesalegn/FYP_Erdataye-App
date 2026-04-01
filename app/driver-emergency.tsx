@@ -68,7 +68,8 @@ export default function DriverEmergencyScreen() {
   const [assignment, setAssignment] = useState<any>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [driverCoords, setDriverCoords] = useState<{
     latitude: number;
@@ -217,7 +218,7 @@ export default function DriverEmergencyScreen() {
   const handleAccept = async () => {
     if (!assignment || !user) return;
     try {
-      setProcessing(true);
+      setAccepting(true);
       const { error } = await acceptEmergency(
         assignment.id,
         assignment.emergency_id,
@@ -234,7 +235,7 @@ export default function DriverEmergencyScreen() {
     } catch (err) {
       console.error(err);
     } finally {
-      setProcessing(false);
+      setAccepting(false);
     }
   };
 
@@ -243,7 +244,7 @@ export default function DriverEmergencyScreen() {
 
     const doDecline = async () => {
       try {
-        setProcessing(true);
+        setDeclining(true);
         const { error } = await declineEmergency(
           assignment.id,
           assignment.emergency_id,
@@ -257,7 +258,7 @@ export default function DriverEmergencyScreen() {
       } catch (err) {
         console.error(err);
       } finally {
-        setProcessing(false);
+        setDeclining(false);
       }
     };
 
@@ -777,14 +778,14 @@ export default function DriverEmergencyScreen() {
         <View style={styles.buttonRow}>
           <Pressable
             onPress={handleDecline}
-            disabled={processing}
+            disabled={accepting || declining}
             style={({ pressed }) => [
               styles.declineBtn,
               pressed && { opacity: 0.85 },
-              processing && { opacity: 0.6 },
+              declining && { opacity: 0.6 },
             ]}
           >
-            {processing ? (
+            {declining ? (
               <ActivityIndicator size="small" color="#DC2626" />
             ) : (
               <>
@@ -796,11 +797,11 @@ export default function DriverEmergencyScreen() {
 
           <Pressable
             onPress={handleAccept}
-            disabled={processing}
+            disabled={accepting || declining}
             style={({ pressed }) => [
               styles.acceptWrapper,
               pressed && { opacity: 0.95 },
-              processing && { opacity: 0.6 },
+              accepting && { opacity: 0.6 },
             ]}
           >
             <LinearGradient
@@ -809,7 +810,7 @@ export default function DriverEmergencyScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.acceptGradient}
             >
-              {processing ? (
+              {accepting ? (
                 <ActivityIndicator size="small" color="#FFF" />
               ) : (
                 <>
