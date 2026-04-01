@@ -6,7 +6,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
     useCallback,
     useEffect,
-    useMemo,
     useRef,
     useState
 } from "react";
@@ -754,7 +753,7 @@ export default function PatientEmergencyTrackingScreen() {
   );
 
   // Build Google Maps embed URL
-  const mapHtml = useMemo(() => {
+  const mapHtml = (() => {
     if (isTransportPhase && mapAmbulanceCoords && hospitalCoords) {
       return buildDriverPatientMapHtml(
         mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
@@ -770,12 +769,7 @@ export default function PatientEmergencyTrackingScreen() {
     if (mapPatientCoords) return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude);
     if (mapAmbulanceCoords) return buildMapHtml(mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude);
     return "";
-  }, [
-    mapAmbulanceCoords?.latitude, mapAmbulanceCoords?.longitude,
-    mapPatientCoords?.latitude, mapPatientCoords?.longitude,
-    hospitalCoords?.latitude, hospitalCoords?.longitude,
-    isTransportPhase,
-  ]);
+  })();
 
   const openDetailedRoute = async () => {
     try {
