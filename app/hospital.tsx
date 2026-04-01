@@ -37,6 +37,7 @@ interface EmergencyWithPatient extends EmergencyRequest {
   patient_profile?: UserProfile;
   patient_medical?: MedicalProfile;
   national_id?: string | null;
+  ambulance_vehicle?: string | null;
 }
 
 interface HospitalFleetResponse {
@@ -190,6 +191,7 @@ export default function HospitalDashboard() {
             patient_profile: e.patient_profile,
             patient_medical: e.patient_medical,
             national_id: (e as any).national_id ?? null,
+            ambulance_vehicle: (e as any).ambulance_vehicle ?? null,
           }) as EmergencyWithPatient,
       );
       setEmergencies(mapped);
@@ -959,6 +961,12 @@ export default function HospitalDashboard() {
                     <InfoRow
                       label="Created"
                       value={formatDateTime(selectedEmergency.created_at)}
+                      c={colors.text}
+                      s={subText}
+                    />
+                    <InfoRow
+                      label="Ambulance"
+                      value={selectedEmergency.ambulance_vehicle}
                       c={colors.text}
                       s={subText}
                     />

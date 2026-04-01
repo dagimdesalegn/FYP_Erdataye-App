@@ -28,6 +28,7 @@ class ProfileResponse(BaseModel):
     phone: Optional[str] = None
     role: str
     hospital_id: Optional[str] = None
+    national_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 

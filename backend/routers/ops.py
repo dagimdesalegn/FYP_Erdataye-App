@@ -292,6 +292,7 @@ class HospitalEmergency(BaseModel):
     patient_profile: dict | None = None
     patient_medical: dict | None = None
     national_id: str | None = None
+    ambulance_vehicle: str | None = None
 
 
 class HospitalFleetResponse(BaseModel):
@@ -1313,7 +1314,7 @@ async def hospital_emergencies(
         ids_csv = ",".join(patient_ids)
         profile_rows, _ = await db_query(
             "profiles",
-            columns="id,full_name,phone",
+            columns="id,full_name,phone,national_id",
             params={"id": f"in.({ids_csv})"},
         )
         for p in (profile_rows or []):
@@ -1330,10 +1331,27 @@ async def hospital_emergencies(
             if not existing or (m.get("updated_at") or "") > (existing.get("updated_at") or ""):
                 medical_by_id[uid] = m
 
+    # Batch-load assigned ambulance vehicles
+    ambulance_ids = list({str(raw.get("assigned_ambulance_id") or "") for raw in emergencies if raw.get("assigned_ambulance_id")})
+    vehicles_by_amb: dict[str, str] = {}
+    if ambulance_ids:
+        amb_csv = ",".join(ambulance_ids)
+        amb_rows, _ = await db_query(
+            "ambulances",
+            columns="id,vehicle_number,registration_number",
+            params={"id": f"in.({amb_csv})"},
+        )
+        for a in (amb_rows or []):
+            aid = str(a.get("id") or "")
+            vehicles_by_amb[aid] = str(a.get("vehicle_number") or a.get("registration_number") or "")
+
     results: list[HospitalEmergency] = []
     for raw in emergencies:
         coords = _parse_point_wkt(raw.get("patient_location"))
         pid = str(raw.get("patient_id") or "")
+        amb_id = str(raw.get("assigned_ambulance_id") or "")
+        # national_id: prefer emergency_requests row, fallback to profile
+        nid = raw.get("national_id") or (profiles_by_id.get(pid) or {}).get("national_id")
 
         results.append(
             HospitalEmergency(
@@ -1349,7 +1367,8 @@ async def hospital_emergencies(
                 updated_at=str(raw.get("updated_at") or ""),
                 patient_profile=profiles_by_id.get(pid),
                 patient_medical=medical_by_id.get(pid),
-                national_id=raw.get("national_id"),
+                national_id=nid,
+                ambulance_vehicle=vehicles_by_amb.get(amb_id) or None,
             )
         )
 
