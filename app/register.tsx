@@ -35,6 +35,7 @@ import {
 } from "@/utils/driver";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CARD_MAX_W = 420;
 type AppRegistrationRole = "patient" | "ambulance";
@@ -44,6 +45,7 @@ export default function RegisterScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { setRegistered, setUser } = useAppState();
   const { showError, showAlert } = useModal();
   const [loading, setLoading] = useState(false);
@@ -428,12 +430,19 @@ export default function RegisterScreen() {
   const placeholderColor = isDark ? "#64748B" : "#94A3B8";
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }]}>
+    <View style={[styles.root, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar
         barStyle={isDark ? "light-content" : "dark-content"}
         translucent
         backgroundColor="transparent"
       />
+      {/* Back button */}
+      <Pressable
+        onPress={() => router.back()}
+        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+      >
+        <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
+      </Pressable>
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -1230,6 +1239,14 @@ const styles = StyleSheet.create({
     ...(Platform.OS === "web"
       ? { minHeight: "100vh" as any, overflow: "auto" as any }
       : {}),
+  },
+  backBtn: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 20,
   },
   flex: {
     flex: 1,

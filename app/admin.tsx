@@ -3,6 +3,7 @@ import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { signOut } from "@/utils/auth";
@@ -75,6 +76,7 @@ const STATUS_COLORS: Record<string, string> = {
 /* ─── Component ───────────────────────────────────────────────── */
 
 export default function AdminScreen() {
+  const authLoading = useAuthGuard(["admin"]);
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";

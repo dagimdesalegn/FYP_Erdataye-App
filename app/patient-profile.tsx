@@ -19,6 +19,7 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { updateAuthLoginPhone } from "@/utils/auth";
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/utils/profile";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PatientProfileForm {
   fullName: string;
@@ -73,10 +75,12 @@ const parseAllergiesToString = (raw: unknown): string => {
 };
 
 export default function PatientProfileScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { user, setUser } = useAppState();
   const { showError } = useModal();
   const [loading, setLoading] = useState(true);
@@ -292,7 +296,7 @@ export default function PatientProfileScreen() {
   const textSecondary = colors.textMuted;
 
   return (
-    <View style={[styles.bg, { backgroundColor: bg }]}>
+    <View style={[styles.bg, { backgroundColor: bg, paddingBottom: insets.bottom }]}>
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}

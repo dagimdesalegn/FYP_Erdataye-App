@@ -6,6 +6,7 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { buildMapHtml } from "@/utils/emergency";
@@ -16,6 +17,7 @@ import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
+    ActivityIndicator,
     AppState,
     Linking,
     Platform,
@@ -26,6 +28,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HelpScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const insets = useSafeAreaInsets();
@@ -55,25 +58,30 @@ export default function HelpScreen() {
   const [profileName, setProfileName] = React.useState<string>(
     user?.fullName || "",
   );
+  const [dataLoading, setDataLoading] = React.useState(true);
 
   // Load profile name from DB
   React.useEffect(() => {
     let cancelled = false;
     const loadProfile = async () => {
-      if (!user?.id) return;
-      const { profile } = await getUserProfile(user.id);
-      if (!cancelled && profile) {
-        setProfileName(profile.full_name || "");
-        if (
-          profile.full_name !== user.fullName ||
-          profile.phone !== user.phone
-        ) {
-          setUser({
-            ...user,
-            fullName: profile.full_name || user.fullName,
-            phone: profile.phone || user.phone,
-          });
+      if (!user?.id) { setDataLoading(false); return; }
+      try {
+        const { profile } = await getUserProfile(user.id);
+        if (!cancelled && profile) {
+          setProfileName(profile.full_name || "");
+          if (
+            profile.full_name !== user.fullName ||
+            profile.phone !== user.phone
+          ) {
+            setUser({
+              ...user,
+              fullName: profile.full_name || user.fullName,
+              phone: profile.phone || user.phone,
+            });
+          }
         }
+      } catch { /* handled */ } finally {
+        if (!cancelled) setDataLoading(false);
       }
     };
     void loadProfile();
@@ -90,11 +98,13 @@ export default function HelpScreen() {
         if (!cancelled) setActiveEmergencyId(null);
         return;
       }
-      const { emergency } = await getActiveEmergency(user.id);
-      if (!cancelled) {
-        setActiveEmergency(emergency ?? null);
-        setActiveEmergencyId(emergency?.id ?? null);
-      }
+      try {
+        const { emergency } = await getActiveEmergency(user.id);
+        if (!cancelled) {
+          setActiveEmergency(emergency ?? null);
+          setActiveEmergencyId(emergency?.id ?? null);
+        }
+      } catch { /* handled */ }
     };
     void loadActiveEmergency();
     return () => {
@@ -273,6 +283,14 @@ export default function HelpScreen() {
       router.replace("/");
     }
   };
+
+  if (authLoading || dataLoading) {
+    return (
+      <View style={[styles.bg, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>

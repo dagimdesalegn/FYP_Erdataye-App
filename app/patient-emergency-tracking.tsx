@@ -25,6 +25,7 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     buildDriverPatientMapHtml,
@@ -95,6 +96,7 @@ const STATUS_NOTIFICATIONS: Record<
 };
 
 export default function PatientEmergencyTrackingScreen() {
+  const authLoading = useAuthGuard();
   const distanceMeters = (
     lat1: number,
     lon1: number,

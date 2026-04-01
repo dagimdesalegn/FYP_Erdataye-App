@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendGet } from "@/utils/api";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -25,6 +26,7 @@ type HospitalDetailsResponse = {
 };
 
 export default function AdminHospitalDetailsScreen() {
+  const authLoading = useAuthGuard(["admin"]);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const colorScheme = useColorScheme();

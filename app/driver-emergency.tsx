@@ -20,6 +20,7 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     acceptEmergency,
@@ -53,6 +54,7 @@ interface PatientInfo {
 }
 
 export default function DriverEmergencyScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";

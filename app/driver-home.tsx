@@ -18,6 +18,7 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { calculateDistance } from "@/utils/emergency";
@@ -37,15 +38,18 @@ import {
 } from "@/utils/driver";
 import { getUserProfile, type UserProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Driver Home Screen - Status & Incoming Assignments
  */
 export default function DriverHomeScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { user, setUser } = useAppState();
   const { showAlert, showError, showConfirm } = useModal();
 
@@ -70,6 +74,7 @@ export default function DriverHomeScreen() {
     useState<AmbulanceDetails | null>(null);
   const [activeCount, setActiveCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
@@ -131,7 +136,7 @@ export default function DriverHomeScreen() {
       }
     };
 
-    loadAmbulance();
+    loadAmbulance().finally(() => setInitialLoading(false));
 
     // Push current GPS to ambulance row on screen load so the DB always has
     // a reasonably fresh location even before the driver toggles Available.
@@ -396,8 +401,16 @@ export default function DriverHomeScreen() {
     </View>
   );
 
+  if (authLoading || initialLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingBottom: insets.bottom }]}>
       {/* App Header with project name top-left, theme toggle + profile icon top-right */}
       <AppHeader title="እርዳታዬ" onProfilePress={handleProfilePress} />
 

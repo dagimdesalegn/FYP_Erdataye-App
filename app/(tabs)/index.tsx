@@ -16,12 +16,14 @@ import {
     StyleSheet,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
   useAppState();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "dark"];
+  const insets = useSafeAreaInsets();
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -75,7 +77,7 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[styles.root, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar
         barStyle="light-content"
         translucent

@@ -19,6 +19,7 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     buildMapHtml,
@@ -41,6 +42,7 @@ import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function PatientEmergencyScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const params = useLocalSearchParams<{
     forOther?: string;

@@ -1,6 +1,7 @@
 import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
+import { Colors } from "@/constants/theme";
 import {
     addChatbotMessage,
     deleteChatbotMessages,
@@ -27,12 +28,16 @@ import {
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 const MIN_TYPING_MS = 1200;
 
 export default function ChatbotPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? "light"];
+  const isDark = colorScheme === "dark";
   const { user } = useAppState();
   const { showAlert, showConfirm } = useModal();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -284,12 +289,12 @@ export default function ChatbotPage() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 18}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#111827" />
-      <View style={styles.fullBg} />
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={colors.background} />
+      <View style={[styles.fullBg, { backgroundColor: colors.background }]} />
       <View
         style={[
           styles.safeFrame,
@@ -299,9 +304,9 @@ export default function ChatbotPage() {
           },
         ]}
       >
-        <View style={styles.centeredBox}>
+        <View style={[styles.centeredBox, { backgroundColor: colors.surface, borderColor: colors.border, shadowColor: colors.background }]}>
           <View style={styles.topBar}>
-            <ThemedText style={styles.topBarTitle}>Chatbot</ThemedText>
+            <ThemedText style={[styles.topBarTitle, { color: colors.primary }]}>Chatbot</ThemedText>
             <View style={styles.topBarRightContainer}>
               <View style={styles.topBarRightRow}>
                 <View style={styles.langRow}>
@@ -313,14 +318,16 @@ export default function ChatbotPage() {
                         onPress={() => setLang(code)}
                         style={({ pressed }) => [
                           styles.langBtn,
-                          active ? styles.langBtnActive : null,
+                          { borderColor: colors.borderStrong, backgroundColor: colors.surfaceAlt },
+                          active ? { borderColor: colors.primary, backgroundColor: colors.primarySoft } : null,
                           pressed ? { opacity: 0.8 } : null,
                         ]}
                       >
                         <Text
                           style={[
                             styles.langText,
-                            active ? styles.langTextActive : null,
+                            { color: colors.textMuted },
+                            active ? { color: colors.text } : null,
                           ]}
                         >
                           {LANG_LABELS[code]}
@@ -333,15 +340,16 @@ export default function ChatbotPage() {
                   onPress={handleDeleteHistory}
                   style={({ pressed }) => [
                     styles.clearBtn,
+                    { borderColor: colors.danger, backgroundColor: isDark ? "#3F1212" : colors.primarySoft },
                     pressed ? { opacity: 0.75 } : null,
                   ]}
                 >
                   <MaterialIcons
                     name="delete-outline"
                     size={18}
-                    color="#FCA5A5"
+                    color={colors.danger}
                   />
-                  <Text style={styles.clearBtnText}>Clear</Text>
+                  <Text style={[styles.clearBtnText, { color: colors.danger }]}>Clear</Text>
                 </Pressable>
               </View>
               <Pressable
@@ -352,11 +360,11 @@ export default function ChatbotPage() {
                 ]}
                 accessibilityLabel="Close chatbot"
               >
-                <MaterialIcons name="close" size={22} color="#FCA5A5" />
+                <MaterialIcons name="close" size={22} color={colors.danger} />
               </Pressable>
             </View>
           </View>
-          <ThemedText style={styles.welcomeMsg}>
+          <ThemedText style={[styles.welcomeMsg, { color: colors.textMuted }]}>
             {UI[lang].welcomeMessage}
           </ThemedText>
           <View style={{ flex: 1 }}>
@@ -367,7 +375,9 @@ export default function ChatbotPage() {
               renderItem={({ item }) => (
                 <Animated.View
                   style={[
-                    item.role === "user" ? styles.userMsg : styles.botMsg,
+                    item.role === "user"
+                      ? [styles.userMsg, { backgroundColor: colors.primary }]
+                      : [styles.botMsg, { backgroundColor: isDark ? "#1F2937" : colors.surfaceAlt, borderColor: colors.border }],
                     item.role === "bot"
                       ? { opacity: 1, transform: [{ scale: 1 }] }
                       : undefined,
@@ -375,7 +385,7 @@ export default function ChatbotPage() {
                 >
                   <Text
                     style={{
-                      color: item.role === "user" ? "#FFFFFF" : "#E5E7EB",
+                      color: item.role === "user" ? "#FFFFFF" : colors.text,
                       fontWeight: "600",
                       fontSize: 14,
                       lineHeight: 20,
@@ -390,18 +400,18 @@ export default function ChatbotPage() {
                   <View style={{ alignItems: "center", marginVertical: 8 }}>
                     <View style={{ flexDirection: "row" }}>
                       <Animated.View
-                        style={[styles.dot, { opacity: typingAnim }]}
+                        style={[styles.dot, { opacity: typingAnim, backgroundColor: colors.primary }]}
                       />
                       <Animated.View
                         style={[
                           styles.dot,
-                          { opacity: typingAnim, marginLeft: 4 },
+                          { opacity: typingAnim, marginLeft: 4, backgroundColor: colors.primary },
                         ]}
                       />
                       <Animated.View
                         style={[
                           styles.dot,
-                          { opacity: typingAnim, marginLeft: 4 },
+                          { opacity: typingAnim, marginLeft: 4, backgroundColor: colors.primary },
                         ]}
                       />
                     </View>
@@ -412,14 +422,14 @@ export default function ChatbotPage() {
               showsVerticalScrollIndicator={false}
               style={{ flex: 1 }}
             />
-            <View style={styles.inputBar}>
+            <View style={[styles.inputBar, { backgroundColor: colors.surface }]}>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { borderColor: colors.borderStrong, backgroundColor: colors.surfaceMuted, color: colors.text }]}
                 placeholder={UI[lang].inputPlaceholder}
-                placeholderTextColor="#94A3B8"
-                selectionColor="#60A5FA"
-                cursorColor="#60A5FA"
-                keyboardAppearance="dark"
+                placeholderTextColor={colors.textMuted}
+                selectionColor={colors.primary}
+                cursorColor={colors.primary}
+                keyboardAppearance={isDark ? "dark" : "light"}
                 value={inputText}
                 onChangeText={setInputText}
                 onSubmitEditing={handleSubmit}
@@ -440,11 +450,12 @@ export default function ChatbotPage() {
                 disabled={isTyping}
                 style={({ pressed }) => [
                   styles.voiceBtn,
+                  { borderColor: colors.borderStrong },
                   isListening
                     ? { backgroundColor: "#DC2626" }
                     : lang === "en" && speechAvailable
-                      ? { backgroundColor: "#1E293B" }
-                      : { backgroundColor: "#334155", opacity: 0.7 },
+                      ? { backgroundColor: colors.surfaceAlt }
+                      : { backgroundColor: colors.borderStrong, opacity: 0.7 },
                   pressed ? { opacity: 0.8 } : null,
                 ]}
                 accessibilityLabel={
@@ -454,7 +465,7 @@ export default function ChatbotPage() {
                 <MaterialIcons
                   name={isListening ? "stop-circle" : "keyboard-voice"}
                   size={20}
-                  color="#FFFFFF"
+                  color={isDark ? "#FFFFFF" : "#FFFFFF"}
                 />
               </Pressable>
               <Pressable
@@ -462,24 +473,26 @@ export default function ChatbotPage() {
                 disabled={!canSend}
                 style={[
                   styles.sendBtn,
-                  canSend ? styles.sendBtnActive : styles.sendBtnDisabled,
+                  canSend
+                    ? { backgroundColor: colors.primary }
+                    : { backgroundColor: colors.borderStrong },
                 ]}
               >
                 <MaterialIcons
                   name="send"
                   size={20}
-                  color={canSend ? "#FFFFFF" : "#9CA3AF"}
+                  color={canSend ? "#FFFFFF" : colors.textMuted}
                 />
               </Pressable>
             </View>
             {isListening ? (
-              <Text style={styles.voiceStatus}>
+              <Text style={[styles.voiceStatus, { color: colors.primary }]}>
                 Listening in English... tap mic again to stop.
               </Text>
             ) : voiceDraft ? (
-              <Text style={styles.voiceStatus}>Transcribed: {voiceDraft}</Text>
+              <Text style={[styles.voiceStatus, { color: colors.primary }]}>Transcribed: {voiceDraft}</Text>
             ) : lang !== "en" ? (
-              <Text style={styles.voiceHint}>
+              <Text style={[styles.voiceHint, { color: colors.textMuted }]}>
                 Voice input currently supports English only.
               </Text>
             ) : null}
@@ -495,7 +508,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#93C5FD",
   },
   topBarRightContainer: {
     flexDirection: "row",
@@ -516,12 +528,10 @@ const styles = StyleSheet.create({
   },
   root: {
     flex: 1,
-    backgroundColor: "#111827",
     position: "relative",
   },
   fullBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#111827",
   },
   safeFrame: {
     flex: 1,
@@ -532,23 +542,19 @@ const styles = StyleSheet.create({
     width: "94%",
     maxWidth: 560,
     height: "90%",
-    backgroundColor: "#111827",
     borderWidth: 1,
-    borderColor: "#1E293B",
     borderRadius: 26,
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 16,
     alignItems: "stretch",
     justifyContent: "flex-start",
-    shadowColor: "#0B1220",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.22,
     shadowRadius: 16,
     elevation: 8,
   },
   welcomeMsg: {
-    color: "#BFDBFE",
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 14,
@@ -567,7 +573,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   topBarTitle: {
-    color: "#93C5FD",
     fontSize: 16,
     fontWeight: "900",
     letterSpacing: 0.2,
@@ -578,43 +583,33 @@ const styles = StyleSheet.create({
   },
   langBtn: {
     borderWidth: 1,
-    borderColor: "#334155",
-    backgroundColor: "#0B1220",
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   langBtnActive: {
-    borderColor: "#2563EB",
-    backgroundColor: "#1E3A8A",
   },
   langText: {
-    color: "#93C5FD",
     fontSize: 11,
     fontWeight: "800",
   },
   langTextActive: {
-    color: "#DBEAFE",
   },
   clearBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
     borderWidth: 1,
-    borderColor: "#7F1D1D",
-    backgroundColor: "#3F1212",
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   clearBtnText: {
-    color: "#FCA5A5",
     fontSize: 12,
     fontWeight: "800",
   },
   userMsg: {
     alignSelf: "flex-end",
-    backgroundColor: "#2563EB",
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -623,12 +618,10 @@ const styles = StyleSheet.create({
   },
   botMsg: {
     alignSelf: "flex-start",
-    backgroundColor: "#1F2937",
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#334155",
     marginVertical: 4,
     maxWidth: "80%",
   },
@@ -637,10 +630,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "#1F2937",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#334155",
     paddingHorizontal: 10,
     paddingVertical: 8,
     marginTop: 2,
@@ -648,7 +639,6 @@ const styles = StyleSheet.create({
     maxWidth: "70%",
   },
   typingText: {
-    color: "#BFDBFE",
     fontSize: 12,
     fontWeight: "700",
   },
@@ -658,19 +648,15 @@ const styles = StyleSheet.create({
     marginTop: 12,
     gap: 8,
     paddingTop: 8,
-    backgroundColor: "#111827", // Match the main background, remove black bar
   },
   input: {
     flex: 1,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#334155",
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 16,
     fontWeight: "600",
-    backgroundColor: "#0F172A",
-    color: "#F8FAFC",
     textAlignVertical: "center",
     minHeight: 40,
     maxHeight: 48,
@@ -681,18 +667,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#2563EB",
-    shadowColor: "#1D4ED8",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
-  },
-  sendBtnActive: {
-    backgroundColor: "#2563EB",
-  },
-  sendBtnDisabled: {
-    backgroundColor: "#334155",
   },
   voiceBtn: {
     width: 44,
@@ -701,17 +679,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#475569",
   },
   voiceStatus: {
-    color: "#BFDBFE",
     fontSize: 12,
     fontWeight: "700",
     marginTop: 8,
     textAlign: "center",
   },
   voiceHint: {
-    color: "#94A3B8",
     fontSize: 12,
     fontWeight: "600",
     marginTop: 8,

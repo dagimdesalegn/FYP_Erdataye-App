@@ -19,6 +19,7 @@ import {
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
@@ -30,6 +31,7 @@ import {
 } from "react-native";
 
 export default function MapScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
@@ -311,7 +313,7 @@ export default function MapScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="እርዳታዬ Erdataye" />
+      <AppHeader title="እርዳታዬ Erdataye" onBackPress={() => router.back()} />
 
       {/* Map via HtmlMapView (works on both web & native) */}
       <View style={styles.mapContainer}>

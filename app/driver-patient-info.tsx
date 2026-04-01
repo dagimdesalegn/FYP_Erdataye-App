@@ -1,12 +1,14 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getPatientInfo } from "@/utils/driver";
 
@@ -29,8 +31,11 @@ interface PatientData {
  * Driver Patient Information Screen - View Patient Medical Data
  */
 export default function DriverPatientInfoScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
+  const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];
+  const insets = useSafeAreaInsets();
   const { patientId } = useLocalSearchParams();
   const { showError } = useModal();
 
@@ -97,7 +102,14 @@ export default function DriverPatientInfoScreen() {
   const medical = patientData.medical_profiles?.[0];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      {/* Back button */}
+      <View style={styles.backRow}>
+        <Pressable onPress={() => router.back()} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
+          <MaterialIcons name="arrow-back" size={24} color={colors.text} />
+        </Pressable>
+        <ThemedText style={[styles.screenTitle, { color: colors.text }]}>Patient Information</ThemedText>
+      </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
@@ -275,6 +287,18 @@ export default function DriverPatientInfoScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  screenTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
   },
   scroll: {
     padding: 16,

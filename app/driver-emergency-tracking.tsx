@@ -19,6 +19,7 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendGet } from "@/utils/api";
 import {
@@ -60,6 +61,7 @@ const STATUS_LABELS: Record<
 };
 
 export default function DriverEmergencyTrackingScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";

@@ -20,6 +20,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 const ambulanceFavicon = require("../assets/images/ambulance-favicon.png");
 
 const CARD_MAX_W = 440;
@@ -29,6 +30,7 @@ export default function LoginScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { setUser, setRegistered } = useAppState();
   const { showError, showAlert } = useModal();
   const [loading, setLoading] = useState(false);
@@ -155,7 +157,7 @@ export default function LoginScreen() {
     <View
       style={[
         styles.root,
-        { backgroundColor: bg },
+        { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom },
         Platform.OS === "web" && { minHeight: "100vh" as any },
       ]}
     >
@@ -164,6 +166,13 @@ export default function LoginScreen() {
         translucent
         backgroundColor="transparent"
       />
+      {/* Back button */}
+      <Pressable
+        onPress={() => router.back()}
+        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
+      >
+        <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
+      </Pressable>
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -474,6 +483,14 @@ const styles = StyleSheet.create({
     ...(Platform.OS === "web"
       ? { minHeight: "100vh" as any, overflow: "auto" as any }
       : {}),
+  },
+  backBtn: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 20,
   },
   flex: {
     flex: 1,

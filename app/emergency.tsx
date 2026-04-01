@@ -4,6 +4,7 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     Ambulance,
@@ -25,6 +26,7 @@ import {
 } from "react-native";
 
 export default function EmergencyScreen() {
+  const authLoading = useAuthGuard();
   const { user } = useAppState();
   const { showError, showAlert, showConfirm } = useModal();
   const router = useRouter();
@@ -152,7 +154,7 @@ export default function EmergencyScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="እርዳታዬ" />
+      <AppHeader title="እርዳታዬ" onBackPress={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title" style={[styles.title, { color: textColor }]}>
