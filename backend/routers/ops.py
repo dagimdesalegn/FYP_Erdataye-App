@@ -3356,6 +3356,34 @@ async def get_patient_emergency_detail(
 
 
 @router.patch(
+    "/patient/emergencies/{emergency_id}/patient-location",
+    summary="Update patient live GPS location on an active emergency",
+)
+async def update_patient_live_location(
+    emergency_id: str,
+    body: dict,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    uid = str(current_user.get("sub") or "")
+    lat = body.get("latitude")
+    lng = body.get("longitude")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="latitude and longitude required")
+    # Verify the patient owns this emergency
+    rows, code = await db_select("emergency_requests", {"id": emergency_id}, columns="id,patient_id,status")
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Emergency not found")
+    if str(rows[0].get("patient_id") or "") != uid:
+        raise HTTPException(status_code=403, detail="Not authorised for this emergency")
+    if rows[0].get("status") in ("completed", "cancelled"):
+        return {"success": False, "reason": "Emergency is no longer active"}
+    point = _to_point_wkt(lat, lng)
+    now = datetime.now(timezone.utc).isoformat()
+    await db_update("emergency_requests", {"id": emergency_id}, {"patient_location": point, "updated_at": now})
+    return {"success": True}
+
+
+@router.patch(
     "/patient/emergencies/{emergency_id}/status",
     summary="Update emergency status (patient cancel / status update)",
 )

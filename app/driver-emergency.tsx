@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -31,8 +31,6 @@ import {
     subscribeToAssignments,
 } from "@/utils/driver";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
     calculateDistance,
     parsePostGISPoint,
 } from "@/utils/emergency";
@@ -356,24 +354,10 @@ export default function DriverEmergencyScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map HTML — memoised with rounded coords to avoid iframe reloads on GPS drift
-  const mapHtml = useMemo(() => {
-    if (driverCoords && patientCoords) {
-      return buildDriverPatientMapHtml(
-        +driverCoords.latitude.toFixed(4),
-        +driverCoords.longitude.toFixed(4),
-        +patientCoords.latitude.toFixed(4),
-        +patientCoords.longitude.toFixed(4),
-      );
-    }
-    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16);
-    return null;
-  }, [
-    driverCoords && +driverCoords.latitude.toFixed(4),
-    driverCoords && +driverCoords.longitude.toFixed(4),
-    patientCoords?.latitude,
-    patientCoords?.longitude,
-  ]);
+  // Build markers for the interactive LiveMapView
+  const mapMarkers: MapMarker[] = [];
+  if (driverCoords) mapMarkers.push({ id: 'driver', latitude: driverCoords.latitude, longitude: driverCoords.longitude, color: '#2563EB', label: 'You', popup: '🚑 You' });
+  if (patientCoords) mapMarkers.push({ id: 'patient', latitude: patientCoords.latitude, longitude: patientCoords.longitude, color: '#DC2626', label: 'Patient', popup: '🆘 Patient' });
 
   const medFromProfile = patientInfo?.medical_profiles?.[0];
   let medFromAssignment: any = null;
@@ -503,10 +487,10 @@ export default function DriverEmergencyScreen() {
                 </View>
               ) : null}
             </View>
-            <HtmlMapView
-              html={mapHtml}
+            <LiveMapView
+              markers={mapMarkers}
+              showRoute
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
-              title="Emergency Map"
             />
 
             {/* Navigate button inside map card */}

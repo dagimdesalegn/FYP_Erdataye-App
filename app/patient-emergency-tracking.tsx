@@ -21,18 +21,17 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
     calculateDistance,
     parsePostGISPoint,
 } from "@/utils/emergency";
+import { backendPatch } from "@/utils/api";
 import {
     cancelEmergencyWithinWindow,
     createFamilyShareLink,
@@ -277,7 +276,7 @@ export default function PatientEmergencyTrackingScreen() {
     return unsub;
   }, [emergencyId, applyAmbulanceFix]);
 
-  // Polling fallback: check status every 8s in case realtime misses updates
+  // Polling fallback: check status every 30s in case realtime misses updates
   useEffect(() => {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const interval = setInterval(async () => {
@@ -300,7 +299,7 @@ export default function PatientEmergencyTrackingScreen() {
           }
         }
       } catch {}
-    }, 15000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [emergencyId, emergency?.status, applyAmbulanceFix]);
 
@@ -344,9 +343,19 @@ export default function PatientEmergencyTrackingScreen() {
   }, [ambulance?.id, applyAmbulanceFix]);
 
   // Use patient's live location for more accurate distance during tracking.
+  // Also push live coords to backend so driver can track patient movement.
   useEffect(() => {
     let watcher: Location.LocationSubscription | null = null;
     let mounted = true;
+    let lastPushTime = 0;
+
+    const pushLocationToBackend = (lat: number, lng: number) => {
+      const now = Date.now();
+      if (now - lastPushTime < 15000) return; // throttle to every 15s
+      if (!emergencyId || typeof emergencyId !== "string") return;
+      lastPushTime = now;
+      backendPatch(`/ops/patient/emergencies/${emergencyId}/patient-location`, { latitude: lat, longitude: lng }).catch(() => {});
+    };
 
     const startPatientTracking = async () => {
       try {
@@ -366,6 +375,7 @@ export default function PatientEmergencyTrackingScreen() {
             latitude: current.coords.latitude,
             longitude: current.coords.longitude,
           });
+          pushLocationToBackend(current.coords.latitude, current.coords.longitude);
         }
 
         watcher = await Location.watchPositionAsync(
@@ -381,6 +391,7 @@ export default function PatientEmergencyTrackingScreen() {
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
             });
+            pushLocationToBackend(loc.coords.latitude, loc.coords.longitude);
           },
         );
       } catch {
@@ -393,7 +404,7 @@ export default function PatientEmergencyTrackingScreen() {
       mounted = false;
       if (watcher) watcher.remove();
     };
-  }, []);
+  }, [emergencyId]);
 
   // Keep displayed ambulance coordinates in sync with realtime updates.
   useEffect(() => {
@@ -733,44 +744,16 @@ export default function PatientEmergencyTrackingScreen() {
     String(emergency.status || ""),
   );
 
-  // Map route: ambulance -> patient by default, then ambulance -> hospital during transport.
-  const mapHtml = useMemo(() => {
-    if (mapAmbulanceCoords && mapPatientCoords) {
-      if (isTransportPhase && hospitalCoords) {
-        return buildDriverPatientMapHtml(
-          mapAmbulanceCoords.latitude,
-          mapAmbulanceCoords.longitude,
-          hospitalCoords.latitude,
-          hospitalCoords.longitude,
-          { blueLabel: "Ambulance", redLabel: "Hospital" },
-        );
-      }
-      return buildDriverPatientMapHtml(
-        mapAmbulanceCoords.latitude,
-        mapAmbulanceCoords.longitude,
-        mapPatientCoords.latitude,
-        mapPatientCoords.longitude,
-        {
-          blueLabel: "Ambulance",
-          redLabel: "You",
-          bluePopup: "🚑 Ambulance",
-          redPopup: "📍 Your Location",
-        },
-      );
-    }
-    if (mapPatientCoords) {
-      return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude, 17);
-    }
-    return null;
-  }, [
-    mapAmbulanceCoords?.latitude,
-    mapAmbulanceCoords?.longitude,
-    mapPatientCoords?.latitude,
-    mapPatientCoords?.longitude,
-    isTransportPhase,
-    hospitalCoords?.latitude,
-    hospitalCoords?.longitude,
-  ]);
+  // Build markers for interactive LiveMapView
+  const mapMarkers: MapMarker[] = [];
+  if (mapAmbulanceCoords) {
+    mapMarkers.push({ id: 'ambulance', latitude: mapAmbulanceCoords.latitude, longitude: mapAmbulanceCoords.longitude, color: '#2563EB', label: 'Ambulance', popup: '🚑 Ambulance' });
+  }
+  if (isTransportPhase && hospitalCoords) {
+    mapMarkers.push({ id: 'destination', latitude: hospitalCoords.latitude, longitude: hospitalCoords.longitude, color: '#7C3AED', label: 'Hospital', popup: '🏥 Hospital' });
+  } else if (mapPatientCoords) {
+    mapMarkers.push({ id: 'patient', latitude: mapPatientCoords.latitude, longitude: mapPatientCoords.longitude, color: '#DC2626', label: 'You', popup: '📍 Your Location' });
+  }
 
   const openDetailedRoute = async () => {
     try {
@@ -1055,7 +1038,7 @@ export default function PatientEmergencyTrackingScreen() {
         </View>
 
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && (
+        {mapMarkers.length > 0 && (
           <View
             style={[
               styles.mapCard,
@@ -1087,10 +1070,10 @@ export default function PatientEmergencyTrackingScreen() {
                 </View>
               ) : null}
             </View>
-            <HtmlMapView
-              html={mapHtml}
+            <LiveMapView
+              markers={mapMarkers}
+              showRoute
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
-              title="Emergency Map"
             />
             {/* Legend */}
             <View style={styles.mapLegend}>

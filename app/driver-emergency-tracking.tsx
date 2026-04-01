@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -30,12 +30,11 @@ import {
     updateEmergencyStatus,
 } from "@/utils/driver";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
     calculateDistance,
     formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
+import supabase from "@/utils/supabase";
 
 type Tab = "map" | "status";
 
@@ -165,6 +164,32 @@ export default function DriverEmergencyTrackingScreen() {
 
     return unsubscribe;
   }, [emergencyId, user]);
+
+  // Subscribe to live patient location updates via Supabase realtime
+  useEffect(() => {
+    if (!emergencyId) return;
+    const channel = supabase
+      .channel(`patient-loc-${emergencyId}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "emergency_requests",
+          filter: `id=eq.${emergencyId}`,
+        },
+        (payload: any) => {
+          const patLoc = parsePostGISPoint(payload.new?.patient_location);
+          if (patLoc) setPatientCoords(patLoc);
+          if (payload.new?.status) setCurrentStatus(payload.new.status);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [emergencyId]);
 
   // Location tracking - updates driver position + sends to DB
   useEffect(() => {
@@ -302,31 +327,10 @@ export default function DriverEmergencyTrackingScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map HTML — memoised with rounded coords to avoid iframe reloads on sub-meter GPS drift
-  const mapHtml = useMemo(() => {
-    if (driverCoords && patientCoords) {
-      return buildDriverPatientMapHtml(
-        +driverCoords.latitude.toFixed(4),
-        +driverCoords.longitude.toFixed(4),
-        +patientCoords.latitude.toFixed(4),
-        +patientCoords.longitude.toFixed(4),
-        {
-          blueLabel: "You",
-          redLabel: "Patient",
-          bluePopup: "🚑 You",
-          redPopup: "🆘 Patient",
-        },
-      );
-    }
-    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16);
-    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16);
-    return null;
-  }, [
-    driverCoords && +driverCoords.latitude.toFixed(4),
-    driverCoords && +driverCoords.longitude.toFixed(4),
-    patientCoords?.latitude,
-    patientCoords?.longitude,
-  ]);
+  // Build markers for the interactive LiveMapView
+  const mapMarkers: MapMarker[] = [];
+  if (driverCoords) mapMarkers.push({ id: 'driver', latitude: driverCoords.latitude, longitude: driverCoords.longitude, color: '#2563EB', label: 'You', popup: '🚑 You' });
+  if (patientCoords) mapMarkers.push({ id: 'patient', latitude: patientCoords.latitude, longitude: patientCoords.longitude, color: '#DC2626', label: 'Patient', popup: '🆘 Patient' });
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -453,11 +457,11 @@ export default function DriverEmergencyTrackingScreen() {
       {activeTab === "map" ? (
         /* ═══════════ MAP TAB ═══════════ */
         <View style={styles.mapTabWrap}>
-          {mapHtml ? (
-            <HtmlMapView
-              html={mapHtml}
+          {mapMarkers.length > 0 ? (
+            <LiveMapView
+              markers={mapMarkers}
+              showRoute
               style={styles.mapFull}
-              title="Driver Tracking Map"
             />
           ) : (
             <View style={styles.noMapWrap}>

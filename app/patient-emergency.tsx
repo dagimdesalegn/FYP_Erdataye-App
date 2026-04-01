@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -22,8 +22,6 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    buildMapHtml,
-    buildPatientRequestMapHtml,
     calculateDistance,
     getExplainableTriage,
     getLiveAvailableAmbulances,
@@ -917,23 +915,22 @@ export default function PatientEmergencyScreen() {
                   style={[styles.mapSection, { borderColor: colors.border }]}
                 >
                   {(() => {
-                    const mapHtml =
-                      nearbyAmbulances.length > 0
-                        ? buildPatientRequestMapHtml(
-                            mapLocation.latitude,
-                            mapLocation.longitude,
-                            nearbyAmbulances,
-                          )
-                        : buildMapHtml(
-                            mapLocation.latitude,
-                            mapLocation.longitude,
-                            17,
-                          );
+                    const markers: MapMarker[] = [
+                      { id: 'patient', latitude: mapLocation.latitude, longitude: mapLocation.longitude, color: '#DC2626', label: 'You', popup: '📍 Your Location' },
+                      ...nearbyAmbulances.map((a, i) => ({
+                        id: a.id || `amb-${i}`,
+                        latitude: a.lat,
+                        longitude: a.lng,
+                        color: '#2563EB',
+                        label: (a as any).registration_number || 'Ambulance',
+                        popup: '🚑 Ambulance',
+                      })),
+                    ];
                     return (
-                      <HtmlMapView
-                        html={mapHtml}
+                      <LiveMapView
+                        markers={markers}
+                        showRoute={nearbyAmbulances.length > 0}
                         style={styles.mapBox}
-                        title="Your Location"
                       />
                     );
                   })()}

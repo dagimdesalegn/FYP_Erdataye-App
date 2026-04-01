@@ -9,9 +9,11 @@ Message storage endpoints require authentication.
 import json
 import logging
 import re
+import time
+from collections import defaultdict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
@@ -21,6 +23,26 @@ from services.supabase import db_insert, db_select, db_delete
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
 logger = logging.getLogger("chat_router")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# In-memory rate limiter — 20 requests per minute per IP
+# ─────────────────────────────────────────────────────────────────────────────
+
+_RATE_LIMIT = 20
+_RATE_WINDOW = 60  # seconds
+_rate_buckets: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate(ip: str) -> bool:
+    """Return True if the request is within the rate limit."""
+    now = time.time()
+    bucket = _rate_buckets[ip]
+    # Prune stale entries
+    _rate_buckets[ip] = bucket = [t for t in bucket if now - t < _RATE_WINDOW]
+    if len(bucket) >= _RATE_LIMIT:
+        return False
+    bucket.append(now)
+    return True
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DeepSeek client (OpenAI-compatible SDK) — async for non-blocking I/O
@@ -100,11 +122,17 @@ class ChatResponse(BaseModel):
 
 
 @router.post("", response_model=ChatResponse, summary="Ask the first aid chatbot")
-async def chat(req: ChatRequest) -> ChatResponse:
+async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     """
     Send a user message and optional conversation history.
     Returns an AI-generated WHO-grounded first aid response plus follow-up suggestions.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please wait a moment before sending another message.",
+        )
     lang_instruction = {
         "en": "Respond in English.",
         "am": "Respond in Amharic (አማርኛ).",

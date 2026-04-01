@@ -11,7 +11,7 @@ import { ActivityIndicator, Platform, View } from 'react-native';
  */
 export default function IndexScreen() {
   const router = useRouter();
-  const { isLoading } = useAppState();
+  const { isLoading, user } = useAppState();
   const colorScheme = useColorScheme();
 
   useEffect(() => {
@@ -22,8 +22,17 @@ export default function IndexScreen() {
 
   useEffect(() => {
     if (isLoading) return;
-    // Always go to (tabs) - the home screen handles both logged-in and guest states
-    router.replace('/(tabs)');
+    // Route to role-specific home screen if logged in
+    const role = user?.role;
+    if (role === 'ambulance' || role === 'driver') {
+      router.replace('/driver-home' as any);
+    } else if (role === 'admin') {
+      router.replace('/admin' as any);
+    } else if (role === 'hospital') {
+      router.replace('/hospital' as any);
+    } else {
+      router.replace('/(tabs)');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading]);
 

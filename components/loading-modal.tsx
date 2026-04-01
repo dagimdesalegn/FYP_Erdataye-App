@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Modal, Platform, StyleSheet, View } from "react-native";
+
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
 import { ThemedText } from "./themed-text";
 
 interface LoadingModalProps {
@@ -26,7 +28,7 @@ export const LoadingModal = ({
       Animated.timing(spinValue, {
         toValue: 1,
         duration: 2000,
-        useNativeDriver: false,
+        useNativeDriver: USE_NATIVE_DRIVER,
       }),
     ).start();
 
@@ -36,12 +38,12 @@ export const LoadingModal = ({
         Animated.timing(pulseValue, {
           toValue: 1,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
         Animated.timing(pulseValue, {
           toValue: 0,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: USE_NATIVE_DRIVER,
         }),
       ]),
     ).start();
