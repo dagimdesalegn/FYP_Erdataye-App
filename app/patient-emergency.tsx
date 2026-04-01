@@ -916,14 +916,21 @@ export default function PatientEmergencyScreen() {
                 >
                   {(() => {
                     const markers: MapMarker[] = [
-                      { id: 'patient', latitude: mapLocation.latitude, longitude: mapLocation.longitude, color: '#DC2626', label: 'You', popup: '📍 Your Location' },
+                      {
+                        id: "patient",
+                        latitude: mapLocation.latitude,
+                        longitude: mapLocation.longitude,
+                        color: "#DC2626",
+                        label: "You",
+                        popup: "📍 Your Location",
+                      },
                       ...nearbyAmbulances.map((a, i) => ({
                         id: a.id || `amb-${i}`,
                         latitude: a.lat,
                         longitude: a.lng,
-                        color: '#2563EB',
-                        label: (a as any).registration_number || 'Ambulance',
-                        popup: '🚑 Ambulance',
+                        color: "#2563EB",
+                        label: (a as any).registration_number || "Ambulance",
+                        popup: "🚑 Ambulance",
                       })),
                     ];
                     return (

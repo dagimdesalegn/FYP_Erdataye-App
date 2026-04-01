@@ -39,8 +39,38 @@ def _log_event(event: str, **metadata: Any) -> None:
 
 # Fast MVP stores for timeline/share contracts before DB migration.
 # Eviction: max 1000 emergency timelines, 100 events each; max 5000 share links.
-_TIMELINES: dict[str, list[dict[str, Any]]] = {}
-_SHARE_LINKS: dict[str, dict[str, Any]] = {}
+# Persisted to _share_data.json so data survives server restarts.
+import json as _json
+import os as _os
+import threading as _threading
+
+_DATA_FILE = _os.path.join(_os.path.dirname(__file__), "..", "_share_data.json")
+_data_lock = _threading.Lock()
+
+
+def _load_persisted() -> tuple[dict, dict]:
+    """Load timelines and share links from disk."""
+    try:
+        with open(_DATA_FILE, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+        return data.get("timelines", {}), data.get("share_links", {})
+    except (FileNotFoundError, _json.JSONDecodeError, OSError):
+        return {}, {}
+
+
+def _save_persisted() -> None:
+    """Best-effort persist to disk (non-blocking)."""
+    try:
+        with _data_lock:
+            with open(_DATA_FILE, "w", encoding="utf-8") as f:
+                _json.dump({"timelines": _TIMELINES, "share_links": _SHARE_LINKS}, f, default=str)
+    except OSError:
+        pass  # non-fatal — in-memory copy is authoritative
+
+
+_persisted_tl, _persisted_sl = _load_persisted()
+_TIMELINES: dict[str, list[dict[str, Any]]] = _persisted_tl
+_SHARE_LINKS: dict[str, dict[str, Any]] = _persisted_sl
 _MAX_TIMELINE_EMERGENCIES = 1000
 _MAX_TIMELINE_EVENTS_PER = 100
 _MAX_SHARE_LINKS = 5000
@@ -2915,6 +2945,7 @@ async def timeline_add_event(
         )[: len(_TIMELINES) - _MAX_TIMELINE_EMERGENCIES]
         for k in oldest_keys:
             del _TIMELINES[k]
+    _save_persisted()
     return event
 
 
@@ -3011,6 +3042,7 @@ async def family_share_create(
         "emergency_id": payload.emergency_id,
         "expires_at": expires_at.isoformat(),
     }
+    _save_persisted()
     return {
         "share_token": token,
         "emergency_id": payload.emergency_id,

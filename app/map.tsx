@@ -1,5 +1,5 @@
 import { AppHeader } from "@/components/app-header";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -8,7 +8,6 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendGet } from "@/utils/api";
 import {
     Ambulance,
-    buildMapHtml,
     EmergencyRequest,
     formatCoords,
     getHospitals,
@@ -311,18 +310,24 @@ export default function MapScreen() {
 
   const userLat = mapCenter?.lat ?? location?.coords.latitude ?? 9.02;
   const userLng = mapCenter?.lng ?? location?.coords.longitude ?? 38.75;
-  const mapEmbedUrl = buildMapHtml(userLat, userLng, 17);
+
+  // Build interactive markers
+  const mapMarkers: MapMarker[] = [];
+  mapMarkers.push({ id: 'user', latitude: userLat, longitude: userLng, color: '#2563EB', label: 'You', popup: '📍 Your Location' });
+  ambulances.forEach((amb) => mapMarkers.push({ id: `amb-${amb.id}`, latitude: amb.lat, longitude: amb.lng, color: '#10B981', label: amb.vehicle_number, popup: `🚑 ${amb.vehicle_number}` }));
+  emergencies.filter((e) => e.latitude !== 0 || e.longitude !== 0).forEach((e) => mapMarkers.push({ id: `em-${e.id}`, latitude: e.latitude, longitude: e.longitude, color: '#DC2626', label: e.emergency_type, popup: `🆘 ${e.emergency_type}` }));
+  hospitals.forEach((h) => mapMarkers.push({ id: `hosp-${h.id}`, latitude: h.lat, longitude: h.lng, color: '#7C3AED', label: h.name, popup: `🏥 ${h.name}` }));
 
   return (
     <ThemedView style={styles.container}>
       <AppHeader title="እርዳታዬ Erdataye" onBackPress={() => router.back()} />
 
-      {/* Map via HtmlMapView (works on both web & native) */}
+      {/* Interactive Leaflet map */}
       <View style={styles.mapContainer}>
-        <HtmlMapView
-          html={mapEmbedUrl}
+        <LiveMapView
+          markers={mapMarkers}
           style={{ flex: 1 }}
-          title="Live ambulance map"
+          zoom={14}
         />
       </View>
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Modal, Platform, StyleSheet, View } from "react-native";
+import { ThemedText } from "./themed-text";
 
 const USE_NATIVE_DRIVER = Platform.OS !== "web";
-import { ThemedText } from "./themed-text";
 
 interface LoadingModalProps {
   visible: boolean;

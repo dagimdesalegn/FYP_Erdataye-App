@@ -184,7 +184,21 @@ export default function DriverEmergencyTrackingScreen() {
           if (payload.new?.status) setCurrentStatus(payload.new.status);
         },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        // Re-sync on reconnect so no position updates are missed
+        if (status !== "SUBSCRIBED") return;
+        void supabase
+          .from("emergency_requests")
+          .select("patient_location,status")
+          .eq("id", emergencyId as string)
+          .maybeSingle()
+          .then(({ data }: any) => {
+            if (!data) return;
+            const patLoc = parsePostGISPoint(data.patient_location);
+            if (patLoc) setPatientCoords(patLoc);
+            if (data.status) setCurrentStatus(data.status);
+          });
+      });
 
     return () => {
       supabase.removeChannel(channel);
@@ -329,8 +343,24 @@ export default function DriverEmergencyTrackingScreen() {
 
   // Build markers for the interactive LiveMapView
   const mapMarkers: MapMarker[] = [];
-  if (driverCoords) mapMarkers.push({ id: 'driver', latitude: driverCoords.latitude, longitude: driverCoords.longitude, color: '#2563EB', label: 'You', popup: '🚑 You' });
-  if (patientCoords) mapMarkers.push({ id: 'patient', latitude: patientCoords.latitude, longitude: patientCoords.longitude, color: '#DC2626', label: 'Patient', popup: '🆘 Patient' });
+  if (driverCoords)
+    mapMarkers.push({
+      id: "driver",
+      latitude: driverCoords.latitude,
+      longitude: driverCoords.longitude,
+      color: "#2563EB",
+      label: "You",
+      popup: "🚑 You",
+    });
+  if (patientCoords)
+    mapMarkers.push({
+      id: "patient",
+      latitude: patientCoords.latitude,
+      longitude: patientCoords.longitude,
+      color: "#DC2626",
+      label: "Patient",
+      popup: "🆘 Patient",
+    });
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;

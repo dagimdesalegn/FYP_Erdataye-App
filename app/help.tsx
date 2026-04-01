@@ -2,15 +2,16 @@ import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
-import { HtmlMapView } from "@/components/html-map-view";
+import { LiveMapView, type MapMarker } from "@/components/live-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
-import { buildMapHtml } from "@/utils/emergency";
-import { getActiveEmergency, type PatientEmergency } from "@/utils/patient";
+import {
+    getActiveEmergency, type PatientEmergency,
+} from "@/utils/patient";
 import { getUserProfile } from "@/utils/profile";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
@@ -64,7 +65,10 @@ export default function HelpScreen() {
   React.useEffect(() => {
     let cancelled = false;
     const loadProfile = async () => {
-      if (!user?.id) { setDataLoading(false); return; }
+      if (!user?.id) {
+        setDataLoading(false);
+        return;
+      }
       try {
         const { profile } = await getUserProfile(user.id);
         if (!cancelled && profile) {
@@ -80,7 +84,9 @@ export default function HelpScreen() {
             });
           }
         }
-      } catch { /* handled */ } finally {
+      } catch {
+        /* handled */
+      } finally {
         if (!cancelled) setDataLoading(false);
       }
     };
@@ -104,7 +110,9 @@ export default function HelpScreen() {
           setActiveEmergency(emergency ?? null);
           setActiveEmergencyId(emergency?.id ?? null);
         }
-      } catch { /* handled */ }
+      } catch {
+        /* handled */
+      }
     };
     void loadActiveEmergency();
     return () => {
@@ -235,9 +243,9 @@ export default function HelpScreen() {
     return null;
   }, [activeEmergency, currentLocation]);
 
-  const mapEmbedUrl = React.useMemo(() => {
-    if (!mapLocation) return null;
-    return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
+  const mapMarkers: MapMarker[] = React.useMemo(() => {
+    if (!mapLocation) return [];
+    return [{ id: 'location', latitude: mapLocation.latitude, longitude: mapLocation.longitude, color: '#DC2626', label: mapLocation.sourceLabel, popup: `📍 ${mapLocation.sourceLabel}` }];
   }, [mapLocation]);
 
   const openPatientEmergency = React.useCallback(() => {
@@ -286,7 +294,16 @@ export default function HelpScreen() {
 
   if (authLoading || dataLoading) {
     return (
-      <View style={[styles.bg, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.bg,
+          {
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -435,11 +452,11 @@ export default function HelpScreen() {
                   </View>
                 </View>
                 <View style={styles.mapFrameWrap}>
-                  {mapEmbedUrl ? (
-                    <HtmlMapView
-                      html={mapEmbedUrl}
+                  {mapMarkers.length > 0 ? (
+                    <LiveMapView
+                      markers={mapMarkers}
                       style={{ flex: 1 }}
-                      title="Current location of your device"
+                      zoom={17}
                     />
                   ) : null}
                 </View>

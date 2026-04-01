@@ -296,7 +296,9 @@ export default function PatientProfileScreen() {
   const textSecondary = colors.textMuted;
 
   return (
-    <View style={[styles.bg, { backgroundColor: bg, paddingBottom: insets.bottom }]}>
+    <View
+      style={[styles.bg, { backgroundColor: bg, paddingBottom: insets.bottom }]}
+    >
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}

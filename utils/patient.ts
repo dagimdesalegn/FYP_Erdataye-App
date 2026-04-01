@@ -823,7 +823,19 @@ export const subscribeToAmbulanceLocation = (
         }
       },
     )
-    .subscribe();
+    .subscribe((status) => {
+      // Re-sync on reconnect so no position updates are missed
+      if (status !== "SUBSCRIBED") return;
+      void supabase
+        .from("ambulances")
+        .select("last_known_location")
+        .eq("id", ambulanceId)
+        .maybeSingle()
+        .then(({ data }) => {
+          const parsed = parsePostGISPoint(data?.last_known_location);
+          if (parsed) onUpdate(parsed.latitude, parsed.longitude);
+        });
+    });
 
   return () => {
     void supabase.removeChannel(channel);

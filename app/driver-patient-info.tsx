@@ -1,7 +1,13 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useModal } from "@/components/modal-context";
@@ -102,13 +108,27 @@ export default function DriverPatientInfoScreen() {
   const medical = patientData.medical_profiles?.[0];
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       {/* Back button */}
       <View style={styles.backRow}>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [pressed && { opacity: 0.7 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+        >
           <MaterialIcons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
-        <ThemedText style={[styles.screenTitle, { color: colors.text }]}>Patient Information</ThemedText>
+        <ThemedText style={[styles.screenTitle, { color: colors.text }]}>
+          Patient Information
+        </ThemedText>
       </View>
       <ScrollView
         contentContainerStyle={styles.scroll}

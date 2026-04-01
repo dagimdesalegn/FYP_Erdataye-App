@@ -145,7 +145,11 @@ export default function StaffLoginScreen() {
     <View
       style={[
         styles.root,
-        { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom },
+        {
+          backgroundColor: bg,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
         Platform.OS === "web" && { minHeight: "100vh" as any },
       ]}
     >

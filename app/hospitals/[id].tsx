@@ -8,11 +8,11 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
+    ActivityIndicator,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    View,
 } from "react-native";
 
 type HospitalDetailsResponse = {
@@ -54,7 +54,9 @@ export default function AdminHospitalDetailsScreen() {
 
     try {
       setError(null);
-      const result = await backendGet<HospitalDetailsResponse>(`/ops/admin/hospitals/${id}`);
+      const result = await backendGet<HospitalDetailsResponse>(
+        `/ops/admin/hospitals/${id}`,
+      );
       setData(result);
     } catch (e: any) {
       setError(String(e?.message || "Failed to load hospital details"));
@@ -76,10 +78,30 @@ export default function AdminHospitalDetailsScreen() {
   const stats = useMemo(() => {
     if (!data) {
       return [
-        { label: "Linked Ambulances", value: 0, icon: "directions-car" as const, color: "#8B5CF6" },
-        { label: "Active Emergencies", value: 0, icon: "warning" as const, color: "#DC2626" },
-        { label: "Completed", value: 0, icon: "check-circle" as const, color: "#10B981" },
-        { label: "Drivers", value: 0, icon: "person" as const, color: "#3B82F6" },
+        {
+          label: "Linked Ambulances",
+          value: 0,
+          icon: "directions-car" as const,
+          color: "#8B5CF6",
+        },
+        {
+          label: "Active Emergencies",
+          value: 0,
+          icon: "warning" as const,
+          color: "#DC2626",
+        },
+        {
+          label: "Completed",
+          value: 0,
+          icon: "check-circle" as const,
+          color: "#10B981",
+        },
+        {
+          label: "Drivers",
+          value: 0,
+          icon: "person" as const,
+          color: "#3B82F6",
+        },
       ];
     }
 
@@ -112,84 +134,229 @@ export default function AdminHospitalDetailsScreen() {
   }, [data]);
 
   return (
-    <View style={[styles.bg, { backgroundColor: colors.background }]}> 
+    <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false, title: hospitalName }} />
       <AppHeader title={hospitalName} onProfilePress={() => router.back()} />
 
       <ScrollView
         style={styles.scrollOuter}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#DC2626" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#DC2626"
+          />
+        }
       >
         <View style={styles.container}>
           {loading ? (
             <View style={styles.centerWrap}>
               <ActivityIndicator size="large" color="#DC2626" />
-              <ThemedText style={[styles.centerText, { color: subText }]}>Loading hospital details...</ThemedText>
+              <ThemedText style={[styles.centerText, { color: subText }]}>
+                Loading hospital details...
+              </ThemedText>
             </View>
           ) : error ? (
-            <View style={[styles.errorCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
+            <View
+              style={[
+                styles.errorCard,
+                { borderColor: cardBorder, backgroundColor: cardBg },
+              ]}
+            >
               <MaterialIcons name="error-outline" size={20} color="#DC2626" />
-              <ThemedText style={[styles.errorText, { color: colors.text }]}>{error}</ThemedText>
+              <ThemedText style={[styles.errorText, { color: colors.text }]}>
+                {error}
+              </ThemedText>
             </View>
           ) : data ? (
             <>
-              <View style={[styles.heroCard, { backgroundColor: cardBg, borderColor: cardBorder }]}> 
-                <ThemedText style={[styles.heroTitle, { color: colors.text }]}>{data.hospital?.name || "Hospital"}</ThemedText>
-                <ThemedText style={[styles.heroSub, { color: subText }]}>{data.hospital?.address || "No address"}</ThemedText>
+              <View
+                style={[
+                  styles.heroCard,
+                  { backgroundColor: cardBg, borderColor: cardBorder },
+                ]}
+              >
+                <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
+                  {data.hospital?.name || "Hospital"}
+                </ThemedText>
+                <ThemedText style={[styles.heroSub, { color: subText }]}>
+                  {data.hospital?.address || "No address"}
+                </ThemedText>
                 <View style={styles.inlineRow}>
                   <MaterialIcons name="phone" size={14} color={subText} />
-                  <ThemedText style={[styles.metaText, { color: subText }]}>{data.hospital?.phone || "N/A"}</ThemedText>
+                  <ThemedText style={[styles.metaText, { color: subText }]}>
+                    {data.hospital?.phone || "N/A"}
+                  </ThemedText>
                 </View>
               </View>
 
               <View style={styles.statsGrid}>
                 {stats.map((stat) => (
-                  <View key={stat.label} style={[styles.statCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                    <View style={[styles.statIcon, { backgroundColor: stat.color + "15" }]}> 
-                      <MaterialIcons name={stat.icon} size={18} color={stat.color} />
+                  <View
+                    key={stat.label}
+                    style={[
+                      styles.statCard,
+                      { borderColor: cardBorder, backgroundColor: cardBg },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.statIcon,
+                        { backgroundColor: stat.color + "15" },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={stat.icon}
+                        size={18}
+                        color={stat.color}
+                      />
                     </View>
-                    <ThemedText style={[styles.statValue, { color: colors.text }]}>{stat.value}</ThemedText>
-                    <ThemedText style={[styles.statLabel, { color: subText }]}>{stat.label}</ThemedText>
+                    <ThemedText
+                      style={[styles.statValue, { color: colors.text }]}
+                    >
+                      {stat.value}
+                    </ThemedText>
+                    <ThemedText style={[styles.statLabel, { color: subText }]}>
+                      {stat.label}
+                    </ThemedText>
                   </View>
                 ))}
               </View>
 
-              <View style={[styles.sectionCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>{hospitalName} Metadata</ThemedText>
-                <Meta label="Accepting Emergencies" value={data.hospital?.is_accepting_emergencies === false ? "No" : "Yes"} subText={subText} text={colors.text} />
-                <Meta label="Max Concurrent" value={String(data.hospital?.max_concurrent_emergencies ?? "N/A")} subText={subText} text={colors.text} />
-                <Meta label="Dispatch Weight" value={String(data.hospital?.dispatch_weight ?? "N/A")} subText={subText} text={colors.text} />
-                <Meta label="Trauma Capable" value={data.hospital?.trauma_capable ? "Yes" : "No"} subText={subText} text={colors.text} />
-                <Meta label="ICU Beds" value={String(data.hospital?.icu_beds_available ?? 0)} subText={subText} text={colors.text} />
-                <Meta label="Avg Handover (min)" value={String(data.hospital?.average_handover_minutes ?? "N/A")} subText={subText} text={colors.text} />
-                <Meta label="Created" value={String(data.hospital?.created_at ?? "N/A")} subText={subText} text={colors.text} />
-                <Meta label="Updated" value={String(data.hospital?.updated_at ?? "N/A")} subText={subText} text={colors.text} />
+              <View
+                style={[
+                  styles.sectionCard,
+                  { borderColor: cardBorder, backgroundColor: cardBg },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.sectionTitle, { color: colors.text }]}
+                >
+                  {hospitalName} Metadata
+                </ThemedText>
+                <Meta
+                  label="Accepting Emergencies"
+                  value={
+                    data.hospital?.is_accepting_emergencies === false
+                      ? "No"
+                      : "Yes"
+                  }
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Max Concurrent"
+                  value={String(
+                    data.hospital?.max_concurrent_emergencies ?? "N/A",
+                  )}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Dispatch Weight"
+                  value={String(data.hospital?.dispatch_weight ?? "N/A")}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Trauma Capable"
+                  value={data.hospital?.trauma_capable ? "Yes" : "No"}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="ICU Beds"
+                  value={String(data.hospital?.icu_beds_available ?? 0)}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Avg Handover (min)"
+                  value={String(
+                    data.hospital?.average_handover_minutes ?? "N/A",
+                  )}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Created"
+                  value={String(data.hospital?.created_at ?? "N/A")}
+                  subText={subText}
+                  text={colors.text}
+                />
+                <Meta
+                  label="Updated"
+                  value={String(data.hospital?.updated_at ?? "N/A")}
+                  subText={subText}
+                  text={colors.text}
+                />
               </View>
 
-              <View style={[styles.sectionCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Linked Ambulances ({data.linked_ambulances.length})</ThemedText>
+              <View
+                style={[
+                  styles.sectionCard,
+                  { borderColor: cardBorder, backgroundColor: cardBg },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.sectionTitle, { color: colors.text }]}
+                >
+                  Linked Ambulances ({data.linked_ambulances.length})
+                </ThemedText>
                 {data.linked_ambulances.length === 0 ? (
-                  <ThemedText style={[styles.emptyText, { color: subText }]}>No ambulances linked yet.</ThemedText>
+                  <ThemedText style={[styles.emptyText, { color: subText }]}>
+                    No ambulances linked yet.
+                  </ThemedText>
                 ) : (
                   data.linked_ambulances.map((amb) => (
-                    <View key={amb.id} style={[styles.rowItem, { borderColor: cardBorder }]}> 
-                      <ThemedText style={[styles.rowTitle, { color: colors.text }]}>{amb.vehicle_number || amb.id}</ThemedText>
-                      <ThemedText style={[styles.rowSub, { color: subText }]}>{amb.type || "standard"} · {amb.is_available ? "Available" : "Busy"}</ThemedText>
+                    <View
+                      key={amb.id}
+                      style={[styles.rowItem, { borderColor: cardBorder }]}
+                    >
+                      <ThemedText
+                        style={[styles.rowTitle, { color: colors.text }]}
+                      >
+                        {amb.vehicle_number || amb.id}
+                      </ThemedText>
+                      <ThemedText style={[styles.rowSub, { color: subText }]}>
+                        {amb.type || "standard"} ·{" "}
+                        {amb.is_available ? "Available" : "Busy"}
+                      </ThemedText>
                     </View>
                   ))
                 )}
               </View>
 
-              <View style={[styles.sectionCard, { borderColor: cardBorder, backgroundColor: cardBg }]}>
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Linked Drivers ({data.linked_driver_profiles.length})</ThemedText>
+              <View
+                style={[
+                  styles.sectionCard,
+                  { borderColor: cardBorder, backgroundColor: cardBg },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.sectionTitle, { color: colors.text }]}
+                >
+                  Linked Drivers ({data.linked_driver_profiles.length})
+                </ThemedText>
                 {data.linked_driver_profiles.length === 0 ? (
-                  <ThemedText style={[styles.emptyText, { color: subText }]}>No linked driver profiles yet.</ThemedText>
+                  <ThemedText style={[styles.emptyText, { color: subText }]}>
+                    No linked driver profiles yet.
+                  </ThemedText>
                 ) : (
                   data.linked_driver_profiles.map((d) => (
-                    <View key={d.id} style={[styles.rowItem, { borderColor: cardBorder }]}> 
-                      <ThemedText style={[styles.rowTitle, { color: colors.text }]}>{d.full_name || "Unknown"}</ThemedText>
-                      <ThemedText style={[styles.rowSub, { color: subText }]}>{d.phone || "No phone"}</ThemedText>
+                    <View
+                      key={d.id}
+                      style={[styles.rowItem, { borderColor: cardBorder }]}
+                    >
+                      <ThemedText
+                        style={[styles.rowTitle, { color: colors.text }]}
+                      >
+                        {d.full_name || "Unknown"}
+                      </ThemedText>
+                      <ThemedText style={[styles.rowSub, { color: subText }]}>
+                        {d.phone || "No phone"}
+                      </ThemedText>
                     </View>
                   ))
                 )}
@@ -202,11 +369,25 @@ export default function AdminHospitalDetailsScreen() {
   );
 }
 
-function Meta({ label, value, subText, text }: { label: string; value: string; subText: string; text: string }) {
+function Meta({
+  label,
+  value,
+  subText,
+  text,
+}: {
+  label: string;
+  value: string;
+  subText: string;
+  text: string;
+}) {
   return (
     <View style={styles.metaRow}>
-      <ThemedText style={[styles.metaLabel, { color: subText }]}>{label}</ThemedText>
-      <ThemedText style={[styles.metaValue, { color: text }]}>{value}</ThemedText>
+      <ThemedText style={[styles.metaLabel, { color: subText }]}>
+        {label}
+      </ThemedText>
+      <ThemedText style={[styles.metaValue, { color: text }]}>
+        {value}
+      </ThemedText>
     </View>
   );
 }
@@ -222,7 +403,12 @@ const styles = StyleSheet.create({
     alignSelf: "center" as any,
     gap: 12,
   },
-  centerWrap: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
+  centerWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 10,
+  },
   centerText: { fontSize: 14, fontFamily: Fonts.sans },
   errorCard: {
     borderWidth: 1,
@@ -243,7 +429,12 @@ const styles = StyleSheet.create({
   },
   heroTitle: { fontSize: 18, fontWeight: "800", fontFamily: Fonts.sans },
   heroSub: { fontSize: 13, fontFamily: Fonts.sans },
-  inlineRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  inlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 2,
+  },
   metaText: { fontSize: 12, fontFamily: Fonts.sans },
   statsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   statCard: {

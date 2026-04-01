@@ -3,7 +3,12 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState
+} from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -27,11 +32,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import {
-    calculateDistance,
-    parsePostGISPoint,
-} from "@/utils/emergency";
 import { backendPatch } from "@/utils/api";
+import { calculateDistance, parsePostGISPoint } from "@/utils/emergency";
 import {
     cancelEmergencyWithinWindow,
     createFamilyShareLink,
@@ -354,7 +356,10 @@ export default function PatientEmergencyTrackingScreen() {
       if (now - lastPushTime < 15000) return; // throttle to every 15s
       if (!emergencyId || typeof emergencyId !== "string") return;
       lastPushTime = now;
-      backendPatch(`/ops/patient/emergencies/${emergencyId}/patient-location`, { latitude: lat, longitude: lng }).catch(() => {});
+      backendPatch(`/ops/patient/emergencies/${emergencyId}/patient-location`, {
+        latitude: lat,
+        longitude: lng,
+      }).catch(() => {});
     };
 
     const startPatientTracking = async () => {
@@ -375,7 +380,10 @@ export default function PatientEmergencyTrackingScreen() {
             latitude: current.coords.latitude,
             longitude: current.coords.longitude,
           });
-          pushLocationToBackend(current.coords.latitude, current.coords.longitude);
+          pushLocationToBackend(
+            current.coords.latitude,
+            current.coords.longitude,
+          );
         }
 
         watcher = await Location.watchPositionAsync(
@@ -747,12 +755,33 @@ export default function PatientEmergencyTrackingScreen() {
   // Build markers for interactive LiveMapView
   const mapMarkers: MapMarker[] = [];
   if (mapAmbulanceCoords) {
-    mapMarkers.push({ id: 'ambulance', latitude: mapAmbulanceCoords.latitude, longitude: mapAmbulanceCoords.longitude, color: '#2563EB', label: 'Ambulance', popup: '🚑 Ambulance' });
+    mapMarkers.push({
+      id: "ambulance",
+      latitude: mapAmbulanceCoords.latitude,
+      longitude: mapAmbulanceCoords.longitude,
+      color: "#2563EB",
+      label: "Ambulance",
+      popup: "🚑 Ambulance",
+    });
   }
   if (isTransportPhase && hospitalCoords) {
-    mapMarkers.push({ id: 'destination', latitude: hospitalCoords.latitude, longitude: hospitalCoords.longitude, color: '#7C3AED', label: 'Hospital', popup: '🏥 Hospital' });
+    mapMarkers.push({
+      id: "destination",
+      latitude: hospitalCoords.latitude,
+      longitude: hospitalCoords.longitude,
+      color: "#7C3AED",
+      label: "Hospital",
+      popup: "🏥 Hospital",
+    });
   } else if (mapPatientCoords) {
-    mapMarkers.push({ id: 'patient', latitude: mapPatientCoords.latitude, longitude: mapPatientCoords.longitude, color: '#DC2626', label: 'You', popup: '📍 Your Location' });
+    mapMarkers.push({
+      id: "patient",
+      latitude: mapPatientCoords.latitude,
+      longitude: mapPatientCoords.longitude,
+      color: "#DC2626",
+      label: "You",
+      popup: "📍 Your Location",
+    });
   }
 
   const openDetailedRoute = async () => {

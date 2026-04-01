@@ -394,6 +394,3 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
 });
-
-
-

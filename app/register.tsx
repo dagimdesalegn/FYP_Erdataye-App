@@ -430,7 +430,16 @@ export default function RegisterScreen() {
   const placeholderColor = isDark ? "#64748B" : "#94A3B8";
 
   return (
-    <View style={[styles.root, { backgroundColor: bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: bg,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar
         barStyle={isDark ? "light-content" : "dark-content"}
         translucent

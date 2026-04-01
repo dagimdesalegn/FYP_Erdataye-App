@@ -30,10 +30,7 @@ import {
     getPatientInfo,
     subscribeToAssignments,
 } from "@/utils/driver";
-import {
-    calculateDistance,
-    parsePostGISPoint,
-} from "@/utils/emergency";
+import { calculateDistance, parsePostGISPoint } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
 
 interface MedicalProfile {
@@ -356,8 +353,24 @@ export default function DriverEmergencyScreen() {
 
   // Build markers for the interactive LiveMapView
   const mapMarkers: MapMarker[] = [];
-  if (driverCoords) mapMarkers.push({ id: 'driver', latitude: driverCoords.latitude, longitude: driverCoords.longitude, color: '#2563EB', label: 'You', popup: '🚑 You' });
-  if (patientCoords) mapMarkers.push({ id: 'patient', latitude: patientCoords.latitude, longitude: patientCoords.longitude, color: '#DC2626', label: 'Patient', popup: '🆘 Patient' });
+  if (driverCoords)
+    mapMarkers.push({
+      id: "driver",
+      latitude: driverCoords.latitude,
+      longitude: driverCoords.longitude,
+      color: "#2563EB",
+      label: "You",
+      popup: "🚑 You",
+    });
+  if (patientCoords)
+    mapMarkers.push({
+      id: "patient",
+      latitude: patientCoords.latitude,
+      longitude: patientCoords.longitude,
+      color: "#DC2626",
+      label: "Patient",
+      popup: "🆘 Patient",
+    });
 
   const medFromProfile = patientInfo?.medical_profiles?.[0];
   let medFromAssignment: any = null;
