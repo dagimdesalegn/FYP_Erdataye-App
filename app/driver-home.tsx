@@ -399,10 +399,7 @@ export default function DriverHomeScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* App Header with project name top-left, theme toggle + profile icon top-right */}
-      <AppHeader
-        title="እርዳታዬ"
-        onProfilePress={handleProfilePress}
-      />
+      <AppHeader title="እርዳታዬ" onProfilePress={handleProfilePress} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}

@@ -462,12 +462,12 @@ export const signIn = async (
       getRoleFromMetadata(tokenData?.role) ??
       getRoleFromMetadata(authUser.user_metadata?.role);
 
-    const dbFullName = tokenData?.full_name || String(authUser.user_metadata?.full_name || "");
-    const dbPhone = tokenData?.phone || String(authUser.user_metadata?.phone || "");
+    const dbFullName =
+      tokenData?.full_name || String(authUser.user_metadata?.full_name || "");
+    const dbPhone =
+      tokenData?.phone || String(authUser.user_metadata?.phone || "");
 
-    const role = normalizeRole(
-      roleFromMetadata ?? "patient",
-    );
+    const role = normalizeRole(roleFromMetadata ?? "patient");
 
     const user: AuthUser = {
       id: authUser.id,

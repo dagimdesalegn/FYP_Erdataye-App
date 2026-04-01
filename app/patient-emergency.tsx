@@ -7,7 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     TextInput,
-    View
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,7 +27,7 @@ import {
     getExplainableTriage,
     getLiveAvailableAmbulances,
     getTrafficAwareDispatch,
-    parsePostGISPoint
+    parsePostGISPoint,
 } from "@/utils/emergency";
 import {
     cancelEmergencyWithinWindow,
