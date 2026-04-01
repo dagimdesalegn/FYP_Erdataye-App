@@ -248,22 +248,6 @@ export default function RegisterScreen() {
           ? formatPhoneForDB(form.contact)
           : "";
 
-      let signupLocation: { latitude: number; longitude: number } | null = null;
-      try {
-        const permission = await Location.getForegroundPermissionsAsync();
-        if (permission.status === "granted") {
-          const current = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          signupLocation = {
-            latitude: current.coords.latitude,
-            longitude: current.coords.longitude,
-          };
-        }
-      } catch {
-        signupLocation = null;
-      }
-
       // Sign up user with role (send E.164 phone for auth, Ethiopian format for profile)
       const { user, error } = await signUp(
         "+251" + form.phone,
@@ -271,7 +255,7 @@ export default function RegisterScreen() {
         userRole,
         form.fullName.trim(),
         userRole === "ambulance" ? form.hospitalId : undefined,
-        signupLocation,
+        undefined,
         form.nationalId.trim() || undefined,
       );
 
@@ -284,6 +268,23 @@ export default function RegisterScreen() {
           error?.message || "Failed to create account",
         );
         return;
+      }
+
+      // Request location only after successful account creation.
+      let signupLocation: { latitude: number; longitude: number } | null = null;
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+        if (permission.status === "granted") {
+          const current = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          signupLocation = {
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          };
+        }
+      } catch {
+        signupLocation = null;
       }
 
       console.log("User created:", user.id);

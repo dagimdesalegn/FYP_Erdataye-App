@@ -3426,6 +3426,7 @@ async def get_driver_ambulance(current_user: dict = Depends(get_current_user)) -
 async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_current_user)) -> dict:
     uid = str(current_user.get("sub") or "")
     vehicle_number = str(body.get("vehicle_number") or "").strip()
+    registration_number = str(body.get("registration_number") or "").strip()
     if not vehicle_number:
         raise HTTPException(status_code=400, detail="vehicle_number required")
 
@@ -3436,6 +3437,8 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
         payload: dict = {"current_driver_id": uid, "updated_at": now}
         if body.get("type"):
             payload["type"] = body["type"]
+        if registration_number:
+            payload["registration_number"] = registration_number
         if body.get("hospital_id"):
             payload["hospital_id"] = body["hospital_id"]
         await db_update("ambulances", {"id": row["id"]}, payload)
@@ -3449,6 +3452,8 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
         "created_at": now,
         "updated_at": now,
     }
+    if registration_number:
+        insert_payload["registration_number"] = registration_number
     if body.get("hospital_id"):
         insert_payload["hospital_id"] = body["hospital_id"]
     result, code = await db_insert("ambulances", insert_payload)
