@@ -279,23 +279,23 @@ export const createEmergency = async (
         ? description.trim().slice(0, 1500)
         : null;
 
-    // Get national_id from user profile via backend
-    let nationalId = "";
+    // Backend-first dispatch — fetch national_id in parallel with dispatch
     try {
-      const profile = await backendGet<{ national_id?: string }>(
+      // Fire national_id fetch in parallel (don't block dispatch)
+      const nationalIdPromise = backendGet<{ national_id?: string }>(
         "/profiles/me",
+      ).then(
+        (p) => {
+          const nid = p?.national_id;
+          return typeof nid === "string" && /^\d{16}$/.test(nid.trim())
+            ? nid.trim()
+            : undefined;
+        },
+        () => undefined,
       );
-      if (profile?.national_id) nationalId = profile.national_id;
-    } catch {}
 
-    const normalizedNationalId =
-      typeof nationalId === "string" && /^\d{16}$/.test(nationalId.trim())
-        ? nationalId.trim()
-        : undefined;
-
-    // Backend-first dispatch
-    try {
-      const dispatch = await backendPost<EmergencyDispatchApiResponse>(
+      // Start dispatch immediately (national_id is optional)
+      const dispatchPromise = backendPost<EmergencyDispatchApiResponse>(
         "/ops/patient/emergencies",
         {
           latitude: lat,
@@ -303,31 +303,28 @@ export const createEmergency = async (
           emergency_type: normalizedEmergencyType,
           description: normalizedDescription,
           max_radius_km: 100,
-          national_id: normalizedNationalId,
+          national_id: await nationalIdPromise,
         },
       );
 
-      // Fetch full emergency record via backend (bypasses RLS)
-      let created: any = null;
-      try {
-        const detailRes = await backendGet<{ emergency: any }>(
-          `/ops/patient/emergencies/${dispatch.emergency_id}/detail`,
-        );
-        created = detailRes?.emergency;
-      } catch {
-        // Fall back to Supabase for the fetch
-        const { data } = await supabase
-          .from("emergency_requests")
-          .select("*")
-          .eq("id", dispatch.emergency_id)
-          .maybeSingle();
-        created = data;
-      }
+      const dispatch = await dispatchPromise;
 
-      if (!created)
-        throw new Error("Dispatch created but emergency record not found.");
-
-      const emergency = normalizeEmergency(created);
+      // Build emergency from dispatch response directly — skip extra detail fetch
+      // The dispatch response already contains: emergency_id, ambulance_id, hospital_id, reason, eta
+      const emergency = normalizeEmergency({
+        id: dispatch.emergency_id,
+        patient_id: patientId,
+        patient_location: toPostGISPoint(lat, lng),
+        emergency_type: normalizedEmergencyType,
+        description: normalizedDescription,
+        status: dispatch.ambulance_id ? "assigned" : "pending",
+        assigned_ambulance_id: dispatch.ambulance_id,
+        hospital_id: dispatch.hospital_id,
+        latitude: lat,
+        longitude: lng,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
       emergency.dispatch_reason = dispatch.reason;
       emergency.eta_minutes = dispatch.eta_minutes ?? undefined;
       emergency.route_to_patient_url =

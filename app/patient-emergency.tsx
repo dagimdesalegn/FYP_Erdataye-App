@@ -186,7 +186,7 @@ export default function PatientEmergencyScreen() {
           location.longitude,
         ) * 1000;
       const elapsed = now - prev.at;
-      if (movedMeters < 25 && elapsed < 30000) return;
+      if (movedMeters < 15 && elapsed < 20000) return;
     }
 
     const stable = {

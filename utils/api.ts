@@ -15,8 +15,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((value) => value.trim())
   .filter(Boolean);
 
-const DEFAULT_TIMEOUT_MS = 45000;
-const GET_TIMEOUT_MS = 45000;
+const DEFAULT_TIMEOUT_MS = 12000;
+const GET_TIMEOUT_MS = 12000;
 
 const AUTH_ERROR_SNIPPETS = [
   "session from session_id claim",
@@ -250,7 +250,7 @@ export async function backendPost<T>(path: string, body: unknown): Promise<T> {
     method: "POST",
     path,
     body,
-    timeoutMs: 15000,
+    timeoutMs: 10000,
   });
 }
 
@@ -259,7 +259,7 @@ export async function backendPut<T>(path: string, body: unknown): Promise<T> {
     method: "PUT",
     path,
     body,
-    timeoutMs: 15000,
+    timeoutMs: 10000,
   });
 }
 
@@ -268,7 +268,7 @@ export async function backendPatch<T>(path: string, body: unknown): Promise<T> {
     method: "PATCH",
     path,
     body,
-    timeoutMs: 15000,
+    timeoutMs: 10000,
   });
 }
 
@@ -276,6 +276,6 @@ export async function backendDelete<T>(path: string): Promise<T> {
   return requestWithSessionRecovery<T>({
     method: "DELETE",
     path,
-    timeoutMs: 12000,
+    timeoutMs: 8000,
   });
 }

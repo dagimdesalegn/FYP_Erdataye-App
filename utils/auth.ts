@@ -51,7 +51,7 @@ async function fetchBackend(
   for (const base of order) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 45000);
+      const timeout = setTimeout(() => controller.abort(), 12000);
       const res = await fetch(`${base}${path}`, {
         ...init,
         signal: controller.signal,
@@ -455,73 +455,37 @@ export const signIn = async (
 
     const authUser = sessionData.user ?? sessionData.session.user;
 
-    // ── Profile resolution ──────────────────────────────────────
-    // Use data returned from the backend login response (service-role, bypasses RLS)
+    // ── Fast profile resolution from backend login response ─────
+    // The backend already returns role/full_name/phone — use those directly
+    // instead of making extra DB round-trips.
     const roleFromMetadata =
       getRoleFromMetadata(tokenData?.role) ??
       getRoleFromMetadata(authUser.user_metadata?.role);
 
-    let dbFullName = tokenData?.full_name || "";
-    let dbPhone = tokenData?.phone || "";
-    let profileExists = false;
-    let dbRole: UserRole | null = getRoleFromMetadata(tokenData?.role) ?? null;
-
-    // Read profile from DB for extra reliability
-    try {
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("full_name, phone, role")
-        .eq("id", authUser.id)
-        .maybeSingle();
-      if (profileRow) {
-        profileExists = true;
-        dbFullName = dbFullName || profileRow.full_name || "";
-        dbPhone = dbPhone || profileRow.phone || "";
-        if (!dbRole) {
-          dbRole = isUserRole(profileRow.role)
-            ? normalizeRole(profileRow.role)
-            : null;
-        }
-      }
-    } catch (e) {
-      console.warn("Could not read profile from DB on sign-in:", e);
-    }
-
-    // Heal missing profile rows
-    if (!profileExists && roleFromMetadata !== "hospital") {
-      const profilePayload = buildProfilePayload({
-        id: authUser.id,
-        role: roleFromMetadata ?? "patient",
-        fullName: String(authUser.user_metadata?.full_name || ""),
-        phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
-      });
-      const { error: upsertProfileError } =
-        await upsertProfileWithRetry(profilePayload);
-      if (upsertProfileError && (upsertProfileError as any).code !== "23503") {
-        console.error("Profile ensure error on sign in:", upsertProfileError);
-      }
-      dbFullName =
-        dbFullName || String(authUser.user_metadata?.full_name || "");
-      dbPhone = dbPhone || String(authUser.user_metadata?.phone || "");
-    }
+    const dbFullName = tokenData?.full_name || String(authUser.user_metadata?.full_name || "");
+    const dbPhone = tokenData?.phone || String(authUser.user_metadata?.phone || "");
 
     const role = normalizeRole(
-      roleFromMetadata ??
-        dbRole ??
-        (await getUserRole(authUser.id)) ??
-        "patient",
+      roleFromMetadata ?? "patient",
     );
 
     const user: AuthUser = {
       id: authUser.id,
       role,
-      fullName:
-        dbFullName ||
-        String(tokenData?.full_name || authUser.user_metadata?.full_name || ""),
-      phone:
-        dbPhone ||
-        String(tokenData?.phone || authUser.user_metadata?.phone || ""),
+      fullName: dbFullName,
+      phone: dbPhone,
     };
+
+    // Fire-and-forget: heal missing profile in background (don't block login)
+    if (roleFromMetadata !== "hospital") {
+      const profilePayload = buildProfilePayload({
+        id: authUser.id,
+        role,
+        fullName: dbFullName,
+        phone: dbPhone || `phone_${Date.now()}`,
+      });
+      upsertProfileWithRetry(profilePayload).catch(() => {});
+    }
 
     return { user, error: null };
   } catch (error) {

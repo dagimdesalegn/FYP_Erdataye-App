@@ -23,7 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from routers import auth, chat, ops, profiles
-from services.supabase import close_client
+from services.supabase import close_client, _client
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -33,7 +33,9 @@ from services.supabase import close_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: nothing to eagerly initialise — httpx client is lazy
+    # Startup: eagerly create the httpx connection pool so the first request
+    # doesn't pay the TCP/TLS handshake cost.
+    _client()
     yield
     # Shutdown: gracefully drain the connection pool
     await close_client()
@@ -64,7 +66,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
-    max_age=600,
+    max_age=86400,
 )
 
 # ── Routers ───────────────────────────────────────────────────────────────────

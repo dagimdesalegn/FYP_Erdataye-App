@@ -1,10 +1,12 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -70,6 +72,67 @@ export default function DriverEmergencyScreen() {
     latitude: number;
     longitude: number;
   } | null>(null);
+  const liveLocationRef = useRef(false);
+
+  // Live GPS for driver's own location
+  useEffect(() => {
+    let watcher: Location.LocationSubscription | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startLiveLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+
+        // Immediate snapshot
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setDriverCoords({
+            latitude: initial.coords.latitude,
+            longitude: initial.coords.longitude,
+          });
+          liveLocationRef.current = true;
+        } catch {}
+
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            } catch {}
+          }, 8000);
+        } else {
+          watcher = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 8000,
+              distanceInterval: 10,
+            },
+            (loc) => {
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            },
+          );
+        }
+      } catch {}
+    };
+
+    startLiveLocation();
+
+    return () => {
+      if (watcher) watcher.remove();
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
 
   const loadAssignment = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -104,17 +167,20 @@ export default function DriverEmergencyScreen() {
           }
         }
 
-        // Load driver's ambulance location
-        const { ambulanceId } = await getDriverAmbulanceId(user.id);
-        if (ambulanceId) {
-          const { data } = await supabase
-            .from("ambulances")
-            .select("last_known_location")
-            .eq("id", ambulanceId)
-            .maybeSingle();
-          if (data?.last_known_location) {
-            const parsed = parsePostGISPoint(data.last_known_location);
-            if (parsed) setDriverCoords(parsed);
+        // Load driver's ambulance location from DB as initial fallback
+        // (live GPS will override this once it gets a fix)
+        if (!liveLocationRef.current) {
+          const { ambulanceId } = await getDriverAmbulanceId(user.id);
+          if (ambulanceId) {
+            const { data } = await supabase
+              .from("ambulances")
+              .select("last_known_location")
+              .eq("id", ambulanceId)
+              .maybeSingle();
+            if (data?.last_known_location) {
+              const parsed = parsePostGISPoint(data.last_known_location);
+              if (parsed) setDriverCoords(parsed);
+            }
           }
         }
       } catch (err) {

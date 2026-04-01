@@ -206,8 +206,8 @@ export default function DriverHomeScreen() {
 
     checkAssignment();
 
-    // Re-check every 10s to clear stale completed assignments
-    const interval = setInterval(checkAssignment, 10000);
+    // Re-check every 20s to clear stale completed assignments
+    const interval = setInterval(checkAssignment, 20000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -244,7 +244,7 @@ export default function DriverHomeScreen() {
             calculateDistance(previous.latitude, previous.longitude, lat, lng) *
             1000;
           const elapsed = now - lastSentAtRef.current;
-          if (movedMeters < 4 && elapsed < 15000) {
+          if (movedMeters < 10 && elapsed < 20000) {
             return;
           }
         }
@@ -290,13 +290,13 @@ export default function DriverHomeScreen() {
             } catch (locErr) {
               console.warn("Web location polling failed:", locErr);
             }
-          }, 5000);
+          }, 8000);
         } else {
           watcher = await Location.watchPositionAsync(
             {
               accuracy: Location.Accuracy.Balanced,
-              timeInterval: 5000,
-              distanceInterval: 5,
+              timeInterval: 8000,
+              distanceInterval: 10,
             },
             async (loc) => {
               await maybeSendLocation(

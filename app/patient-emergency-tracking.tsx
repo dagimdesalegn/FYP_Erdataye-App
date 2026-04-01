@@ -298,7 +298,7 @@ export default function PatientEmergencyTrackingScreen() {
           }
         }
       } catch {}
-    }, 8000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [emergencyId, emergency?.status, applyAmbulanceFix]);
 

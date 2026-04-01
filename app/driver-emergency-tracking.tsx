@@ -107,17 +107,21 @@ export default function DriverEmergencyTrackingScreen() {
         const { ambulanceId: ambId } = await getDriverAmbulanceId(user.id);
         if (ambId) {
           setAmbulanceId(ambId);
-          // Get ambulance location
-          const { data: ambData } = await supabase
-            .from("ambulances")
-            .select("last_known_location")
-            .eq("id", ambId)
-            .maybeSingle();
-          if (ambData?.last_known_location) {
-            const parsed = parsePostGISPoint(ambData.last_known_location);
-            if (parsed) setDriverCoords(parsed);
-          }
         }
+
+        // Use live GPS for driver position (not stale DB location)
+        try {
+          const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+          if (locStatus === "granted") {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            setDriverCoords({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          }
+        } catch {}
 
         // Get emergency details via backend (bypasses RLS)
         const detailRes = await backendGet<{ emergency: any }>(
@@ -190,15 +194,15 @@ export default function DriverEmergencyTrackingScreen() {
             } catch (pollErr) {
               console.warn("Web location polling failed:", pollErr);
             }
-          }, 5000);
+          }, 8000);
           return;
         }
 
         watcher = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
-            timeInterval: 5000,
-            distanceInterval: 5,
+            timeInterval: 8000,
+            distanceInterval: 10,
           },
           async (loc) => {
             try {
