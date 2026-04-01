@@ -35,7 +35,6 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
-import { supabase } from "@/utils/supabase";
 
 type Tab = "map" | "status";
 
@@ -111,7 +110,8 @@ export default function DriverEmergencyTrackingScreen() {
 
         // Use live GPS for driver position (not stale DB location)
         try {
-          const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+          const { status: locStatus } =
+            await Location.requestForegroundPermissionsAsync();
           if (locStatus === "granted") {
             const pos = await Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Balanced,
