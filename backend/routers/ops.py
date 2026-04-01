@@ -3469,6 +3469,11 @@ async def toggle_ambulance_availability(body: dict, current_user: dict = Depends
     is_available = bool(body.get("is_available"))
     if not ambulance_id:
         raise HTTPException(status_code=400, detail="ambulance_id required")
+    # Ownership check: caller must be the current driver for this ambulance
+    uid = str(current_user.get("sub") or "")
+    rows, _ = await db_select("ambulances", {"id": ambulance_id})
+    if not rows or str(rows[0].get("current_driver_id") or "") != uid:
+        raise HTTPException(status_code=403, detail="Not authorised for this ambulance")
     now = datetime.now(timezone.utc).isoformat()
     await db_update("ambulances", {"id": ambulance_id}, {"is_available": is_available, "updated_at": now})
     return {"success": True}
@@ -3481,6 +3486,11 @@ async def update_ambulance_location(body: dict, current_user: dict = Depends(get
     lng = body.get("longitude")
     if not ambulance_id or lat is None or lng is None:
         raise HTTPException(status_code=400, detail="ambulance_id, latitude, longitude required")
+    # Ownership check: caller must be the current driver for this ambulance
+    uid = str(current_user.get("sub") or "")
+    rows, _ = await db_select("ambulances", {"id": ambulance_id})
+    if not rows or str(rows[0].get("current_driver_id") or "") != uid:
+        raise HTTPException(status_code=403, detail="Not authorised for this ambulance")
     point = _to_point_wkt(lat, lng)
     now = datetime.now(timezone.utc).isoformat()
     await db_update("ambulances", {"id": ambulance_id}, {"last_known_location": point, "updated_at": now})

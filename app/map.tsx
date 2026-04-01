@@ -3,6 +3,7 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendGet } from "@/utils/api";
 import {
@@ -31,6 +32,7 @@ import {
 } from "react-native";
 
 export default function MapScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";

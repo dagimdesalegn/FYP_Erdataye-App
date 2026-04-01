@@ -3,7 +3,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -734,38 +734,43 @@ export default function PatientEmergencyTrackingScreen() {
   );
 
   // Map route: ambulance -> patient by default, then ambulance -> hospital during transport.
-  const mapHtml =
-    mapAmbulanceCoords && mapPatientCoords
-      ? isTransportPhase && hospitalCoords
-        ? buildDriverPatientMapHtml(
-            mapAmbulanceCoords.latitude,
-            mapAmbulanceCoords.longitude,
-            hospitalCoords.latitude,
-            hospitalCoords.longitude,
-            {
-              blueLabel: "Ambulance",
-              redLabel: "Hospital",
-            },
-          )
-        : buildDriverPatientMapHtml(
-            mapAmbulanceCoords.latitude,
-            mapAmbulanceCoords.longitude,
-            mapPatientCoords.latitude,
-            mapPatientCoords.longitude,
-            {
-              blueLabel: "Ambulance",
-              redLabel: "You",
-              bluePopup: "🚑 Ambulance",
-              redPopup: "📍 Your Location",
-            },
-          )
-      : mapPatientCoords
-        ? buildMapHtml(
-            mapPatientCoords.latitude,
-            mapPatientCoords.longitude,
-            17,
-          )
-        : null;
+  const mapHtml = useMemo(() => {
+    if (mapAmbulanceCoords && mapPatientCoords) {
+      if (isTransportPhase && hospitalCoords) {
+        return buildDriverPatientMapHtml(
+          mapAmbulanceCoords.latitude,
+          mapAmbulanceCoords.longitude,
+          hospitalCoords.latitude,
+          hospitalCoords.longitude,
+          { blueLabel: "Ambulance", redLabel: "Hospital" },
+        );
+      }
+      return buildDriverPatientMapHtml(
+        mapAmbulanceCoords.latitude,
+        mapAmbulanceCoords.longitude,
+        mapPatientCoords.latitude,
+        mapPatientCoords.longitude,
+        {
+          blueLabel: "Ambulance",
+          redLabel: "You",
+          bluePopup: "🚑 Ambulance",
+          redPopup: "📍 Your Location",
+        },
+      );
+    }
+    if (mapPatientCoords) {
+      return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude, 17);
+    }
+    return null;
+  }, [
+    mapAmbulanceCoords?.latitude,
+    mapAmbulanceCoords?.longitude,
+    mapPatientCoords?.latitude,
+    mapPatientCoords?.longitude,
+    isTransportPhase,
+    hospitalCoords?.latitude,
+    hospitalCoords?.longitude,
+  ]);
 
   const openDetailedRoute = async () => {
     try {

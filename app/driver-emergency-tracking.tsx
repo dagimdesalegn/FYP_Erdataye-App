@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -302,26 +302,31 @@ export default function DriverEmergencyTrackingScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map HTML
-  const mapHtml =
-    driverCoords && patientCoords
-      ? buildDriverPatientMapHtml(
-          driverCoords.latitude,
-          driverCoords.longitude,
-          patientCoords.latitude,
-          patientCoords.longitude,
-          {
-            blueLabel: "You",
-            redLabel: "Patient",
-            bluePopup: "🚑 You",
-            redPopup: "🆘 Patient",
-          },
-        )
-      : patientCoords
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
-        : driverCoords
-          ? buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16)
-          : null;
+  // Map HTML — memoised with rounded coords to avoid iframe reloads on sub-meter GPS drift
+  const mapHtml = useMemo(() => {
+    if (driverCoords && patientCoords) {
+      return buildDriverPatientMapHtml(
+        +driverCoords.latitude.toFixed(4),
+        +driverCoords.longitude.toFixed(4),
+        +patientCoords.latitude.toFixed(4),
+        +patientCoords.longitude.toFixed(4),
+        {
+          blueLabel: "You",
+          redLabel: "Patient",
+          bluePopup: "🚑 You",
+          redPopup: "🆘 Patient",
+        },
+      );
+    }
+    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16);
+    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16);
+    return null;
+  }, [
+    driverCoords && +driverCoords.latitude.toFixed(4),
+    driverCoords && +driverCoords.longitude.toFixed(4),
+    patientCoords?.latitude,
+    patientCoords?.longitude,
+  ]);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
