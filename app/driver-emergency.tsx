@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -363,7 +363,7 @@ export default function DriverEmergencyScreen() {
   }
 
   // Build Google Maps embed URL
-  const mapHtml = useMemo(() => {
+  const mapHtml = (() => {
     if (driverCoords && patientCoords) {
       return buildDriverPatientMapHtml(
         driverCoords.latitude, driverCoords.longitude,
@@ -373,10 +373,7 @@ export default function DriverEmergencyScreen() {
     if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
     if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
     return "";
-  }, [
-    driverCoords?.latitude.toFixed(4), driverCoords?.longitude.toFixed(4),
-    patientCoords?.latitude.toFixed(4), patientCoords?.longitude.toFixed(4),
-  ]);
+  })();
 
   const medFromProfile = patientInfo?.medical_profiles?.[0];
   let medFromAssignment: any = null;

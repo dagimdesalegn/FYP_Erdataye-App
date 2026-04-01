@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -344,7 +344,7 @@ export default function DriverEmergencyTrackingScreen() {
   }
 
   // Build Google Maps embed URL
-  const mapHtml = useMemo(() => {
+  const mapHtml = (() => {
     if (driverCoords && patientCoords) {
       return buildDriverPatientMapHtml(
         driverCoords.latitude, driverCoords.longitude,
@@ -354,10 +354,7 @@ export default function DriverEmergencyTrackingScreen() {
     if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
     if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
     return "";
-  }, [
-    driverCoords?.latitude.toFixed(4), driverCoords?.longitude.toFixed(4),
-    patientCoords?.latitude.toFixed(4), patientCoords?.longitude.toFixed(4),
-  ]);
+  })();
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
