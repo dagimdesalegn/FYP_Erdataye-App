@@ -1264,7 +1264,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 28,
     paddingVertical: 28,
-    boxShadow: undefined,
     elevation: 8,
   },
   cardMobile: {
@@ -1289,7 +1288,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 8,
-    boxShadow: undefined,
     elevation: 4,
     borderWidth: 1,
     borderColor: "rgba(220, 38, 38, 0.12)",
@@ -1529,7 +1527,6 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 12,
     gap: 8,
-    boxShadow: undefined,
     elevation: 3,
   },
   primaryBtnText: {

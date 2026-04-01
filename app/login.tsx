@@ -502,7 +502,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 28,
     paddingVertical: 32,
-    boxShadow: undefined,
     elevation: 8,
   },
   /* ---- Header ---- */
@@ -515,7 +514,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 10,
-    boxShadow: undefined,
     elevation: 4,
     borderWidth: 1,
     borderColor: "rgba(220, 38, 38, 0.12)",
@@ -590,7 +588,6 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     gap: 8,
-    boxShadow: undefined,
     elevation: 3,
   },
   primaryBtnText: {

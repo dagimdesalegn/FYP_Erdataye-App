@@ -15,8 +15,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((value) => value.trim())
   .filter(Boolean);
 
-const DEFAULT_TIMEOUT_MS = 12000;
-const GET_TIMEOUT_MS = 30000;
+const DEFAULT_TIMEOUT_MS = 45000;
+const GET_TIMEOUT_MS = 45000;
 
 const AUTH_ERROR_SNIPPETS = [
   "session from session_id claim",

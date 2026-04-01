@@ -51,7 +51,7 @@ async function fetchBackend(
   for (const base of order) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), 45000);
       const res = await fetch(`${base}${path}`, {
         ...init,
         signal: controller.signal,
