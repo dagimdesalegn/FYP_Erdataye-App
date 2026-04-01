@@ -410,7 +410,7 @@ export default function PatientEmergencyTrackingScreen() {
     void startPatientTracking();
     return () => {
       mounted = false;
-      if (watcher) watcher.remove();
+      try { if (watcher) watcher.remove(); } catch {}
     };
   }, [emergencyId]);
 

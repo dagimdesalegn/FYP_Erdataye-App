@@ -131,7 +131,7 @@ export default function DriverEmergencyScreen() {
     startLiveLocation();
 
     return () => {
-      if (watcher) watcher.remove();
+      try { if (watcher) watcher.remove(); } catch {}
       if (intervalId) clearInterval(intervalId);
     };
   }, []);

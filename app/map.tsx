@@ -287,7 +287,7 @@ export default function MapScreen() {
     return () => {
       ambulanceSub.unsubscribe();
       emergencySub.unsubscribe();
-      locationWatcherRef.current?.remove();
+      try { locationWatcherRef.current?.remove(); } catch {}
       locationWatcherRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
