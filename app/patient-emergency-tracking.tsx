@@ -6,6 +6,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, {
     useCallback,
     useEffect,
+    useMemo,
     useRef,
     useState
 } from "react";
@@ -26,14 +27,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
-import { LiveMapView, type MapMarker } from "@/components/live-map-view";
+import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendPatch } from "@/utils/api";
-import { calculateDistance, parsePostGISPoint } from "@/utils/emergency";
+import { buildDriverPatientMapHtml, buildMapHtml, calculateDistance, parsePostGISPoint } from "@/utils/emergency";
 import {
     cancelEmergencyWithinWindow,
     createFamilyShareLink,
@@ -752,37 +753,29 @@ export default function PatientEmergencyTrackingScreen() {
     String(emergency.status || ""),
   );
 
-  // Build markers for interactive LiveMapView
-  const mapMarkers: MapMarker[] = [];
-  if (mapAmbulanceCoords) {
-    mapMarkers.push({
-      id: "ambulance",
-      latitude: mapAmbulanceCoords.latitude,
-      longitude: mapAmbulanceCoords.longitude,
-      color: "#2563EB",
-      label: "Ambulance",
-      popup: "🚑 Ambulance",
-    });
-  }
-  if (isTransportPhase && hospitalCoords) {
-    mapMarkers.push({
-      id: "destination",
-      latitude: hospitalCoords.latitude,
-      longitude: hospitalCoords.longitude,
-      color: "#7C3AED",
-      label: "Hospital",
-      popup: "🏥 Hospital",
-    });
-  } else if (mapPatientCoords) {
-    mapMarkers.push({
-      id: "patient",
-      latitude: mapPatientCoords.latitude,
-      longitude: mapPatientCoords.longitude,
-      color: "#DC2626",
-      label: "You",
-      popup: "📍 Your Location",
-    });
-  }
+  // Build Google Maps embed URL
+  const mapHtml = useMemo(() => {
+    if (isTransportPhase && mapAmbulanceCoords && hospitalCoords) {
+      return buildDriverPatientMapHtml(
+        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
+        hospitalCoords.latitude, hospitalCoords.longitude,
+      );
+    }
+    if (mapAmbulanceCoords && mapPatientCoords) {
+      return buildDriverPatientMapHtml(
+        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
+        mapPatientCoords.latitude, mapPatientCoords.longitude,
+      );
+    }
+    if (mapPatientCoords) return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude);
+    if (mapAmbulanceCoords) return buildMapHtml(mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude);
+    return "";
+  }, [
+    mapAmbulanceCoords?.latitude, mapAmbulanceCoords?.longitude,
+    mapPatientCoords?.latitude, mapPatientCoords?.longitude,
+    hospitalCoords?.latitude, hospitalCoords?.longitude,
+    isTransportPhase,
+  ]);
 
   const openDetailedRoute = async () => {
     try {
@@ -1067,7 +1060,7 @@ export default function PatientEmergencyTrackingScreen() {
         </View>
 
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapMarkers.length > 0 && (
+        {mapHtml ? (
           <View
             style={[
               styles.mapCard,
@@ -1099,9 +1092,8 @@ export default function PatientEmergencyTrackingScreen() {
                 </View>
               ) : null}
             </View>
-            <LiveMapView
-              markers={mapMarkers}
-              showRoute
+            <HtmlMapView
+              html={mapHtml}
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
             />
             {/* Legend */}
@@ -1154,7 +1146,7 @@ export default function PatientEmergencyTrackingScreen() {
               </Pressable>
             )}
           </View>
-        )}
+        ) : null}
 
         {/* ── Ambulance Info ────────────────────────────── */}
         {ambulance && (

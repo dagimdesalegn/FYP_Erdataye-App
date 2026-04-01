@@ -2,7 +2,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
-import { LiveMapView, type MapMarker } from "@/components/live-map-view";
+import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -30,7 +30,12 @@ import {
     getPatientInfo,
     subscribeToAssignments,
 } from "@/utils/driver";
-import { calculateDistance, parsePostGISPoint } from "@/utils/emergency";
+import {
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    calculateDistance,
+    parsePostGISPoint,
+} from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
 
 interface MedicalProfile {
@@ -357,26 +362,21 @@ export default function DriverEmergencyScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Build markers for the interactive LiveMapView
-  const mapMarkers: MapMarker[] = [];
-  if (driverCoords)
-    mapMarkers.push({
-      id: "driver",
-      latitude: driverCoords.latitude,
-      longitude: driverCoords.longitude,
-      color: "#2563EB",
-      label: "You",
-      popup: "🚑 You",
-    });
-  if (patientCoords)
-    mapMarkers.push({
-      id: "patient",
-      latitude: patientCoords.latitude,
-      longitude: patientCoords.longitude,
-      color: "#DC2626",
-      label: "Patient",
-      popup: "🆘 Patient",
-    });
+  // Build Google Maps embed URL
+  const mapHtml = useMemo(() => {
+    if (driverCoords && patientCoords) {
+      return buildDriverPatientMapHtml(
+        driverCoords.latitude, driverCoords.longitude,
+        patientCoords.latitude, patientCoords.longitude,
+      );
+    }
+    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    return "";
+  }, [
+    driverCoords?.latitude.toFixed(4), driverCoords?.longitude.toFixed(4),
+    patientCoords?.latitude.toFixed(4), patientCoords?.longitude.toFixed(4),
+  ]);
 
   const medFromProfile = patientInfo?.medical_profiles?.[0];
   let medFromAssignment: any = null;
@@ -481,7 +481,7 @@ export default function DriverEmergencyScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapMarkers.length > 0 && (
+        {mapHtml ? (
           <View
             style={[
               styles.mapCard,
@@ -506,9 +506,8 @@ export default function DriverEmergencyScreen() {
                 </View>
               ) : null}
             </View>
-            <LiveMapView
-              markers={mapMarkers}
-              showRoute
+            <HtmlMapView
+              html={mapHtml}
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
             />
 
@@ -528,7 +527,7 @@ export default function DriverEmergencyScreen() {
               </Pressable>
             )}
           </View>
-        )}
+        ) : null}
 
         {/* ── Patient Info Card ─────────────────────────── */}
         {patientInfo && (

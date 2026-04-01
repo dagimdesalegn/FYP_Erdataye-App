@@ -1,7 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
-import { LiveMapView, type MapMarker } from "@/components/live-map-view";
+import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -30,6 +30,8 @@ import {
     updateEmergencyStatus,
 } from "@/utils/driver";
 import {
+    buildDriverPatientMapHtml,
+    buildMapHtml,
     calculateDistance,
     formatCoords,
     parsePostGISPoint,
@@ -341,26 +343,21 @@ export default function DriverEmergencyTrackingScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Build markers for the interactive LiveMapView
-  const mapMarkers: MapMarker[] = [];
-  if (driverCoords)
-    mapMarkers.push({
-      id: "driver",
-      latitude: driverCoords.latitude,
-      longitude: driverCoords.longitude,
-      color: "#2563EB",
-      label: "You",
-      popup: "🚑 You",
-    });
-  if (patientCoords)
-    mapMarkers.push({
-      id: "patient",
-      latitude: patientCoords.latitude,
-      longitude: patientCoords.longitude,
-      color: "#DC2626",
-      label: "Patient",
-      popup: "🆘 Patient",
-    });
+  // Build Google Maps embed URL
+  const mapHtml = useMemo(() => {
+    if (driverCoords && patientCoords) {
+      return buildDriverPatientMapHtml(
+        driverCoords.latitude, driverCoords.longitude,
+        patientCoords.latitude, patientCoords.longitude,
+      );
+    }
+    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    return "";
+  }, [
+    driverCoords?.latitude.toFixed(4), driverCoords?.longitude.toFixed(4),
+    patientCoords?.latitude.toFixed(4), patientCoords?.longitude.toFixed(4),
+  ]);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -487,10 +484,9 @@ export default function DriverEmergencyTrackingScreen() {
       {activeTab === "map" ? (
         /* ═══════════ MAP TAB ═══════════ */
         <View style={styles.mapTabWrap}>
-          {mapMarkers.length > 0 ? (
-            <LiveMapView
-              markers={mapMarkers}
-              showRoute
+          {mapHtml ? (
+            <HtmlMapView
+              html={mapHtml}
               style={styles.mapFull}
             />
           ) : (

@@ -2,7 +2,8 @@ import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
-import { LiveMapView, type MapMarker } from "@/components/live-map-view";
+import { HtmlMapView } from "@/components/html-map-view";
+import { buildMapHtml } from "@/utils/emergency";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
@@ -243,9 +244,9 @@ export default function HelpScreen() {
     return null;
   }, [activeEmergency, currentLocation]);
 
-  const mapMarkers: MapMarker[] = React.useMemo(() => {
-    if (!mapLocation) return [];
-    return [{ id: 'location', latitude: mapLocation.latitude, longitude: mapLocation.longitude, color: '#DC2626', label: mapLocation.sourceLabel, popup: `📍 ${mapLocation.sourceLabel}` }];
+  const mapHtml = React.useMemo(() => {
+    if (!mapLocation) return "";
+    return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
   }, [mapLocation]);
 
   const openPatientEmergency = React.useCallback(() => {
@@ -452,11 +453,10 @@ export default function HelpScreen() {
                   </View>
                 </View>
                 <View style={styles.mapFrameWrap}>
-                  {mapMarkers.length > 0 ? (
-                    <LiveMapView
-                      markers={mapMarkers}
+                  {mapHtml ? (
+                    <HtmlMapView
+                      html={mapHtml}
                       style={{ flex: 1 }}
-                      zoom={17}
                     />
                   ) : null}
                 </View>
