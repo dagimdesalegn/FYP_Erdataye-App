@@ -11,15 +11,15 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#B91C1C",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.erdatayeambulance",
-      "versionCode": 2,
+      "versionCode": 7,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION",
@@ -35,7 +35,7 @@
     "ios": {
       "supportsTablet": true
     },
-    "name": "ኤርዳታያ Erdataya",
+    "name": "እርዳታዬ",
     "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
@@ -58,9 +58,10 @@
         "expo-location",
         {
           "isAndroidForegroundServiceEnabled": false,
-          "locationWhenInUsePermission": "Allow Erdataya Ambulance to access your location while using the app."
+          "locationWhenInUsePermission": "Allow እርዳታዬ Erdataye to access your location while using the app."
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",
@@ -69,7 +70,7 @@
     "web": {
       "favicon": "./assets/images/ambulance-favicon.png",
       "output": "static",
-      "title": "Erdataya Ambulance",
+      "title": "እርዳታዬ",
       "bundler": "metro"
     },
     "extra": {

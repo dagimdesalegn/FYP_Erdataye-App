@@ -3,19 +3,23 @@ import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
+import { buildMapHtml } from "@/utils/emergency";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
-import { buildMapHtml } from "@/utils/emergency";
-import { getActiveEmergency, type PatientEmergency } from "@/utils/patient";
+import {
+    getActiveEmergency, type PatientEmergency,
+} from "@/utils/patient";
 import { getUserProfile } from "@/utils/profile";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
 import {
+    ActivityIndicator,
     AppState,
     Linking,
     Platform,
@@ -26,6 +30,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HelpScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const params = useLocalSearchParams<{ lat?: string; lng?: string }>();
   const insets = useSafeAreaInsets();
@@ -52,34 +57,38 @@ export default function HelpScreen() {
   } | null>(
     hasInitialLocation ? { latitude: initialLat, longitude: initialLng } : null,
   );
-  const [locationAccuracyMeters, setLocationAccuracyMeters] = React.useState<
-    number | null
-  >(null);
-  const [locationError, setLocationError] = React.useState<string | null>(null);
-  const [locationLoading, setLocationLoading] =
-    React.useState(!hasInitialLocation);
   const [profileName, setProfileName] = React.useState<string>(
     user?.fullName || "",
   );
+  const [dataLoading, setDataLoading] = React.useState(true);
 
   // Load profile name from DB
   React.useEffect(() => {
     let cancelled = false;
     const loadProfile = async () => {
-      if (!user?.id) return;
-      const { profile } = await getUserProfile(user.id);
-      if (!cancelled && profile) {
-        setProfileName(profile.full_name || "");
-        if (
-          profile.full_name !== user.fullName ||
-          profile.phone !== user.phone
-        ) {
-          setUser({
-            ...user,
-            fullName: profile.full_name || user.fullName,
-            phone: profile.phone || user.phone,
-          });
+      if (!user?.id) {
+        setDataLoading(false);
+        return;
+      }
+      try {
+        const { profile } = await getUserProfile(user.id);
+        if (!cancelled && profile) {
+          setProfileName(profile.full_name || "");
+          if (
+            profile.full_name !== user.fullName ||
+            profile.phone !== user.phone
+          ) {
+            setUser({
+              ...user,
+              fullName: profile.full_name || user.fullName,
+              phone: profile.phone || user.phone,
+            });
+          }
         }
+      } catch {
+        /* handled */
+      } finally {
+        if (!cancelled) setDataLoading(false);
       }
     };
     void loadProfile();
@@ -96,10 +105,14 @@ export default function HelpScreen() {
         if (!cancelled) setActiveEmergencyId(null);
         return;
       }
-      const { emergency } = await getActiveEmergency(user.id);
-      if (!cancelled) {
-        setActiveEmergency(emergency ?? null);
-        setActiveEmergencyId(emergency?.id ?? null);
+      try {
+        const { emergency } = await getActiveEmergency(user.id);
+        if (!cancelled) {
+          setActiveEmergency(emergency ?? null);
+          setActiveEmergencyId(emergency?.id ?? null);
+        }
+      } catch {
+        /* handled */
       }
     };
     void loadActiveEmergency();
@@ -117,23 +130,12 @@ export default function HelpScreen() {
         latitude: coords.latitude,
         longitude: coords.longitude,
       });
-      setLocationAccuracyMeters(
-        typeof coords.accuracy === "number"
-          ? Math.round(Math.max(coords.accuracy, 0))
-          : null,
-      );
-      setLocationError(null);
     };
 
     const loadCurrentLocation = async () => {
       try {
-        setLocationLoading(true);
-
         const permission = await Location.requestForegroundPermissionsAsync();
         if (permission.status !== "granted") {
-          if (!cancelled) {
-            setLocationError("Enable location in settings to see nearby help.");
-          }
           return;
         }
 
@@ -159,18 +161,8 @@ export default function HelpScreen() {
         applyCoords(position.coords);
       } catch {
         if (!cancelled) {
-          const servicesEnabled =
-            await Location.hasServicesEnabledAsync().catch(() => false);
-          setLocationError(
-            servicesEnabled
-              ? currentLocation
-                ? "Using available location. Waiting for GPS update."
-                : "Unable to read current location."
-              : "Location services are off. Please enable GPS.",
-          );
+          await Location.hasServicesEnabledAsync().catch(() => false);
         }
-      } finally {
-        if (!cancelled) setLocationLoading(false);
       }
     };
     void loadCurrentLocation();
@@ -206,20 +198,9 @@ export default function HelpScreen() {
           latitude: fresh.coords.latitude,
           longitude: fresh.coords.longitude,
         });
-        setLocationAccuracyMeters(
-          typeof fresh.coords.accuracy === "number"
-            ? Math.round(Math.max(fresh.coords.accuracy, 0))
-            : null,
-        );
-        setLocationError(null);
       } catch {
         if (!mounted) return;
-        const servicesEnabled = await Location.hasServicesEnabledAsync().catch(
-          () => false,
-        );
-        if (!servicesEnabled) {
-          setLocationError("Location services are off. Please enable GPS.");
-        }
+        await Location.hasServicesEnabledAsync().catch(() => false);
       }
     };
 
@@ -263,28 +244,10 @@ export default function HelpScreen() {
     return null;
   }, [activeEmergency, currentLocation]);
 
-  const mapEmbedUrl = React.useMemo(() => {
-    if (!mapLocation) return null;
+  const mapHtml = React.useMemo(() => {
+    if (!mapLocation) return "";
     return buildMapHtml(mapLocation.latitude, mapLocation.longitude, 17);
   }, [mapLocation]);
-
-  const mapSummaryText = React.useMemo(() => {
-    if (mapLocation) {
-      return "Live location map";
-    }
-    if (locationLoading) return "Getting your current location...";
-    if (locationError) return locationError;
-    return "No active location is available yet.";
-  }, [locationLoading, locationError, mapLocation]);
-
-  const openInGoogleMaps = () => {
-    if (!mapLocation) return;
-    const url = Platform.select({
-      ios: `maps://app?daddr=${mapLocation.latitude},${mapLocation.longitude}`,
-      default: `https://www.google.com/maps/dir/?api=1&destination=${mapLocation.latitude},${mapLocation.longitude}`,
-    });
-    Linking.openURL(url);
-  };
 
   const openPatientEmergency = React.useCallback(() => {
     const locationQuery = currentLocation
@@ -330,10 +293,27 @@ export default function HelpScreen() {
     }
   };
 
+  if (authLoading || dataLoading) {
+    return (
+      <View
+        style={[
+          styles.bg,
+          {
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="Erdataya Ambulance"
+        title="እርዳታዬ"
         onProfilePress={() => setProfileOpen(!profileOpen)}
       />
 
@@ -473,11 +453,10 @@ export default function HelpScreen() {
                   </View>
                 </View>
                 <View style={styles.mapFrameWrap}>
-                  {mapEmbedUrl ? (
+                  {mapHtml ? (
                     <HtmlMapView
-                      html={mapEmbedUrl}
+                      html={mapHtml}
                       style={{ flex: 1 }}
-                      title="Current location of your device"
                     />
                   ) : null}
                 </View>

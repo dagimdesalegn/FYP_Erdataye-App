@@ -3,14 +3,16 @@ import { HtmlMapView } from "@/components/html-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet } from "@/utils/api";
 import {
     Ambulance,
     buildMapHtml,
     EmergencyRequest,
     formatCoords,
-    getAvailableAmbulances,
     getHospitals,
+    getLiveAvailableAmbulances,
     Hospital,
     normalizeEmergency,
     parsePostGISPoint,
@@ -18,10 +20,10 @@ import {
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Linking,
     Platform,
     Pressable,
     ScrollView,
@@ -30,6 +32,8 @@ import {
 } from "react-native";
 
 export default function MapScreen() {
+  const authLoading = useAuthGuard();
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
@@ -38,6 +42,10 @@ export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(
     null,
   );
+  const [mapCenter, setMapCenter] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [ambulances, setAmbulances] = useState<
     (Ambulance & { lat: number; lng: number })[]
@@ -47,11 +55,34 @@ export default function MapScreen() {
     (Hospital & { lat: number; lng: number })[]
   >([]);
   const [loading, setLoading] = useState(true);
+  const locationWatcherRef = React.useRef<Location.LocationSubscription | null>(
+    null,
+  );
 
   const textColor = colors.text;
   const subText = colors.textMuted;
   const accentColor = colors.primary;
   const cardBg = colors.surface;
+
+  const distanceMeters = (
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ) => {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const getUserLocation = async () => {
     try {
@@ -90,6 +121,10 @@ export default function MapScreen() {
       });
       if (lastKnown) {
         setLocation(lastKnown);
+        setMapCenter({
+          lat: lastKnown.coords.latitude,
+          lng: lastKnown.coords.longitude,
+        });
       }
 
       try {
@@ -101,6 +136,10 @@ export default function MapScreen() {
           mayShowUserSettingsDialog: true,
         });
         setLocation(currentLocation);
+        setMapCenter({
+          lat: currentLocation.coords.latitude,
+          lng: currentLocation.coords.longitude,
+        });
         return currentLocation;
       } catch (positionError) {
         if (lastKnown) {
@@ -114,6 +153,10 @@ export default function MapScreen() {
         }).catch(() => null);
         if (fallbackLocation) {
           setLocation(fallbackLocation);
+          setMapCenter({
+            lat: fallbackLocation.coords.latitude,
+            lng: fallbackLocation.coords.longitude,
+          });
           setLocationError(
             "GPS signal is weak. Using lower-accuracy location.",
           );
@@ -140,7 +183,7 @@ export default function MapScreen() {
 
   const fetchAmbulances = async () => {
     try {
-      const { ambulances: data, error } = await getAvailableAmbulances();
+      const { ambulances: data, error } = await getLiveAvailableAmbulances(10);
       if (error) throw error;
       const parsed = (data || [])
         .map((a) => {
@@ -156,12 +199,10 @@ export default function MapScreen() {
 
   const fetchEmergencies = async () => {
     try {
-      const { data, error } = await supabase
-        .from("emergency_requests")
-        .select("*")
-        .in("status", ["pending", "assigned", "en_route", "arrived"]);
-      if (error) throw error;
-      setEmergencies((data || []).map(normalizeEmergency));
+      const res = await backendGet<{ emergencies: any[] }>(
+        "/ops/emergencies/active",
+      );
+      setEmergencies((res.emergencies || []).map(normalizeEmergency));
     } catch (error) {
       console.error("Error fetching emergencies:", error);
     }
@@ -212,11 +253,42 @@ export default function MapScreen() {
         () => fetchEmergencies(),
       )
       .subscribe();
-    const locationInterval = setInterval(() => getUserLocation(), 10000);
+    void (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        locationWatcherRef.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 12000,
+            distanceInterval: 15,
+          },
+          (next) => {
+            setLocation(next);
+            const nextLat = next.coords.latitude;
+            const nextLng = next.coords.longitude;
+
+            setMapCenter((prev) => {
+              if (!prev) return { lat: nextLat, lng: nextLng };
+              const moved = distanceMeters(
+                prev.lat,
+                prev.lng,
+                nextLat,
+                nextLng,
+              );
+              return moved >= 20 ? { lat: nextLat, lng: nextLng } : prev;
+            });
+          },
+        );
+      } catch {
+        // fallback to initial location lookup
+      }
+    })();
     return () => {
       ambulanceSub.unsubscribe();
       emergencySub.unsubscribe();
-      clearInterval(locationInterval);
+      try { locationWatcherRef.current?.remove(); } catch {}
+      locationWatcherRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -224,40 +296,34 @@ export default function MapScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.loadingContainer}>
-        <AppHeader title="Erdataya Ambulance" />
+        <AppHeader title="እርዳታዬ Erdataye" />
         <View style={styles.loadingContent}>
           <ActivityIndicator size="large" color={accentColor} />
           <ThemedText
             style={{ marginTop: 16, color: textColor, fontFamily: Fonts.sans }}
           >
-            Loading map…
+            Loading map...
           </ThemedText>
         </View>
       </ThemedView>
     );
   }
 
-  const userLat = location?.coords.latitude ?? 9.02;
-  const userLng = location?.coords.longitude ?? 38.75;
-  const accuracy = location?.coords.accuracy ?? null;
-  const mapEmbedUrl = buildMapHtml(userLat, userLng, 17);
+  const userLat = mapCenter?.lat ?? location?.coords.latitude ?? 9.02;
+  const userLng = mapCenter?.lng ?? location?.coords.longitude ?? 38.75;
 
-  const openInGoogleMaps = () => {
-    Linking.openURL(
-      `https://www.google.com/maps/dir/?api=1&destination=${userLat},${userLng}`,
-    );
-  };
+  // Build Google Maps embed URL centered on user
+  const mapHtml = buildMapHtml(userLat, userLng, 14);
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="Erdataya Ambulance" />
+      <AppHeader title="እርዳታዬ Erdataye" onBackPress={() => router.back()} />
 
-      {/* Map via HtmlMapView (works on both web & native) */}
+      {/* Google Maps embed */}
       <View style={styles.mapContainer}>
         <HtmlMapView
-          html={mapEmbedUrl}
+          html={mapHtml}
           style={{ flex: 1 }}
-          title="Live ambulance map"
         />
       </View>
 
@@ -303,14 +369,14 @@ export default function MapScreen() {
               Ambulance {amb.vehicle_number}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              Type: {amb.type || "Standard"} • {formatCoords(amb.lat, amb.lng)}
+              Type: {amb.type || "Standard"} - {formatCoords(amb.lat, amb.lng)}
             </ThemedText>
           </View>
         ))}
 
         {/* Emergencies */}
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-          ⚠️ Emergencies ({emergencies.length})
+          (!) Emergencies ({emergencies.length})
         </ThemedText>
         {emergencies.length === 0 && (
           <ThemedText style={[styles.emptyText, { color: subText }]}>
@@ -325,7 +391,7 @@ export default function MapScreen() {
               style={[styles.card, { borderColor: colors.danger }]}
             >
               <ThemedText style={[styles.cardTitle, { color: textColor }]}>
-                {e.emergency_type} — {e.status}
+                {e.emergency_type} - {e.status}
               </ThemedText>
               <ThemedText style={[styles.cardSub, { color: subText }]}>
                 {e.description}
@@ -335,7 +401,7 @@ export default function MapScreen() {
 
         {/* Hospitals */}
         <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
-          🏥 Hospitals ({hospitals.length})
+          Hospitals ({hospitals.length})
         </ThemedText>
         {hospitals.length === 0 && (
           <ThemedText style={[styles.emptyText, { color: subText }]}>
@@ -354,7 +420,7 @@ export default function MapScreen() {
               {h.name}
             </ThemedText>
             <ThemedText style={[styles.cardSub, { color: subText }]}>
-              {h.address} • 📞 {h.phone}
+              {h.address} - phone: {h.phone}
             </ThemedText>
           </View>
         ))}

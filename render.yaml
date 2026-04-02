@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: erdataye-backend
+    runtime: python
+    region: frankfurt           # closest free-tier region for Ethiopia
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # ── Supabase ────────────────────────────────────────────────
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # ── DeepSeek AI ─────────────────────────────────────────────
+      - key: DEEPSEEK_API_KEY
+        sync: false
+
+      # ── CORS — add your Expo web / APK origins ──────────────────
+      - key: ALLOWED_ORIGINS
+        value: "*"
+
+      # ── Python ──────────────────────────────────────────────────
+      - key: PYTHON_VERSION
+        value: "3.12.3"

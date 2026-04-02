@@ -1,26 +1,119 @@
 import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
-const BACKEND_URL =
+const ENV_BACKEND_URL =
   process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
+  .split(",")
+  .map((v) => v.trim())
+  .filter(Boolean);
 
-export type UserRole = "patient" | "driver" | "admin" | "hospital";
+/**
+ * Build an ordered list of backend base URLs to try, matching the same logic
+ * used in api.ts so that auth calls (register, login) also benefit from
+ * the ngrok / LAN / emulator fallback chain.
+ */
+function buildBackendCandidates(): string[] {
+  const list: string[] = [];
+  const add = (url?: string | null) => {
+    if (url && /^https?:\/\//i.test(url) && !list.includes(url)) list.push(url);
+  };
+
+  add(ENV_BACKEND_URL);
+  BACKEND_FALLBACKS.forEach(add);
+
+  // Platform-specific localhost alternatives for emulators
+  if (Platform.OS === "android") add("http://10.0.2.2:8000");
+  add("http://localhost:8000");
+  add("http://127.0.0.1:8000");
+
+  return list.length > 0 ? list : ["http://localhost:8000"];
+}
+
+const BACKEND_CANDIDATES = buildBackendCandidates();
+let activeBackendBase = BACKEND_CANDIDATES[0];
+
+/**
+ * fetch() wrapper that tries every candidate backend URL in order.
+ * Sticks with the last successful base for subsequent calls.
+ */
+async function fetchBackend(
+  path: string,
+  init: RequestInit,
+): Promise<Response> {
+  const order = [
+    activeBackendBase,
+    ...BACKEND_CANDIDATES.filter((u) => u !== activeBackendBase),
+  ];
+  let lastError: Error | null = null;
+
+  for (const base of order) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(`${base}${path}`, {
+        ...init,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      activeBackendBase = base;
+      return res;
+    } catch (err: any) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
+  }
+
+  throw lastError ?? new Error("All backend URLs unreachable");
+}
+
+export type UserRole =
+  | "patient"
+  | "ambulance"
+  | "driver"
+  | "admin"
+  | "hospital";
 
 export interface AuthUser {
   id: string;
   role?: UserRole;
   fullName?: string;
   phone?: string;
+  hospitalId?: string;
 }
+
+export interface RegistrationHospitalOption {
+  id: string;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  is_accepting_emergencies?: boolean;
+}
+
+type PhoneLoginResponse = {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+  user_id: string;
+  role?: UserRole;
+  full_name?: string;
+  phone?: string;
+  hospital_id?: string;
+};
 
 const isUserRole = (value: unknown): value is UserRole =>
   value === "patient" ||
+  value === "ambulance" ||
   value === "driver" ||
   value === "admin" ||
   value === "hospital";
 
+const normalizeRole = (role: UserRole): UserRole =>
+  role === "driver" ? "ambulance" : role;
+
 const getRoleFromMetadata = (value: unknown): UserRole | null =>
-  isUserRole(value) ? value : null;
+  isUserRole(value) ? normalizeRole(value) : null;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -103,6 +196,61 @@ const toEthiopianPhone = (phone: string): string => {
   return "+" + digits;
 };
 
+const toProfilePhoneCandidates = (phone: string): string[] => {
+  const normalized = toEthiopianPhone(phone); // +2519XXXXXXXX
+  const digits = normalized.replace(/[^0-9]/g, ""); // 2519XXXXXXXX
+  const local =
+    digits.startsWith("251") && digits.length >= 12
+      ? `0${digits.substring(3)}`
+      : `0${digits}`;
+
+  return Array.from(
+    new Set([normalized, digits, local, local.replace(/^0/, "")]),
+  );
+};
+
+export const getRegistrationHospitalOptions = async (): Promise<{
+  hospitals: RegistrationHospitalOption[];
+  error: Error | null;
+}> => {
+  try {
+    const res = await fetchBackend("/auth/hospitals/available", {
+      method: "GET",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(
+        body?.detail || `Failed to load hospitals (${res.status})`,
+      );
+    }
+    const data = (await res.json()) as RegistrationHospitalOption[];
+    return { hospitals: Array.isArray(data) ? data : [], error: null };
+  } catch (error) {
+    return { hospitals: [], error: error as Error };
+  }
+};
+
+const findExistingProfileByPhone = async (phone: string) => {
+  try {
+    const candidates = toProfilePhoneCandidates(phone);
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, role, full_name, phone")
+      .in("phone", candidates)
+      .limit(1);
+
+    if (error) {
+      console.warn("Profile duplicate check failed:", error.message);
+      return null;
+    }
+
+    return data?.[0] ?? null;
+  } catch (e) {
+    console.warn("Profile duplicate check exception:", e);
+    return null;
+  }
+};
+
 /**
  * Update auth phone for an existing user.
  * Routes through the Python backend so the service-role key stays server-side.
@@ -115,7 +263,7 @@ export const updateAuthLoginPhone = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
-    const res = await fetch(`${BACKEND_URL}/auth/update-phone`, {
+    const res = await fetchBackend("/auth/update-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -126,10 +274,18 @@ export const updateAuthLoginPhone = async (
     });
 
     if (!res.ok) {
-      const body = await res.text().then((t) => { try { return JSON.parse(t); } catch { return {}; } });
+      const body = await res.text().then((t) => {
+        try {
+          return JSON.parse(t);
+        } catch {
+          return {};
+        }
+      });
       return {
         success: false,
-        error: new Error(body?.detail || `Failed to update auth login (${res.status})`),
+        error: new Error(
+          body?.detail || `Failed to update auth login (${res.status})`,
+        ),
       };
     }
 
@@ -140,7 +296,7 @@ export const updateAuthLoginPhone = async (
 };
 
 /**
- * Sign up a new user with role (patient, driver, or admin).
+ * Sign up a new user with role (patient or ambulance).
  * Routes through the Python backend so the service-role key stays server-side.
  */
 export const signUp = async (
@@ -148,13 +304,16 @@ export const signUp = async (
   password: string,
   role: UserRole = "patient",
   fullName: string = "",
+  hospitalId?: string,
+  location?: { latitude: number; longitude: number } | null,
+  nationalId?: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    if (!["patient", "driver"].includes(role)) {
+    if (!["patient", "ambulance"].includes(role)) {
       return {
         user: null,
         error: new Error(
-          "Invalid role. Only patient and driver accounts can be registered through the app.",
+          "Invalid role. Only patient and ambulance accounts can be registered through the app.",
         ) as AuthError,
       };
     }
@@ -162,8 +321,12 @@ export const signUp = async (
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
+    // Duplicate-phone detection is handled server-side (service-role key
+    // bypasses RLS).  A client-side query on `profiles` triggers RLS
+    // infinite-recursion on some Supabase setups, so we skip it here.
+
     // Create account via backend (service-role key stays server-side)
-    const res = await fetch(`${BACKEND_URL}/auth/register`, {
+    const res = await fetchBackend("/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -171,7 +334,14 @@ export const signUp = async (
         password,
         full_name: fullName,
         phone: ethPhone,
+        national_id:
+          nationalId && nationalId.trim().length === 16
+            ? nationalId.trim()
+            : null,
         role,
+        hospital_id: hospitalId,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
       }),
     });
 
@@ -184,7 +354,22 @@ export const signUp = async (
     }
 
     if (!res.ok || !resBody.user_id) {
-      const detail = resBody?.detail ?? "Registration failed. Please try again.";
+      const detail =
+        resBody?.detail ?? "Registration failed. Please try again.";
+
+      // Backend returns 409 for duplicate accounts — show user-friendly message
+      if (
+        String(detail).toLowerCase().includes("already exists") ||
+        String(detail).toLowerCase().includes("already registered")
+      ) {
+        return {
+          user: null,
+          error: new Error(
+            "This phone number is already registered. Please sign in instead.",
+          ) as AuthError,
+        };
+      }
+
       return {
         user: null,
         error: new Error(detail) as AuthError,
@@ -206,6 +391,11 @@ export const signUp = async (
       role,
       fullName,
       phone: ethPhone,
+      hospitalId:
+        typeof resBody?.hospital_id === "string" &&
+        resBody.hospital_id.length > 0
+          ? resBody.hospital_id
+          : undefined,
     };
 
     return { user, error: null };
@@ -225,16 +415,14 @@ export const signIn = async (
   password: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
   try {
-    const authEmail = toAuthEmail(phone);
-
-    // Authenticate via backend (service-role key stays server-side)
-    const res = await fetch(`${BACKEND_URL}/auth/login`, {
+    // Authenticate via one phone-based backend endpoint (role-aware response)
+    const res = await fetchBackend("/auth/login-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: authEmail, password }),
+      body: JSON.stringify({ phone, password }),
     });
 
-    let tokenData: any;
+    let tokenData: PhoneLoginResponse | any;
     try {
       const text = await res.text();
       tokenData = text ? JSON.parse(text) : {};
@@ -260,64 +448,44 @@ export const signIn = async (
     if (sessionError || !sessionData.session) {
       return {
         user: null,
-        error: sessionError ?? (new Error("Failed to set session") as AuthError),
+        error:
+          sessionError ?? (new Error("Failed to set session") as AuthError),
       };
     }
 
     const authUser = sessionData.user ?? sessionData.session.user;
 
-    // ── Profile resolution ──────────────────────────────────────
-    const roleFromMetadata = getRoleFromMetadata(authUser.user_metadata?.role);
+    // ── Fast profile resolution from backend login response ─────
+    // The backend already returns role/full_name/phone — use those directly
+    // instead of making extra DB round-trips.
+    const roleFromMetadata =
+      getRoleFromMetadata(tokenData?.role) ??
+      getRoleFromMetadata(authUser.user_metadata?.role);
 
-    let dbFullName = "";
-    let dbPhone = "";
-    let profileExists = false;
-    let dbRole: UserRole | null = null;
-    try {
-      const { data: profileRow } = await supabase
-        .from("profiles")
-        .select("full_name, phone, role")
-        .eq("id", authUser.id)
-        .single();
-      if (profileRow) {
-        profileExists = true;
-        dbFullName = profileRow.full_name || "";
-        dbPhone = profileRow.phone || "";
-        dbRole = isUserRole(profileRow.role) ? profileRow.role : null;
-      }
-    } catch (e) {
-      console.warn("Could not read profile from DB on sign-in:", e);
-    }
+    const dbFullName =
+      tokenData?.full_name || String(authUser.user_metadata?.full_name || "");
+    const dbPhone =
+      tokenData?.phone || String(authUser.user_metadata?.phone || "");
 
-    // Heal missing profile rows
-    if (!profileExists) {
-      const profilePayload = buildProfilePayload({
-        id: authUser.id,
-        role: roleFromMetadata ?? "patient",
-        fullName: String(authUser.user_metadata?.full_name || ""),
-        phone: String(authUser.user_metadata?.phone || `phone_${Date.now()}`),
-      });
-      const { error: upsertProfileError } =
-        await upsertProfileWithRetry(profilePayload);
-      if (upsertProfileError && upsertProfileError.code !== "23503") {
-        console.error("Profile ensure error on sign in:", upsertProfileError);
-      }
-      dbFullName = String(authUser.user_metadata?.full_name || "");
-      dbPhone = String(authUser.user_metadata?.phone || "");
-    }
-
-    const role =
-      roleFromMetadata ??
-      dbRole ??
-      (await getUserRole(authUser.id)) ??
-      "patient";
+    const role = normalizeRole(roleFromMetadata ?? "patient");
 
     const user: AuthUser = {
       id: authUser.id,
       role,
-      fullName: dbFullName || String(authUser.user_metadata?.full_name || ""),
-      phone: dbPhone || String(authUser.user_metadata?.phone || ""),
+      fullName: dbFullName,
+      phone: dbPhone,
     };
+
+    // Fire-and-forget: heal missing profile in background (don't block login)
+    if (roleFromMetadata !== "hospital") {
+      const profilePayload = buildProfilePayload({
+        id: authUser.id,
+        role,
+        fullName: dbFullName,
+        phone: dbPhone || `phone_${Date.now()}`,
+      });
+      upsertProfileWithRetry(profilePayload).catch(() => {});
+    }
 
     return { user, error: null };
   } catch (error) {
@@ -328,22 +496,29 @@ export const signIn = async (
 };
 
 /**
- * Get user role from profiles table
+ * Get user role — try metadata first, then profiles DB fallback.
  */
 export const getUserRole = async (userId: string): Promise<UserRole | null> => {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase.auth.getUser();
+    if (data?.user) {
+      const metaRole = getRoleFromMetadata(data.user.user_metadata?.role);
+      if (metaRole) return metaRole;
+    }
+
+    const { data: roleRow, error } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
 
-    if (error || !data) {
+    if (error || !roleRow) {
       console.error("Error fetching user role:", error);
       return null;
     }
 
-    return data.role as UserRole;
+    if (!isUserRole(roleRow.role)) return null;
+    return normalizeRole(roleRow.role);
   } catch (error) {
     console.error("Exception fetching user role:", error);
     return null;
@@ -391,19 +566,6 @@ export const signOut = async (): Promise<{ error: AuthError | null }> => {
 };
 
 /**
- * Get current session
- */
-export const getCurrentSession = async (): Promise<Session | null> => {
-  try {
-    const { data, error } = await supabase.auth.getSession();
-    return data.session;
-  } catch (error) {
-    console.error("Error getting session:", error);
-    return null;
-  }
-};
-
-/**
  * Get current user
  */
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
@@ -433,27 +595,19 @@ export const onAuthStateChange = (
         phone: String(meta.phone || ""),
       };
 
-      // Always try to load full profile from DB (async, deferred).
+      // Use auth user_metadata directly (avoids RLS issues on profiles table).
       setTimeout(async () => {
         try {
-          const { data: profileRow } = await supabase
-            .from("profiles")
-            .select("full_name, phone, role")
-            .eq("id", sessionUser.id)
-            .maybeSingle();
-
           const role =
-            profileRow?.role && isUserRole(profileRow.role)
-              ? profileRow.role
-              : (roleFromMetadata ??
-                (await getUserRole(sessionUser.id)) ??
-                "patient");
+            roleFromMetadata ??
+            (await getUserRole(sessionUser.id)) ??
+            "patient";
 
           callback({
             id: sessionUser.id,
             role,
-            fullName: profileRow?.full_name || fallbackUser.fullName || "",
-            phone: profileRow?.phone || fallbackUser.phone || "",
+            fullName: String(meta.full_name || ""),
+            phone: String(meta.phone || ""),
           });
         } catch (error) {
           console.error(

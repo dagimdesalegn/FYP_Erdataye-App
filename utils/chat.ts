@@ -40,7 +40,9 @@ export const getChatbotMessages = async (
   _userId: string,
 ): Promise<{ messages: ChatbotMessage[] | null; error: Error | null }> => {
   try {
-    const data = await backendGet<{ messages: ChatbotMessage[] }>("/chat/messages");
+    const data = await backendGet<{ messages: ChatbotMessage[] }>(
+      "/chat/messages",
+    );
     return { messages: data.messages, error: null };
   } catch (error) {
     console.error("getChatbotMessages error:", error);
@@ -61,43 +63,4 @@ export const deleteChatbotMessages = async (
     console.error("deleteChatbotMessages error:", error);
     return { success: false, error: error as Error };
   }
-};
-
-/**
- * Legacy helper kept for compatibility.
- */
-export const addChatMessage = async (
-  _emergencyId: string,
-  userId: string,
-  userMessage: string,
-  aiResponse: string = "",
-): Promise<{ success: boolean; error: Error | null }> => {
-  try {
-    await addChatbotMessage(userId, "user", userMessage);
-    if (aiResponse.trim()) {
-      await addChatbotMessage(userId, "bot", aiResponse);
-    }
-    return { success: true, error: null };
-  } catch (error) {
-    return { success: false, error: error as Error };
-  }
-};
-
-/**
- * Legacy helper kept for compatibility.
- */
-export const getChatHistory = async (
-  emergencyId: string,
-): Promise<{ messages: ChatMessage[] | null; error: Error | null }> => {
-  return getChatbotMessages(emergencyId);
-};
-
-/**
- * Legacy realtime helper — no-op since we route through backend now.
- */
-export const subscribeToChatMessages = (
-  _emergencyId: string,
-  _callback: (message: ChatMessage) => void,
-) => {
-  return { unsubscribe: () => {} };
 };

@@ -5,13 +5,6 @@
  * This file only exports the shared types used across the app.
  */
 
-export interface ChatTopic {
-  id: string;
-  label: string;
-  keywords: string[];
-  icon: string;
-}
-
 export interface BotMessage {
   role: "bot";
   text: string;

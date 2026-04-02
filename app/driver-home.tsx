@@ -1,24 +1,36 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {
+    ActivityIndicator,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
+import { calculateDistance } from "@/utils/emergency";
+
 import {
+    ensureAmbulanceHospitalLink,
     getDriverAmbulanceDetails,
     getDriverAmbulanceId,
     getDriverAssignment,
     getDriverHistory,
     getDriverStats,
+    getHospitalSummary,
     sendLocationUpdate,
     subscribeToAssignments,
     toggleAmbulanceAvailability,
@@ -26,20 +38,35 @@ import {
 } from "@/utils/driver";
 import { getUserProfile, type UserProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Driver Home Screen - Status & Incoming Assignments
  */
 export default function DriverHomeScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { user, setUser } = useAppState();
-  const { showAlert, showError } = useModal();
+  const { showAlert, showError, showConfirm } = useModal();
+
+  const confirmAvailabilityChange = (newVal: boolean) =>
+    new Promise<boolean>((resolve) => {
+      showConfirm(
+        newVal ? "Go Available" : "Go Offline",
+        newVal
+          ? "You will start receiving emergency assignments and share live location updates. Continue?"
+          : "You will stop receiving new emergency assignments. Continue?",
+        () => resolve(true),
+        () => resolve(false),
+      );
+    });
 
   const [isAvailable, setIsAvailable] = useState(false);
-  const [loading] = useState(false);
+  const [toggleLoading, setToggleLoading] = useState(false);
   const [hasAssignment, setHasAssignment] = useState(false);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [ambulanceId, setAmbulanceId] = useState<string | null>(null);
@@ -47,15 +74,23 @@ export default function DriverHomeScreen() {
     useState<AmbulanceDetails | null>(null);
   const [activeCount, setActiveCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // Completed history
   const [history, setHistory] = useState<any[]>([]);
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const lastSentLocationRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const lastSentAtRef = useRef<number>(0);
 
   // Profile modal
   const [profileVisible, setProfileVisible] = useState(false);
   const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [hospitalDisplayName, setHospitalDisplayName] =
+    useState<string>("Not assigned");
 
   // Load driver's ambulance ID and details
   useEffect(() => {
@@ -71,10 +106,55 @@ export default function DriverHomeScreen() {
 
       // Also load full details
       const { ambulance } = await getDriverAmbulanceDetails(user.id);
-      if (ambulance) setAmbulanceDetails(ambulance);
+      if (ambulance) {
+        setAmbulanceDetails(ambulance);
+        setIsAvailable(Boolean(ambulance.is_available));
+
+        if (!ambulance.hospital_id && id) {
+          try {
+            const { status } = await Location.getForegroundPermissionsAsync();
+            if (status === "granted") {
+              const current = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              await ensureAmbulanceHospitalLink(id, {
+                latitude: current.coords.latitude,
+                longitude: current.coords.longitude,
+              });
+              const { ambulance: refreshed } = await getDriverAmbulanceDetails(
+                user.id,
+              );
+              if (refreshed) {
+                setAmbulanceDetails(refreshed);
+                setIsAvailable(Boolean(refreshed.is_available));
+              }
+            }
+          } catch (linkErr) {
+            console.warn("Ambulance-hospital auto-link failed:", linkErr);
+          }
+        }
+      }
     };
 
-    loadAmbulance();
+    loadAmbulance().finally(() => setInitialLoading(false));
+
+    // Push current GPS to ambulance row on screen load so the DB always has
+    // a reasonably fresh location even before the driver toggles Available.
+    const pushInitialLocation = async () => {
+      try {
+        const { ambulanceId: id } = await getDriverAmbulanceId(user.id);
+        if (!id) return;
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") return;
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        await sendLocationUpdate(id, pos.coords.latitude, pos.coords.longitude);
+      } catch (e) {
+        console.warn("Initial location push failed:", e);
+      }
+    };
+    pushInitialLocation();
 
     // Load stats
     const loadStats = async () => {
@@ -92,6 +172,27 @@ export default function DriverHomeScreen() {
     loadHistory();
   }, [user]);
 
+  useEffect(() => {
+    const resolveHospitalName = async () => {
+      const hospitalId =
+        ambulanceDetails?.hospital_id || driverProfile?.hospital_id;
+      if (!hospitalId) {
+        setHospitalDisplayName("Not assigned");
+        return;
+      }
+
+      const { hospital, error } = await getHospitalSummary(hospitalId);
+      if (error || !hospital) {
+        setHospitalDisplayName("Assigned hospital");
+        return;
+      }
+
+      setHospitalDisplayName(hospital.name || "Assigned hospital");
+    };
+
+    resolveHospitalName();
+  }, [ambulanceDetails?.hospital_id, driverProfile?.hospital_id]);
+
   // Check for existing assignment
   useEffect(() => {
     if (!user) return;
@@ -102,7 +203,7 @@ export default function DriverHomeScreen() {
         setHasAssignment(true);
         setAssignmentCount(1);
       } else {
-        // No active assignment — clear stale state
+        // No active assignment -> clear stale state
         setHasAssignment(false);
         setAssignmentCount(0);
       }
@@ -110,8 +211,8 @@ export default function DriverHomeScreen() {
 
     checkAssignment();
 
-    // Re-check every 10s to clear stale completed assignments
-    const interval = setInterval(checkAssignment, 10000);
+    // Re-check every 20s to clear stale completed assignments
+    const interval = setInterval(checkAssignment, 20000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -125,7 +226,7 @@ export default function DriverHomeScreen() {
       if (verified) {
         setHasAssignment(true);
         setAssignmentCount(1);
-        showAlert("New Emergency", "You have a new emergency assignment");
+        // Removed popup for new emergency assignment
       }
     });
 
@@ -136,41 +237,80 @@ export default function DriverHomeScreen() {
   useEffect(() => {
     if (!isAvailable || !user || !ambulanceId) return;
 
+    let watcher: Location.LocationSubscription | null = null;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startLocationTracking = async () => {
-      try {
-        // Show pre-permission explanation first
-        showAlert(
-          "🚗 Location Tracking Required",
-          "Patients need to see your real-time location to know when help arrives. This is critical for emergency response.",
-        );
+      const maybeSendLocation = async (lat: number, lng: number) => {
+        const now = Date.now();
+        const previous = lastSentLocationRef.current;
+        if (previous) {
+          const movedMeters =
+            calculateDistance(previous.latitude, previous.longitude, lat, lng) *
+            1000;
+          const elapsed = now - lastSentAtRef.current;
+          if (movedMeters < 10 && elapsed < 20000) {
+            return;
+          }
+        }
 
+        await sendLocationUpdate(ambulanceId, lat, lng);
+        lastSentLocationRef.current = { latitude: lat, longitude: lng };
+        lastSentAtRef.current = now;
+      };
+
+      try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
           showError(
             "Location Tracking Disabled",
             "Enable location access in your device settings to track ambulance location.",
           );
-          setIsAvailable(false);
           return;
         }
 
-        const location = await Location.getCurrentPositionAsync();
-        await sendLocationUpdate(
-          ambulanceId,
-          location.coords.latitude,
-          location.coords.longitude,
-        );
-
-        intervalId = setInterval(async () => {
-          const currentLocation = await Location.getCurrentPositionAsync();
-          await sendLocationUpdate(
-            ambulanceId,
-            currentLocation.coords.latitude,
-            currentLocation.coords.longitude,
+        // Send an immediate location snapshot once tracking is enabled.
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          await maybeSendLocation(
+            initial.coords.latitude,
+            initial.coords.longitude,
           );
-        }, 10000);
+        } catch (initialErr) {
+          console.warn("Initial location snapshot failed:", initialErr);
+        }
+
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              await maybeSendLocation(
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (locErr) {
+              console.warn("Web location polling failed:", locErr);
+            }
+          }, 8000);
+        } else {
+          watcher = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 8000,
+              distanceInterval: 10,
+            },
+            async (loc) => {
+              await maybeSendLocation(
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            },
+          );
+        }
 
         console.log("Location tracking started");
       } catch (error) {
@@ -182,6 +322,13 @@ export default function DriverHomeScreen() {
 
     return () => {
       if (intervalId) clearInterval(intervalId);
+      if (watcher) {
+        try {
+          watcher.remove();
+        } catch (removeErr) {
+          console.warn("Location watcher cleanup failed:", removeErr);
+        }
+      }
     };
   }, [isAvailable, user, ambulanceId, showError, showAlert]);
 
@@ -202,7 +349,7 @@ export default function DriverHomeScreen() {
     if (!user) return;
     const { assignment } = await getDriverAssignment(user.id);
     if (!assignment) {
-      // Assignment was completed/cancelled — clear the UI
+      // Assignment was completed/cancelled -> clear the UI
       setHasAssignment(false);
       setAssignmentCount(0);
       // Also refresh stats
@@ -249,24 +396,37 @@ export default function DriverHomeScreen() {
       />
       <View style={{ flex: 1 }}>
         <ThemedText style={styles.infoLabel}>{label}</ThemedText>
-        <ThemedText style={styles.infoValue}>{value || "—"}</ThemedText>
+        <ThemedText style={styles.infoValue}>{value || "--"}</ThemedText>
       </View>
     </View>
   );
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={loading}
-        colorScheme={colorScheme}
-        message="Loading..."
-      />
+  if (authLoading || initialLoading) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
-      {/* App Header – project name top-left, theme toggle + profile icon top-right */}
-      <AppHeader
-        title="Erdataya Ambulance"
-        onProfilePress={handleProfilePress}
-      />
+  return (
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: colors.background, paddingBottom: insets.bottom },
+      ]}
+    >
+      {/* App Header with project name top-left, theme toggle + profile icon top-right */}
+      <AppHeader title="እርዳታዬ" onProfilePress={handleProfilePress} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -295,7 +455,7 @@ export default function DriverHomeScreen() {
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <ThemedText style={styles.greeting}>
-                Welcome, {user?.fullName || "Driver"}
+                Welcome, {user?.fullName || "Ambulance"}
               </ThemedText>
               <ThemedText style={styles.email}>{user?.phone}</ThemedText>
             </View>
@@ -314,19 +474,59 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
-          <ThemedText style={styles.cardTitle}>Driver Status</ThemedText>
+          <ThemedText style={styles.cardTitle}>Ambulance Status</ThemedText>
 
           <Pressable
             onPress={async () => {
               const newVal = !isAvailable;
+
+              const ok = await confirmAvailabilityChange(newVal);
+              if (!ok) return;
+
+              setToggleLoading(true);
               setIsAvailable(newVal);
+
               if (ambulanceId) {
                 const { error } = await toggleAmbulanceAvailability(
                   ambulanceId,
                   newVal,
                 );
-                if (error) console.warn("Failed to sync availability:", error);
+                if (error) {
+                  console.warn("Failed to sync availability:", error);
+                  setIsAvailable(!newVal);
+                  showError(
+                    "Status Update Failed",
+                    "Could not update ambulance availability. Please try again.",
+                  );
+                  setToggleLoading(false);
+                  return;
+                }
+
+                if (newVal) {
+                  // Push one immediate location update so patient nearby list can populate quickly.
+                  try {
+                    const { status } =
+                      await Location.getForegroundPermissionsAsync();
+                    if (status === "granted") {
+                      const current = await Location.getCurrentPositionAsync({
+                        accuracy: Location.Accuracy.Balanced,
+                      });
+                      await sendLocationUpdate(
+                        ambulanceId,
+                        current.coords.latitude,
+                        current.coords.longitude,
+                      );
+                    }
+                  } catch (initialSendErr) {
+                    console.warn(
+                      "Immediate location update failed:",
+                      initialSendErr,
+                    );
+                  }
+                }
               }
+
+              setTimeout(() => setToggleLoading(false), 100);
             }}
             style={[
               styles.statusToggle,
@@ -335,11 +535,24 @@ export default function DriverHomeScreen() {
               },
             ]}
           >
-            <MaterialIcons
-              name={isAvailable ? "check-circle" : "radio-button-unchecked"}
-              size={32}
-              color="#fff"
-            />
+            {toggleLoading ? (
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ActivityIndicator color="#fff" size="small" />
+              </View>
+            ) : (
+              <MaterialIcons
+                name={isAvailable ? "check-circle" : "radio-button-unchecked"}
+                size={32}
+                color="#fff"
+              />
+            )}
             <View style={{ marginLeft: 12 }}>
               <ThemedText style={styles.statusLabel}>
                 {isAvailable ? "Available" : "Offline"}
@@ -351,76 +564,91 @@ export default function DriverHomeScreen() {
           </Pressable>
         </ThemedView>
 
-        {/* Assignment Alert */}
-        {hasAssignment && (
-          <ThemedView style={[styles.card, styles.alertCard]}>
-            <View style={styles.alertHeader}>
-              <MaterialIcons name="priority-high" size={28} color="#DC2626" />
-              <ThemedText style={styles.alertTitle}>New Assignment!</ThemedText>
-            </View>
-            <ThemedText style={styles.alertSubtitle}>
-              You have {assignmentCount} incoming emergency
-              {assignmentCount > 1 ? "s" : ""}
-            </ThemedText>
-            <AppButton
-              label="View Assignment"
-              onPress={handleViewAssignment}
-              variant="primary"
-              fullWidth
-              style={{ marginTop: 12 }}
-            />
-          </ThemedView>
-        )}
+        <ThemedView
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
+              borderWidth: 1,
+            },
+          ]}
+        >
+          {/* Assignment Alert */}
+          {hasAssignment && (
+            <ThemedView style={[styles.card, styles.alertCard]}>
+              <View style={styles.alertHeader}>
+                <MaterialIcons name="priority-high" size={28} color="#DC2626" />
+                <ThemedText style={styles.alertTitle}>
+                  New Assignment!
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.alertSubtitle}>
+                You have {assignmentCount} incoming emergency
+                {assignmentCount > 1 ? "s" : ""}
+              </ThemedText>
+              <AppButton
+                label="View Assignment"
+                onPress={handleViewAssignment}
+                variant="primary"
+                fullWidth
+                style={{ marginTop: 12 }}
+              />
+            </ThemedView>
+          )}
 
-        {/* Quick Stats */}
-        <View style={styles.statsGrid}>
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
-            <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Active</ThemedText>
-          </ThemedView>
+          {/* Quick Stats */}
+          <View style={styles.statsGrid}>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
+              <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
+              <ThemedText style={styles.statLabel}>Active</ThemedText>
+            </ThemedView>
 
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="check-circle" size={28} color="#10B981" />
-            <ThemedText style={styles.statNumber}>{completedCount}</ThemedText>
-            <ThemedText style={styles.statLabel}>Completed</ThemedText>
-          </ThemedView>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="check-circle" size={28} color="#10B981" />
+              <ThemedText style={styles.statNumber}>
+                {completedCount}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Completed</ThemedText>
+            </ThemedView>
 
-          <ThemedView
-            style={[
-              styles.statCard,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-                borderWidth: 1,
-              },
-            ]}
-          >
-            <MaterialIcons name="schedule" size={28} color="#F59E0B" />
-            <ThemedText style={styles.statNumber}>
-              {activeCount + completedCount}
-            </ThemedText>
-            <ThemedText style={styles.statLabel}>Total</ThemedText>
-          </ThemedView>
-        </View>
+            <ThemedView
+              style={[
+                styles.statCard,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <MaterialIcons name="schedule" size={28} color="#F59E0B" />
+              <ThemedText style={styles.statNumber}>
+                {activeCount + completedCount}
+              </ThemedText>
+              <ThemedText style={styles.statLabel}>Total</ThemedText>
+            </ThemedView>
+          </View>
+        </ThemedView>
 
         {/* Completed History */}
         <ThemedView
@@ -514,7 +742,7 @@ export default function DriverHomeScreen() {
                                 year: "numeric",
                               },
                             )
-                          : "—"}
+                          : "--"}
                       </ThemedText>
                     </View>
                     {item.description ? (
@@ -537,7 +765,7 @@ export default function DriverHomeScreen() {
                                 minute: "2-digit",
                               },
                             )
-                          : "—"}
+                          : "--"}
                       </ThemedText>
                       <MaterialIcons
                         name="check-circle"
@@ -615,7 +843,7 @@ export default function DriverHomeScreen() {
                 />
               </View>
               <ThemedText style={styles.profileTitle}>
-                Driver Profile
+                Ambulance Profile
               </ThemedText>
             </View>
 
@@ -660,7 +888,7 @@ export default function DriverHomeScreen() {
                 <InfoRow
                   icon="local-hospital"
                   label="Hospital"
-                  value={driverProfile.hospital_id || "Not assigned"}
+                  value={hospitalDisplayName}
                 />
                 <InfoRow
                   icon="calendar-today"

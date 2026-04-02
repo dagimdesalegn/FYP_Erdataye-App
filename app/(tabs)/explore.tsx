@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    boxShadow: "0px 3px 6px rgba(0, 0, 0, 0.08)",
+    elevation: 2,
     elevation: 2,
     gap: 8,
   },
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#EEF2F6",
-    boxShadow: "0px 14px 22px rgba(0, 0, 0, 0.08)",
+    elevation: 6,
     elevation: 6,
   },
   title: {

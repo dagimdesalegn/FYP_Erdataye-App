@@ -2,17 +2,26 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+    ActivityIndicator,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet } from "@/utils/api";
 import {
     getDriverAmbulanceId,
     getPatientInfo,
@@ -27,7 +36,7 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
-import { supabase } from "@/utils/supabase";
+import supabase from "@/utils/supabase";
 
 type Tab = "map" | "status";
 
@@ -53,6 +62,7 @@ const STATUS_LABELS: Record<
 };
 
 export default function DriverEmergencyTrackingScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
@@ -99,36 +109,41 @@ export default function DriverEmergencyTrackingScreen() {
         const { ambulanceId: ambId } = await getDriverAmbulanceId(user.id);
         if (ambId) {
           setAmbulanceId(ambId);
-          // Get ambulance location
-          const { data: ambData } = await supabase
-            .from("ambulances")
-            .select("last_known_location")
-            .eq("id", ambId)
-            .maybeSingle();
-          if (ambData?.last_known_location) {
-            const parsed = parsePostGISPoint(ambData.last_known_location);
-            if (parsed) setDriverCoords(parsed);
-          }
         }
 
-        // Get emergency request for patient location + status
-        const { data: emergData } = await supabase
-          .from("emergency_requests")
-          .select("*")
-          .eq("id", emergencyId as string)
-          .maybeSingle();
+        // Use live GPS for driver position (not stale DB location)
+        try {
+          const { status: locStatus } =
+            await Location.requestForegroundPermissionsAsync();
+          if (locStatus === "granted") {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            setDriverCoords({
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+            });
+          }
+        } catch {}
+
+        // Get emergency details via backend (bypasses RLS)
+        const detailRes = await backendGet<{ emergency: any }>(
+          `/ops/patient/emergencies/${emergencyId}/detail`,
+        );
+        const emergData = detailRes?.emergency;
 
         if (emergData) {
           setCurrentStatus(emergData.status || "assigned");
-          // Parse patient location from PostGIS geometry
           const patLoc = parsePostGISPoint(emergData.patient_location);
           if (patLoc) {
             setPatientCoords(patLoc);
           }
 
-          // Get patient info
           if (emergData.patient_id) {
-            const { info } = await getPatientInfo(emergData.patient_id);
+            const { info } = await getPatientInfo(
+              emergData.patient_id,
+              emergencyId as string,
+            );
             if (info) setPatientInfo(info);
           }
         }
@@ -152,42 +167,102 @@ export default function DriverEmergencyTrackingScreen() {
     return unsubscribe;
   }, [emergencyId, user]);
 
+  // Subscribe to live patient location updates via Supabase realtime
+  useEffect(() => {
+    if (!emergencyId) return;
+    const channel = supabase
+      .channel(`patient-loc-${emergencyId}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "emergency_requests",
+          filter: `id=eq.${emergencyId}`,
+        },
+        (payload: any) => {
+          const patLoc = parsePostGISPoint(payload.new?.patient_location);
+          if (patLoc) setPatientCoords(patLoc);
+          if (payload.new?.status) setCurrentStatus(payload.new.status);
+        },
+      )
+      .subscribe((status: string) => {
+        // Re-sync on reconnect so no position updates are missed
+        if (status !== "SUBSCRIBED") return;
+        void supabase
+          .from("emergency_requests")
+          .select("patient_location,status")
+          .eq("id", emergencyId as string)
+          .maybeSingle()
+          .then(({ data }: any) => {
+            if (!data) return;
+            const patLoc = parsePostGISPoint(data.patient_location);
+            if (patLoc) setPatientCoords(patLoc);
+            if (data.status) setCurrentStatus(data.status);
+          });
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [emergencyId]);
+
   // Location tracking - updates driver position + sends to DB
   useEffect(() => {
     if (!locationTracking || !ambulanceId) return;
 
-    let intervalId: any = null;
+    let watcher: Location.LocationSubscription | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const startTracking = async () => {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") return;
 
-        const loc = await Location.getCurrentPositionAsync();
-        setDriverCoords({
-          latitude: loc.coords.latitude,
-          longitude: loc.coords.longitude,
-        });
-        await sendLocationUpdate(
-          ambulanceId,
-          loc.coords.latitude,
-          loc.coords.longitude,
-        );
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (pollErr) {
+              console.warn("Web location polling failed:", pollErr);
+            }
+          }, 8000);
+          return;
+        }
 
-        intervalId = setInterval(async () => {
-          try {
-            const currentLoc = await Location.getCurrentPositionAsync();
-            setDriverCoords({
-              latitude: currentLoc.coords.latitude,
-              longitude: currentLoc.coords.longitude,
-            });
-            await sendLocationUpdate(
-              ambulanceId,
-              currentLoc.coords.latitude,
-              currentLoc.coords.longitude,
-            );
-          } catch {}
-        }, 10000);
+        watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 8000,
+            distanceInterval: 10,
+          },
+          async (loc) => {
+            try {
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+              await sendLocationUpdate(
+                ambulanceId,
+                loc.coords.latitude,
+                loc.coords.longitude,
+              );
+            } catch (e) {
+              console.warn("Location update failed:", e);
+            }
+          },
+        );
       } catch (error) {
         console.error("Location error:", error);
       }
@@ -196,6 +271,13 @@ export default function DriverEmergencyTrackingScreen() {
     startTracking();
     return () => {
       if (intervalId) clearInterval(intervalId);
+      if (watcher && typeof (watcher as any).remove === "function") {
+        try {
+          watcher.remove();
+        } catch (removeErr) {
+          console.warn("Location watcher cleanup failed:", removeErr);
+        }
+      }
     };
   }, [locationTracking, ambulanceId]);
 
@@ -233,7 +315,14 @@ export default function DriverEmergencyTrackingScreen() {
   // ─── Loading ──────────────────────────────────────────
   if (loading) {
     return (
-      <LoadingModal visible colorScheme={colorScheme} message="Loading..." />
+      <View
+        style={[
+          styles.root,
+          { alignItems: "center", justifyContent: "center" },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.tint} />
+      </View>
     );
   }
 
@@ -254,26 +343,18 @@ export default function DriverEmergencyTrackingScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map HTML
-  const mapHtml =
-    driverCoords && patientCoords
-      ? buildDriverPatientMapHtml(
-          driverCoords.latitude,
-          driverCoords.longitude,
-          patientCoords.latitude,
-          patientCoords.longitude,
-          {
-            blueLabel: "You",
-            redLabel: "Patient",
-            bluePopup: "🚑 You",
-            redPopup: "🆘 Patient",
-          },
-        )
-      : patientCoords
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
-        : driverCoords
-          ? buildMapHtml(driverCoords.latitude, driverCoords.longitude, 16)
-          : null;
+  // Build Google Maps embed URL
+  const mapHtml = (() => {
+    if (driverCoords && patientCoords) {
+      return buildDriverPatientMapHtml(
+        driverCoords.latitude, driverCoords.longitude,
+        patientCoords.latitude, patientCoords.longitude,
+      );
+    }
+    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    return "";
+  })();
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -281,12 +362,6 @@ export default function DriverEmergencyTrackingScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={updating}
-        colorScheme={colorScheme}
-        message="Updating..."
-      />
-
       {/* ── Header ───────────────────────────────────── */}
       <View
         style={[
@@ -410,7 +485,6 @@ export default function DriverEmergencyTrackingScreen() {
             <HtmlMapView
               html={mapHtml}
               style={styles.mapFull}
-              title="Driver Tracking Map"
             />
           ) : (
             <View style={styles.noMapWrap}>
@@ -491,12 +565,19 @@ export default function DriverEmergencyTrackingScreen() {
               style={({ pressed }) => [
                 styles.floatingBtn,
                 pressed && { opacity: 0.8 },
+                updating && { opacity: 0.7 },
               ]}
             >
-              <MaterialIcons name="update" size={18} color="#FFF" />
-              <ThemedText style={styles.floatingBtnText}>
-                → {nextStatus.replace(/_/g, " ").toUpperCase()}
-              </ThemedText>
+              {updating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <MaterialIcons name="update" size={18} color="#FFF" />
+                  <ThemedText style={styles.floatingBtnText}>
+                    → {nextStatus.replace(/_/g, " ").toUpperCase()}
+                  </ThemedText>
+                </>
+              )}
             </Pressable>
           )}
         </View>

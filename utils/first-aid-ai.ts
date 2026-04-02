@@ -1,15 +1,10 @@
+import { backendPost } from "./api";
 import type { BotMessage, Message } from "./first-aid-chatbot";
 import type { Lang } from "./i18n-first-aid";
 
-const BACKEND_URL =
-  (process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000").replace(
-    /\/$/,
-    "",
-  );
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export const isFirstAidAiConfigured = (): boolean => Boolean(BACKEND_URL);
+export const isFirstAidAiConfigured = (): boolean => true;
 
 const toChatRole = (role: Message["role"]): "assistant" | "user" =>
   role === "bot" ? "assistant" : "user";
@@ -23,35 +18,19 @@ export const getFirstAidAiResponse = async (
   history: Message[],
   lang: Lang = "en",
 ): Promise<BotMessage | null> => {
-  if (!BACKEND_URL) return null;
-
   const contextMessages = history.slice(-8).map((msg) => ({
     role: toChatRole(msg.role),
     content: msg.text,
   }));
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(`${BACKEND_URL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: userInput,
-        history: contextMessages,
-        lang: lang,
-      }),
-      signal: controller.signal,
+    const data = await backendPost<{ reply?: string }>("/chat", {
+      message: userInput,
+      history: contextMessages,
+      lang,
     });
 
-    if (!response.ok) {
-      console.warn(`DeepSeek backend error ${response.status}`);
-      return null;
-    }
-
-    const data: any = await response.json();
     let replyText = typeof data?.reply === "string" ? data.reply.trim() : "";
     // Strip any leftover markdown asterisks
     replyText = replyText.replace(/\*+/g, "");
@@ -70,7 +49,5 @@ export const getFirstAidAiResponse = async (
   } catch (error) {
     console.warn("DeepSeek backend request failed:", error);
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 };

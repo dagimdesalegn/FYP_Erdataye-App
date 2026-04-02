@@ -1,9 +1,12 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Linking,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -14,10 +17,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     acceptEmergency,
@@ -31,7 +34,6 @@ import {
     buildDriverPatientMapHtml,
     buildMapHtml,
     calculateDistance,
-    formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
@@ -52,6 +54,7 @@ interface PatientInfo {
 }
 
 export default function DriverEmergencyScreen() {
+  const authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
@@ -65,11 +68,74 @@ export default function DriverEmergencyScreen() {
   const [assignment, setAssignment] = useState<any>(null);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const [declining, setDeclining] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [driverCoords, setDriverCoords] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+  const liveLocationRef = useRef(false);
+
+  // Live GPS for driver's own location
+  useEffect(() => {
+    let watcher: Location.LocationSubscription | null = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const startLiveLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
+
+        // Immediate snapshot
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setDriverCoords({
+            latitude: initial.coords.latitude,
+            longitude: initial.coords.longitude,
+          });
+          liveLocationRef.current = true;
+        } catch {}
+
+        if (Platform.OS === "web") {
+          intervalId = setInterval(async () => {
+            try {
+              const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+              });
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            } catch {}
+          }, 8000);
+        } else {
+          watcher = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.Balanced,
+              timeInterval: 8000,
+              distanceInterval: 10,
+            },
+            (loc) => {
+              setDriverCoords({
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              });
+            },
+          );
+        }
+      } catch {}
+    };
+
+    startLiveLocation();
+
+    return () => {
+      try { if (watcher) watcher.remove(); } catch {}
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
 
   const loadAssignment = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -91,33 +157,47 @@ export default function DriverEmergencyScreen() {
         }
 
         setAssignment(asgn);
+        // Show UI immediately — load details in parallel without blocking
+        if (!options?.silent) setLoading(false);
 
-        // Load patient info
         const pid = asgn.emergency_requests?.patient_id || "";
+        const detailPromises: Promise<void>[] = [];
+
+        // Load patient info in parallel
         if (pid) {
-          const { info } = await getPatientInfo(pid);
-          if (info) setPatientInfo(info);
+          detailPromises.push(
+            getPatientInfo(pid, asgn.emergency_id || asgn.emergency_requests?.id)
+              .then(({ info }) => { if (info) setPatientInfo(info); })
+              .catch(() => {}),
+          );
         }
 
-        // Load driver's ambulance location
-        const { ambulanceId } = await getDriverAmbulanceId(user.id);
-        if (ambulanceId) {
-          const { data } = await supabase
-            .from("ambulances")
-            .select("last_known_location")
-            .eq("id", ambulanceId)
-            .maybeSingle();
-          if (data?.last_known_location) {
-            const parsed = parsePostGISPoint(data.last_known_location);
-            if (parsed) setDriverCoords(parsed);
-          }
+        // Load driver's ambulance location fallback in parallel
+        if (!liveLocationRef.current) {
+          detailPromises.push(
+            getDriverAmbulanceId(user.id)
+              .then(async ({ ambulanceId }) => {
+                if (!ambulanceId) return;
+                const { data } = await supabase
+                  .from("ambulances")
+                  .select("last_known_location")
+                  .eq("id", ambulanceId)
+                  .maybeSingle();
+                if (data?.last_known_location) {
+                  const parsed = parsePostGISPoint(data.last_known_location);
+                  if (parsed) setDriverCoords(parsed);
+                }
+              })
+              .catch(() => {}),
+          );
         }
+
+        await Promise.all(detailPromises);
       } catch (err) {
         console.error("Error loading assignment:", err);
       } finally {
-        if (!options?.silent) {
-          setLoading(false);
-        }
+        // loading already cleared after assignment fetch above
+        if (!options?.silent) setLoading(false);
       }
     },
     [router, user, showAlert],
@@ -138,7 +218,7 @@ export default function DriverEmergencyScreen() {
   const handleAccept = async () => {
     if (!assignment || !user) return;
     try {
-      setProcessing(true);
+      setAccepting(true);
       const { error } = await acceptEmergency(
         assignment.id,
         assignment.emergency_id,
@@ -155,7 +235,7 @@ export default function DriverEmergencyScreen() {
     } catch (err) {
       console.error(err);
     } finally {
-      setProcessing(false);
+      setAccepting(false);
     }
   };
 
@@ -164,7 +244,7 @@ export default function DriverEmergencyScreen() {
 
     const doDecline = async () => {
       try {
-        setProcessing(true);
+        setDeclining(true);
         const { error } = await declineEmergency(
           assignment.id,
           assignment.emergency_id,
@@ -178,7 +258,7 @@ export default function DriverEmergencyScreen() {
       } catch (err) {
         console.error(err);
       } finally {
-        setProcessing(false);
+        setDeclining(false);
       }
     };
 
@@ -233,11 +313,18 @@ export default function DriverEmergencyScreen() {
   // ─── Loading / empty ─────────────────────────────────────
   if (loading) {
     return (
-      <LoadingModal
-        visible
-        colorScheme={colorScheme}
-        message="Loading assignment..."
-      />
+      <View
+        style={[
+          styles.root,
+          {
+            backgroundColor: Colors[colorScheme].background,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
+      </View>
     );
   }
 
@@ -276,20 +363,32 @@ export default function DriverEmergencyScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map HTML
-  const mapHtml =
-    driverCoords && patientCoords
-      ? buildDriverPatientMapHtml(
-          driverCoords.latitude,
-          driverCoords.longitude,
-          patientCoords.latitude,
-          patientCoords.longitude,
-        )
-      : patientCoords
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 16)
-        : null;
+  // Build Google Maps embed URL
+  const mapHtml = (() => {
+    if (driverCoords && patientCoords) {
+      return buildDriverPatientMapHtml(
+        driverCoords.latitude, driverCoords.longitude,
+        patientCoords.latitude, patientCoords.longitude,
+      );
+    }
+    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    return "";
+  })();
 
-  const med = patientInfo?.medical_profiles?.[0];
+  const medFromProfile = patientInfo?.medical_profiles?.[0];
+  let medFromAssignment: any = null;
+  try {
+    const rawNotes = assignment?.notes;
+    if (typeof rawNotes === "string" && rawNotes.trim()) {
+      const parsed = JSON.parse(rawNotes);
+      medFromAssignment = parsed?.medical_snapshot ?? null;
+    }
+  } catch {
+    medFromAssignment = null;
+  }
+
+  const med = medFromAssignment || medFromProfile;
 
   // ─── UI ───────────────────────────────────────────────────
   const cardBg = colors.surface;
@@ -298,58 +397,89 @@ export default function DriverEmergencyScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <LoadingModal
-        visible={processing}
-        colorScheme={colorScheme}
-        message="Processing..."
-      />
+      <View
+        style={[
+          styles.topEmergencyBox,
+          {
+            top: Math.max(insets.top, 12),
+            backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+            borderColor: cardBorder,
+          },
+        ]}
+      >
+        <View style={styles.topEmergencyTextWrap}>
+          <ThemedText style={[styles.topEmergencyTitle, { color: sev.color }]}>
+            {sev.label} EMERGENCY
+          </ThemedText>
+          <ThemedText
+            style={[
+              styles.topEmergencySub,
+              { color: isDark ? "#CBD5E1" : "#475569" },
+            ]}
+          >
+            {new Date(emergency?.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            {distanceText ? `  •  ${distanceText} away` : ""}
+          </ThemedText>
+        </View>
+
+        <View style={styles.topActions}>
+          <Pressable
+            onPress={async () => {
+              setRefreshing(true);
+              await loadAssignment({ silent: true });
+              setRefreshing(false);
+            }}
+            disabled={refreshing}
+            style={({ pressed }) => [
+              styles.topIconBtn,
+              {
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(2,6,23,0.06)",
+              },
+              (pressed || refreshing) && { opacity: 0.7 },
+            ]}
+          >
+            <MaterialIcons
+              name="refresh"
+              size={17}
+              color={isDark ? "#E2E8F0" : "#334155"}
+            />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.topCloseBtn,
+              {
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.12)"
+                  : "rgba(2,6,23,0.06)",
+              },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <MaterialIcons
+              name="close"
+              size={18}
+              color={isDark ? "#E2E8F0" : "#334155"}
+            />
+          </Pressable>
+        </View>
+      </View>
 
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, 16) },
+          { paddingTop: Math.max(insets.top, 16) + 84 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── X Close Button ───────────────────────────── */}
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.closeBtn,
-            {
-              backgroundColor: isDark
-                ? "rgba(255,255,255,0.12)"
-                : "rgba(0,0,0,0.06)",
-            },
-            pressed && { opacity: 0.6 },
-          ]}
-        >
-          <MaterialIcons
-            name="close"
-            size={20}
-            color={isDark ? "#E2E8F0" : "#334155"}
-          />
-        </Pressable>
-
-        {/* ── Severity Banner ───────────────────────────── */}
-        <View style={[styles.severityBanner, { backgroundColor: sev.bg }]}>
-          <MaterialIcons name={sev.icon} size={28} color={sev.color} />
-          <View style={{ marginLeft: 12, flex: 1 }}>
-            <ThemedText style={[styles.sevLabel, { color: sev.color }]}>
-              {sev.label} EMERGENCY
-            </ThemedText>
-            <ThemedText style={[styles.sevSub, { color: sev.color + "AA" }]}>
-              {new Date(emergency?.created_at).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-              {distanceText ? `  •  ${distanceText} away` : ""}
-            </ThemedText>
-          </View>
-        </View>
-
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && (
+        {mapHtml ? (
           <View
             style={[
               styles.mapCard,
@@ -377,7 +507,6 @@ export default function DriverEmergencyScreen() {
             <HtmlMapView
               html={mapHtml}
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
-              title="Emergency Map"
             />
 
             {/* Navigate button inside map card */}
@@ -396,7 +525,7 @@ export default function DriverEmergencyScreen() {
               </Pressable>
             )}
           </View>
-        )}
+        ) : null}
 
         {/* ── Patient Info Card ─────────────────────────── */}
         {patientInfo && (
@@ -439,34 +568,34 @@ export default function DriverEmergencyScreen() {
                 <ThemedText style={[styles.infoLabel, { color: subtleText }]}>
                   Phone
                 </ThemedText>
-                <Pressable
-                  onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}
-                >
-                  <ThemedText style={styles.phoneLink}>
-                    {patientInfo.phone}
-                  </ThemedText>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {patientCoords && (
-              <View style={styles.infoRow}>
-                <ThemedText style={[styles.infoLabel, { color: subtleText }]}>
-                  Location
-                </ThemedText>
-                <ThemedText
+                <View
                   style={[
-                    styles.infoValue,
-                    { color: isDark ? "#F1F5F9" : "#0F172A", fontSize: 13 },
+                    styles.phoneLayout,
+                    {
+                      backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                      borderColor: cardBorder,
+                    },
                   ]}
                 >
-                  {formatCoords(
-                    patientCoords.latitude,
-                    patientCoords.longitude,
-                  )}
-                </ThemedText>
+                  <View style={styles.phoneLeft}>
+                    <MaterialIcons name="phone" size={17} color="#0EA5E9" />
+                    <ThemedText style={styles.phoneValue}>
+                      {patientInfo.phone}
+                    </ThemedText>
+                  </View>
+                  <Pressable
+                    onPress={() => Linking.openURL(`tel:${patientInfo.phone}`)}
+                    style={({ pressed }) => [
+                      styles.callNowBtn,
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <MaterialIcons name="call" size={15} color="#FFFFFF" />
+                    <ThemedText style={styles.callNowText}>Call</ThemedText>
+                  </Pressable>
+                </View>
               </View>
-            )}
+            ) : null}
 
             {emergency?.description ? (
               <View
@@ -494,204 +623,143 @@ export default function DriverEmergencyScreen() {
               </View>
             ) : null}
 
-            {/* View Full Medical Profile Button */}
-            {patientInfo.id && (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: "/driver-patient-info" as any,
-                    params: { patientId: patientInfo.id },
-                  })
-                }
-                style={({ pressed }) => [
-                  styles.viewProfileBtn,
-                  {
-                    backgroundColor: isDark ? "#0C4A6E" : "#E0F2FE",
-                    borderColor: isDark ? "#0369A1" : "#7DD3FC",
-                  },
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
+            <View
+              style={[
+                styles.medicalInlineWrap,
+                {
+                  backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
+                  borderColor: cardBorder,
+                },
+              ]}
+            >
+              <View style={styles.medicalInlineHeader}>
                 <MaterialIcons
                   name="medical-services"
                   size={16}
-                  color="#0EA5E9"
-                />
-                <ThemedText style={styles.viewProfileBtnText}>
-                  View Medical Profile
-                </ThemedText>
-                <MaterialIcons name="chevron-right" size={18} color="#0EA5E9" />
-              </Pressable>
-            )}
-          </View>
-        )}
-
-        {/* ── Medical Profile Summary Card ──────────────── */}
-        {med && (
-          <View
-            style={[
-              styles.medicalCard,
-              { backgroundColor: cardBg, borderColor: cardBorder },
-            ]}
-          >
-            <View style={styles.cardHeader}>
-              <View style={[styles.iconCircle, { backgroundColor: "#FEE2E2" }]}>
-                <MaterialIcons
-                  name="medical-services"
-                  size={20}
                   color="#DC2626"
                 />
-              </View>
-              <ThemedText
-                style={[
-                  styles.cardHeading,
-                  { color: isDark ? "#E2E8F0" : "#1E293B" },
-                ]}
-              >
-                Medical Profile
-              </ThemedText>
-            </View>
-
-            {/* Quick stats row */}
-            <View style={styles.medicalGrid}>
-              {med.blood_type ? (
-                <View
+                <ThemedText
                   style={[
-                    styles.medicalGridItem,
-                    { backgroundColor: isDark ? "#450A0A" : "#FEF2F2" },
+                    styles.medicalInlineTitle,
+                    { color: isDark ? "#F8FAFC" : "#0F172A" },
                   ]}
                 >
-                  <View style={styles.bloodBadge}>
-                    <ThemedText style={styles.bloodText}>
-                      {med.blood_type}
-                    </ThemedText>
-                  </View>
+                  Medical Profile
+                </ThemedText>
+              </View>
+
+              <View style={styles.medicalInlineGrid}>
+                <View
+                  style={[
+                    styles.medicalInlineTile,
+                    {
+                      backgroundColor: isDark ? "#3B0A0A" : "#FFF1F2",
+                      borderColor: isDark ? "#7F1D1D" : "#FCA5A5",
+                    },
+                  ]}
+                >
                   <ThemedText
-                    style={[styles.medicalGridLabel, { color: subtleText }]}
+                    style={[
+                      styles.medicalTileLabel,
+                      { color: isDark ? "#FCA5A5" : "#B91C1C" },
+                    ]}
                   >
                     Blood Type
                   </ThemedText>
-                </View>
-              ) : null}
-
-              {med.allergies ? (
-                <View
-                  style={[
-                    styles.medicalGridItem,
-                    { backgroundColor: isDark ? "#451A03" : "#FFFBEB" },
-                  ]}
-                >
-                  <MaterialIcons name="warning" size={22} color="#D97706" />
                   <ThemedText
                     style={[
-                      styles.medicalGridValue,
-                      { color: isDark ? "#FBBF24" : "#92400E" },
+                      styles.medicalTileValue,
+                      { color: isDark ? "#FEE2E2" : "#7F1D1D" },
                     ]}
-                    numberOfLines={2}
                   >
-                    {med.allergies}
+                    {med?.blood_type || "Not set"}
                   </ThemedText>
+                </View>
+
+                <View
+                  style={[
+                    styles.medicalInlineTile,
+                    {
+                      backgroundColor: isDark ? "#3A2602" : "#FFFBEB",
+                      borderColor: isDark ? "#F59E0B" : "#F59E0B",
+                    },
+                  ]}
+                >
                   <ThemedText
-                    style={[styles.medicalGridLabel, { color: subtleText }]}
+                    style={[
+                      styles.medicalTileLabel,
+                      { color: isDark ? "#FCD34D" : "#92400E" },
+                    ]}
                   >
                     Allergies
                   </ThemedText>
-                </View>
-              ) : null}
-            </View>
-
-            {med.medical_conditions ? (
-              <View
-                style={[
-                  styles.medicalConditionBox,
-                  {
-                    backgroundColor: isDark ? "#0F172A" : "#F0F9FF",
-                    borderColor: isDark ? "#1E3A5F" : "#BAE6FD",
-                  },
-                ]}
-              >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 6,
-                  }}
-                >
-                  <MaterialIcons name="healing" size={16} color="#0284C7" />
                   <ThemedText
                     style={[
-                      styles.infoLabel,
-                      { color: "#0284C7", marginBottom: 0 },
+                      styles.medicalTileValue,
+                      { color: isDark ? "#FEF3C7" : "#78350F" },
                     ]}
+                    numberOfLines={2}
                   >
-                    Conditions
+                    {med?.allergies || "None reported"}
                   </ThemedText>
                 </View>
-                <ThemedText
-                  style={[
-                    styles.infoValue,
-                    { color: isDark ? "#F1F5F9" : "#0F172A" },
-                  ]}
-                >
-                  {med.medical_conditions}
-                </ThemedText>
               </View>
-            ) : null}
 
-            {med.emergency_contact_name ? (
               <View
                 style={[
-                  styles.emergencyContactBox,
+                  styles.emergencyContactCard,
                   {
-                    backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-                    borderColor: cardBorder,
+                    backgroundColor: isDark ? "#052E2B" : "#ECFDF5",
+                    borderColor: isDark ? "#0F766E" : "#6EE7B7",
                   },
                 ]}
               >
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    marginBottom: 8,
-                  }}
-                >
+                <View style={styles.emergencyContactHeader}>
                   <MaterialIcons
                     name="contact-phone"
                     size={16}
-                    color="#059669"
+                    color={isDark ? "#5EEAD4" : "#0F766E"}
                   />
                   <ThemedText
                     style={[
-                      styles.infoLabel,
-                      { color: "#059669", marginBottom: 0 },
+                      styles.medicalDetailLabel,
+                      {
+                        color: isDark ? "#5EEAD4" : "#0F766E",
+                        marginBottom: 0,
+                      },
                     ]}
                   >
                     Emergency Contact
                   </ThemedText>
                 </View>
+
                 <ThemedText
                   style={[
-                    styles.infoValue,
-                    { color: isDark ? "#F1F5F9" : "#0F172A" },
+                    styles.emergencyContactName,
+                    { color: isDark ? "#E6FFFA" : "#064E3B" },
                   ]}
                 >
-                  {med.emergency_contact_name}
+                  {med?.emergency_contact_name || "Not provided"}
                 </ThemedText>
-                {med.emergency_contact_phone ? (
+
+                {med?.emergency_contact_phone ? (
                   <Pressable
                     onPress={() =>
                       Linking.openURL(`tel:${med.emergency_contact_phone}`)
                     }
+                    style={({ pressed }) => [
+                      styles.emergencyCallBtn,
+                      pressed && { opacity: 0.85 },
+                    ]}
                   >
-                    <ThemedText style={[styles.phoneLink, { marginTop: 4 }]}>
+                    <MaterialIcons name="call" size={14} color="#FFFFFF" />
+                    <ThemedText style={styles.emergencyCallBtnText}>
                       {med.emergency_contact_phone}
                     </ThemedText>
                   </Pressable>
                 ) : null}
               </View>
-            ) : null}
+            </View>
           </View>
         )}
       </ScrollView>
@@ -707,49 +775,33 @@ export default function DriverEmergencyScreen() {
           },
         ]}
       >
-        <View style={styles.bottomInfo}>
-          <MaterialIcons name="flash-on" size={16} color="#0EA5E9" />
-          <ThemedText
-            style={[
-              styles.bottomTitle,
-              { color: isDark ? "#E2E8F0" : "#0F172A" },
-            ]}
-            numberOfLines={1}
-          >
-            {patientInfo?.full_name
-              ? `${patientInfo.full_name} needs help`
-              : "Incoming emergency"}
-          </ThemedText>
-          {distanceText ? (
-            <View style={styles.distChip}>
-              <ThemedText style={styles.distChipText}>
-                {distanceText}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
-
         <View style={styles.buttonRow}>
           <Pressable
             onPress={handleDecline}
-            disabled={processing}
+            disabled={accepting || declining}
             style={({ pressed }) => [
               styles.declineBtn,
               pressed && { opacity: 0.85 },
-              processing && { opacity: 0.6 },
+              declining && { opacity: 0.6 },
             ]}
           >
-            <MaterialIcons name="close" size={18} color="#DC2626" />
-            <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+            {declining ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <>
+                <MaterialIcons name="close" size={18} color="#DC2626" />
+                <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+              </>
+            )}
           </Pressable>
 
           <Pressable
             onPress={handleAccept}
-            disabled={processing}
+            disabled={accepting || declining}
             style={({ pressed }) => [
               styles.acceptWrapper,
               pressed && { opacity: 0.95 },
-              processing && { opacity: 0.6 },
+              accepting && { opacity: 0.6 },
             ]}
           >
             <LinearGradient
@@ -758,8 +810,16 @@ export default function DriverEmergencyScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.acceptGradient}
             >
-              <MaterialIcons name="check" size={18} color="#FFF" />
-              <ThemedText style={styles.acceptBtnText}>Accept & Go</ThemedText>
+              {accepting ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <MaterialIcons name="check" size={18} color="#FFF" />
+                  <ThemedText style={styles.acceptBtnText}>
+                    Accept & Go
+                  </ThemedText>
+                </>
+              )}
             </LinearGradient>
           </Pressable>
         </View>
@@ -788,6 +848,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4,
+  },
+
+  topEmergencyBox: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    zIndex: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  topCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginLeft: 10,
+  },
+  topIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topEmergencyTextWrap: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  topEmergencyTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.45,
+  },
+  topEmergencySub: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginTop: 1,
   },
 
   // Empty
@@ -919,6 +1032,42 @@ const styles = StyleSheet.create({
     color: "#0EA5E9",
     textDecorationLine: "underline",
   },
+  phoneLayout: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  phoneLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  phoneValue: {
+    fontSize: 15,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    color: "#0EA5E9",
+  },
+  callNowBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#0EA5E9",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  callNowText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
 
   descBox: {
     flexDirection: "row",
@@ -934,26 +1083,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
     lineHeight: 20,
-  },
-
-  // View Profile button
-  viewProfileBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginTop: 12,
-    gap: 8,
-  },
-  viewProfileBtnText: {
-    fontSize: 14,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
-    color: "#0EA5E9",
-    flex: 1,
-    textAlign: "center",
   },
 
   // Medical card
@@ -1017,24 +1146,23 @@ const styles = StyleSheet.create({
   // Bottom bar
   bottomBar: {
     position: "absolute" as any,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    borderTopWidth: 1,
-    borderLeftWidth: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
+    bottom: 8,
+    left: 12,
+    right: 12,
+    borderWidth: 1,
+    borderRadius: 18,
     paddingTop: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
     elevation: 14,
   },
   bottomInfo: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     marginBottom: 10,
   },
@@ -1042,7 +1170,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     fontFamily: Fonts.sans,
-    flex: 1,
+    maxWidth: 230,
+    textAlign: "center",
   },
   distChip: {
     backgroundColor: "#0EA5E9",
@@ -1059,6 +1188,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: "row",
     gap: 10,
+    alignItems: "stretch",
+    justifyContent: "center",
   },
   declineBtn: {
     flex: 1,
@@ -1070,6 +1201,7 @@ const styles = StyleSheet.create({
     borderColor: "#FCA5A5",
     backgroundColor: "#FEF2F2",
     paddingVertical: 13,
+    minHeight: 50,
     gap: 6,
   },
   declineBtnText: {
@@ -1079,7 +1211,8 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
   },
   acceptWrapper: {
-    flex: 2,
+    flex: 1,
+    minHeight: 50,
   },
   acceptGradient: {
     borderRadius: 14,
@@ -1094,5 +1227,100 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
     fontFamily: Fonts.sans,
+  },
+
+  // Medical info merged into patient card
+  medicalInlineWrap: {
+    marginTop: 6,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  medicalInlineHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  medicalInlineTitle: {
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+    fontWeight: "700",
+  },
+  medicalInlineGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  medicalInlineTile: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    minHeight: 68,
+    justifyContent: "center",
+  },
+  medicalTileLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    color: "#64748B",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  medicalTileValue: {
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  medicalDetailBox: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+  },
+  emergencyContactCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    gap: 8,
+  },
+  emergencyContactHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  emergencyContactName: {
+    fontSize: 15,
+    fontFamily: Fonts.sans,
+    fontWeight: "700",
+  },
+  emergencyCallBtn: {
+    marginTop: 2,
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#0EA5E9",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  emergencyCallBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    fontWeight: "700",
+  },
+  medicalDetailLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  medicalDetailValue: {
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+    fontWeight: "600",
   },
 });

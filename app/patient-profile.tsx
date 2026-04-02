@@ -2,33 +2,35 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useRef, useState } from "react";
 import {
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  View,
+    ActivityIndicator,
+    Animated,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    View,
 } from "react-native";
 
 import { AppButton } from "@/components/app-button";
 import { useAppState } from "@/components/app-state";
-import { LoadingModal } from "@/components/loading-modal";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { updateAuthLoginPhone } from "@/utils/auth";
 import {
-  getMedicalProfile,
-  getUserProfile,
-  updateUserProfile,
-  upsertMedicalProfile,
+    getMedicalProfile,
+    getUserProfile,
+    updateUserProfile,
+    upsertMedicalProfile,
 } from "@/utils/profile";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface PatientProfileForm {
   fullName: string;
@@ -73,10 +75,12 @@ const parseAllergiesToString = (raw: unknown): string => {
 };
 
 export default function PatientProfileScreen() {
+  const authLoading = useAuthGuard();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
   const { user, setUser } = useAppState();
   const { showError } = useModal();
   const [loading, setLoading] = useState(true);
@@ -271,11 +275,16 @@ export default function PatientProfileScreen() {
 
   if (loading) {
     return (
-      <LoadingModal
-        visible={true}
-        colorScheme={colorScheme}
-        message="Loading profile..."
-      />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
   }
 
@@ -287,13 +296,9 @@ export default function PatientProfileScreen() {
   const textSecondary = colors.textMuted;
 
   return (
-    <View style={[styles.bg, { backgroundColor: bg }]}>
-      <LoadingModal
-        visible={saving}
-        colorScheme={colorScheme}
-        message="Saving profile..."
-      />
-
+    <View
+      style={[styles.bg, { backgroundColor: bg, paddingBottom: insets.bottom }]}
+    >
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
         style={styles.topGradient}
@@ -303,7 +308,7 @@ export default function PatientProfileScreen() {
 
       {/* Success Notification (centered) */}
       {successVisible && (
-        <View style={styles.successOverlay} pointerEvents="none">
+        <View style={[styles.successOverlay, { pointerEvents: "none" }]}>
           <Animated.View
             style={[
               styles.successBanner,

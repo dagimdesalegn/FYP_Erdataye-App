@@ -4,19 +4,19 @@ import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     Ambulance,
-    createEmergencyRequest,
-    findNearestAmbulance,
     formatCoords,
     getAvailableAmbulances,
     parsePostGISPoint,
 } from "@/utils/emergency";
+import { createEmergency } from "@/utils/patient";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -26,8 +26,9 @@ import {
 } from "react-native";
 
 export default function EmergencyScreen() {
+  const authLoading = useAuthGuard();
   const { user } = useAppState();
-  const { showError, showAlert, show: showCustomModal } = useModal();
+  const { showError, showAlert, showConfirm } = useModal();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
@@ -45,34 +46,22 @@ export default function EmergencyScreen() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Show location permission info modal before requesting
-  const requestLocationWithPrompt = async () => {
+  const requestLocationWithPrompt = useCallback(async () => {
     return new Promise((resolve) => {
-      showCustomModal({
-        title: "📍 Enable Location",
-        message:
-          "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
-        type: "info",
-        actions: [
-          {
-            label: "Enable Location",
-            onPress: async () => {
-              const { status } =
-                await Location.requestForegroundPermissionsAsync();
-              resolve(status === "granted");
-            },
-          },
-          {
-            label: "Cancel",
-            style: "cancel",
-            onPress: () => resolve(false),
-          },
-        ],
-      });
+      showConfirm(
+        "Enable Location",
+        "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
+        async () => {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          resolve(status === "granted");
+        },
+        () => resolve(false),
+      );
     });
-  };
+  }, [showConfirm]);
 
   // Get user's current location with high accuracy
-  const getUserLocation = async () => {
+  const getUserLocation = useCallback(async () => {
     try {
       const allowed = await requestLocationWithPrompt();
       if (!allowed) {
@@ -92,7 +81,7 @@ export default function EmergencyScreen() {
       setErrorMsg(`Error getting location: ${error}`);
       return null;
     }
-  };
+  }, [requestLocationWithPrompt, showError]);
 
   // Call emergency
   const handleEmergencyCall = async () => {
@@ -118,35 +107,22 @@ export default function EmergencyScreen() {
 
       const { latitude, longitude } = currentLocation.coords;
 
-      // Create emergency request
-      const { error } = await createEmergencyRequest(
+      // Create emergency request via patient flow (auto dispatches nearest ambulance)
+      const { emergency, error } = await createEmergency(
         user.id,
         latitude,
         longitude,
-        "Emergency ambulance request",
         "medical",
+        "Emergency ambulance request",
       );
 
-      if (error) {
+      if (error || !emergency) {
         showError(
           "Request Failed",
-          `Failed to create emergency request: ${error.message}`,
+          `Failed to create emergency request: ${error?.message ?? "Unknown error"}`,
         );
         setLoading(false);
         return;
-      }
-
-      // Try to find nearest ambulance (expanded 50km range)
-      const {
-        ambulanceId,
-        distanceKm,
-        error: ambulanceError,
-      } = await findNearestAmbulance(latitude, longitude, 50);
-      if (ambulanceError) {
-        console.warn(
-          "Warning finding nearest ambulance:",
-          ambulanceError.message,
-        );
       }
 
       // Fetch available ambulances for display
@@ -163,7 +139,7 @@ export default function EmergencyScreen() {
 
       showAlert(
         "Emergency Request Sent",
-        `Your location (${formatCoords(latitude, longitude)}) has been sent.${ambulanceId ? `\n\nNearest ambulance found${distanceKm ? ` (${distanceKm} km away)` : ""}. Help is on the way!` : "\n\nSearching for available ambulances..."}`,
+        `Your location (${formatCoords(latitude, longitude)}) has been sent.${emergency.assigned_ambulance_id ? "\\n\\nNearest ambulance was assigned automatically. Help is on the way!" : "\\n\\nRequest created. Dispatch retry is running in the background."}`,
       );
     } catch (error) {
       showError("Emergency Failed", `Emergency call failed: ${error}`);
@@ -178,7 +154,7 @@ export default function EmergencyScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="Erdataya Ambulance" />
+      <AppHeader title="እርዳታዬ" onBackPress={() => router.back()} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title" style={[styles.title, { color: textColor }]}>

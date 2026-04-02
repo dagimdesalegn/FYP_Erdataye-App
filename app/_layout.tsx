@@ -22,10 +22,6 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 // Prevent the splash screen from auto-hiding before fonts load
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-export const unstable_settings = {
-  initialRouteName: "index",
-};
-
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     ...MaterialIcons.font,
@@ -60,7 +56,7 @@ function ThemedRoot() {
 
   useEffect(() => {
     if (Platform.OS === "web") {
-      document.title = "Erdataya Ambulance";
+      document.title = "እርዳታዬ";
     }
     if (Platform.OS !== "android") return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);
@@ -72,17 +68,20 @@ function ThemedRoot() {
         <Stack>
           <Stack.Screen
             name="index"
-            options={{ headerShown: false, title: "Erdataya Ambulance" }}
+            options={{ headerShown: false, title: "እርዳታዬ" }}
           />
           <Stack.Screen
             name="(tabs)"
-            options={{ headerShown: false, title: "Erdataya Ambulance" }}
+            options={{ headerShown: false, title: "እርዳታዬ" }}
           />
           <Stack.Screen
             name="login"
             options={{ headerShown: false, title: "Login" }}
           />
           <Stack.Screen
+            name="staff"
+            options={{ headerShown: false, title: "Staff Login" }}
+          /><Stack.Screen
             name="register"
             options={{ headerShown: false, title: "Register" }}
           />
@@ -111,10 +110,10 @@ function ThemedRoot() {
             name="first-aid-chat"
             options={{ headerShown: false, title: "First Aid Assistant" }}
           />
-          {/* Driver Routes */}
+          {/* Ambulance Routes */}
           <Stack.Screen
             name="driver-home"
-            options={{ headerShown: false, title: "Driver Home" }}
+            options={{ headerShown: false, title: "Ambulance Home" }}
           />
           <Stack.Screen
             name="driver-emergency"
@@ -139,6 +138,10 @@ function ThemedRoot() {
             options={{ headerShown: false, title: "Hospital Dashboard" }}
           />
           <Stack.Screen
+            name="hospitals/[id]"
+            options={{ headerShown: false, title: "Hospital Details" }}
+          />
+          <Stack.Screen
             name="map"
             options={{ headerShown: false, title: "Live Map" }}
           />
@@ -156,3 +159,4 @@ function ThemedRoot() {
     </View>
   );
 }
+

@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import React from "react";
 import {
+  Platform,
     Pressable,
     StyleProp,
     StyleSheet,
@@ -57,10 +58,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    ...(Platform.select({
+      web: { boxShadow: "0px 6px 14px rgba(0,0,0,0.16)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.16,
+        shadowRadius: 14,
+      },
+    }) as object),
     elevation: 8,
   },
   tag: {

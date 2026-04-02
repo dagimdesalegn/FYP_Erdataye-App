@@ -7,11 +7,14 @@ Message storage endpoints require authentication.
 """
 
 import json
+import logging
 import re
+import time
+from collections import defaultdict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from openai import OpenAI, OpenAIError
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from openai import AsyncOpenAI, OpenAIError
 from pydantic import BaseModel, Field
 
 from config import settings
@@ -19,35 +22,76 @@ from deps import get_current_user
 from services.supabase import db_insert, db_select, db_delete
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
+logger = logging.getLogger("chat_router")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# DeepSeek client (OpenAI-compatible SDK)
+# In-memory rate limiter — 20 requests per minute per IP
+# ─────────────────────────────────────────────────────────────────────────────
+
+_RATE_LIMIT = 20
+_RATE_WINDOW = 60  # seconds
+_rate_buckets: dict[str, list[float]] = defaultdict(list)
+
+
+def _check_rate(ip: str) -> bool:
+    """Return True if the request is within the rate limit."""
+    now = time.time()
+    bucket = _rate_buckets[ip]
+    # Prune stale entries
+    _rate_buckets[ip] = bucket = [t for t in bucket if now - t < _RATE_WINDOW]
+    if len(bucket) >= _RATE_LIMIT:
+        return False
+    bucket.append(now)
+    return True
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DeepSeek client (OpenAI-compatible SDK) — async for non-blocking I/O
 # The API key never reaches the mobile client.
 # ─────────────────────────────────────────────────────────────────────────────
 
-_deepseek = OpenAI(
+_deepseek = AsyncOpenAI(
     api_key=settings.deepseek_api_key,
     base_url="https://api.deepseek.com",
 )
+
+# Mutable model name — can be changed at runtime via admin settings endpoint
+_MODEL = "deepseek-chat"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # System prompt — WHO first aid domain + Ethiopian context
 # ─────────────────────────────────────────────────────────────────────────────
 
 SYSTEM_PROMPT = """You are the First Aid Assistant for the Erdataye Ambulance App, serving users in Ethiopia.
-You provide real, WHO-based first aid guidance grounded in current medical best practices.
+You provide WHO-based first aid guidance focused on immediate patient safety.
+
+RESPONSE PRIORITY:
+- First give clear first-aid actions the user can do right now.
+- Do NOT start with phone numbers.
+- Add contact numbers only at the end, and only when professional help is needed.
+
+RESPONSE FORMAT (plain text only):
+Condition: <short name>
+Immediate first aid:
+1) <action>
+2) <action>
+3) <action>
+Warning signs to watch:
+- <sign>
+When to contact emergency help:
+- <condition>
+- Ethiopia numbers: 952 (ambulance), 911 (police/fire)
+Reminder: This is first aid guidance, not a medical diagnosis.
 
 RULES:
-1) Give accurate, evidence-based first aid instructions. Be specific with steps.
-2) Keep answers 3 to 6 sentences. Use numbered steps for procedures.
-3) NEVER use markdown. No asterisks, no bold, no hashtags, no headers, no bullet symbols. Plain text only.
-4) For life-threatening emergencies, always tell users to call Ethiopian emergency number 939 or 911 first.
-5) Never diagnose conditions. Only provide first aid guidance until professional help arrives.
-6) Know Ethiopian context: Black Lion Hospital (+251 111 239 720), St. Paul Hospital (+251 111 241 845), Ethiopian Red Cross (+251 111 515 375).
-7) If the user asks about non-health topics, politely reply: I can only help with first aid and emergency guidance.
-8) Be warm, calm, and reassuring. People asking may be in distress.
-9) After your answer, on a new line write:
-   FOLLOW_UPS: ["question 1", "question 2"]
+1) Be accurate, practical, and action-first. Keep steps short and specific.
+2) Never diagnose diseases. Give first aid support until professionals take over.
+3) Only include "When to contact emergency help" when truly needed by severity or risk signs.
+4) For non-urgent/minor cases, focus on home first aid and monitoring; avoid unnecessary emergency-number instructions.
+5) NEVER use markdown. No asterisks, bold, hashtags, or decorative symbols.
+6) If the user asks about non-health topics, reply exactly: I can only help with first aid and emergency guidance.
+7) Be calm and reassuring.
+8) After your answer, on a new line write:
+    FOLLOW_UPS: ["question 1", "question 2"]
 """
 
 
@@ -78,11 +122,17 @@ class ChatResponse(BaseModel):
 
 
 @router.post("", response_model=ChatResponse, summary="Ask the first aid chatbot")
-async def chat(req: ChatRequest) -> ChatResponse:
+async def chat(req: ChatRequest, request: Request) -> ChatResponse:
     """
     Send a user message and optional conversation history.
     Returns an AI-generated WHO-grounded first aid response plus follow-up suggestions.
     """
+    client_ip = request.client.host if request.client else "unknown"
+    if not _check_rate(client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please wait a moment before sending another message.",
+        )
     lang_instruction = {
         "en": "Respond in English.",
         "am": "Respond in Amharic (አማርኛ).",
@@ -97,17 +147,18 @@ async def chat(req: ChatRequest) -> ChatResponse:
     messages.append({"role": "user", "content": req.message.strip()})
 
     try:
-        completion = _deepseek.chat.completions.create(
-            model="deepseek-chat",
+        completion = await _deepseek.chat.completions.create(
+            model=_MODEL,
             messages=messages,
             temperature=0.35,  # lower = more factual / consistent for medical guidance
             max_tokens=1024,
         )
-    except OpenAIError as exc:
+    except OpenAIError:
+        logger.exception("DeepSeek API call failed")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"DeepSeek API error: {exc}",
-        ) from exc
+            detail="AI service is temporarily unavailable. Please try again shortly.",
+        )
 
     raw: str = completion.choices[0].message.content or ""
 
@@ -185,7 +236,11 @@ async def add_message(
     response_model=MessagesResponse,
     summary="Get chatbot history for the current user",
 )
-async def get_messages(current_user: dict = Depends(get_current_user)) -> MessagesResponse:
+async def get_messages(
+    current_user: dict = Depends(get_current_user),
+    limit: int = Query(default=200, ge=1, le=1000, description="Max messages to return"),
+    offset: int = Query(default=0, ge=0, description="Number of messages to skip"),
+) -> MessagesResponse:
     uid = current_user["sub"]
     data, code = await db_select(
         "chatbot_messages",
@@ -194,9 +249,10 @@ async def get_messages(current_user: dict = Depends(get_current_user)) -> Messag
     )
     if code not in (200,):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load messages")
-    # Sort by created_at ascending
+    # Sort by created_at ascending, then paginate
     data.sort(key=lambda r: r.get("created_at", ""))
-    return MessagesResponse(messages=[MessageRow(**r) for r in data])
+    page = data[offset : offset + limit]
+    return MessagesResponse(messages=[MessageRow(**r) for r in page])
 
 
 @router.delete(

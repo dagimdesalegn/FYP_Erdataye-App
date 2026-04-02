@@ -16,12 +16,14 @@ import {
     StyleSheet,
     View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   const router = useRouter();
   useAppState();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "dark"];
+  const insets = useSafeAreaInsets();
 
   // Animations
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -31,7 +33,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (Platform.OS === "web" && typeof document !== "undefined") {
-      document.title = "Erdataya Ambulance";
+      document.title = "እርዳታዬ";
     }
   }, []);
 
@@ -75,7 +77,16 @@ export default function HomeScreen() {
   }, []);
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.root,
+        {
+          backgroundColor: colors.background,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
       <StatusBar
         barStyle="light-content"
         translucent
@@ -251,7 +262,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
     borderWidth: 0,
-    boxShadow: "none",
+    elevation: 0,
   },
   logoImage: {
     width: 64,
@@ -264,7 +275,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     textAlign: "center",
     fontFamily: Platform.OS === "android" ? "sans-serif" : Fonts.rounded,
-    textShadow: "0px 2px 12px rgba(220, 38, 38, 0.3)",
     marginBottom: 14,
     paddingHorizontal: 20,
     paddingVertical: 6,
@@ -301,7 +311,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   btnPrimary: {
-    boxShadow: "0px 6px 16px rgba(220, 38, 38, 0.35)",
+    elevation: 6,
   },
   btnGradient: {
     flexDirection: "row",

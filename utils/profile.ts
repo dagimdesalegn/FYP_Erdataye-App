@@ -1,10 +1,11 @@
-import { supabase } from './supabase';
+import { backendGet, backendPut } from "./api";
+import { supabase } from "./supabase";
 
 export interface UserProfile {
   id: string;
   full_name: string;
   phone: string;
-  role: 'patient' | 'driver' | 'hospital' | 'admin';
+  role: "patient" | "ambulance" | "driver" | "hospital" | "admin";
   hospital_id: string | null;
   created_at: string;
   updated_at: string;
@@ -23,51 +24,54 @@ export interface MedicalProfile {
 }
 
 /**
- * Get user profile
+ * Get user profile — backend first, Supabase fallback.
  */
-export const getUserProfile = async (userId: string): Promise<{
+export const getUserProfile = async (
+  userId: string,
+): Promise<{
   profile: UserProfile | null;
   error: Error | null;
 }> => {
   try {
-    // profiles table has RLS disabled – anon client works fine
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      throw error;
+    try {
+      const data = await backendGet<UserProfile>("/profiles/me");
+      if (data) return { profile: data, error: null };
+    } catch {
+      /* fall through */
     }
 
-    return { profile: data as UserProfile, error: null };
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return { profile: data as UserProfile | null, error: null };
   } catch (error) {
     return { profile: null, error: error as Error };
   }
 };
 
 /**
- * Update user profile
+ * Update user profile — backend first, Supabase fallback.
  */
 export const updateUserProfile = async (
   userId: string,
-  updates: Partial<UserProfile>
+  updates: Partial<UserProfile>,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
-    // profiles table has RLS disabled – anon client works fine
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (error) {
-      throw error;
+    try {
+      await backendPut("/profiles/me", updates);
+      return { success: true, error: null };
+    } catch {
+      /* fall through */
     }
 
+    const { error } = await supabase
+      .from("profiles")
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+    if (error) throw error;
     return { success: true, error: null };
   } catch (error) {
     return { success: false, error: error as Error };
@@ -75,126 +79,64 @@ export const updateUserProfile = async (
 };
 
 /**
- * Get medical profile
+ * Get medical profile — backend first, Supabase fallback.
  */
-export const getMedicalProfile = async (userId: string): Promise<{
+export const getMedicalProfile = async (
+  userId: string,
+): Promise<{
   profile: MedicalProfile | null;
   error: Error | null;
 }> => {
   try {
-    const { data, error } = await supabase
-      .from('medical_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      throw error;
+    try {
+      const data = await backendGet<MedicalProfile | null>("/profiles/medical");
+      if (data) return { profile: data, error: null };
+    } catch {
+      /* fall through */
     }
 
-    return { profile: (data as MedicalProfile) ?? null, error: null };
+    const { data, error } = await supabase
+      .from("medical_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return { profile: data as MedicalProfile | null, error: null };
   } catch (error) {
     return { profile: null, error: error as Error };
   }
 };
 
 /**
- * Create or update medical profile
+ * Create or update medical profile — backend first, Supabase fallback.
  */
 export const upsertMedicalProfile = async (
   userId: string,
-  medicalData: Omit<MedicalProfile, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+  medicalData: Omit<
+    MedicalProfile,
+    "id" | "user_id" | "created_at" | "updated_at"
+  >,
 ): Promise<{ success: boolean; error: Error | null }> => {
   try {
+    try {
+      await backendPut("/profiles/medical", medicalData);
+      return { success: true, error: null };
+    } catch {
+      /* fall through */
+    }
+
     const now = new Date().toISOString();
     const { error } = await supabase
-      .from('medical_profiles')
+      .from("medical_profiles")
       .upsert(
-        {
-          user_id: userId,
-          blood_type: medicalData.blood_type,
-          allergies: medicalData.allergies,
-          medical_conditions: medicalData.medical_conditions || '',
-          emergency_contact_name: medicalData.emergency_contact_name,
-          emergency_contact_phone: medicalData.emergency_contact_phone,
-          updated_at: now,
-        },
-        { onConflict: 'user_id' }
+        { ...medicalData, user_id: userId, updated_at: now },
+        { onConflict: "user_id" },
       );
-
     if (error) throw error;
-
     return { success: true, error: null };
   } catch (error) {
     return { success: false, error: error as Error };
-  }
-};
-
-/**
- * Get all drivers
- */
-export const getDrivers = async (): Promise<{
-  drivers: UserProfile[] | null;
-  error: Error | null;
-}> => {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'driver');
-
-    if (error) {
-      throw error;
-    }
-
-    return { drivers: data as UserProfile[], error: null };
-  } catch (error) {
-    return { drivers: null, error: error as Error };
-  }
-};
-
-/**
- * Get all patients
- */
-export const getPatients = async (): Promise<{
-  patients: UserProfile[] | null;
-  error: Error | null;
-}> => {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'patient');
-
-    if (error) {
-      throw error;
-    }
-
-    return { patients: data as UserProfile[], error: null };
-  } catch (error) {
-    return { patients: null, error: error as Error };
-  }
-};
-
-/**
- * Get hospital staff
- */
-export const getHospitalStaff = async (): Promise<{
-  staff: UserProfile[] | null;
-  error: Error | null;
-}> => {
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('role', 'hospital');
-
-    if (error) {
-      throw error;
-    }
-
-    return { staff: data as UserProfile[], error: null };
-  } catch (error) {
-    return { staff: null, error: error as Error };
   }
 };

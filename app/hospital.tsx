@@ -3,24 +3,23 @@ import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendGet, backendPut } from "@/utils/api";
 import { signOut } from "@/utils/auth";
 import {
     EmergencyRequest,
     formatCoords,
     normalizeEmergency,
 } from "@/utils/emergency";
-import {
-    getMedicalProfile,
-    MedicalProfile,
-    UserProfile,
-} from "@/utils/profile";
+import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    Animated,
     FlatList,
     Modal,
     Platform,
@@ -37,6 +36,29 @@ import {
 interface EmergencyWithPatient extends EmergencyRequest {
   patient_profile?: UserProfile;
   patient_medical?: MedicalProfile;
+  national_id?: string | null;
+  ambulance_vehicle?: string | null;
+}
+
+interface HospitalFleetResponse {
+  hospital_id: string;
+  total_ambulances: number;
+  available_ambulances: number;
+  busy_ambulances: number;
+  ambulances: any[];
+}
+
+interface HospitalProfileResponse {
+  hospital_id: string;
+  name?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  is_accepting_emergencies?: boolean | null;
+  max_concurrent_emergencies?: number | null;
+  dispatch_weight?: number | null;
+  trauma_capable?: boolean | null;
+  icu_beds_available?: number | null;
+  average_handover_minutes?: number | null;
 }
 
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
@@ -63,6 +85,7 @@ const TYPE_COLORS: Record<string, string> = {
 /* ─── Component ───────────────────────────────────────────────── */
 
 export default function HospitalDashboard() {
+  const authLoading = useAuthGuard(["hospital"]);
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
@@ -80,6 +103,23 @@ export default function HospitalDashboard() {
   const [profileVisible, setProfileVisible] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
+  const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
+  const [hospitalName, setHospitalName] = useState("Hospital Dashboard");
+  const [hospitalProfile, setHospitalProfile] =
+    useState<HospitalProfileResponse | null>(null);
+  const [editProfileVisible, setEditProfileVisible] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    address: "",
+    phone: "",
+    isAcceptingEmergencies: true,
+    traumaCapable: false,
+    maxConcurrent: "",
+    dispatchWeight: "1",
+    icuBeds: "0",
+    averageHandover: "25",
+  });
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -87,71 +127,144 @@ export default function HospitalDashboard() {
   const inputBorder = colors.border;
   const subText = colors.textMuted;
 
+  /* ─── Notification banner ───────────────────────────────────── */
+  const [notification, setNotification] = useState<{
+    message: string;
+    color: string;
+  } | null>(null);
+  const notifOpacity = useRef(new Animated.Value(0)).current;
+  const prevStatusMap = useRef<Record<string, string>>({});
+
+  const showNotification = useCallback(
+    (message: string, color: string) => {
+      setNotification({ message, color });
+      notifOpacity.setValue(0);
+      Animated.sequence([
+        Animated.timing(notifOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.delay(4000),
+        Animated.timing(notifOpacity, {
+          toValue: 0,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]).start(() => setNotification(null));
+    },
+    [notifOpacity],
+  );
+
+  const STATUS_LABELS: Record<string, string> = {
+    pending: "New Emergency Request",
+    assigned: "Ambulance Assigned",
+    en_route: "Ambulance En Route",
+    at_scene: "Ambulance At Scene",
+    arrived: "Ambulance Arrived at Patient",
+    transporting: "Patient Being Transported",
+    at_hospital: "Patient Arriving at Hospital",
+    completed: "Emergency Completed",
+    cancelled: "Emergency Cancelled",
+  };
+
   /* ─── Data fetching ─────────────────────────────────────────── */
 
   const fetchEmergencies = useCallback(async () => {
     try {
-      // Build query - scope to hospital if linked
-      let query = supabase
-        .from("emergency_requests")
-        .select("*")
-        .order("created_at", { ascending: false });
+      const [emergencyResult, fleetResult, profileResult] =
+        await Promise.allSettled([
+          backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
+          backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
+          backendGet<HospitalProfileResponse>("/ops/hospital/profile"),
+        ]);
 
-      // If user has a hospital_id, only show emergencies assigned to their hospital
-      if (user && (user as any).hospital_id) {
-        query = query.eq("hospital_id", (user as any).hospital_id);
+      if (emergencyResult.status !== "fulfilled") {
+        throw emergencyResult.reason;
       }
 
-      const { data: emergencyData, error: emergencyError } = await query;
-
-      if (emergencyError) throw emergencyError;
-
-      if (!emergencyData || emergencyData.length === 0) {
-        setEmergencies([]);
-        return;
-      }
-
-      const enriched = await Promise.all(
-        emergencyData.map(async (raw) => {
-          const emergency = normalizeEmergency(raw);
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("id", emergency.patient_id)
-            .maybeSingle();
-          const { profile: medical } = await getMedicalProfile(
-            emergency.patient_id,
-          );
-
-          return {
-            ...emergency,
-            patient_profile: profile as UserProfile | undefined,
-            patient_medical: medical ?? undefined,
-          } as EmergencyWithPatient;
-        }),
+      const data = emergencyResult.value;
+      const mapped = data.map(
+        (e) =>
+          ({
+            ...normalizeEmergency(e),
+            patient_profile: e.patient_profile,
+            patient_medical: e.patient_medical,
+            national_id: (e as any).national_id ?? null,
+            ambulance_vehicle: (e as any).ambulance_vehicle ?? null,
+          }) as EmergencyWithPatient,
       );
+      setEmergencies(mapped);
+      // Track statuses for notification diffing
+      const newMap: Record<string, string> = {};
+      for (const e of mapped) newMap[e.id] = e.status;
+      prevStatusMap.current = newMap;
 
-      setEmergencies(enriched);
+      if (fleetResult.status === "fulfilled") {
+        setFleet(fleetResult.value);
+      } else {
+        // Keep dashboard usable when fleet linkage is missing.
+        setFleet({
+          hospital_id: "",
+          total_ambulances: 0,
+          available_ambulances: 0,
+          busy_ambulances: 0,
+          ambulances: [],
+        });
+        console.warn("Hospital fleet unavailable:", fleetResult.reason);
+      }
+
+      if (profileResult && profileResult.status === "fulfilled") {
+        setHospitalProfile(profileResult.value);
+        const resolvedName = String(profileResult.value?.name || "").trim();
+        if (resolvedName) {
+          setHospitalName(resolvedName);
+          if (user && resolvedName !== (user.fullName || "")) {
+            setUser({ ...user, fullName: resolvedName });
+          }
+        } else if (user?.fullName) {
+          setHospitalName(user.fullName);
+        }
+      } else if (user?.fullName) {
+        setHospitalName(user.fullName);
+      }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
-      showError("Load Failed", "Failed to load emergency requests");
+      // Avoid noisy popup loops on free-tier/temporary data inconsistencies.
+      const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
+      if (!msg.includes("hospital_id is required")) {
+        showError("Load Failed", "Failed to load emergency requests");
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, showError]);
+  }, [showError, setUser, user, user?.fullName]);
+
+  useEffect(() => {
+    if (!hospitalProfile) return;
+    setProfileForm({
+      name: String(hospitalProfile.name || ""),
+      address: String(hospitalProfile.address || ""),
+      phone: String(hospitalProfile.phone || ""),
+      isAcceptingEmergencies:
+        hospitalProfile.is_accepting_emergencies !== false,
+      traumaCapable: Boolean(hospitalProfile.trauma_capable),
+      maxConcurrent: String(hospitalProfile.max_concurrent_emergencies ?? ""),
+      dispatchWeight: String(hospitalProfile.dispatch_weight ?? "1"),
+      icuBeds: String(hospitalProfile.icu_beds_available ?? "0"),
+      averageHandover: String(hospitalProfile.average_handover_minutes ?? "25"),
+    });
+  }, [hospitalProfile]);
 
   const updateStatus = async (
     emergencyId: string,
     newStatus: EmergencyRequest["status"],
   ) => {
     try {
-      const { error } = await supabase
-        .from("emergency_requests")
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq("id", emergencyId);
-
-      if (error) throw error;
+      await backendPut(`/ops/emergencies/${emergencyId}/status`, {
+        status: newStatus,
+      });
       showSuccess(
         "Status Updated",
         `Status updated to ${newStatus.replace("_", " ")}`,
@@ -170,6 +283,54 @@ export default function HospitalDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
+        (payload: any) => {
+          // Show notification for status updates (before re-fetch overwrites prevStatusMap)
+          if (payload.eventType === "UPDATE" && payload.new) {
+            const emergencyId = payload.new.id;
+            const newStatus = payload.new.status;
+            const oldStatus = prevStatusMap.current[emergencyId];
+            if (oldStatus && oldStatus !== newStatus) {
+              const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
+              const label = STATUS_LABELS[newStatus] || newStatus.replace(/_/g, " ");
+              const color = STATUS_COLORS[newStatus] || "#3B82F6";
+              showNotification(
+                `${label} — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
+                color,
+              );
+            }
+          } else if (payload.eventType === "INSERT" && payload.new) {
+            const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
+            showNotification(
+              `New Emergency — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
+              "#F59E0B",
+            );
+          }
+          fetchEmergencies();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ambulances" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospitals" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "profiles" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "hospital_ambulance_links" },
+        () => fetchEmergencies(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "driver_profiles" },
         () => fetchEmergencies(),
       )
       .subscribe();
@@ -191,6 +352,56 @@ export default function HospitalDashboard() {
       router.replace("/");
     } else {
       showError("Logout Failed", "Failed to sign out");
+    }
+  };
+
+  const saveHospitalProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const updatedProfile = await backendPut<HospitalProfileResponse>(
+        "/ops/hospital/profile",
+        {
+          name: profileForm.name.trim() || undefined,
+          address: profileForm.address.trim() || undefined,
+          phone: profileForm.phone.trim() || undefined,
+          is_accepting_emergencies: profileForm.isAcceptingEmergencies,
+          trauma_capable: profileForm.traumaCapable,
+          max_concurrent_emergencies: profileForm.maxConcurrent.trim()
+            ? Number(profileForm.maxConcurrent)
+            : undefined,
+          dispatch_weight: profileForm.dispatchWeight.trim()
+            ? Number(profileForm.dispatchWeight)
+            : undefined,
+          icu_beds_available: profileForm.icuBeds.trim()
+            ? Number(profileForm.icuBeds)
+            : undefined,
+          average_handover_minutes: profileForm.averageHandover.trim()
+            ? Number(profileForm.averageHandover)
+            : undefined,
+        },
+      );
+
+      setHospitalProfile(updatedProfile);
+      const updatedName = String(
+        updatedProfile?.name || profileForm.name || "",
+      ).trim();
+      if (updatedName) {
+        setHospitalName(updatedName);
+        if (user) {
+          setUser({ ...user, fullName: updatedName });
+        }
+      }
+
+      setEditProfileVisible(false);
+      showSuccess("Profile Updated", "Hospital profile updated successfully.");
+      fetchEmergencies();
+    } catch (error) {
+      showError(
+        "Update Failed",
+        String((error as any)?.message || "Failed to update hospital profile"),
+      );
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -429,8 +640,21 @@ export default function HospitalDashboard() {
 
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
+      {/* ─── Status notification banner ─── */}
+      {notification && (
+        <Animated.View
+          style={[
+            styles.notifBanner,
+            { backgroundColor: notification.color, opacity: notifOpacity },
+          ]}
+        >
+          <MaterialIcons name="notifications-active" size={20} color="#fff" />
+          <ThemedText style={styles.notifText}>{notification.message}</ThemedText>
+        </Animated.View>
+      )}
+
       <AppHeader
-        title="Erdataya Hospital"
+        title={hospitalName}
         onProfilePress={() => setProfileVisible(true)}
       />
 
@@ -440,6 +664,22 @@ export default function HospitalDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.container}>
+          <View
+            style={[
+              styles.heroCard,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <ThemedText style={[styles.heroTitle, { color: colors.text }]}>
+              {hospitalName}
+            </ThemedText>
+            <ThemedText style={[styles.heroSub, { color: subText }]}>
+              {hospitalProfile?.address
+                ? `${hospitalProfile.address} · ${hospitalProfile.phone || "No phone"}`
+                : "Manage emergency intake, fleet readiness, and patient handover in real time."}
+            </ThemedText>
+          </View>
+
           {/* Stat cards */}
           <View style={styles.statsGrid}>
             {statCards.map((stat) => (
@@ -608,6 +848,12 @@ export default function HospitalDashboard() {
                       c={colors.text}
                       s={subText}
                     />
+                    <InfoRow
+                      label="National ID"
+                      value={selectedEmergency.national_id}
+                      c={colors.text}
+                      s={subText}
+                    />
                   </View>
 
                   {/* Medical Info Section */}
@@ -718,6 +964,12 @@ export default function HospitalDashboard() {
                       c={colors.text}
                       s={subText}
                     />
+                    <InfoRow
+                      label="Ambulance"
+                      value={selectedEmergency.ambulance_vehicle}
+                      c={colors.text}
+                      s={subText}
+                    />
                   </View>
 
                   {/* Action buttons */}
@@ -813,7 +1065,7 @@ export default function HospitalDashboard() {
                 <ThemedText
                   style={[styles.dropdownName, { color: colors.text }]}
                 >
-                  {user?.fullName || "Hospital"}
+                  {hospitalName || user?.fullName || "Hospital"}
                 </ThemedText>
                 <ThemedText style={[styles.dropdownPhone, { color: subText }]}>
                   {user?.phone || ""}
@@ -836,6 +1088,21 @@ export default function HospitalDashboard() {
               style={[styles.dropdownDivider, { backgroundColor: cardBorder }]}
             />
             <Pressable
+              onPress={() => {
+                setProfileVisible(false);
+                setEditProfileVisible(true);
+              }}
+              style={({ pressed }) => [
+                styles.dropdownAction,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <MaterialIcons name="edit" size={20} color="#0F766E" />
+              <ThemedText style={styles.dropdownActionText}>
+                Edit Profile
+              </ThemedText>
+            </Pressable>
+            <Pressable
               onPress={handleLogout}
               style={({ pressed }) => [
                 styles.dropdownSignOut,
@@ -849,6 +1116,314 @@ export default function HospitalDashboard() {
             </Pressable>
           </View>
         </Pressable>
+      </Modal>
+
+      <Modal
+        visible={editProfileVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setEditProfileVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? "#1E2028" : "#FFFFFF" },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.modalHeader}>
+                <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
+                  Edit Hospital Profile
+                </ThemedText>
+                <Pressable
+                  onPress={() => setEditProfileVisible(false)}
+                  style={styles.closeBtn}
+                >
+                  <MaterialIcons name="close" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+
+              <ThemedText
+                style={[styles.profileSectionTitle, { color: colors.text }]}
+              >
+                Basic Information
+              </ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>
+                Update your hospital identity details exactly as they should
+                appear across the system.
+              </ThemedText>
+
+              <ThemedText
+                style={[styles.profileFieldLabel, { color: colors.text }]}
+              >
+                Hospital Name
+              </ThemedText>
+
+              <TextInput
+                style={[
+                  styles.profileInput,
+                  {
+                    color: colors.text,
+                    borderColor: cardBorder,
+                    backgroundColor: inputBg,
+                  },
+                ]}
+                placeholder="Enter hospital name"
+                placeholderTextColor={subText}
+                value={profileForm.name}
+                onChangeText={(t) => setProfileForm((p) => ({ ...p, name: t }))}
+              />
+              <ThemedText
+                style={[styles.profileFieldLabel, { color: colors.text }]}
+              >
+                Hospital Address
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.profileInput,
+                  {
+                    color: colors.text,
+                    borderColor: cardBorder,
+                    backgroundColor: inputBg,
+                  },
+                ]}
+                placeholder="Enter full hospital address"
+                placeholderTextColor={subText}
+                value={profileForm.address}
+                onChangeText={(t) =>
+                  setProfileForm((p) => ({ ...p, address: t }))
+                }
+              />
+              <ThemedText
+                style={[styles.profileFieldLabel, { color: colors.text }]}
+              >
+                Hospital Phone Number
+              </ThemedText>
+              <TextInput
+                style={[
+                  styles.profileInput,
+                  {
+                    color: colors.text,
+                    borderColor: cardBorder,
+                    backgroundColor: inputBg,
+                  },
+                ]}
+                placeholder="Enter contact phone number"
+                placeholderTextColor={subText}
+                value={profileForm.phone}
+                onChangeText={(t) =>
+                  setProfileForm((p) => ({ ...p, phone: t }))
+                }
+              />
+
+              <ThemedText
+                style={[styles.profileSectionTitle, { color: colors.text }]}
+              >
+                Operational Status
+              </ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>
+                Set whether you are receiving emergency cases and whether trauma
+                support is currently available.
+              </ThemedText>
+
+              <View style={styles.profileToggleRow}>
+                <Pressable
+                  onPress={() =>
+                    setProfileForm((p) => ({
+                      ...p,
+                      isAcceptingEmergencies: !p.isAcceptingEmergencies,
+                    }))
+                  }
+                  style={[
+                    styles.profileToggleBtn,
+                    {
+                      backgroundColor: profileForm.isAcceptingEmergencies
+                        ? "#DCFCE7"
+                        : "#FEE2E2",
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.profileToggleText,
+                      {
+                        color: profileForm.isAcceptingEmergencies
+                          ? "#166534"
+                          : "#991B1B",
+                      },
+                    ]}
+                  >
+                    {profileForm.isAcceptingEmergencies
+                      ? "Emergency Intake: OPEN"
+                      : "Emergency Intake: CLOSED"}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={() =>
+                    setProfileForm((p) => ({
+                      ...p,
+                      traumaCapable: !p.traumaCapable,
+                    }))
+                  }
+                  style={[
+                    styles.profileToggleBtn,
+                    {
+                      backgroundColor: profileForm.traumaCapable
+                        ? "#DBEAFE"
+                        : "#F3F4F6",
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.profileToggleText,
+                      {
+                        color: profileForm.traumaCapable
+                          ? "#1D4ED8"
+                          : "#374151",
+                      },
+                    ]}
+                  >
+                    {profileForm.traumaCapable
+                      ? "Trauma Service: AVAILABLE"
+                      : "Trauma Service: UNAVAILABLE"}
+                  </ThemedText>
+                </Pressable>
+              </View>
+
+              <ThemedText
+                style={[styles.profileSectionTitle, { color: colors.text }]}
+              >
+                Capacity and Dispatch
+              </ThemedText>
+              <ThemedText style={[styles.profileHint, { color: subText }]}>
+                These values control routing, load balancing, and handover
+                planning.
+              </ThemedText>
+
+              <View style={styles.profileInputRow}>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText
+                    style={[styles.profileFieldLabel, { color: colors.text }]}
+                  >
+                    Max Concurrent Emergencies
+                  </ThemedText>
+                  <TextInput
+                    style={[
+                      styles.profileInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Example: 20"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.maxConcurrent}
+                    onChangeText={(t) =>
+                      setProfileForm((p) => ({ ...p, maxConcurrent: t }))
+                    }
+                  />
+                </View>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText
+                    style={[styles.profileFieldLabel, { color: colors.text }]}
+                  >
+                    Dispatch Priority Weight
+                  </ThemedText>
+                  <TextInput
+                    style={[
+                      styles.profileInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Example: 1.0"
+                    placeholderTextColor={subText}
+                    keyboardType="decimal-pad"
+                    value={profileForm.dispatchWeight}
+                    onChangeText={(t) =>
+                      setProfileForm((p) => ({ ...p, dispatchWeight: t }))
+                    }
+                  />
+                </View>
+              </View>
+              <View style={styles.profileInputRow}>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText
+                    style={[styles.profileFieldLabel, { color: colors.text }]}
+                  >
+                    ICU Beds Available
+                  </ThemedText>
+                  <TextInput
+                    style={[
+                      styles.profileInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Example: 5"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.icuBeds}
+                    onChangeText={(t) =>
+                      setProfileForm((p) => ({ ...p, icuBeds: t }))
+                    }
+                  />
+                </View>
+                <View style={styles.profileInputFieldHalf}>
+                  <ThemedText
+                    style={[styles.profileFieldLabel, { color: colors.text }]}
+                  >
+                    Average Handover Time (minutes)
+                  </ThemedText>
+                  <TextInput
+                    style={[
+                      styles.profileInputHalf,
+                      {
+                        color: colors.text,
+                        borderColor: cardBorder,
+                        backgroundColor: inputBg,
+                      },
+                    ]}
+                    placeholder="Example: 25"
+                    placeholderTextColor={subText}
+                    keyboardType="numeric"
+                    value={profileForm.averageHandover}
+                    onChangeText={(t) =>
+                      setProfileForm((p) => ({ ...p, averageHandover: t }))
+                    }
+                  />
+                </View>
+              </View>
+
+              <Pressable
+                onPress={saveHospitalProfile}
+                disabled={savingProfile}
+                style={({ pressed }) => [
+                  styles.profileSaveBtn,
+                  { opacity: pressed || savingProfile ? 0.85 : 1 },
+                ]}
+              >
+                {savingProfile ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <MaterialIcons name="save" size={16} color="#FFFFFF" />
+                )}
+                <ThemedText style={styles.profileSaveBtnText}>
+                  {savingProfile ? "Saving..." : "Save Profile"}
+                </ThemedText>
+              </Pressable>
+            </ScrollView>
+          </Pressable>
+        </View>
       </Modal>
     </View>
   );
@@ -901,20 +1476,57 @@ const infoStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   bg: { flex: 1 },
+  notifBanner: {
+    position: "absolute",
+    top: Platform.OS === "web" ? 60 : 100,
+    left: 16,
+    right: 16,
+    zIndex: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  notifText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    flex: 1,
+  },
   scrollOuter: { flex: 1 },
   scrollContent: { paddingTop: 16, paddingBottom: 60 },
   container: {
     paddingHorizontal: 16,
-    maxWidth: 900,
-    alignSelf: "center" as any,
+    maxWidth: 1100,
     width: "100%" as any,
+    alignSelf: "center" as any,
   },
-
-  webOnlyWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
+  heroCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 14,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    letterSpacing: -0.3,
+  },
+  heroSub: {
+    marginTop: 4,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    lineHeight: 18,
   },
   webOnlyTitle: {
     fontSize: 16,
@@ -963,6 +1575,44 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontFamily: Fonts.sans,
     textAlign: "center",
+  },
+
+  capacityInline: {
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  capacityInlineText: {
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
+  fleetActionsRow: {
+    marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  fleetMetaText: { fontSize: 12, fontFamily: Fonts.sans },
+  repairBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#0F766E",
+  },
+  repairBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
   },
 
   searchWrap: {
@@ -1166,6 +1816,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   dropdownDivider: { height: 1, marginVertical: 12 },
+  dropdownAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  dropdownActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    color: "#0F766E",
+  },
   dropdownSignOut: {
     flexDirection: "row",
     alignItems: "center",
@@ -1177,5 +1839,83 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: Fonts.sans,
     color: "#DC2626",
+  },
+  profileInput: {
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+  },
+  profileSectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  profileHint: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginBottom: 8,
+  },
+  profileFieldLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    marginBottom: 4,
+  },
+  profileInputRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  profileInputFieldHalf: {
+    flex: 1,
+  },
+  profileInputHalf: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+  },
+  profileToggleRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 8,
+  },
+  profileToggleBtn: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  profileToggleText: {
+    fontSize: 12,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
+  profileSaveBtn: {
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 4,
+  },
+  profileSaveBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
   },
 });

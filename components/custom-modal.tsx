@@ -1,12 +1,7 @@
-/**
- * CustomModal — Beautiful, app-themed replacement for Alert.alert and window.alert/confirm
- * Provides consistent, attractive modals throughout the app
- */
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import {
+    ActivityIndicator,
     Animated,
     Modal,
     Platform,
@@ -14,6 +9,9 @@ import {
     StyleSheet,
     View,
 } from "react-native";
+
+import { Colors } from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { ThemedText } from "./themed-text";
 
 export type ModalType = "alert" | "confirm" | "loading";
@@ -29,6 +27,7 @@ export interface CustomModalProps {
   onCancel?: () => void;
   icon?: keyof typeof MaterialIcons.glyphMap;
   iconColor?: string;
+  dismissOnBackdrop?: boolean;
 }
 
 export function CustomModal({
@@ -42,65 +41,70 @@ export function CustomModal({
   onCancel,
   icon,
   iconColor,
+  dismissOnBackdrop = false,
 }: CustomModalProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const colors = Colors[colorScheme ?? "light"];
+  const scheme = useColorScheme();
+  const theme = scheme ?? "light";
+  const colors = Colors[theme];
+  const isDark = theme === "dark";
+  const scaleAnim = React.useRef(new Animated.Value(0.85)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  React.useEffect(() => {
+    if (!visible) return;
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 7,
+        tension: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          tension: 40,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      scaleAnim.setValue(0);
+    return () => {
       fadeAnim.setValue(0);
-    }
-  }, [visible, scaleAnim, fadeAnim]);
+      scaleAnim.setValue(0.85);
+    };
+  }, [visible, fadeAnim, scaleAnim]);
 
-  const handleConfirm = () => {
-    if (onConfirm) onConfirm();
-  };
+  const normalizedTitle = (title ?? "").toLowerCase();
+  const isError =
+    normalizedTitle.includes("error") ||
+    normalizedTitle.includes("failed") ||
+    normalizedTitle.includes("decline");
+  const isSuccess =
+    normalizedTitle.includes("success") || normalizedTitle.includes("done");
+  const isWarning =
+    normalizedTitle.includes("warning") ||
+    normalizedTitle.includes("cancel") ||
+    type === "confirm";
 
-  const handleCancel = () => {
-    if (onCancel) onCancel();
-  };
-
-  // Auto-detect icon and color based on title or type
-  const defaultIcon =
-    icon ||
-    (title?.toLowerCase().includes("error")
-      ? "error"
-      : title?.toLowerCase().includes("success")
+  const autoIcon: keyof typeof MaterialIcons.glyphMap = icon
+    ? icon
+    : isError
+      ? "error-outline"
+      : isSuccess
         ? "check-circle"
-        : title?.toLowerCase().includes("warning")
-          ? "warning"
-          : type === "confirm"
-            ? "help"
-            : "info");
+        : isWarning
+          ? "warning-amber"
+          : "info";
 
-  const defaultIconColor =
-    iconColor ||
-    (title?.toLowerCase().includes("error")
-      ? "#DC2626"
-      : title?.toLowerCase().includes("success")
-        ? "#059669"
-        : title?.toLowerCase().includes("warning")
+  const accentColor =
+    iconColor ??
+    (isError
+      ? "#EF4444"
+      : isSuccess
+        ? "#10B981"
+        : isWarning
           ? "#F59E0B"
-          : colors.primary);
+          : "#3B82F6");
+
+  if (!visible) return null;
 
   return (
     <Modal
@@ -108,129 +112,143 @@ export function CustomModal({
       visible={visible}
       animationType="none"
       statusBarTranslucent
-      onRequestClose={type === "alert" ? handleConfirm : handleCancel}
+      onRequestClose={onCancel ?? onConfirm}
     >
-      <Animated.View
-        style={[
-          styles.overlay,
-          {
-            backgroundColor: isDark ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.5)",
-            opacity: fadeAnim,
-          },
-        ]}
-      >
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
         <Pressable
-          style={styles.overlayTouchable}
-          onPress={type === "alert" ? handleConfirm : handleCancel}
+          style={styles.backdropTapArea}
+          onPress={dismissOnBackdrop ? (onCancel ?? onConfirm) : undefined}
         />
         <Animated.View
           style={[
-            styles.modalContainer,
+            styles.card,
             {
               backgroundColor: isDark ? "#1E293B" : "#FFFFFF",
-              borderColor: isDark ? "#334155" : "#E2E8F0",
               transform: [{ scale: scaleAnim }],
             },
           ]}
         >
-          {/* Icon */}
-          {type !== "loading" && (
+          {/* Top accent gradient bar */}
+          <View
+            style={[
+              styles.accentBar,
+              {
+                backgroundColor: accentColor,
+                shadowColor: accentColor,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.5,
+                shadowRadius: 8,
+              },
+            ]}
+          />
+
+          {/* Icon circle */}
+          <View style={styles.iconContainer}>
             <View
               style={[
-                styles.iconContainer,
-                { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
+                styles.iconOuter,
+                { backgroundColor: `${accentColor}15` },
               ]}
             >
-              <MaterialIcons
-                name={defaultIcon}
-                size={48}
-                color={defaultIconColor}
-              />
+              <View
+                style={[
+                  styles.iconInner,
+                  { backgroundColor: `${accentColor}25` },
+                ]}
+              >
+                {type === "loading" ? (
+                  <ActivityIndicator color={accentColor} size={28} />
+                ) : (
+                  <MaterialIcons
+                    name={autoIcon}
+                    size={28}
+                    color={accentColor}
+                  />
+                )}
+              </View>
             </View>
-          )}
+          </View>
 
           {/* Title */}
-          {title && (
+          {title ? (
             <ThemedText
-              style={[styles.title, { color: isDark ? "#F1F5F9" : "#0F172A" }]}
+              style={[
+                styles.title,
+                { color: isDark ? "#F1F5F9" : "#0F172A" },
+              ]}
             >
               {title}
             </ThemedText>
-          )}
+          ) : null}
 
           {/* Message */}
           <ThemedText
-            style={[styles.message, { color: isDark ? "#CBD5E1" : "#475569" }]}
+            style={[
+              styles.message,
+              { color: isDark ? "#94A3B8" : "#64748B" },
+            ]}
           >
             {message}
           </ThemedText>
 
-          {/* Buttons */}
+          {/* Divider */}
           {type !== "loading" && (
-            <View style={styles.buttonContainer}>
-              {type === "confirm" && (
+            <View
+              style={[
+                styles.divider,
+                { backgroundColor: isDark ? "#334155" : "#E2E8F0" },
+              ]}
+            />
+          )}
+
+          {/* Actions */}
+          {type !== "loading" ? (
+            <View style={styles.actions}>
+              {type === "confirm" ? (
                 <Pressable
-                  onPress={handleCancel}
                   style={({ pressed }) => [
-                    styles.button,
-                    styles.cancelButton,
+                    styles.btn,
+                    styles.cancelBtn,
                     {
                       backgroundColor: isDark ? "#334155" : "#F1F5F9",
-                      opacity: pressed ? 0.7 : 1,
+                      borderColor: isDark ? "#475569" : "#E2E8F0",
                     },
+                    pressed && { opacity: 0.8, transform: [{ scale: 0.97 }] },
                   ]}
+                  onPress={onCancel}
                 >
                   <ThemedText
                     style={[
-                      styles.buttonText,
-                      { color: isDark ? "#E2E8F0" : "#475569" },
+                      styles.cancelText,
+                      { color: isDark ? "#CBD5E1" : "#475569" },
                     ]}
                   >
                     {cancelText}
                   </ThemedText>
                 </Pressable>
-              )}
+              ) : null}
               <Pressable
-                onPress={handleConfirm}
                 style={({ pressed }) => [
-                  styles.button,
-                  styles.confirmButton,
+                  styles.btn,
+                  styles.confirmBtn,
                   {
-                    backgroundColor: defaultIconColor,
-                    opacity: pressed ? 0.8 : 1,
+                    backgroundColor: accentColor,
+                    shadowColor: accentColor,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.35,
+                    shadowRadius: 8,
+                    elevation: 4,
                   },
+                  pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
                 ]}
+                onPress={onConfirm}
               >
-                <ThemedText style={styles.confirmButtonText}>
+                <ThemedText style={styles.confirmText}>
                   {confirmText}
                 </ThemedText>
               </Pressable>
             </View>
-          )}
-
-          {/* Loading spinner */}
-          {type === "loading" && (
-            <View style={styles.loadingContainer}>
-              <Animated.View
-                style={{
-                  transform: [
-                    {
-                      rotate: fadeAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: ["0deg", "360deg"],
-                      }),
-                    },
-                  ],
-                }}
-              >
-                <MaterialIcons
-                  name="refresh"
-                  size={32}
-                  color={colors.primary}
-                />
-              </Animated.View>
-            </View>
-          )}
+          ) : null}
         </Animated.View>
       </Animated.View>
     </Modal>
@@ -240,80 +258,96 @@ export function CustomModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.55)",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "center",
+    padding: 24,
   },
-  overlayTouchable: {
+  backdropTapArea: {
     ...StyleSheet.absoluteFillObject,
   },
-  modalContainer: {
+  card: {
     width: "100%",
-    maxWidth: 420,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: {
-        elevation: 12,
-      },
-      web: {
-        boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
-      },
-    }),
+    maxWidth: 360,
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 0,
+    paddingBottom: 24,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  accentBar: {
+    height: 4,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    marginBottom: 20,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
     alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
     marginBottom: 16,
   },
+  iconOuter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconInner: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   title: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "800",
     textAlign: "center",
     marginBottom: 8,
+    letterSpacing: Platform.OS === "ios" ? 0.3 : 0,
   },
   message: {
-    fontSize: 15,
+    fontSize: 14,
     lineHeight: 22,
     textAlign: "center",
-    marginBottom: 24,
+    marginBottom: 4,
+    paddingHorizontal: 4,
   },
-  buttonContainer: {
+  divider: {
+    height: 1,
+    marginTop: 16,
+    marginBottom: 16,
+    marginHorizontal: -24,
+  },
+  actions: {
     flexDirection: "row",
     gap: 12,
   },
-  button: {
+  btn: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 12,
+    paddingVertical: 13,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelButton: {},
-  confirmButton: {},
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
+  cancelBtn: {
+    borderWidth: 1,
   },
-  confirmButtonText: {
-    fontSize: 16,
+  confirmBtn: {},
+  cancelText: {
     fontWeight: "600",
+    fontSize: 14,
+    letterSpacing: 0.2,
+  },
+  confirmText: {
     color: "#FFFFFF",
-  },
-  loadingContainer: {
-    paddingVertical: 20,
-    alignItems: "center",
+    fontWeight: "700",
+    fontSize: 14,
+    letterSpacing: 0.3,
   },
 });

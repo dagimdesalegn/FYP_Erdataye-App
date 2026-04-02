@@ -29,7 +29,7 @@ def _client() -> httpx.AsyncClient:
                 "Authorization": f"Bearer {settings.supabase_service_role_key}",
                 "Content-Type": "application/json",
             },
-            timeout=httpx.Timeout(10.0, connect=5.0),
+            timeout=httpx.Timeout(15.0, connect=5.0),
         )
     return _http
 
@@ -134,6 +134,25 @@ async def db_select(
     for col, val in filters.items():
         params[col] = f"eq.{val}"
     res = await _client().get(f"/rest/v1/{table}", params=params)
+    try:
+        data = res.json()
+        return (data if isinstance(data, list) else [data]), res.status_code
+    except Exception:
+        return [], res.status_code
+
+
+async def db_query(
+    table: str,
+    *,
+    columns: str = "*",
+    params: dict | None = None,
+) -> tuple[list, int]:
+    """
+    Generic selector with arbitrary PostgREST params (supports ilike/or/order).
+    Useful for richer filtering without adding ad-hoc helpers everywhere.
+    """
+    query_params = {"select": columns, **(params or {})}
+    res = await _client().get(f"/rest/v1/{table}", params=query_params)
     try:
         data = res.json()
         return (data if isinstance(data, list) else [data]), res.status_code

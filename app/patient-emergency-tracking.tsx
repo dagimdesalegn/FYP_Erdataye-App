@@ -1,14 +1,23 @@
 import { FirstAidFab } from "@/components/first-aid-fab";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+    useCallback,
+    useEffect,
+    useRef,
+    useState
+} from "react";
 import {
+    ActivityIndicator,
     Animated,
     Linking,
+    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
+    Share,
     StyleSheet,
     useWindowDimensions,
     Vibration,
@@ -16,20 +25,21 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
-import { LoadingModal } from "@/components/loading-modal";
+import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
+import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { backendPatch } from "@/utils/api";
+import { buildDriverPatientMapHtml, buildMapHtml, calculateDistance, parsePostGISPoint } from "@/utils/emergency";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
-    calculateDistance,
-    formatCoords,
-    parsePostGISPoint,
-} from "@/utils/emergency";
-import {
+    cancelEmergencyWithinWindow,
+    createFamilyShareLink,
+    getEmergencyCancelWindowState,
     getEmergencyDetails,
+    getEmergencyHospitalStatus,
     subscribeToAmbulanceLocation,
     subscribeToEmergency,
 } from "@/utils/patient";
@@ -87,6 +97,27 @@ const STATUS_NOTIFICATIONS: Record<
 };
 
 export default function PatientEmergencyTrackingScreen() {
+  const authLoading = useAuthGuard();
+  const distanceMeters = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ) => {
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const earthRadius = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return earthRadius * c;
+  };
+
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
@@ -95,15 +126,27 @@ export default function PatientEmergencyTrackingScreen() {
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
+  const { user } = useAppState();
+  const { showAlert, showConfirm, showError, showSuccess } = useModal();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [emergency, setEmergency] = useState<any>(null);
   const [assignment, setAssignment] = useState<any>(null);
   const [ambulance, setAmbulance] = useState<any>(null);
+  const [hospitalStatus, setHospitalStatus] = useState<any>(null);
   const [ambulanceCoords, setAmbulanceCoords] = useState<{
     latitude: number;
     longitude: number;
+  } | null>(null);
+  const [patientLiveCoords, setPatientLiveCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [sharingLink, setSharingLink] = useState(false);
+  const [cachedShareLink, setCachedShareLink] = useState<{
+    shareUrl: string;
+    expiresAt: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusNotification, setStatusNotification] = useState<string | null>(
@@ -111,6 +154,63 @@ export default function PatientEmergencyTrackingScreen() {
   );
   const prevStatusRef = useRef<string | null>(null);
   const notifAnim = useRef(new Animated.Value(0)).current;
+  const [animatedAmbulanceCoords, setAnimatedAmbulanceCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const ambulanceFixesRef = useRef<
+    Array<{ latitude: number; longitude: number; at: number }>
+  >([]);
+  const lastAmbulanceFixRef = useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
+  const animatedCoordsRef = useRef<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+  const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
+
+  const applyAmbulanceFix = useCallback(
+    (latitude: number, longitude: number) => {
+      const now = Date.now();
+      const prev = lastAmbulanceFixRef.current;
+
+      if (prev) {
+        const jumpMeters = distanceMeters(
+          prev.latitude,
+          prev.longitude,
+          latitude,
+          longitude,
+        );
+        const elapsedMs = now - prev.at;
+
+        // Drop implausible sudden GPS jumps that cause fake 300m+ distance spikes.
+        if (elapsedMs < 12000 && jumpMeters > 150) {
+          return;
+        }
+        if (jumpMeters < 3) {
+          return;
+        }
+      }
+
+      const fix = { latitude, longitude, at: now };
+      lastAmbulanceFixRef.current = fix;
+      ambulanceFixesRef.current = [...ambulanceFixesRef.current, fix].slice(-3);
+      const count = ambulanceFixesRef.current.length;
+      const smoothed = ambulanceFixesRef.current.reduce(
+        (acc, item) => ({
+          latitude: acc.latitude + item.latitude / count,
+          longitude: acc.longitude + item.longitude / count,
+        }),
+        { latitude: 0, longitude: 0 },
+      );
+
+      setAmbulanceCoords(smoothed);
+    },
+    [],
+  );
 
   const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
@@ -132,9 +232,15 @@ export default function PatientEmergencyTrackingScreen() {
         setEmergency(emerg);
         setAssignment(assign);
         setAmbulance(amb);
+        if (emerg?.id) {
+          const { data: hospitalData } = await getEmergencyHospitalStatus(
+            emerg.id,
+          );
+          if (hospitalData) setHospitalStatus(hospitalData);
+        }
         if (amb?.last_known_location) {
           const parsed = parsePostGISPoint(amb.last_known_location);
-          if (parsed) setAmbulanceCoords(parsed);
+          if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
         }
       }
     } catch (e) {
@@ -147,30 +253,57 @@ export default function PatientEmergencyTrackingScreen() {
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, applyAmbulanceFix]);
 
   // Realtime: emergency status changes
   useEffect(() => {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const unsub = subscribeToEmergency(emergencyId, (updated) => {
       setEmergency(updated);
+      // Also refresh assignment/ambulance details (phone, vehicle, ETA) on live status updates.
+      void getEmergencyDetails(emergencyId).then(
+        ({ assignment, ambulance }) => {
+          setAssignment(assignment);
+          setAmbulance(ambulance);
+          void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
+            if (data) setHospitalStatus(data);
+          });
+          if (ambulance?.last_known_location) {
+            const parsed = parsePostGISPoint(ambulance.last_known_location);
+            if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
+          }
+        },
+      );
     });
     return unsub;
-  }, [emergencyId]);
+  }, [emergencyId, applyAmbulanceFix]);
 
-  // Polling fallback: check status every 8s in case realtime misses updates
+  // Polling fallback: check status every 30s in case realtime misses updates
   useEffect(() => {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const interval = setInterval(async () => {
       try {
-        const { emergency: emerg } = await getEmergencyDetails(emergencyId);
-        if (emerg && emerg.status !== emergency?.status) {
-          setEmergency(emerg);
+        const {
+          emergency: emerg,
+          assignment: assign,
+          ambulance: amb,
+        } = await getEmergencyDetails(emergencyId);
+        if (emerg && emerg.status !== emergency?.status) setEmergency(emerg);
+        void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
+          if (data) setHospitalStatus(data);
+        });
+        if (assign) setAssignment(assign);
+        if (amb) {
+          setAmbulance(amb);
+          if (amb.last_known_location) {
+            const parsed = parsePostGISPoint(amb.last_known_location);
+            if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
+          }
         }
       } catch {}
-    }, 8000);
+    }, 30000);
     return () => clearInterval(interval);
-  }, [emergencyId, emergency?.status]);
+  }, [emergencyId, emergency?.status, applyAmbulanceFix]);
 
   // Show notification toast when status changes
   useEffect(() => {
@@ -206,15 +339,265 @@ export default function PatientEmergencyTrackingScreen() {
   useEffect(() => {
     if (!ambulance?.id) return;
     const unsub = subscribeToAmbulanceLocation(ambulance.id, (lat, lng) => {
-      setAmbulanceCoords({ latitude: lat, longitude: lng });
+      applyAmbulanceFix(lat, lng);
     });
     return unsub;
-  }, [ambulance?.id]);
+  }, [ambulance?.id, applyAmbulanceFix]);
+
+  // Use patient's live location for more accurate distance during tracking.
+  // Also push live coords to backend so driver can track patient movement.
+  useEffect(() => {
+    let watcher: Location.LocationSubscription | null = null;
+    let mounted = true;
+    let lastPushTime = 0;
+
+    const pushLocationToBackend = (lat: number, lng: number) => {
+      const now = Date.now();
+      if (now - lastPushTime < 15000) return; // throttle to every 15s
+      if (!emergencyId || typeof emergencyId !== "string") return;
+      lastPushTime = now;
+      backendPatch(`/ops/patient/emergencies/${emergencyId}/patient-location`, {
+        latitude: lat,
+        longitude: lng,
+      }).catch(() => {});
+    };
+
+    const startPatientTracking = async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== "granted") return;
+
+        const current = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        if (
+          mounted &&
+          Number.isFinite(current.coords.latitude) &&
+          Number.isFinite(current.coords.longitude) &&
+          (current.coords.accuracy ?? 999) <= 120
+        ) {
+          setPatientLiveCoords({
+            latitude: current.coords.latitude,
+            longitude: current.coords.longitude,
+          });
+          pushLocationToBackend(
+            current.coords.latitude,
+            current.coords.longitude,
+          );
+        }
+
+        watcher = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          (loc) => {
+            if (!mounted) return;
+            if ((loc.coords.accuracy ?? 999) > 120) return;
+            setPatientLiveCoords({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+            });
+            pushLocationToBackend(loc.coords.latitude, loc.coords.longitude);
+          },
+        );
+      } catch {
+        // Keep fallback to emergency request location when live tracking is unavailable.
+      }
+    };
+
+    void startPatientTracking();
+    return () => {
+      mounted = false;
+      try { if (watcher) watcher.remove(); } catch {}
+    };
+  }, [emergencyId]);
+
+  // Keep displayed ambulance coordinates in sync with realtime updates.
+  useEffect(() => {
+    if (!ambulanceCoords) return;
+    animatedCoordsRef.current = ambulanceCoords;
+    setAnimatedAmbulanceCoords(ambulanceCoords);
+  }, [ambulanceCoords]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
     setRefreshing(false);
+  };
+
+  const onCallDriver = async () => {
+    let driverPhoneRaw =
+      assignment?.driver_phone ??
+      assignment?.driver_contact ??
+      ambulance?.driver_phone ??
+      ambulance?.phone_number ??
+      ambulance?.phone;
+
+    let driverPhone =
+      typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+
+    // Fallback: force refresh details once before showing unavailable.
+    if (!driverPhone && typeof emergencyId === "string") {
+      try {
+        const { assignment: latestAssignment, ambulance: latestAmbulance } =
+          await getEmergencyDetails(emergencyId);
+        if (latestAssignment) setAssignment(latestAssignment);
+        if (latestAmbulance) setAmbulance(latestAmbulance);
+
+        driverPhoneRaw =
+          latestAssignment?.driver_phone ??
+          latestAssignment?.driver_contact ??
+          latestAmbulance?.driver_phone ??
+          latestAmbulance?.phone_number ??
+          latestAmbulance?.phone;
+        driverPhone =
+          typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+      } catch {
+        // no-op, fallback modal will be shown below
+      }
+    }
+
+    if (!driverPhone) {
+      showAlert("Unavailable", "Ambulance phone number is not available yet.");
+      return;
+    }
+    try {
+      const telUrl = `tel:${driverPhone}`;
+      const canOpen = await Linking.canOpenURL(telUrl);
+      if (!canOpen) {
+        showError("Call Failed", "This device cannot place a phone call.");
+        return;
+      }
+      await Linking.openURL(telUrl);
+    } catch {
+      showError("Call Failed", "Unable to start the phone call.");
+    }
+  };
+
+  const onShareLiveTracking = async () => {
+    if (!emergencyId || typeof emergencyId !== "string") return;
+    try {
+      setSharingLink(true);
+      const getShareLink = async () => {
+        if (cachedShareLink) {
+          const expiresMs = new Date(cachedShareLink.expiresAt).getTime();
+          if (
+            Number.isFinite(expiresMs) &&
+            expiresMs - Date.now() > 60 * 1000
+          ) {
+            return {
+              shareUrl: cachedShareLink.shareUrl,
+              expiresAt: cachedShareLink.expiresAt,
+              error: null as Error | null,
+            };
+          }
+        }
+
+        const created = await createFamilyShareLink(emergencyId, 180);
+        if (!created.error && created.shareUrl) {
+          setCachedShareLink({
+            shareUrl: created.shareUrl,
+            expiresAt: created.expiresAt,
+          });
+        }
+        return {
+          shareUrl: created.shareUrl,
+          expiresAt: created.expiresAt,
+          error: created.error,
+        };
+      };
+
+      const { shareUrl, expiresAt, error: shareError } = await getShareLink();
+      if (shareError || !shareUrl) {
+        showError(
+          "Share Failed",
+          shareError?.message || "Unable to create share link.",
+        );
+        return;
+      }
+
+      const message = `Live emergency tracking link: ${shareUrl}`;
+
+      if (Platform.OS === "web") {
+        if (
+          typeof window !== "undefined" &&
+          (window as any).navigator?.clipboard
+        ) {
+          await (window as any).navigator.clipboard.writeText(shareUrl);
+          showSuccess(
+            "Link Copied",
+            `Share link copied to clipboard. Expires: ${new Date(expiresAt).toLocaleString()}`,
+          );
+        } else {
+          showAlert(
+            "Share Link",
+            `${message}\n\nExpires: ${new Date(expiresAt).toLocaleString()}`,
+          );
+        }
+      } else {
+        await Share.share({
+          title: "Live Emergency Tracking",
+          message: `${message}\nExpires: ${new Date(expiresAt).toLocaleString()}`,
+          url: shareUrl,
+        });
+      }
+    } catch (error: any) {
+      showError(
+        "Share Failed",
+        error?.message || "Unable to share tracking link.",
+      );
+    } finally {
+      setSharingLink(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!emergency?.created_at) {
+      setCancelRemainingSeconds(0);
+      return;
+    }
+    const updateCountdown = () => {
+      const { remainingSeconds } = getEmergencyCancelWindowState(
+        emergency.created_at,
+        3,
+      );
+      setCancelRemainingSeconds(remainingSeconds);
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [emergency?.created_at]);
+
+  const onCancelEmergency = () => {
+    if (!emergencyId || typeof emergencyId !== "string" || !user?.id) return;
+
+    showConfirm(
+      "Cancel Emergency",
+      "You can cancel only within 3 minutes from request creation. Continue?",
+      async () => {
+        const { success, error } = await cancelEmergencyWithinWindow(
+          emergencyId,
+          user.id,
+          3,
+        );
+        if (!success) {
+          showError(
+            "Cancellation Failed",
+            error?.message || "Unable to cancel emergency request.",
+          );
+          return;
+        }
+
+        showSuccess(
+          "Emergency Cancelled",
+          "Your request has been cancelled successfully.",
+          () => router.replace("/help" as any),
+        );
+      },
+    );
   };
 
   // ─── Status styling ───────────────────────────────────
@@ -235,21 +618,6 @@ export default function PatientEmergencyTrackingScreen() {
           label: "Ambulance Dispatched",
         };
       case "en_route":
-        return {
-          color: "#06B6D4",
-          bg: "#CFFAFE",
-          icon: "directions-car" as const,
-          label: "Ambulance En Route",
-        };
-      case "arrived":
-      case "at_scene":
-        return {
-          color: "#10B981",
-          bg: "#D1FAE5",
-          icon: "place" as const,
-          label: "Ambulance Arrived",
-        };
-      case "transporting":
         return {
           color: "#8B5CF6",
           bg: "#EDE9FE",
@@ -305,11 +673,18 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Loading / Error ──────────────────────────────────
   if (loading)
     return (
-      <LoadingModal
-        visible
-        colorScheme={colorScheme}
-        message="Loading emergency..."
-      />
+      <View
+        style={[
+          styles.root,
+          {
+            backgroundColor: colors.background,
+            justifyContent: "center",
+            alignItems: "center",
+          },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
     );
 
   if (error || !emergency) {
@@ -331,50 +706,109 @@ export default function PatientEmergencyTrackingScreen() {
   // ─── Computed values ──────────────────────────────────
   const st = statusMeta(emergency.status);
   const sev = sevMeta(emergency.emergency_type);
-  const patientCoords = {
+  const fallbackPatientCoords = {
     latitude: Number(emergency.latitude || 0),
     longitude: Number(emergency.longitude || 0),
   };
+  const patientCoords = patientLiveCoords ?? fallbackPatientCoords;
+  const mapPatientCoords = patientCoords.latitude
+    ? {
+        latitude: Number(patientCoords.latitude.toFixed(4)),
+        longitude: Number(patientCoords.longitude.toFixed(4)),
+      }
+    : null;
+  const mapAmbulanceCoords = animatedAmbulanceCoords
+    ? {
+        latitude: Number(animatedAmbulanceCoords.latitude.toFixed(4)),
+        longitude: Number(animatedAmbulanceCoords.longitude.toFixed(4)),
+      }
+    : null;
 
   let distanceText = "";
-  if (ambulanceCoords && patientCoords.latitude) {
+  if (
+    animatedAmbulanceCoords &&
+    patientCoords.latitude &&
+    patientCoords.longitude
+  ) {
     const km = calculateDistance(
       patientCoords.latitude,
       patientCoords.longitude,
-      ambulanceCoords.latitude,
-      ambulanceCoords.longitude,
+      animatedAmbulanceCoords.latitude,
+      animatedAmbulanceCoords.longitude,
     );
     distanceText =
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Map: show both patient + ambulance with CORRECT labels for patient view
-  const mapHtml =
-    ambulanceCoords && patientCoords.latitude
-      ? buildDriverPatientMapHtml(
-          ambulanceCoords.latitude,
-          ambulanceCoords.longitude,
-          patientCoords.latitude,
-          patientCoords.longitude,
-          {
-            blueLabel: "Ambulance",
-            redLabel: "You",
-            bluePopup: "🚑 Ambulance",
-            redPopup: "📍 Your Location",
-          },
-        )
-      : patientCoords.latitude
-        ? buildMapHtml(patientCoords.latitude, patientCoords.longitude, 15)
-        : null;
+  const hospitalCoords =
+    hospitalStatus?.hospital_latitude != null &&
+    hospitalStatus?.hospital_longitude != null
+      ? {
+          latitude: Number(hospitalStatus.hospital_latitude),
+          longitude: Number(hospitalStatus.hospital_longitude),
+        }
+      : null;
+  const isTransportPhase = ["transporting", "at_hospital"].includes(
+    String(emergency.status || ""),
+  );
+
+  // Build Google Maps embed URL
+  const mapHtml = (() => {
+    if (isTransportPhase && mapAmbulanceCoords && hospitalCoords) {
+      return buildDriverPatientMapHtml(
+        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
+        hospitalCoords.latitude, hospitalCoords.longitude,
+      );
+    }
+    if (mapAmbulanceCoords && mapPatientCoords) {
+      return buildDriverPatientMapHtml(
+        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
+        mapPatientCoords.latitude, mapPatientCoords.longitude,
+      );
+    }
+    if (mapPatientCoords) return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude);
+    if (mapAmbulanceCoords) return buildMapHtml(mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude);
+    return "";
+  })();
+
+  const openDetailedRoute = async () => {
+    try {
+      if (!animatedAmbulanceCoords) return;
+      const origin = `${animatedAmbulanceCoords.latitude},${animatedAmbulanceCoords.longitude}`;
+      const destination =
+        isTransportPhase && hospitalCoords
+          ? `${hospitalCoords.latitude},${hospitalCoords.longitude}`
+          : `${patientCoords.latitude},${patientCoords.longitude}`;
+      const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      }
+    } catch {
+      // silent fallback
+    }
+  };
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
   const subtleText = colors.textMuted;
   const isCompleted =
     emergency.status === "completed" || emergency.status === "cancelled";
+  const canCancelByWindow =
+    cancelRemainingSeconds > 0 &&
+    ["pending", "assigned"].includes(emergency.status);
   const statusGradientColors: [string, string] = isDark
     ? [st.color + "40", colors.background]
     : [st.color + "30", colors.surfaceMuted];
+  const driverPhoneRaw =
+    assignment?.driver_phone ??
+    assignment?.driver_contact ??
+    ambulance?.driver_phone ??
+    ambulance?.phone_number ??
+    ambulance?.phone;
+  const driverPhone =
+    typeof driverPhoneRaw === "string" ? driverPhoneRaw.trim() : "";
+  const canCallDriver = !isCompleted && driverPhone.length > 0;
 
   // Status flow steps
   const statusSteps = [
@@ -406,8 +840,7 @@ export default function PatientEmergencyTrackingScreen() {
             ? ["rgba(14,165,233,0.15)", "#020617", "transparent"]
             : ["rgba(14,165,233,0.2)", "#F8FAFC", "transparent"]
         }
-        style={styles.heroGlow}
-        pointerEvents="none"
+        style={[styles.heroGlow, { pointerEvents: "none" }]}
       />
       {/* Floating notification toast */}
       {statusNotification && (
@@ -446,72 +879,76 @@ export default function PatientEmergencyTrackingScreen() {
         </Animated.View>
       )}
 
+      <View
+        style={[
+          styles.fixedTopNav,
+          {
+            top: Math.max(insets.top, 10),
+            backgroundColor: isDark ? "#0F172A" : "#FFFFFF",
+            borderColor: isDark ? "#334155" : "#E2E8F0",
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.fixedNavBtn,
+            {
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.10)"
+                : "rgba(2,6,23,0.06)",
+            },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <MaterialIcons
+            name="arrow-back"
+            size={22}
+            color={isDark ? "#E2E8F0" : "#334155"}
+          />
+        </Pressable>
+
+        <ThemedText
+          style={[
+            styles.fixedNavTitle,
+            { color: isDark ? "#F1F5F9" : "#0F172A" },
+          ]}
+          numberOfLines={1}
+        >
+          Emergency Status
+        </ThemedText>
+
+        <Pressable
+          onPress={onRefresh}
+          style={({ pressed }) => [
+            styles.fixedNavBtn,
+            {
+              backgroundColor: isDark
+                ? "rgba(255,255,255,0.10)"
+                : "rgba(2,6,23,0.06)",
+            },
+            pressed && { opacity: 0.7 },
+          ]}
+        >
+          <MaterialIcons
+            name="refresh"
+            size={22}
+            color={isDark ? "#E2E8F0" : "#334155"}
+          />
+        </Pressable>
+      </View>
+
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: Math.max(insets.top, 16) },
+          { paddingTop: Math.max(insets.top, 16) + 88 },
         ]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header Row: Back + Title ─────────────────── */}
-        <View style={styles.headerRow}>
-          <Pressable
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backBtn,
-              {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.1)"
-                  : "rgba(0,0,0,0.05)",
-              },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons
-              name="arrow-back"
-              size={20}
-              color={isDark ? "#E2E8F0" : "#334155"}
-            />
-          </Pressable>
-          <ThemedText
-            style={[
-              styles.headerTitle,
-              { color: isDark ? "#F1F5F9" : "#0F172A" },
-            ]}
-          >
-            Emergency Status
-          </ThemedText>
-          <Pressable
-            onPress={onRefresh}
-            style={({ pressed }) => [
-              styles.backBtn,
-              {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.1)"
-                  : "rgba(0,0,0,0.05)",
-              },
-              pressed && { opacity: 0.6 },
-            ]}
-          >
-            <MaterialIcons
-              name="refresh"
-              size={20}
-              color={isDark ? "#E2E8F0" : "#334155"}
-            />
-          </Pressable>
-        </View>
-
-        <View style={styles.tagRow}>
-          <MaterialIcons name="auto-awesome" size={18} color="#0EA5E9" />
-          <ThemedText
-            style={[styles.tagText, { color: isDark ? "#E2E8F0" : "#0F172A" }]}
-          >
-            Help is on the way—drivers see your request in real time.
-          </ThemedText>
-        </View>
+        {/* Removed tag text for cleaner UI */}
 
         {/* ── Status Banner ─────────────────────────────── */}
         <LinearGradient
@@ -617,7 +1054,7 @@ export default function PatientEmergencyTrackingScreen() {
         </View>
 
         {/* ── MAP ───────────────────────────────────────── */}
-        {mapHtml && (
+        {mapHtml ? (
           <View
             style={[
               styles.mapCard,
@@ -633,7 +1070,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                {ambulanceCoords ? "Live Tracking" : "Your Location"}
+                {animatedAmbulanceCoords ? "Live Tracking" : "Your Location"}
               </ThemedText>
               {distanceText ? (
                 <View style={styles.distBadge}>
@@ -652,7 +1089,6 @@ export default function PatientEmergencyTrackingScreen() {
             <HtmlMapView
               html={mapHtml}
               style={[styles.mapFrame, { height: isWide ? 450 : 300 }]}
-              title="Emergency Map"
             />
             {/* Legend */}
             <View style={styles.mapLegend}>
@@ -661,10 +1097,10 @@ export default function PatientEmergencyTrackingScreen() {
                   style={[styles.legendDot, { backgroundColor: "#DC2626" }]}
                 />
                 <ThemedText style={[styles.legendText, { color: subtleText }]}>
-                  You
+                  {isTransportPhase && hospitalCoords ? "Hospital" : "You"}
                 </ThemedText>
               </View>
-              {ambulanceCoords && (
+              {animatedAmbulanceCoords && (
                 <View style={styles.legendItem}>
                   <View
                     style={[styles.legendDot, { backgroundColor: "#0EA5E9" }]}
@@ -677,8 +1113,34 @@ export default function PatientEmergencyTrackingScreen() {
                 </View>
               )}
             </View>
+            {animatedAmbulanceCoords && (
+              <Pressable
+                onPress={openDetailedRoute}
+                style={({ pressed }) => [
+                  {
+                    marginHorizontal: 12,
+                    marginBottom: 12,
+                    marginTop: 4,
+                    backgroundColor: "#0EA5E9",
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexDirection: "row",
+                  },
+                  pressed && { opacity: 0.85 },
+                ]}
+              >
+                <MaterialIcons name="alt-route" size={16} color="#FFF" />
+                <ThemedText
+                  style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
+                >
+                  Open Clear Route View
+                </ThemedText>
+              </Pressable>
+            )}
           </View>
-        )}
+        ) : null}
 
         {/* ── Ambulance Info ────────────────────────────── */}
         {ambulance && (
@@ -773,157 +1235,244 @@ export default function PatientEmergencyTrackingScreen() {
                 </ThemedText>
               </View>
             )}
+            {/* Call Ambulance button */}
+            <View style={{ alignItems: "center", marginTop: 24 }}>
+              <Pressable
+                disabled={!canCallDriver}
+                onPress={onCallDriver}
+                style={{
+                  marginBottom: 12,
+                  backgroundColor: canCallDriver ? "#0EA5E9" : "#94A3B8",
+                  borderRadius: 24,
+                  paddingHorizontal: 32,
+                  paddingVertical: 14,
+                  elevation: 4,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  opacity: canCallDriver ? 1 : 0.85,
+                }}
+              >
+                <MaterialIcons name="phone" size={22} color="#FFF" />
+                <ThemedText
+                  style={{
+                    color: "#FFF",
+                    fontWeight: "bold",
+                    fontSize: 16,
+                    marginLeft: 8,
+                  }}
+                >
+                  {canCallDriver
+                    ? "Call Ambulance"
+                    : "Ambulance Phone Unavailable"}
+                </ThemedText>
+              </Pressable>
+
+              <Pressable
+                disabled={!canCancelByWindow}
+                onPress={onCancelEmergency}
+                style={{
+                  marginBottom: 6,
+                  backgroundColor: canCancelByWindow ? "#EF4444" : "#94A3B8",
+                  borderRadius: 22,
+                  paddingHorizontal: 22,
+                  paddingVertical: 12,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  opacity: canCancelByWindow ? 1 : 0.82,
+                }}
+              >
+                <MaterialIcons name="cancel" size={18} color="#FFF" />
+                <ThemedText
+                  style={{
+                    color: "#FFF",
+                    fontWeight: "800",
+                    fontSize: 14,
+                    marginLeft: 7,
+                  }}
+                >
+                  {canCancelByWindow
+                    ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
+                    : [
+                          "en_route",
+                          "at_scene",
+                          "arrived",
+                          "transporting",
+                          "at_hospital",
+                        ].includes(emergency.status)
+                      ? "Cancellation Closed (Ambulance Accepted)"
+                      : "Cancellation Window Closed"}
+                </ThemedText>
+              </Pressable>
+            </View>
           </View>
         )}
 
-        {/* ── Emergency Details ─────────────────────────── */}
-        <View
-          style={[
-            styles.infoCard,
-            styles.cardElevated,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-          ]}
-        >
-          <View style={styles.cardHeader}>
-            <View style={[styles.iconCircle, { backgroundColor: "#FEE2E2" }]}>
-              <MaterialIcons name="emergency" size={20} color="#DC2626" />
+        {/* ── Hospital Acceptance + ETA ─────────────────── */}
+        {hospitalStatus && (
+          <View
+            style={[
+              styles.infoCard,
+              styles.cardElevated,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View style={[styles.iconCircle, { backgroundColor: "#EDE9FE" }]}>
+                <MaterialIcons
+                  name="local-hospital"
+                  size={20}
+                  color="#7C3AED"
+                />
+              </View>
+              <ThemedText
+                style={[
+                  styles.cardHeading,
+                  { color: isDark ? "#E2E8F0" : "#1E293B" },
+                ]}
+              >
+                Destination Hospital
+              </ThemedText>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View
+                style={[
+                  styles.detailIcon,
+                  { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
+                ]}
+              >
+                <MaterialIcons name="apartment" size={16} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
+                  Hospital
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.detailValue,
+                    { color: isDark ? "#F1F5F9" : "#0F172A" },
+                  ]}
+                >
+                  {hospitalStatus.hospital_name || "Not assigned yet"}
+                </ThemedText>
+              </View>
+            </View>
+
+            <View style={styles.detailRow}>
+              <View
+                style={[
+                  styles.detailIcon,
+                  { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
+                ]}
+              >
+                <MaterialIcons
+                  name={
+                    hospitalStatus.is_accepting_emergencies
+                      ? "check-circle"
+                      : "pause-circle-filled"
+                  }
+                  size={16}
+                  color={
+                    hospitalStatus.is_accepting_emergencies
+                      ? "#10B981"
+                      : "#F59E0B"
+                  }
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
+                  Acceptance
+                </ThemedText>
+                <ThemedText
+                  style={[
+                    styles.detailValue,
+                    {
+                      color: hospitalStatus.is_accepting_emergencies
+                        ? "#10B981"
+                        : "#F59E0B",
+                    },
+                  ]}
+                >
+                  {hospitalStatus.is_accepting_emergencies
+                    ? "Accepting emergencies"
+                    : "Temporarily not accepting"}
+                </ThemedText>
+              </View>
+            </View>
+
+            {(hospitalStatus.eta_to_hospital_minutes != null ||
+              hospitalStatus.distance_to_hospital_km != null) && (
+              <View style={[styles.etaBadge, { backgroundColor: "#EDE9FE" }]}>
+                <MaterialIcons name="schedule" size={16} color="#7C3AED" />
+                <ThemedText style={[styles.etaText, { color: "#7C3AED" }]}>
+                  {hospitalStatus.eta_to_hospital_minutes != null
+                    ? `ETA to hospital: ${hospitalStatus.eta_to_hospital_minutes} min`
+                    : "ETA to hospital pending"}
+                  {hospitalStatus.distance_to_hospital_km != null
+                    ? ` • ${hospitalStatus.distance_to_hospital_km.toFixed(1)} km`
+                    : ""}
+                </ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {!isCompleted && (
+          <View
+            style={[
+              styles.infoCard,
+              styles.cardElevated,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={[styles.cardHeader, { marginBottom: 8 }]}>
+              <View style={[styles.iconCircle, { backgroundColor: "#ECFEFF" }]}>
+                <MaterialIcons name="share" size={20} color="#0891B2" />
+              </View>
+              <ThemedText
+                style={[
+                  styles.cardHeading,
+                  { color: isDark ? "#E2E8F0" : "#1E293B" },
+                ]}
+              >
+                Family Live Tracking
+              </ThemedText>
             </View>
             <ThemedText
               style={[
-                styles.cardHeading,
-                { color: isDark ? "#E2E8F0" : "#1E293B" },
+                styles.legendText,
+                { color: subtleText, marginBottom: 10 },
               ]}
             >
-              Emergency Details
+              Share a secure live tracking link with family or guardians.
             </ThemedText>
-          </View>
-
-          <View style={styles.detailRow}>
-            <View
-              style={[
-                styles.detailIcon,
-                { backgroundColor: isDark ? "#0F172A" : "#F8FAFC" },
-              ]}
-            >
-              <MaterialIcons name="place" size={16} color="#DC2626" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
-                Your Location
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.detailValue,
-                  { color: isDark ? "#F1F5F9" : "#0F172A", fontSize: 13 },
-                ]}
-              >
-                {formatCoords(patientCoords.latitude, patientCoords.longitude)}
-              </ThemedText>
-            </View>
-          </View>
-
-          {emergency.description && (
-            <View
-              style={[
-                styles.descBox,
-                {
-                  backgroundColor: isDark ? "#0F172A" : "#F8FAFC",
-                  borderColor: cardBorder,
-                },
-              ]}
-            >
-              <MaterialIcons name="description" size={16} color={subtleText} />
-              <ThemedText
-                style={[
-                  styles.descText,
-                  { color: isDark ? "#CBD5E1" : "#475569" },
-                ]}
-              >
-                {emergency.description}
-              </ThemedText>
-            </View>
-          )}
-        </View>
-
-        {/* ── Quick Actions ──────────────────────────────── */}
-        <View
-          style={[
-            styles.actionsContainer,
-            { backgroundColor: cardBg, borderColor: cardBorder },
-          ]}
-        >
-          <View style={styles.actionsRow}>
             <Pressable
-              onPress={() => Linking.openURL("tel:911")}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-                pressed && { opacity: 0.7 },
-              ]}
+              onPress={onShareLiveTracking}
+              disabled={sharingLink}
+              style={{
+                backgroundColor: sharingLink ? "#94A3B8" : "#0891B2",
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+                justifyContent: "center",
+                flexDirection: "row",
+              }}
             >
-              <View style={[styles.actionIcon, { backgroundColor: "#FEE2E2" }]}>
-                <MaterialIcons name="phone" size={20} color="#DC2626" />
-              </View>
+              <MaterialIcons name="share" size={18} color="#FFF" />
               <ThemedText
-                style={[
-                  styles.actionLabel,
-                  { color: isDark ? "#E2E8F0" : "#1E293B" },
-                ]}
+                style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
               >
-                Call 911
-              </ThemedText>
-            </Pressable>
-
-            {patientCoords.latitude ? (
-              <Pressable
-                onPress={() => {
-                  const url = `https://www.google.com/maps?q=${patientCoords.latitude},${patientCoords.longitude}`;
-                  Linking.openURL(url);
-                }}
-                style={({ pressed }) => [
-                  styles.actionBtn,
-                  { backgroundColor: cardBg, borderColor: cardBorder },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <View
-                  style={[styles.actionIcon, { backgroundColor: "#E0F2FE" }]}
-                >
-                  <MaterialIcons name="map" size={20} color="#0EA5E9" />
-                </View>
-                <ThemedText
-                  style={[
-                    styles.actionLabel,
-                    { color: isDark ? "#E2E8F0" : "#1E293B" },
-                  ]}
-                >
-                  Maps
-                </ThemedText>
-              </Pressable>
-            ) : null}
-
-            <Pressable
-              onPress={() => router.push("/help" as any)}
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <View style={[styles.actionIcon, { backgroundColor: "#ECFDF5" }]}>
-                <MaterialIcons name="support-agent" size={20} color="#059669" />
-              </View>
-              <ThemedText
-                style={[
-                  styles.actionLabel,
-                  { color: isDark ? "#E2E8F0" : "#1E293B" },
-                ]}
-              >
-                Help
+                {sharingLink
+                  ? "Preparing Share Link..."
+                  : Platform.OS === "web"
+                    ? "Copy Share Link"
+                    : "Share to Any App"}
               </ThemedText>
             </Pressable>
           </View>
-        </View>
+        )}
+
+        {/* ...existing code... */}
 
         {/* Go Home if completed */}
         {isCompleted && (
@@ -939,13 +1488,55 @@ export default function PatientEmergencyTrackingScreen() {
           </Pressable>
         )}
       </ScrollView>
-      <FirstAidFab />
+
+      <View
+        style={[styles.fabDock, { bottom: Math.max(insets.bottom, 12) + 8 }]}
+      >
+        <FirstAidFab />
+      </View>
     </View>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  fixedTopNav: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    zIndex: 30,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    ...(Platform.select({
+      web: { boxShadow: "0px 2px 8px rgba(0,0,0,0.16)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.16,
+        shadowRadius: 8,
+      },
+    }) as object),
+    elevation: 7,
+  },
+  fixedNavBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fixedNavTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+  },
   root: { flex: 1, overflow: "hidden" },
   heroGlow: {
     position: "absolute",
@@ -974,10 +1565,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 18,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
+    ...(Platform.select({
+      web: { boxShadow: "0px 6px 12px rgba(0,0,0,0.35)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+    }) as object),
     elevation: 12,
     maxWidth: 600,
     alignSelf: "center" as any,
@@ -1062,10 +1658,15 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   statusBannerElevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 17,
+    ...(Platform.select({
+      web: { boxShadow: "0px 8px 17px rgba(0,0,0,0.25)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 17,
+      },
+    }) as object),
     elevation: 10,
   },
   statusLabel: { fontSize: 17, fontWeight: "800", fontFamily: Fonts.sans },
@@ -1120,10 +1721,15 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   cardElevated: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
-    shadowRadius: 18,
+    ...(Platform.select({
+      web: { boxShadow: "0px 10px 18px rgba(0,0,0,0.2)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 18,
+      },
+    }) as object),
     elevation: 10,
   },
 
@@ -1272,10 +1878,15 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 8,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    ...(Platform.select({
+      web: { boxShadow: "0px 12px 16px rgba(0,0,0,0.18)" as any },
+      default: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.18,
+        shadowRadius: 16,
+      },
+    }) as object),
     elevation: 10,
   },
   actionsRow: {
@@ -1316,5 +1927,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     fontFamily: Fonts.sans,
+  },
+  fabDock: {
+    position: "absolute",
+    right: 14,
+    zIndex: 40,
   },
 });

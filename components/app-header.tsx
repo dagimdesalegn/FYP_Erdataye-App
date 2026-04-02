@@ -21,11 +21,13 @@ export function AppHeader({
   actions,
   announcementHref,
   onProfilePress,
+  onBackPress,
 }: {
   title: string;
   actions?: HeaderAction[];
   announcementHref?: Href;
   onProfilePress?: () => void;
+  onBackPress?: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -47,6 +49,17 @@ export function AppHeader({
     >
       <View style={styles.content}>
         <View style={styles.left}>
+          {onBackPress ? (
+            <Pressable
+              onPress={onBackPress}
+              style={({ pressed }) => [
+                { padding: 4, marginRight: 4 },
+                pressed ? { opacity: 0.7 } : null,
+              ]}
+            >
+              <MaterialIcons name="arrow-back" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
           <View style={styles.brandMark}>
             <MaterialIcons
               name="local-hospital"
