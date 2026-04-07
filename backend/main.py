@@ -17,9 +17,13 @@ Run (production):
 """
 
 from contextlib import asynccontextmanager
+import time
+from collections import defaultdict
+from threading import Lock
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
 from routers import auth, chat, ops, profiles
@@ -55,14 +59,76 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── Rate-limiting middleware ────────────────────────────────────────────
+
+# Simple in-memory token-bucket rate limiter.
+# Keyed by (client_ip, route_group).  Limits:
+#   /ops/patient/emergencies  → 3 req/min  (prevent spam emergency)
+#   all other routes           → 60 req/min
+
+_RATE_BUCKETS: dict[str, list] = defaultdict(lambda: [0.0, 0])  # [window_start, count]
+_RATE_WINDOW = 60.0  # seconds
+_RATE_LOCK = Lock()
+
+_ROUTE_LIMITS: dict[str, int] = {
+    "/ops/patient/emergencies": 3,
+}
+_DEFAULT_LIMIT = 60
+
+
+def _client_ip(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "").strip()
+    if forwarded_for:
+        return forwarded_for.split(",", 1)[0].strip() or "unknown"
+    return request.client.host if request.client else "unknown"
+
+
+def _cors_origin_regex() -> str:
+    if any(origin.startswith("exp://") for origin in settings.origins_list):
+        return r"exp://.*"
+    return ""
+
+
+class RateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        client_ip = _client_ip(request)
+        path = request.url.path
+
+        limit = _ROUTE_LIMITS.get(path, _DEFAULT_LIMIT)
+        key = f"{client_ip}:{path}" if path in _ROUTE_LIMITS else f"{client_ip}:*"
+
+        now = time.monotonic()
+        with _RATE_LOCK:
+            bucket = _RATE_BUCKETS[key]
+            if now - bucket[0] > _RATE_WINDOW:
+                bucket[0] = now
+                bucket[1] = 0
+            bucket[1] += 1
+            count = bucket[1]
+
+        if count > limit:
+            return Response(
+                content='{"detail":"Too many requests. Please try again later."}',
+                status_code=429,
+                media_type="application/json",
+            )
+
+        return await call_next(request)
+
+
+app.add_middleware(RateLimitMiddleware)
+
 # ── CORS middleware ───────────────────────────────────────────────────────────
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.origins_list,
-    allow_origin_regex=r"exp://.*|http://localhost:\d+",
+    allow_origin_regex=_cors_origin_regex() or None,
     allow_credentials=False,
-  allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
     max_age=600,
 )

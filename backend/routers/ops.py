@@ -585,7 +585,7 @@ async def _compute_dispatch_recommendation(
     emergencies, eme_code = await db_select(
         "emergency_requests",
         {},
-        columns="hospital_id,status",
+        columns="hospital_id,status,assigned_ambulance_id",
     )
 
     codes = [hosp_code, amb_code, eme_code]
@@ -595,6 +595,16 @@ async def _compute_dispatch_recommendation(
             detail="Could not compute dispatch recommendation from database.",
         )
 
+    # Build set of ambulance IDs that are already assigned to active emergencies.
+    # This is a secondary safety net on top of the is_available flag to guarantee
+    # each ambulance handles only ONE active emergency at a time.
+    busy_ambulance_ids: set[str] = set()
+    for em in emergencies or []:
+        if em.get("status") not in ("completed", "cancelled", "pending"):
+            amb_id = str(em.get("assigned_ambulance_id") or "")
+            if amb_id:
+                busy_ambulance_ids.add(amb_id)
+
     all_ambulances = ambulances or []
     hospitals_by_id = {str(h.get("id")): h for h in (hospitals or [])}
     excluded_ids = exclude_ambulance_ids or set()
@@ -603,6 +613,7 @@ async def _compute_dispatch_recommendation(
         for a in all_ambulances
         if bool(a.get("is_available"))
         and str(a.get("id") or "") not in excluded_ids
+        and str(a.get("id") or "") not in busy_ambulance_ids
     ]
     if not available:
         return None, "All ambulances are currently on active emergencies. Your request has been saved and an ambulance will be dispatched as soon as one becomes available."

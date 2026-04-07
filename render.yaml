@@ -22,7 +22,7 @@ services:
 
       # ── CORS — add your Expo web / APK origins ──────────────────
       - key: ALLOWED_ORIGINS
-        value: "*"
+        value: "http://localhost:8081,http://localhost:19006,https://erdataye.onrender.com"
 
       # ── Python ──────────────────────────────────────────────────
       - key: PYTHON_VERSION
