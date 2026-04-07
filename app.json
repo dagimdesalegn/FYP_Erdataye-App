@@ -61,7 +61,15 @@
           "locationWhenInUsePermission": "Allow እርዳታዬ Erdataye to access your location while using the app."
         }
       ],
-      "expo-speech-recognition"
+      "expo-speech-recognition",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#B91C1C",
+          "defaultChannel": "emergencies"
+        }
+      ]
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",

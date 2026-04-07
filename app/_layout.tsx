@@ -13,6 +13,7 @@ import "react-native-reanimated";
 import { AppStateProvider } from "@/components/app-state";
 import { ModalProvider } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
+import { initSentry } from "@/utils/sentry";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
@@ -21,6 +22,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Prevent the splash screen from auto-hiding before fonts load
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Initialise Sentry error tracking (no-op if DSN not set)
+initSentry().catch(() => {});
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({

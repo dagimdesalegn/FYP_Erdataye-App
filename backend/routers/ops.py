@@ -2494,6 +2494,24 @@ async def create_patient_emergency(
         distance_km=f"{distance_to_ambulance_km:.2f}",
     )
 
+    # ── Best-effort push notification to driver ──────────────────────────
+    try:
+        driver_rows, _ = await db_query(
+            "profiles",
+            params={"ambulance_id": f"eq.{ambulance_id}", "limit": "1"},
+        )
+        if driver_rows:
+            driver_user_id = str(driver_rows[0].get("id") or "")
+            if driver_user_id:
+                await _send_push_notification(
+                    driver_user_id,
+                    "🚨 New Emergency Assignment",
+                    f"You have been assigned to emergency {emergency_id[:8]}. Open the app to respond.",
+                    {"type": "assignment", "emergency_id": emergency_id},
+                )
+    except Exception:
+        pass  # push is best-effort
+
     return EmergencyDispatchCreateResponse(
         emergency_id=emergency_id,
         status="assigned",
@@ -4206,4 +4224,118 @@ async def get_medical_notes(
         )
 
     return results
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Push notification management
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class PushTokenPayload(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    token: str = Field(..., min_length=1)
+    platform: str = "android"
+
+
+class SendNotificationPayload(BaseModel):
+    user_id: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+    body: str = Field(..., min_length=1)
+    data: dict[str, Any] | None = None
+
+
+@router.post("/push-token", summary="Register Expo push token for a user")
+async def register_push_token(
+    payload: PushTokenPayload,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    caller_id = str(current_user.get("sub") or "")
+    # Users can only register their own token (admins can register any)
+    caller_role = str(current_user.get("user_metadata", {}).get("role", ""))
+    if caller_id != payload.user_id and caller_role != "admin":
+        raise HTTPException(status_code=403, detail="Cannot register token for another user")
+
+    now = datetime.now(timezone.utc).isoformat()
+    # Upsert — check for existing token first
+    existing, _ = await db_query(
+        "push_tokens",
+        params={"user_id": f"eq.{payload.user_id}", "limit": "1"},
+    )
+    if existing:
+        _, code = await db_update(
+            "push_tokens",
+            {"user_id": payload.user_id},
+            {"token": payload.token, "platform": payload.platform, "updated_at": now},
+        )
+    else:
+        _, code = await db_insert(
+            "push_tokens",
+            {
+                "user_id": payload.user_id,
+                "token": payload.token,
+                "platform": payload.platform,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+
+    if code not in (200, 201, 204):
+        logger.warning("push_token_upsert_failed user_id=%s code=%s", payload.user_id, code)
+        # Don't fail the whole request — token storage is best-effort
+        return {"ok": False, "detail": "Token storage failed — will retry"}
+
+    return {"ok": True}
+
+
+async def _send_push_notification(
+    user_id: str,
+    title: str,
+    body: str,
+    data: dict[str, Any] | None = None,
+) -> bool:
+    """Send an Expo push notification to a user. Best-effort, never raises."""
+    try:
+        rows, code = await db_query(
+            "push_tokens",
+            params={"user_id": f"eq.{user_id}", "limit": "1"},
+        )
+        if code not in (200, 206) or not rows:
+            return False
+
+        token = str(rows[0].get("token") or "")
+        if not token or not token.startswith("ExponentPushToken["):
+            return False
+
+        import httpx
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(
+                "https://exp.host/--/api/v2/push/send",
+                json={
+                    "to": token,
+                    "title": title,
+                    "body": body,
+                    "sound": "default",
+                    "priority": "high",
+                    "data": data or {},
+                },
+                headers={"Content-Type": "application/json"},
+            )
+            return resp.status_code == 200
+    except Exception as exc:
+        logger.warning("push_notification_failed user_id=%s error=%s", user_id, exc)
+        return False
+
+
+@router.post("/send-notification", summary="Send push notification to a user (admin only)")
+async def send_notification_endpoint(
+    payload: SendNotificationPayload,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    caller_id = str(current_user.get("sub") or "")
+    await _require_role(caller_id, current_user, ("admin",))
+
+    sent = await _send_push_notification(
+        payload.user_id, payload.title, payload.body, payload.data
+    )
+    return {"ok": sent}
 

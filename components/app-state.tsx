@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { AuthUser, onAuthStateChange } from '../utils/auth';
+import { registerForPushNotifications } from '../utils/notifications';
 
 type AppState = {
   isRegistered: boolean;
@@ -33,6 +34,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
     return unsubscribe;
   }, []);
+
+  // Register push notifications when user logs in
+  useEffect(() => {
+    if (user?.id) {
+      registerForPushNotifications(user.id).catch(() => {});
+    }
+  }, [user?.id]);
 
   const toggleThemeMode = () => {
     setThemeMode((prev) => (prev === 'system' ? 'dark' : prev === 'dark' ? 'light' : 'system'));

@@ -28,6 +28,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from config import settings
 from routers import auth, chat, ops, profiles
 from services.supabase import close_client
+from services.sentry import init_sentry
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -37,7 +38,8 @@ from services.supabase import close_client
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: nothing to eagerly initialise — httpx client is lazy
+    # Startup: initialise error tracking
+    init_sentry()
     yield
     # Shutdown: gracefully drain the connection pool
     await close_client()
