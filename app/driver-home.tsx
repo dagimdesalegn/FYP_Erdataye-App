@@ -1,6 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Modal,
@@ -37,6 +37,7 @@ import {
     type AmbulanceDetails,
 } from "@/utils/driver";
 import { getUserProfile, type UserProfile } from "@/utils/profile";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -115,7 +116,7 @@ export default function DriverHomeScreen() {
             const { status } = await Location.getForegroundPermissionsAsync();
             if (status === "granted") {
               const current = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
+                accuracy: Location.Accuracy.High,
               });
               await ensureAmbulanceHospitalLink(id, {
                 latitude: current.coords.latitude,
@@ -147,7 +148,7 @@ export default function DriverHomeScreen() {
         const { status } = await Location.getForegroundPermissionsAsync();
         if (status !== "granted") return;
         const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
+          accuracy: Location.Accuracy.High,
         });
         await sendLocationUpdate(id, pos.coords.latitude, pos.coords.longitude);
       } catch (e) {
@@ -192,6 +193,33 @@ export default function DriverHomeScreen() {
 
     resolveHospitalName();
   }, [ambulanceDetails?.hospital_id, driverProfile?.hospital_id]);
+
+  // Refresh stats, assignment, and history when screen regains focus
+  // (e.g. returning from driver-emergency-tracking after completion)
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      const refresh = async () => {
+        const [statsResult, histResult] = await Promise.all([
+          getDriverStats(user.id),
+          getDriverHistory(user.id),
+        ]);
+        setActiveCount(statsResult.active);
+        setCompletedCount(statsResult.completed);
+        setHistory(histResult.history);
+
+        const { assignment } = await getDriverAssignment(user.id);
+        if (assignment) {
+          setHasAssignment(true);
+          setAssignmentCount(1);
+        } else {
+          setHasAssignment(false);
+          setAssignmentCount(0);
+        }
+      };
+      refresh().catch(console.warn);
+    }, [user]),
+  );
 
   // Check for existing assignment
   useEffect(() => {
@@ -272,7 +300,7 @@ export default function DriverHomeScreen() {
         // Send an immediate location snapshot once tracking is enabled.
         try {
           const initial = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.High,
           });
           await maybeSendLocation(
             initial.coords.latitude,
@@ -286,7 +314,7 @@ export default function DriverHomeScreen() {
           intervalId = setInterval(async () => {
             try {
               const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
+                accuracy: Location.Accuracy.High,
               });
               await maybeSendLocation(
                 loc.coords.latitude,
@@ -299,9 +327,9 @@ export default function DriverHomeScreen() {
         } else {
           watcher = await Location.watchPositionAsync(
             {
-              accuracy: Location.Accuracy.Balanced,
-              timeInterval: 8000,
-              distanceInterval: 10,
+              accuracy: Location.Accuracy.High,
+              timeInterval: 5000,
+              distanceInterval: 5,
             },
             async (loc) => {
               await maybeSendLocation(
@@ -509,7 +537,7 @@ export default function DriverHomeScreen() {
                       await Location.getForegroundPermissionsAsync();
                     if (status === "granted") {
                       const current = await Location.getCurrentPositionAsync({
-                        accuracy: Location.Accuracy.Balanced,
+                        accuracy: Location.Accuracy.High,
                       });
                       await sendLocationUpdate(
                         ambulanceId,

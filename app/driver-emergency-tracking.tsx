@@ -1,14 +1,16 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
     Linking,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
+    TextInput,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,9 +38,18 @@ import {
     formatCoords,
     parsePostGISPoint,
 } from "@/utils/emergency";
+import {
+    addMedicalNote,
+    formatNoteTime,
+    getMedicalNotes,
+    type MedicalNote,
+    NOTE_TYPE_LABELS,
+    type NoteType,
+    type Vitals,
+} from "@/utils/medical-notes";
 import supabase from "@/utils/supabase";
 
-type Tab = "map" | "status";
+type Tab = "map" | "status" | "notes";
 
 const STATUS_LABELS: Record<
   string,
@@ -87,6 +98,16 @@ export default function DriverEmergencyTrackingScreen() {
   const [patientInfo, setPatientInfo] = useState<any>(null);
   const [locationTracking, setLocationTracking] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("map");
+  const lastResyncRef = useRef(0);
+
+  // Medical notes state
+  const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
+  const [noteContent, setNoteContent] = useState("");
+  const [noteType, setNoteType] = useState<NoteType>("initial_assessment");
+  const [vitals, setVitals] = useState<Vitals>({});
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [showVitals, setShowVitals] = useState(false);
 
   const statusFlow = [
     "assigned",
@@ -97,39 +118,42 @@ export default function DriverEmergencyTrackingScreen() {
     "completed",
   ];
 
+  const driverNextStatusMap: Record<string, string | null> = {
+    assigned: "en_route",
+    en_route: "at_scene",
+    at_scene: "transporting",
+    arrived: "transporting",
+    transporting: null,
+    at_hospital: null,
+    completed: null,
+    cancelled: null,
+    pending: null,
+  };
+
   // Load emergency data + ambulance + patient info
   useEffect(() => {
     if (!emergencyId || !user) return;
+
+    let mounted = true;
 
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // Get ambulance ID
-        const { ambulanceId: ambId } = await getDriverAmbulanceId(user.id);
-        if (ambId) {
-          setAmbulanceId(ambId);
+        // Fetch critical data in parallel for faster first paint.
+        const [ambResult, detailRes] = await Promise.all([
+          getDriverAmbulanceId(user.id),
+          backendGet<{ emergency: any }>(
+            `/ops/patient/emergencies/${emergencyId}/detail`,
+          ),
+        ]);
+
+        if (!mounted) return;
+
+        if (ambResult.ambulanceId) {
+          setAmbulanceId(ambResult.ambulanceId);
         }
 
-        // Use live GPS for driver position (not stale DB location)
-        try {
-          const { status: locStatus } =
-            await Location.requestForegroundPermissionsAsync();
-          if (locStatus === "granted") {
-            const pos = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
-            setDriverCoords({
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-            });
-          }
-        } catch {}
-
-        // Get emergency details via backend (bypasses RLS)
-        const detailRes = await backendGet<{ emergency: any }>(
-          `/ops/patient/emergencies/${emergencyId}/detail`,
-        );
         const emergData = detailRes?.emergency;
 
         if (emergData) {
@@ -140,21 +164,22 @@ export default function DriverEmergencyTrackingScreen() {
           }
 
           if (emergData.patient_id) {
-            const { info } = await getPatientInfo(
-              emergData.patient_id,
-              emergencyId as string,
-            );
-            if (info) setPatientInfo(info);
+            // Do not block screen render on patient profile details.
+            void getPatientInfo(emergData.patient_id, emergencyId as string)
+              .then(({ info }) => {
+                if (mounted && info) setPatientInfo(info);
+              })
+              .catch(() => {});
           }
         }
       } catch (err) {
         console.error("Error loading data:", err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    loadData();
+    void loadData();
 
     // Subscribe to status changes
     const unsubscribe = subscribeToEmergencyStatus(
@@ -164,7 +189,10 @@ export default function DriverEmergencyTrackingScreen() {
       },
     );
 
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, [emergencyId, user]);
 
   // Subscribe to live patient location updates via Supabase realtime
@@ -187,8 +215,11 @@ export default function DriverEmergencyTrackingScreen() {
         },
       )
       .subscribe((status: string) => {
-        // Re-sync on reconnect so no position updates are missed
+        // Re-sync on reconnect so no position updates are missed (debounced)
         if (status !== "SUBSCRIBED") return;
+        const now = Date.now();
+        if (now - lastResyncRef.current < 10000) return;
+        lastResyncRef.current = now;
         void supabase
           .from("emergency_requests")
           .select("patient_location,status")
@@ -207,6 +238,64 @@ export default function DriverEmergencyTrackingScreen() {
     };
   }, [emergencyId]);
 
+  // Load medical notes when notes tab is active
+  const loadNotes = useCallback(async () => {
+    if (!emergencyId) return;
+    setLoadingNotes(true);
+    const { notes } = await getMedicalNotes(emergencyId as string);
+    setMedicalNotes(notes);
+    setLoadingNotes(false);
+  }, [emergencyId]);
+
+  useEffect(() => {
+    if (activeTab === "notes" && emergencyId) {
+      loadNotes();
+    }
+  }, [activeTab, emergencyId, loadNotes]);
+
+  const handleSubmitNote = async () => {
+    if (!emergencyId || !noteContent.trim()) return;
+    setSubmittingNote(true);
+    const hasVitals = Object.values(vitals).some(
+      (v) => v !== undefined && v !== "" && v !== null,
+    );
+    const { note, error } = await addMedicalNote(
+      emergencyId as string,
+      noteType,
+      noteContent.trim(),
+      hasVitals ? vitals : null,
+    );
+    if (error) {
+      showError("Note Failed", error);
+    } else if (note) {
+      setMedicalNotes((prev) => [...prev, note]);
+      setNoteContent("");
+      setVitals({});
+      setShowVitals(false);
+      showSuccess("Note Saved", "Medical note has been recorded successfully.");
+    }
+    setSubmittingNote(false);
+  };
+
+  // Auto-navigate back to home when emergency is completed or cancelled
+  useEffect(() => {
+    if (currentStatus === "completed" || currentStatus === "cancelled") {
+      const label =
+        currentStatus === "completed"
+          ? "Emergency Completed"
+          : "Emergency Cancelled";
+      const msg =
+        currentStatus === "completed"
+          ? "This emergency has been marked as completed. Returning to home."
+          : "This emergency has been cancelled. Returning to home.";
+      showSuccess(label, msg);
+      const timeout = setTimeout(() => {
+        router.replace("/driver-home");
+      }, 1500);
+      return () => clearTimeout(timeout);
+    }
+  }, [currentStatus]);
+
   // Location tracking - updates driver position + sends to DB
   useEffect(() => {
     if (!locationTracking || !ambulanceId) return;
@@ -219,11 +308,28 @@ export default function DriverEmergencyTrackingScreen() {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") return;
 
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.High,
+          });
+          setDriverCoords({
+            latitude: initial.coords.latitude,
+            longitude: initial.coords.longitude,
+          });
+          await sendLocationUpdate(
+            ambulanceId,
+            initial.coords.latitude,
+            initial.coords.longitude,
+          );
+        } catch {
+          // keep watcher/polling fallback below
+        }
+
         if (Platform.OS === "web") {
           intervalId = setInterval(async () => {
             try {
               const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
+                accuracy: Location.Accuracy.High,
               });
               setDriverCoords({
                 latitude: loc.coords.latitude,
@@ -243,9 +349,9 @@ export default function DriverEmergencyTrackingScreen() {
 
         watcher = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.Balanced,
-            timeInterval: 8000,
-            distanceInterval: 10,
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 5,
           },
           async (loc) => {
             try {
@@ -295,10 +401,11 @@ export default function DriverEmergencyTrackingScreen() {
         return;
       }
       setCurrentStatus(newStatus);
-      if (newStatus === "completed") {
-        const msg = "Emergency marked as completed!";
-        showSuccess("Completed", msg);
-        setTimeout(() => router.replace("/driver-home" as any), 1500);
+      if (newStatus === "transporting") {
+        showSuccess(
+          "Transport Started",
+          "Patient is now in transport. Hospital will update arrival and completion.",
+        );
       }
     } catch {
       showError("Update Failed", "Failed to update status");
@@ -308,8 +415,7 @@ export default function DriverEmergencyTrackingScreen() {
   };
 
   const getNextStatus = () => {
-    const idx = statusFlow.indexOf(currentStatus);
-    return idx >= 0 && idx < statusFlow.length - 1 ? statusFlow[idx + 1] : null;
+    return driverNextStatusMap[currentStatus] ?? null;
   };
 
   // ─── Loading ──────────────────────────────────────────
@@ -327,7 +433,8 @@ export default function DriverEmergencyTrackingScreen() {
   }
 
   const nextStatus = getNextStatus();
-  const canUpdate = currentStatus !== "completed";
+  const canUpdate = Boolean(nextStatus);
+  const waitingForHospital = currentStatus === "transporting";
   const st = STATUS_LABELS[currentStatus] || STATUS_LABELS.assigned;
 
   // Distance
@@ -347,12 +454,16 @@ export default function DriverEmergencyTrackingScreen() {
   const mapHtml = (() => {
     if (driverCoords && patientCoords) {
       return buildDriverPatientMapHtml(
-        driverCoords.latitude, driverCoords.longitude,
-        patientCoords.latitude, patientCoords.longitude,
+        driverCoords.latitude,
+        driverCoords.longitude,
+        patientCoords.latitude,
+        patientCoords.longitude,
       );
     }
-    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
-    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    if (patientCoords)
+      return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords)
+      return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
     return "";
   })();
 
@@ -475,6 +586,24 @@ export default function DriverEmergencyTrackingScreen() {
             Update Status
           </ThemedText>
         </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("notes")}
+          style={[styles.tabBtn, activeTab === "notes" && styles.tabBtnActive]}
+        >
+          <MaterialIcons
+            name="medical-services"
+            size={18}
+            color={activeTab === "notes" ? "#0EA5E9" : subtleText}
+          />
+          <ThemedText
+            style={[
+              styles.tabLabel,
+              { color: activeTab === "notes" ? "#0EA5E9" : subtleText },
+            ]}
+          >
+            Medical Notes
+          </ThemedText>
+        </Pressable>
       </View>
 
       {/* ── Tab Content ──────────────────────────────── */}
@@ -482,10 +611,7 @@ export default function DriverEmergencyTrackingScreen() {
         /* ═══════════ MAP TAB ═══════════ */
         <View style={styles.mapTabWrap}>
           {mapHtml ? (
-            <HtmlMapView
-              html={mapHtml}
-              style={styles.mapFull}
-            />
+            <HtmlMapView html={mapHtml} style={styles.mapFull} />
           ) : (
             <View style={styles.noMapWrap}>
               <MaterialIcons name="map" size={48} color={subtleText} />
@@ -581,7 +707,7 @@ export default function DriverEmergencyTrackingScreen() {
             </Pressable>
           )}
         </View>
-      ) : (
+      ) : activeTab === "status" ? (
         /* ═══════════ STATUS TAB ═══════════ */
         <ScrollView
           contentContainerStyle={styles.statusScroll}
@@ -628,7 +754,9 @@ export default function DriverEmergencyTrackingScreen() {
               Emergency Progress
             </ThemedText>
             {statusFlow.map((step, i) => {
-              const stepIdx = statusFlow.indexOf(currentStatus);
+              const timelineStatus =
+                currentStatus === "arrived" ? "at_scene" : currentStatus;
+              const stepIdx = statusFlow.indexOf(timelineStatus);
               const done = i <= stepIdx;
               const active = i === stepIdx;
               const meta = STATUS_LABELS[step] || STATUS_LABELS.assigned;
@@ -761,6 +889,28 @@ export default function DriverEmergencyTrackingScreen() {
             </View>
           )}
 
+          {waitingForHospital && (
+            <View
+              style={[
+                styles.actionCard,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.sectionTitle,
+                  { color: isDark ? "#E2E8F0" : "#1E293B" },
+                ]}
+              >
+                Waiting For Hospital Update
+              </ThemedText>
+              <ThemedText style={[styles.actionDesc, { color: subtleText }]}>
+                Transport is active. Hospital staff will mark At Hospital and
+                Completed.
+              </ThemedText>
+            </View>
+          )}
+
           {/* Patient info */}
           {patientInfo && (
             <View
@@ -883,7 +1033,620 @@ export default function DriverEmergencyTrackingScreen() {
             </View>
           </Pressable>
         </ScrollView>
-      )}
+      ) : activeTab === "notes" ? (
+        /* ═══════════ NOTES TAB ═══════════ */
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={styles.statusScroll}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* ── Existing Notes ────────────────────────── */}
+            <View
+              style={[
+                styles.infoCard,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+            >
+              <View style={styles.cardHeader}>
+                <View
+                  style={[styles.iconCircle, { backgroundColor: "#EFF6FF" }]}
+                >
+                  <MaterialIcons name="description" size={18} color="#3B82F6" />
+                </View>
+                <ThemedText
+                  style={[
+                    styles.sectionTitle,
+                    {
+                      color: isDark ? "#E2E8F0" : "#1E293B",
+                      marginBottom: 0,
+                      marginLeft: 10,
+                    },
+                  ]}
+                >
+                  Clinical Notes ({medicalNotes.length})
+                </ThemedText>
+              </View>
+
+              {loadingNotes ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.tint}
+                  style={{ marginVertical: 16 }}
+                />
+              ) : medicalNotes.length === 0 ? (
+                <View style={{ alignItems: "center", paddingVertical: 20 }}>
+                  <MaterialIcons
+                    name="note-add"
+                    size={40}
+                    color={isDark ? "#475569" : "#CBD5E1"}
+                  />
+                  <ThemedText
+                    style={[styles.emptyNoteText, { color: subtleText }]}
+                  >
+                    No medical notes yet. Add your assessment below.
+                  </ThemedText>
+                </View>
+              ) : (
+                medicalNotes.map((n) => {
+                  const meta =
+                    NOTE_TYPE_LABELS[n.note_type as NoteType] ||
+                    NOTE_TYPE_LABELS.general;
+                  return (
+                    <View
+                      key={n.id}
+                      style={[styles.noteItem, { borderColor: cardBorder }]}
+                    >
+                      <View style={styles.noteHeader}>
+                        <View
+                          style={[
+                            styles.noteTypeBadge,
+                            { backgroundColor: meta.color + "18" },
+                          ]}
+                        >
+                          <MaterialIcons
+                            name={meta.icon as any}
+                            size={14}
+                            color={meta.color}
+                          />
+                          <ThemedText
+                            style={[styles.noteTypeText, { color: meta.color }]}
+                          >
+                            {meta.label}
+                          </ThemedText>
+                        </View>
+                        <ThemedText
+                          style={[styles.noteTime, { color: subtleText }]}
+                        >
+                          {formatNoteTime(n.created_at)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText
+                        style={[
+                          styles.noteContent,
+                          { color: isDark ? "#E2E8F0" : "#1E293B" },
+                        ]}
+                      >
+                        {n.content}
+                      </ThemedText>
+                      {n.vitals && Object.keys(n.vitals).length > 0 && (
+                        <View style={styles.vitalsRow}>
+                          {n.vitals.blood_pressure ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                BP
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.blood_pressure}
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                          {n.vitals.heart_rate ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                HR
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.heart_rate} bpm
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                          {n.vitals.spo2 ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                SpO₂
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.spo2}%
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                          {n.vitals.temperature ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                Temp
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.temperature}°C
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                          {n.vitals.respiratory_rate ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                RR
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.respiratory_rate}/min
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                          {n.vitals.consciousness_level ? (
+                            <View
+                              style={[
+                                styles.vitalChip,
+                                {
+                                  backgroundColor: isDark
+                                    ? "#1E293B"
+                                    : "#F1F5F9",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={[
+                                  styles.vitalLabel,
+                                  { color: subtleText },
+                                ]}
+                              >
+                                AVPU
+                              </ThemedText>
+                              <ThemedText
+                                style={[
+                                  styles.vitalValue,
+                                  { color: isDark ? "#E2E8F0" : "#0F172A" },
+                                ]}
+                              >
+                                {n.vitals.consciousness_level}
+                              </ThemedText>
+                            </View>
+                          ) : null}
+                        </View>
+                      )}
+                      {n.author_name && (
+                        <ThemedText
+                          style={[styles.noteAuthor, { color: subtleText }]}
+                        >
+                          — {n.author_name} ({n.author_role})
+                        </ThemedText>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            {/* ── Add Note Form ─────────────────────────── */}
+            {!["completed", "cancelled"].includes(currentStatus) && (
+              <View
+                style={[
+                  styles.infoCard,
+                  { backgroundColor: cardBg, borderColor: cardBorder },
+                ]}
+              >
+                <View style={styles.cardHeader}>
+                  <View
+                    style={[styles.iconCircle, { backgroundColor: "#F0FDF4" }]}
+                  >
+                    <MaterialIcons name="edit-note" size={18} color="#10B981" />
+                  </View>
+                  <ThemedText
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color: isDark ? "#E2E8F0" : "#1E293B",
+                        marginBottom: 0,
+                        marginLeft: 10,
+                      },
+                    ]}
+                  >
+                    Add Clinical Note
+                  </ThemedText>
+                </View>
+
+                {/* Note Type Selector */}
+                <ThemedText style={[styles.formLabel, { color: subtleText }]}>
+                  NOTE TYPE
+                </ThemedText>
+                <View style={styles.noteTypeRow}>
+                  {(
+                    [
+                      "initial_assessment",
+                      "transport_observation",
+                      "general",
+                    ] as NoteType[]
+                  ).map((t) => {
+                    const meta = NOTE_TYPE_LABELS[t];
+                    const selected = noteType === t;
+                    return (
+                      <Pressable
+                        key={t}
+                        onPress={() => setNoteType(t)}
+                        style={[
+                          styles.noteTypeChip,
+                          {
+                            borderColor: selected ? meta.color : cardBorder,
+                            backgroundColor: selected
+                              ? meta.color + "15"
+                              : "transparent",
+                          },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name={meta.icon as any}
+                          size={14}
+                          color={selected ? meta.color : subtleText}
+                        />
+                        <ThemedText
+                          style={[
+                            styles.noteTypeChipText,
+                            { color: selected ? meta.color : subtleText },
+                          ]}
+                        >
+                          {meta.label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {/* Content Input */}
+                <ThemedText style={[styles.formLabel, { color: subtleText }]}>
+                  OBSERVATION
+                </ThemedText>
+                <TextInput
+                  style={[
+                    styles.noteInput,
+                    {
+                      backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                      borderColor: cardBorder,
+                      color: isDark ? "#E2E8F0" : "#0F172A",
+                    },
+                  ]}
+                  value={noteContent}
+                  onChangeText={setNoteContent}
+                  placeholder="Describe patient condition, symptoms, observations..."
+                  placeholderTextColor={subtleText}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  maxLength={2000}
+                />
+
+                {/* Vitals Toggle */}
+                <Pressable
+                  onPress={() => setShowVitals(!showVitals)}
+                  style={[styles.vitalsToggle, { borderColor: cardBorder }]}
+                >
+                  <MaterialIcons
+                    name="monitor-heart"
+                    size={18}
+                    color="#0EA5E9"
+                  />
+                  <ThemedText
+                    style={[
+                      styles.vitalsToggleText,
+                      { color: isDark ? "#E2E8F0" : "#1E293B" },
+                    ]}
+                  >
+                    {showVitals ? "Hide Vitals" : "Add Vitals (Optional)"}
+                  </ThemedText>
+                  <MaterialIcons
+                    name={showVitals ? "expand-less" : "expand-more"}
+                    size={20}
+                    color={subtleText}
+                  />
+                </Pressable>
+
+                {showVitals && (
+                  <View style={styles.vitalsGrid}>
+                    <View style={styles.vitalInputRow}>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          Blood Pressure
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.blood_pressure || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({ ...p, blood_pressure: v }))
+                          }
+                          placeholder="120/80"
+                          placeholderTextColor={subtleText}
+                          maxLength={10}
+                        />
+                      </View>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          Heart Rate
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.heart_rate?.toString() || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({
+                              ...p,
+                              heart_rate: v ? Number(v) : undefined,
+                            }))
+                          }
+                          placeholder="72"
+                          placeholderTextColor={subtleText}
+                          keyboardType="numeric"
+                          maxLength={4}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.vitalInputRow}>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          SpO₂ %
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.spo2?.toString() || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({
+                              ...p,
+                              spo2: v ? Number(v) : undefined,
+                            }))
+                          }
+                          placeholder="98"
+                          placeholderTextColor={subtleText}
+                          keyboardType="numeric"
+                          maxLength={4}
+                        />
+                      </View>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          Temp °C
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.temperature?.toString() || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({
+                              ...p,
+                              temperature: v ? Number(v) : undefined,
+                            }))
+                          }
+                          placeholder="36.6"
+                          placeholderTextColor={subtleText}
+                          keyboardType="decimal-pad"
+                          maxLength={5}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.vitalInputRow}>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          Resp. Rate
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.respiratory_rate?.toString() || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({
+                              ...p,
+                              respiratory_rate: v ? Number(v) : undefined,
+                            }))
+                          }
+                          placeholder="16"
+                          placeholderTextColor={subtleText}
+                          keyboardType="numeric"
+                          maxLength={3}
+                        />
+                      </View>
+                      <View style={styles.vitalInputWrap}>
+                        <ThemedText
+                          style={[
+                            styles.vitalInputLabel,
+                            { color: subtleText },
+                          ]}
+                        >
+                          AVPU Level
+                        </ThemedText>
+                        <TextInput
+                          style={[
+                            styles.vitalInputField,
+                            {
+                              backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                              borderColor: cardBorder,
+                              color: isDark ? "#E2E8F0" : "#0F172A",
+                            },
+                          ]}
+                          value={vitals.consciousness_level || ""}
+                          onChangeText={(v) =>
+                            setVitals((p) => ({ ...p, consciousness_level: v }))
+                          }
+                          placeholder="Alert"
+                          placeholderTextColor={subtleText}
+                          maxLength={20}
+                        />
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Submit */}
+                <AppButton
+                  label={submittingNote ? "Saving..." : "Save Medical Note"}
+                  onPress={handleSubmitNote}
+                  variant="primary"
+                  fullWidth
+                  disabled={submittingNote || !noteContent.trim()}
+                  style={{ marginTop: 14 }}
+                />
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      ) : null}
     </View>
   );
 }
@@ -1126,5 +1889,113 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: "#FFF",
+  },
+
+  // Medical notes styles
+  emptyNoteText: {
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  noteItem: { borderTopWidth: 1, paddingTop: 12, marginTop: 12 },
+  noteHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  noteTypeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  noteTypeText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  noteTime: { fontSize: 11, fontFamily: Fonts.sans },
+  noteContent: {
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+    lineHeight: 20,
+    marginBottom: 6,
+  },
+  noteAuthor: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    fontStyle: "italic",
+    marginTop: 4,
+  },
+  vitalsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 },
+  vitalChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  vitalLabel: { fontSize: 11, fontWeight: "600", fontFamily: Fonts.sans },
+  vitalValue: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  formLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: Fonts.sans,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 14,
+  },
+  noteTypeRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  noteTypeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1.5,
+  },
+  noteTypeChipText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  noteInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: Fonts.sans,
+    minHeight: 100,
+    lineHeight: 20,
+  },
+  vitalsToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    marginTop: 8,
+    borderTopWidth: 1,
+  },
+  vitalsToggleText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+  },
+  vitalsGrid: { gap: 8, marginTop: 8 },
+  vitalInputRow: { flexDirection: "row", gap: 10 },
+  vitalInputWrap: { flex: 1 },
+  vitalInputLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    marginBottom: 4,
+  },
+  vitalInputField: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontFamily: Fonts.sans,
   },
 });

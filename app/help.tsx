@@ -3,15 +3,17 @@ import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
-import { buildMapHtml } from "@/utils/emergency";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
+import { buildMapHtml, calculateDistance } from "@/utils/emergency";
 import {
-    getActiveEmergency, type PatientEmergency,
+    getActiveEmergency,
+    type PatientEmergency,
+    updatePatientLiveLocation,
 } from "@/utils/patient";
 import { getUserProfile } from "@/utils/profile";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -61,6 +63,14 @@ export default function HelpScreen() {
     user?.fullName || "",
   );
   const [dataLoading, setDataLoading] = React.useState(true);
+  const locationWatchRef = React.useRef<Location.LocationSubscription | null>(
+    null,
+  );
+  const lastLiveSyncRef = React.useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
 
   // Load profile name from DB
   React.useEffect(() => {
@@ -159,6 +169,15 @@ export default function HelpScreen() {
           mayShowUserSettingsDialog: true,
         });
         applyCoords(position.coords);
+
+        locationWatchRef.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 5000,
+            distanceInterval: 5,
+          },
+          (next) => applyCoords(next.coords),
+        );
       } catch {
         if (!cancelled) {
           await Location.hasServicesEnabledAsync().catch(() => false);
@@ -168,8 +187,47 @@ export default function HelpScreen() {
     void loadCurrentLocation();
     return () => {
       cancelled = true;
+      try {
+        locationWatchRef.current?.remove();
+      } catch {
+        // noop
+      }
+      locationWatchRef.current = null;
     };
   }, []);
+
+  React.useEffect(() => {
+    if (!activeEmergencyId || !currentLocation) return;
+    const now = Date.now();
+    const prev = lastLiveSyncRef.current;
+    if (prev) {
+      const moved =
+        calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          currentLocation.latitude,
+          currentLocation.longitude,
+        ) * 1000;
+      const elapsed = now - prev.at;
+      if (moved < 8 && elapsed < 15000) return;
+    }
+
+    lastLiveSyncRef.current = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      at: now,
+    };
+
+    void updatePatientLiveLocation(
+      activeEmergencyId,
+      currentLocation.latitude,
+      currentLocation.longitude,
+    );
+  }, [
+    activeEmergencyId,
+    currentLocation?.latitude,
+    currentLocation?.longitude,
+  ]);
 
   React.useEffect(() => {
     let mounted = true;
@@ -223,6 +281,13 @@ export default function HelpScreen() {
   }, []);
 
   const mapLocation = React.useMemo(() => {
+    if (currentLocation) {
+      return {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        sourceLabel: "Current device location",
+      };
+    }
     if (
       activeEmergency &&
       Number.isFinite(activeEmergency.latitude) &&
@@ -232,13 +297,6 @@ export default function HelpScreen() {
         latitude: activeEmergency.latitude,
         longitude: activeEmergency.longitude,
         sourceLabel: "Emergency location",
-      };
-    }
-    if (currentLocation) {
-      return {
-        latitude: currentLocation.latitude,
-        longitude: currentLocation.longitude,
-        sourceLabel: "Current device location",
       };
     }
     return null;
@@ -454,10 +512,7 @@ export default function HelpScreen() {
                 </View>
                 <View style={styles.mapFrameWrap}>
                   {mapHtml ? (
-                    <HtmlMapView
-                      html={mapHtml}
-                      style={{ flex: 1 }}
-                    />
+                    <HtmlMapView html={mapHtml} style={{ flex: 1 }} />
                   ) : null}
                 </View>
               </View>

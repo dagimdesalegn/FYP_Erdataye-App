@@ -22,12 +22,14 @@ export function AppHeader({
   announcementHref,
   onProfilePress,
   onBackPress,
+  rightExtra,
 }: {
   title: string;
   actions?: HeaderAction[];
   announcementHref?: Href;
   onProfilePress?: () => void;
   onBackPress?: () => void;
+  rightExtra?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -120,6 +122,7 @@ export function AppHeader({
               color={colors.text}
             />
           </Pressable>
+          {rightExtra}
           {(actions ?? []).map((a) => (
             <Pressable
               key={a.label}

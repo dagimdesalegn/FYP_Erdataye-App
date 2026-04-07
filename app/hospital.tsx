@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { HtmlMapView } from "@/components/html-map-view";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -9,9 +10,20 @@ import { backendGet, backendPut } from "@/utils/api";
 import { signOut } from "@/utils/auth";
 import {
     EmergencyRequest,
+    buildDriverPatientMapHtml,
+    buildMapHtml,
     formatCoords,
     normalizeEmergency,
 } from "@/utils/emergency";
+import {
+    NOTE_TYPE_LABELS,
+    addMedicalNote,
+    formatNoteTime,
+    getMedicalNotes,
+    type MedicalNote,
+    type NoteType,
+    type Vitals,
+} from "@/utils/medical-notes";
 import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -38,6 +50,8 @@ interface EmergencyWithPatient extends EmergencyRequest {
   patient_medical?: MedicalProfile;
   national_id?: string | null;
   ambulance_vehicle?: string | null;
+  ambulance_latitude?: number | null;
+  ambulance_longitude?: number | null;
 }
 
 interface HospitalFleetResponse {
@@ -100,7 +114,9 @@ export default function HospitalDashboard() {
   const [selectedEmergency, setSelectedEmergency] =
     useState<EmergencyWithPatient | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState<string | null>(null);
   const [profileVisible, setProfileVisible] = useState(false);
+  const livePulse = useRef(new Animated.Value(1)).current;
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [fleet, setFleet] = useState<HospitalFleetResponse | null>(null);
@@ -121,6 +137,19 @@ export default function HospitalDashboard() {
     averageHandover: "25",
   });
 
+  // Medical notes state
+  const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [hospitalNoteContent, setHospitalNoteContent] = useState("");
+  const [hospitalNoteType, setHospitalNoteType] =
+    useState<NoteType>("treatment");
+  const [hospitalVitals, setHospitalVitals] = useState<Vitals>({});
+  const [showHospitalVitals, setShowHospitalVitals] = useState(false);
+  const [submittingHospitalNote, setSubmittingHospitalNote] = useState(false);
+
+  // Notification bell badge state
+  const [notifCount, setNotifCount] = useState(0);
+
   const cardBg = colors.surface;
   const cardBorder = colors.border;
   const inputBg = colors.surfaceMuted;
@@ -134,6 +163,75 @@ export default function HospitalDashboard() {
   } | null>(null);
   const notifOpacity = useRef(new Animated.Value(0)).current;
   const prevStatusMap = useRef<Record<string, string>>({});
+
+  // Keep open modal in sync with realtime data
+  useEffect(() => {
+    if (!selectedEmergency || !modalVisible) return;
+    const updated = emergencies.find((e) => e.id === selectedEmergency.id);
+    if (updated && updated.status !== selectedEmergency.status) {
+      setSelectedEmergency(updated);
+    }
+  }, [emergencies, selectedEmergency, modalVisible]);
+
+  // Load medical notes when modal opens
+  useEffect(() => {
+    if (!selectedEmergency || !modalVisible) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoadingNotes(true);
+      const { notes } = await getMedicalNotes(selectedEmergency.id);
+      if (!cancelled) setMedicalNotes(notes);
+      setLoadingNotes(false);
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEmergency?.id, modalVisible]);
+
+  const handleSubmitHospitalNote = async () => {
+    if (!selectedEmergency || !hospitalNoteContent.trim()) return;
+    setSubmittingHospitalNote(true);
+    const hasVitals = Object.values(hospitalVitals).some(
+      (v) => v !== undefined && v !== "" && v !== null,
+    );
+    const { note, error } = await addMedicalNote(
+      selectedEmergency.id,
+      hospitalNoteType,
+      hospitalNoteContent.trim(),
+      hasVitals ? hospitalVitals : null,
+    );
+    if (error) {
+      showError("Note Failed", error);
+    } else if (note) {
+      setMedicalNotes((prev) => [...prev, note]);
+      setHospitalNoteContent("");
+      setHospitalVitals({});
+      setShowHospitalVitals(false);
+      showSuccess("Note Saved", "Medical note recorded successfully.");
+    }
+    setSubmittingHospitalNote(false);
+  };
+
+  // Pulse animation for live indicators
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(livePulse, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(livePulse, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [livePulse]);
 
   const showNotification = useCallback(
     (message: string, color: string) => {
@@ -192,6 +290,8 @@ export default function HospitalDashboard() {
             patient_medical: e.patient_medical,
             national_id: (e as any).national_id ?? null,
             ambulance_vehicle: (e as any).ambulance_vehicle ?? null,
+            ambulance_latitude: (e as any).ambulance_latitude ?? null,
+            ambulance_longitude: (e as any).ambulance_longitude ?? null,
           }) as EmergencyWithPatient,
       );
       setEmergencies(mapped);
@@ -261,6 +361,8 @@ export default function HospitalDashboard() {
     emergencyId: string,
     newStatus: EmergencyRequest["status"],
   ) => {
+    if (statusUpdating) return;
+    setStatusUpdating(newStatus);
     try {
       await backendPut(`/ops/emergencies/${emergencyId}/status`, {
         status: newStatus,
@@ -273,7 +375,39 @@ export default function HospitalDashboard() {
       setModalVisible(false);
     } catch {
       showError("Update Failed", "Failed to update status");
+    } finally {
+      setStatusUpdating(null);
     }
+  };
+
+  /** Hospital-owned actions: only handover stages */
+  const getHospitalStatusActions = (
+    status: string,
+  ): {
+    label: string;
+    next: EmergencyRequest["status"];
+    color: string;
+    icon: string;
+  }[] => {
+    if (status === "transporting")
+      return [
+        {
+          label: "Mark at Hospital",
+          next: "at_hospital",
+          color: "#06B6D4",
+          icon: "local-hospital",
+        },
+      ];
+    if (status === "at_hospital")
+      return [
+        {
+          label: "Mark Completed",
+          next: "completed",
+          color: "#10B981",
+          icon: "check-circle",
+        },
+      ];
+    return [];
   };
 
   useEffect(() => {
@@ -290,20 +424,29 @@ export default function HospitalDashboard() {
             const newStatus = payload.new.status;
             const oldStatus = prevStatusMap.current[emergencyId];
             if (oldStatus && oldStatus !== newStatus) {
-              const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
-              const label = STATUS_LABELS[newStatus] || newStatus.replace(/_/g, " ");
+              const type = (payload.new.emergency_type || "emergency").replace(
+                /_/g,
+                " ",
+              );
+              const label =
+                STATUS_LABELS[newStatus] || newStatus.replace(/_/g, " ");
               const color = STATUS_COLORS[newStatus] || "#3B82F6";
               showNotification(
                 `${label} — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
                 color,
               );
+              setNotifCount((c) => c + 1);
             }
           } else if (payload.eventType === "INSERT" && payload.new) {
-            const type = (payload.new.emergency_type || "emergency").replace(/_/g, " ");
+            const type = (payload.new.emergency_type || "emergency").replace(
+              /_/g,
+              " ",
+            );
             showNotification(
               `New Emergency — ${type.charAt(0).toUpperCase() + type.slice(1)} case`,
               "#F59E0B",
             );
+            setNotifCount((c) => c + 1);
           }
           fetchEmergencies();
         },
@@ -508,97 +651,205 @@ export default function HospitalDashboard() {
 
   /* ─── Card renderer ─────────────────────────────────────────── */
 
+  const timeAgo = (dateStr: string): string => {
+    try {
+      const now = Date.now();
+      const then = new Date(dateStr).getTime();
+      const diffMs = now - then;
+      const diffMin = Math.floor(diffMs / 60000);
+      if (diffMin < 1) return "Just now";
+      if (diffMin < 60) return `${diffMin}m ago`;
+      const diffHr = Math.floor(diffMin / 60);
+      if (diffHr < 24) return `${diffHr}h ago`;
+      const diffDay = Math.floor(diffHr / 24);
+      return `${diffDay}d ago`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const isActiveStatus = (status: string) =>
+    !["completed", "cancelled"].includes(status);
+
+  const PRIORITY_TYPES = ["accident", "cardiac", "fire"];
+
   const renderEmergencyCard = ({ item }: { item: EmergencyWithPatient }) => {
     const statusColor = STATUS_COLORS[item.status] ?? "#6B7280";
     const typeColor = TYPE_COLORS[item.emergency_type] ?? "#6B7280";
+    const isActive = isActiveStatus(item.status);
+    const isHighPriority =
+      isActive && PRIORITY_TYPES.includes(item.emergency_type);
     return (
       <Pressable
         style={[
           styles.itemCard,
-          { backgroundColor: cardBg, borderColor: cardBorder },
+          {
+            backgroundColor: cardBg,
+            borderColor: isHighPriority ? typeColor + "40" : cardBorder,
+          },
         ]}
         onPress={() => {
           setSelectedEmergency(item);
           setModalVisible(true);
         }}
       >
-        {/* Header: status + type badges */}
-        <View style={styles.cardHeader}>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: statusColor + "18" },
-            ]}
-          >
-            <View
-              style={[styles.statusDot, { backgroundColor: statusColor }]}
-            />
-            <ThemedText style={[styles.badgeText, { color: statusColor }]}>
-              {item.status.replace("_", " ")}
-            </ThemedText>
-          </View>
-          <View
-            style={[styles.typeBadge, { backgroundColor: typeColor + "18" }]}
-          >
-            <ThemedText style={[styles.badgeText, { color: typeColor }]}>
-              {item.emergency_type || "medical"}
-            </ThemedText>
-          </View>
-        </View>
+        {/* Left accent stripe */}
+        <View
+          style={[styles.cardAccentStripe, { backgroundColor: statusColor }]}
+        />
 
-        {/* Patient info */}
-        <View style={styles.cardBody}>
+        <View style={styles.cardInner}>
+          {/* Header: status + type badges + time */}
+          <View style={styles.cardHeader}>
+            <View style={styles.cardBadgesRow}>
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: statusColor + "18" },
+                ]}
+              >
+                {isActive ? (
+                  <Animated.View
+                    style={[
+                      styles.statusDot,
+                      { backgroundColor: statusColor, opacity: livePulse },
+                    ]}
+                  />
+                ) : (
+                  <View
+                    style={[styles.statusDot, { backgroundColor: statusColor }]}
+                  />
+                )}
+                <ThemedText style={[styles.badgeText, { color: statusColor }]}>
+                  {item.status.replace("_", " ")}
+                </ThemedText>
+              </View>
+              <View
+                style={[
+                  styles.typeBadge,
+                  { backgroundColor: typeColor + "18" },
+                ]}
+              >
+                <MaterialIcons
+                  name={
+                    item.emergency_type === "accident"
+                      ? "car-crash"
+                      : item.emergency_type === "cardiac"
+                        ? "favorite"
+                        : item.emergency_type === "maternity"
+                          ? "pregnant-woman"
+                          : item.emergency_type === "fire"
+                            ? "local-fire-department"
+                            : "medical-services"
+                  }
+                  size={12}
+                  color={typeColor}
+                />
+                <ThemedText style={[styles.badgeText, { color: typeColor }]}>
+                  {item.emergency_type || "medical"}
+                </ThemedText>
+              </View>
+            </View>
+            <ThemedText style={[styles.cardTimeAgo, { color: subText }]}>
+              {timeAgo(item.created_at)}
+            </ThemedText>
+          </View>
+
+          {/* Patient info row */}
+          <View style={styles.cardBody}>
+            <View
+              style={[
+                styles.avatar,
+                {
+                  backgroundColor: isActive
+                    ? isDark
+                      ? "rgba(220,38,38,0.18)"
+                      : "rgba(220,38,38,0.10)"
+                    : isDark
+                      ? "rgba(107,114,128,0.15)"
+                      : "rgba(107,114,128,0.08)",
+                },
+              ]}
+            >
+              <MaterialIcons
+                name="person"
+                size={22}
+                color={isActive ? "#DC2626" : "#6B7280"}
+              />
+            </View>
+            <View style={styles.cardInfo}>
+              <ThemedText style={[styles.cardTitle, { color: colors.text }]}>
+                {item.patient_profile?.full_name || "Unknown Patient"}
+              </ThemedText>
+              <ThemedText style={[styles.cardSub, { color: subText }]}>
+                {item.patient_profile?.phone || "No phone"}
+              </ThemedText>
+            </View>
+            <View
+              style={[
+                styles.cardChevronWrap,
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.06)"
+                    : "rgba(0,0,0,0.04)",
+                },
+              ]}
+            >
+              <MaterialIcons name="chevron-right" size={20} color={subText} />
+            </View>
+          </View>
+
+          {/* Description preview */}
+          {item.description ? (
+            <View style={styles.cardDescWrap}>
+              <ThemedText
+                style={[styles.descText, { color: subText }]}
+                numberOfLines={2}
+              >
+                {item.description}
+              </ThemedText>
+            </View>
+          ) : null}
+
+          {/* Footer: location + time + ambulance */}
           <View
             style={[
-              styles.avatar,
+              styles.cardFooter,
               {
-                backgroundColor: isDark
-                  ? "rgba(220,38,38,0.15)"
-                  : "rgba(220,38,38,0.08)",
+                borderTopColor: isDark
+                  ? "rgba(255,255,255,0.06)"
+                  : "rgba(0,0,0,0.05)",
               },
             ]}
           >
-            <MaterialIcons name="person" size={22} color="#DC2626" />
-          </View>
-          <View style={styles.cardInfo}>
-            <ThemedText style={[styles.cardTitle, { color: colors.text }]}>
-              {item.patient_profile?.full_name || "Unknown Patient"}
-            </ThemedText>
-            <ThemedText style={[styles.cardSub, { color: subText }]}>
-              {item.patient_profile?.phone || "No phone"}
-            </ThemedText>
-          </View>
-          <MaterialIcons name="chevron-right" size={22} color={subText} />
-        </View>
-
-        {/* Footer details */}
-        <View style={[styles.cardFooter, { borderTopColor: cardBorder }]}>
-          {item.latitude !== 0 && (
+            {item.latitude !== 0 && (
+              <View style={styles.footerItem}>
+                <MaterialIcons name="location-on" size={13} color={subText} />
+                <ThemedText style={[styles.footerText, { color: subText }]}>
+                  {formatCoords(item.latitude, item.longitude)}
+                </ThemedText>
+              </View>
+            )}
             <View style={styles.footerItem}>
-              <MaterialIcons name="location-on" size={14} color={subText} />
+              <MaterialIcons name="schedule" size={13} color={subText} />
               <ThemedText style={[styles.footerText, { color: subText }]}>
-                {formatCoords(item.latitude, item.longitude)}
+                {formatDateTime(item.created_at)}
               </ThemedText>
             </View>
-          )}
-          <View style={styles.footerItem}>
-            <MaterialIcons name="access-time" size={14} color={subText} />
-            <ThemedText style={[styles.footerText, { color: subText }]}>
-              {formatDateTime(item.created_at)}
-            </ThemedText>
+            {item.ambulance_vehicle && (
+              <View style={styles.footerItem}>
+                <MaterialIcons
+                  name="local-shipping"
+                  size={13}
+                  color="#8B5CF6"
+                />
+                <ThemedText style={[styles.footerText, { color: "#8B5CF6" }]}>
+                  {item.ambulance_vehicle}
+                </ThemedText>
+              </View>
+            )}
           </View>
         </View>
-
-        {item.description ? (
-          <View style={{ paddingHorizontal: 14, paddingBottom: 12 }}>
-            <ThemedText
-              style={[styles.descText, { color: subText }]}
-              numberOfLines={2}
-            >
-              {item.description}
-            </ThemedText>
-          </View>
-        ) : null}
       </Pressable>
     );
   };
@@ -648,14 +899,42 @@ export default function HospitalDashboard() {
             { backgroundColor: notification.color, opacity: notifOpacity },
           ]}
         >
-          <MaterialIcons name="notifications-active" size={20} color="#fff" />
-          <ThemedText style={styles.notifText}>{notification.message}</ThemedText>
+          <View style={styles.notifIconWrap}>
+            <MaterialIcons name="notifications-active" size={18} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <ThemedText style={styles.notifText}>
+              {notification.message}
+            </ThemedText>
+            <ThemedText style={styles.notifSub}>Live update</ThemedText>
+          </View>
         </Animated.View>
       )}
 
       <AppHeader
         title={hospitalName}
         onProfilePress={() => setProfileVisible(true)}
+        rightExtra={
+          <Pressable
+            style={styles.notifBellWrap}
+            onPress={() => setNotifCount(0)}
+          >
+            <MaterialIcons
+              name={
+                notifCount > 0 ? "notifications-active" : "notifications-none"
+              }
+              size={22}
+              color={notifCount > 0 ? "#DC2626" : subText}
+            />
+            {notifCount > 0 && (
+              <View style={styles.notifBadge}>
+                <ThemedText style={styles.notifBadgeText}>
+                  {notifCount > 99 ? "99+" : notifCount}
+                </ThemedText>
+              </View>
+            )}
+          </Pressable>
+        }
       />
 
       <ScrollView
@@ -711,6 +990,61 @@ export default function HospitalDashboard() {
               </View>
             ))}
           </View>
+
+          {/* Fleet readiness card */}
+          {fleet && (
+            <View
+              style={[
+                styles.fleetCard,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <MaterialIcons
+                  name="local-shipping"
+                  size={18}
+                  color="#8B5CF6"
+                />
+                <ThemedText
+                  style={[styles.sectionTitle, { color: colors.text }]}
+                >
+                  Fleet Readiness
+                </ThemedText>
+              </View>
+              <View style={styles.fleetRow}>
+                <View style={styles.fleetItem}>
+                  <ThemedText style={[styles.fleetNum, { color: "#10B981" }]}>
+                    {fleet.available_ambulances}
+                  </ThemedText>
+                  <ThemedText style={[styles.fleetLabel, { color: subText }]}>
+                    Available
+                  </ThemedText>
+                </View>
+                <View
+                  style={[styles.fleetDivider, { backgroundColor: cardBorder }]}
+                />
+                <View style={styles.fleetItem}>
+                  <ThemedText style={[styles.fleetNum, { color: "#F59E0B" }]}>
+                    {fleet.busy_ambulances}
+                  </ThemedText>
+                  <ThemedText style={[styles.fleetLabel, { color: subText }]}>
+                    Busy
+                  </ThemedText>
+                </View>
+                <View
+                  style={[styles.fleetDivider, { backgroundColor: cardBorder }]}
+                />
+                <View style={styles.fleetItem}>
+                  <ThemedText style={[styles.fleetNum, { color: colors.text }]}>
+                    {fleet.total_ambulances}
+                  </ThemedText>
+                  <ThemedText style={[styles.fleetLabel, { color: subText }]}>
+                    Total
+                  </ThemedText>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Search bar */}
           <View
@@ -826,6 +1160,64 @@ export default function HospitalDashboard() {
 
               {selectedEmergency && (
                 <>
+                  {/* Status badge bar */}
+                  <View
+                    style={[
+                      styles.modalStatusBar,
+                      {
+                        backgroundColor:
+                          (STATUS_COLORS[selectedEmergency.status] ||
+                            "#6B7280") + "18",
+                      },
+                    ]}
+                  >
+                    {!["completed", "cancelled"].includes(
+                      selectedEmergency.status,
+                    ) && (
+                      <Animated.View
+                        style={[
+                          styles.liveDot,
+                          {
+                            backgroundColor:
+                              STATUS_COLORS[selectedEmergency.status] ||
+                              "#6B7280",
+                            opacity: livePulse,
+                          },
+                        ]}
+                      />
+                    )}
+                    <ThemedText
+                      style={[
+                        styles.modalStatusText,
+                        {
+                          color:
+                            STATUS_COLORS[selectedEmergency.status] ||
+                            "#6B7280",
+                        },
+                      ]}
+                    >
+                      {(
+                        STATUS_LABELS[selectedEmergency.status] ||
+                        selectedEmergency.status.replace(/_/g, " ")
+                      ).toUpperCase()}
+                    </ThemedText>
+                    {!["completed", "cancelled"].includes(
+                      selectedEmergency.status,
+                    ) && (
+                      <ThemedText
+                        style={[
+                          styles.liveLabel,
+                          {
+                            color:
+                              STATUS_COLORS[selectedEmergency.status] ||
+                              "#6B7280",
+                          },
+                        ]}
+                      >
+                        LIVE
+                      </ThemedText>
+                    )}
+                  </View>
                   {/* Patient Info Section */}
                   <View style={[styles.section, { borderColor: cardBorder }]}>
                     <View style={styles.sectionHeader}>
@@ -953,12 +1345,6 @@ export default function HospitalDashboard() {
                       s={subText}
                     />
                     <InfoRow
-                      label="Status"
-                      value={selectedEmergency.status.replace("_", " ")}
-                      c={colors.text}
-                      s={subText}
-                    />
-                    <InfoRow
                       label="Created"
                       value={formatDateTime(selectedEmergency.created_at)}
                       c={colors.text}
@@ -972,51 +1358,924 @@ export default function HospitalDashboard() {
                     />
                   </View>
 
-                  {/* Action buttons */}
-                  {!["completed", "cancelled"].includes(
-                    selectedEmergency.status,
-                  ) && (
-                    <View style={styles.actionRow}>
-                      {selectedEmergency.status !== "at_hospital" && (
-                        <Pressable
-                          style={[
-                            styles.actionBtn,
-                            { backgroundColor: "#06B6D4" },
-                          ]}
-                          onPress={() =>
-                            updateStatus(selectedEmergency.id, "at_hospital")
-                          }
+                  {/* ── Medical Notes Section ──────────────────────────── */}
+                  {[
+                    "assigned",
+                    "en_route",
+                    "at_scene",
+                    "arrived",
+                    "transporting",
+                    "at_hospital",
+                    "completed",
+                  ].includes(selectedEmergency.status) ? (
+                    <View style={[styles.section, { borderColor: cardBorder }]}>
+                      <View style={styles.sectionHeader}>
+                        <MaterialIcons
+                          name="medical-services"
+                          size={18}
+                          color="#8B5CF6"
+                        />
+                        <ThemedText
+                          style={[styles.sectionTitle, { color: colors.text }]}
+                        >
+                          Clinical Notes ({medicalNotes.length})
+                        </ThemedText>
+                      </View>
+
+                      {loadingNotes ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={colors.tint}
+                          style={{ marginVertical: 12 }}
+                        />
+                      ) : medicalNotes.length === 0 ? (
+                        <View
+                          style={{ alignItems: "center", paddingVertical: 16 }}
                         >
                           <MaterialIcons
-                            name="local-hospital"
-                            size={18}
-                            color="#FFF"
+                            name="note-add"
+                            size={36}
+                            color={isDark ? "#475569" : "#CBD5E1"}
                           />
-                          <ThemedText style={styles.actionBtnText}>
-                            Mark at Hospital
+                          <ThemedText
+                            style={{
+                              fontSize: 13,
+                              color: subText,
+                              marginTop: 6,
+                              fontFamily: Fonts.sans,
+                            }}
+                          >
+                            No clinical notes recorded yet
                           </ThemedText>
-                        </Pressable>
+                        </View>
+                      ) : (
+                        medicalNotes.map((n) => {
+                          const meta =
+                            NOTE_TYPE_LABELS[n.note_type as NoteType] ||
+                            NOTE_TYPE_LABELS.general;
+                          return (
+                            <View
+                              key={n.id}
+                              style={[
+                                styles.hospNoteItem,
+                                { borderColor: cardBorder },
+                              ]}
+                            >
+                              <View style={styles.hospNoteHeader}>
+                                <View
+                                  style={[
+                                    styles.hospNoteTypeBadge,
+                                    { backgroundColor: meta.color + "18" },
+                                  ]}
+                                >
+                                  <MaterialIcons
+                                    name={meta.icon as any}
+                                    size={13}
+                                    color={meta.color}
+                                  />
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "600",
+                                      color: meta.color,
+                                      fontFamily: Fonts.sans,
+                                    }}
+                                  >
+                                    {meta.label}
+                                  </ThemedText>
+                                </View>
+                                <ThemedText
+                                  style={{
+                                    fontSize: 11,
+                                    color: subText,
+                                    fontFamily: Fonts.sans,
+                                  }}
+                                >
+                                  {formatNoteTime(n.created_at)}
+                                </ThemedText>
+                              </View>
+                              <ThemedText
+                                style={{
+                                  fontSize: 13,
+                                  color: colors.text,
+                                  fontFamily: Fonts.sans,
+                                  lineHeight: 19,
+                                  marginBottom: 4,
+                                }}
+                              >
+                                {n.content}
+                              </ThemedText>
+                              {n.vitals && Object.keys(n.vitals).length > 0 && (
+                                <View style={styles.hospVitalsRow}>
+                                  {n.vitals.blood_pressure ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        BP
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.blood_pressure}
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                  {n.vitals.heart_rate ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        HR
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.heart_rate} bpm
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                  {n.vitals.spo2 ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        SpO₂
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.spo2}%
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                  {n.vitals.temperature ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        Temp
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.temperature}°C
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                  {n.vitals.respiratory_rate ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        RR
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.respiratory_rate}/min
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                  {n.vitals.consciousness_level ? (
+                                    <View
+                                      style={[
+                                        styles.hospVitalChip,
+                                        {
+                                          backgroundColor: isDark
+                                            ? "#1E293B"
+                                            : "#F1F5F9",
+                                        },
+                                      ]}
+                                    >
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 10,
+                                          fontWeight: "600",
+                                          color: subText,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        AVPU
+                                      </ThemedText>
+                                      <ThemedText
+                                        style={{
+                                          fontSize: 11,
+                                          fontWeight: "700",
+                                          color: colors.text,
+                                          fontFamily: Fonts.sans,
+                                        }}
+                                      >
+                                        {n.vitals.consciousness_level}
+                                      </ThemedText>
+                                    </View>
+                                  ) : null}
+                                </View>
+                              )}
+                              {n.author_name && (
+                                <ThemedText
+                                  style={{
+                                    fontSize: 11,
+                                    fontStyle: "italic",
+                                    color: subText,
+                                    fontFamily: Fonts.sans,
+                                    marginTop: 4,
+                                  }}
+                                >
+                                  — {n.author_name} ({n.author_role})
+                                </ThemedText>
+                              )}
+                            </View>
+                          );
+                        })
                       )}
-                      <Pressable
+
+                      {/* ── Read-only hint for active emergencies ─── */}
+                      {!["completed", "cancelled"].includes(
+                        selectedEmergency.status,
+                      ) && (
+                        <View
+                          style={[
+                            styles.actionHintCard,
+                            {
+                              backgroundColor: isDark
+                                ? "rgba(59,130,246,0.12)"
+                                : "rgba(59,130,246,0.08)",
+                              marginTop: 8,
+                            },
+                          ]}
+                        >
+                          <MaterialIcons
+                            name="info-outline"
+                            size={16}
+                            color="#3B82F6"
+                          />
+                          <ThemedText
+                            style={[styles.actionHintText, { color: subText }]}
+                          >
+                            Ambulance crew can add notes during the active
+                            emergency. You can add your own notes after the
+                            emergency is completed.
+                          </ThemedText>
+                        </View>
+                      )}
+
+                      {/* ── Add Hospital Note Form (only after completed) ─── */}
+                      {["completed"].includes(selectedEmergency.status) && (
+                        <View
+                          style={[
+                            styles.hospNoteForm,
+                            { borderColor: cardBorder },
+                          ]}
+                        >
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                              marginBottom: 10,
+                            }}
+                          >
+                            <MaterialIcons
+                              name="edit-note"
+                              size={18}
+                              color="#10B981"
+                            />
+                            <ThemedText
+                              style={{
+                                fontSize: 14,
+                                fontWeight: "700",
+                                color: colors.text,
+                                fontFamily: Fonts.sans,
+                              }}
+                            >
+                              Add Treatment Note
+                            </ThemedText>
+                          </View>
+
+                          {/* Note Type Selector */}
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                              gap: 6,
+                              marginBottom: 10,
+                            }}
+                          >
+                            {(
+                              [
+                                "treatment",
+                                "discharge",
+                                "general",
+                              ] as NoteType[]
+                            ).map((t) => {
+                              const meta = NOTE_TYPE_LABELS[t];
+                              const sel = hospitalNoteType === t;
+                              return (
+                                <Pressable
+                                  key={t}
+                                  onPress={() => setHospitalNoteType(t)}
+                                  style={[
+                                    styles.hospNoteTypeChip,
+                                    {
+                                      borderColor: sel
+                                        ? meta.color
+                                        : cardBorder,
+                                      backgroundColor: sel
+                                        ? meta.color + "15"
+                                        : "transparent",
+                                    },
+                                  ]}
+                                >
+                                  <MaterialIcons
+                                    name={meta.icon as any}
+                                    size={13}
+                                    color={sel ? meta.color : subText}
+                                  />
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: "600",
+                                      color: sel ? meta.color : subText,
+                                      fontFamily: Fonts.sans,
+                                    }}
+                                  >
+                                    {meta.label}
+                                  </ThemedText>
+                                </Pressable>
+                              );
+                            })}
+                          </View>
+
+                          {/* Content Input */}
+                          <TextInput
+                            style={[
+                              styles.hospNoteInput,
+                              {
+                                backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                                borderColor: cardBorder,
+                                color: colors.text,
+                              },
+                            ]}
+                            value={hospitalNoteContent}
+                            onChangeText={setHospitalNoteContent}
+                            placeholder="Treatment given, observations, medication administered..."
+                            placeholderTextColor={subText}
+                            multiline
+                            numberOfLines={3}
+                            textAlignVertical="top"
+                            maxLength={2000}
+                          />
+
+                          {/* Vitals Toggle */}
+                          <Pressable
+                            onPress={() =>
+                              setShowHospitalVitals(!showHospitalVitals)
+                            }
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 6,
+                              paddingVertical: 8,
+                              marginTop: 4,
+                            }}
+                          >
+                            <MaterialIcons
+                              name="monitor-heart"
+                              size={16}
+                              color="#0EA5E9"
+                            />
+                            <ThemedText
+                              style={{
+                                flex: 1,
+                                fontSize: 13,
+                                fontWeight: "600",
+                                color: colors.text,
+                                fontFamily: Fonts.sans,
+                              }}
+                            >
+                              {showHospitalVitals
+                                ? "Hide Vitals"
+                                : "Add Vitals"}
+                            </ThemedText>
+                            <MaterialIcons
+                              name={
+                                showHospitalVitals
+                                  ? "expand-less"
+                                  : "expand-more"
+                              }
+                              size={18}
+                              color={subText}
+                            />
+                          </Pressable>
+
+                          {showHospitalVitals && (
+                            <View style={{ gap: 8, marginTop: 4 }}>
+                              <View style={{ flexDirection: "row", gap: 8 }}>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    BP
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={hospitalVitals.blood_pressure || ""}
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        blood_pressure: v,
+                                      }))
+                                    }
+                                    placeholder="120/80"
+                                    placeholderTextColor={subText}
+                                    maxLength={10}
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    HR (bpm)
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={
+                                      hospitalVitals.heart_rate?.toString() ||
+                                      ""
+                                    }
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        heart_rate: v ? Number(v) : undefined,
+                                      }))
+                                    }
+                                    placeholder="72"
+                                    placeholderTextColor={subText}
+                                    keyboardType="numeric"
+                                    maxLength={4}
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    SpO₂ %
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={
+                                      hospitalVitals.spo2?.toString() || ""
+                                    }
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        spo2: v ? Number(v) : undefined,
+                                      }))
+                                    }
+                                    placeholder="98"
+                                    placeholderTextColor={subText}
+                                    keyboardType="numeric"
+                                    maxLength={4}
+                                  />
+                                </View>
+                              </View>
+                              <View style={{ flexDirection: "row", gap: 8 }}>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    Temp °C
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={
+                                      hospitalVitals.temperature?.toString() ||
+                                      ""
+                                    }
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        temperature: v ? Number(v) : undefined,
+                                      }))
+                                    }
+                                    placeholder="36.6"
+                                    placeholderTextColor={subText}
+                                    keyboardType="decimal-pad"
+                                    maxLength={5}
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    RR (/min)
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={
+                                      hospitalVitals.respiratory_rate?.toString() ||
+                                      ""
+                                    }
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        respiratory_rate: v
+                                          ? Number(v)
+                                          : undefined,
+                                      }))
+                                    }
+                                    placeholder="16"
+                                    placeholderTextColor={subText}
+                                    keyboardType="numeric"
+                                    maxLength={3}
+                                  />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                  <ThemedText
+                                    style={{
+                                      fontSize: 10,
+                                      fontWeight: "600",
+                                      color: subText,
+                                      fontFamily: Fonts.sans,
+                                      marginBottom: 3,
+                                    }}
+                                  >
+                                    AVPU
+                                  </ThemedText>
+                                  <TextInput
+                                    style={[
+                                      styles.hospVitalInput,
+                                      {
+                                        backgroundColor: isDark
+                                          ? "#1E293B"
+                                          : "#F8FAFC",
+                                        borderColor: cardBorder,
+                                        color: colors.text,
+                                      },
+                                    ]}
+                                    value={
+                                      hospitalVitals.consciousness_level || ""
+                                    }
+                                    onChangeText={(v) =>
+                                      setHospitalVitals((p) => ({
+                                        ...p,
+                                        consciousness_level: v,
+                                      }))
+                                    }
+                                    placeholder="Alert"
+                                    placeholderTextColor={subText}
+                                    maxLength={20}
+                                  />
+                                </View>
+                              </View>
+                            </View>
+                          )}
+
+                          {/* Submit */}
+                          <Pressable
+                            style={[
+                              styles.hospNoteSaveBtn,
+                              {
+                                opacity:
+                                  submittingHospitalNote ||
+                                  !hospitalNoteContent.trim()
+                                    ? 0.5
+                                    : 1,
+                              },
+                            ]}
+                            disabled={
+                              submittingHospitalNote ||
+                              !hospitalNoteContent.trim()
+                            }
+                            onPress={handleSubmitHospitalNote}
+                          >
+                            <MaterialIcons name="save" size={16} color="#FFF" />
+                            <ThemedText style={styles.hospNoteSaveBtnText}>
+                              {submittingHospitalNote
+                                ? "Saving..."
+                                : "Save Note"}
+                            </ThemedText>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={[styles.section, { borderColor: cardBorder }]}>
+                      <View style={styles.sectionHeader}>
+                        <MaterialIcons
+                          name="pending-actions"
+                          size={18}
+                          color="#F59E0B"
+                        />
+                        <ThemedText
+                          style={[styles.sectionTitle, { color: colors.text }]}
+                        >
+                          Clinical Notes
+                        </ThemedText>
+                      </View>
+                      <View
                         style={[
-                          styles.actionBtn,
-                          { backgroundColor: "#10B981" },
+                          styles.actionHintCard,
+                          {
+                            backgroundColor: isDark
+                              ? "rgba(245,158,11,0.12)"
+                              : "rgba(245,158,11,0.08)",
+                          },
                         ]}
-                        onPress={() =>
-                          updateStatus(selectedEmergency.id, "completed")
-                        }
                       >
                         <MaterialIcons
-                          name="check-circle"
-                          size={18}
-                          color="#FFF"
+                          name="hourglass-empty"
+                          size={16}
+                          color="#F59E0B"
                         />
-                        <ThemedText style={styles.actionBtnText}>
-                          Mark Completed
+                        <ThemedText
+                          style={[styles.actionHintText, { color: subText }]}
+                        >
+                          Clinical notes will be available once an ambulance
+                          accepts this emergency request.
                         </ThemedText>
-                      </Pressable>
+                      </View>
                     </View>
                   )}
+
+                  {/* Live map preview — hidden for completed/cancelled */}
+                  {selectedEmergency.latitude !== 0 &&
+                    !["completed", "cancelled"].includes(
+                      selectedEmergency.status,
+                    ) && (
+                      <View style={{ marginBottom: 16 }}>
+                        <View style={styles.sectionHeader}>
+                          <MaterialIcons name="map" size={18} color="#06B6D4" />
+                          <ThemedText
+                            style={[
+                              styles.sectionTitle,
+                              { color: colors.text },
+                            ]}
+                          >
+                            Live Location
+                          </ThemedText>
+                        </View>
+                        <HtmlMapView
+                          html={
+                            selectedEmergency.ambulance_latitude &&
+                            selectedEmergency.ambulance_longitude
+                              ? buildDriverPatientMapHtml(
+                                  selectedEmergency.ambulance_latitude,
+                                  selectedEmergency.ambulance_longitude,
+                                  selectedEmergency.latitude,
+                                  selectedEmergency.longitude,
+                                )
+                              : buildMapHtml(
+                                  selectedEmergency.latitude,
+                                  selectedEmergency.longitude,
+                                  15,
+                                )
+                          }
+                          style={styles.modalMap}
+                          title="Emergency Location"
+                        />
+                      </View>
+                    )}
+
+                  {/* Action buttons — hospital-owned stages only */}
+                  {(() => {
+                    const actions = getHospitalStatusActions(
+                      selectedEmergency.status,
+                    );
+                    if (
+                      ["completed", "cancelled"].includes(
+                        selectedEmergency.status,
+                      )
+                    )
+                      return null;
+                    if (actions.length === 0)
+                      return (
+                        <View
+                          style={[
+                            styles.actionHintCard,
+                            {
+                              backgroundColor: isDark
+                                ? "rgba(59,130,246,0.1)"
+                                : "rgba(59,130,246,0.06)",
+                            },
+                          ]}
+                        >
+                          <MaterialIcons
+                            name="info-outline"
+                            size={16}
+                            color="#3B82F6"
+                          />
+                          <ThemedText
+                            style={[styles.actionHintText, { color: subText }]}
+                          >
+                            Ambulance is handling this stage. Actions will
+                            appear once the patient is en route to the hospital.
+                          </ThemedText>
+                        </View>
+                      );
+                    return (
+                      <View style={styles.actionRow}>
+                        {actions.map((a) => (
+                          <Pressable
+                            key={a.next}
+                            style={[
+                              styles.actionBtn,
+                              {
+                                backgroundColor: a.color,
+                                opacity: statusUpdating ? 0.6 : 1,
+                              },
+                            ]}
+                            disabled={!!statusUpdating}
+                            onPress={() =>
+                              updateStatus(selectedEmergency.id, a.next)
+                            }
+                          >
+                            <MaterialIcons
+                              name={a.icon as any}
+                              size={18}
+                              color="#FFF"
+                            />
+                            <ThemedText style={styles.actionBtnText}>
+                              {statusUpdating === a.next
+                                ? "Updating…"
+                                : a.label}
+                            </ThemedText>
+                          </Pressable>
+                        ))}
+                      </View>
+                    );
+                  })()}
                 </>
               )}
             </ScrollView>
@@ -1487,19 +2746,57 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
+  notifIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   notifText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     fontFamily: Fonts.sans,
-    flex: 1,
+  },
+  notifSub: {
+    color: "rgba(255,255,255,0.75)",
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    marginTop: 1,
+  },
+  notifBellWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notifBadge: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#DC2626",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  notifBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
   },
   scrollOuter: { flex: 1 },
   scrollContent: { paddingTop: 16, paddingBottom: 60 },
@@ -1649,15 +2946,37 @@ const styles = StyleSheet.create({
   itemCard: {
     borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 10,
+    marginBottom: 12,
     overflow: "hidden",
+    flexDirection: "row",
+  },
+  cardAccentStripe: {
+    width: 4,
+    borderTopLeftRadius: 14,
+    borderBottomLeftRadius: 14,
+  },
+  cardInner: {
+    flex: 1,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 6,
+  },
+  cardBadgesRow: {
+    flexDirection: "row",
+    gap: 6,
+    flex: 1,
+    flexWrap: "wrap",
+  },
+  cardTimeAgo: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: Fonts.sans,
+    marginLeft: 8,
   },
   statusBadge: {
     flexDirection: "row",
@@ -1675,7 +2994,14 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  typeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   cardBody: {
     flexDirection: "row",
     alignItems: "center",
@@ -1693,9 +3019,21 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1, gap: 2 },
   cardTitle: { fontSize: 15, fontWeight: "700", fontFamily: Fonts.sans },
   cardSub: { fontSize: 12, fontFamily: Fonts.sans },
+  cardChevronWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardDescWrap: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+  },
   cardFooter: {
     flexDirection: "row",
-    gap: 20,
+    gap: 14,
+    flexWrap: "wrap",
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderTopWidth: 1,
@@ -1747,6 +3085,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   closeBtn: { padding: 10, marginLeft: 8 },
+  modalStatusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  modalStatusText: {
+    fontSize: 12,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    letterSpacing: 0.8,
+    flex: 1,
+  },
+  liveDot: { width: 8, height: 8, borderRadius: 4 },
+  liveLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: Fonts.sans,
+    letterSpacing: 1,
+  },
   section: { marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1 },
   sectionHeader: {
     flexDirection: "row",
@@ -1755,7 +3116,38 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.sans },
+  modalMap: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  fleetCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 16,
+  },
+  fleetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+  },
+  fleetItem: { alignItems: "center", flex: 1 },
+  fleetDivider: { width: 1, height: 36 },
+  fleetNum: { fontSize: 22, fontWeight: "800", fontFamily: Fonts.sans },
+  fleetLabel: { fontSize: 11, fontFamily: Fonts.sans, marginTop: 2 },
   actionRow: { flexDirection: "row", gap: 12, marginTop: 4, marginBottom: 16 },
+  actionHintCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  actionHintText: { fontSize: 12, fontFamily: Fonts.sans, flex: 1 },
   actionBtn: {
     flex: 1,
     flexDirection: "row",
@@ -1916,6 +3308,80 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "700",
+    fontFamily: Fonts.sans,
+  },
+
+  // Medical notes styles
+  hospNoteItem: { borderTopWidth: 1, paddingTop: 10, marginTop: 10 },
+  hospNoteHeader: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "space-between" as const,
+    marginBottom: 4,
+  },
+  hospNoteTypeBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  hospVitalsRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: 5,
+    marginTop: 5,
+  },
+  hospVitalChip: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  hospNoteForm: { borderTopWidth: 1, paddingTop: 14, marginTop: 14 },
+  hospNoteTypeChip: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 7,
+    borderWidth: 1.5,
+  },
+  hospNoteInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    minHeight: 80,
+    lineHeight: 18,
+  },
+  hospVitalInput: {
+    borderWidth: 1,
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+  },
+  hospNoteSaveBtn: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    gap: 6,
+    backgroundColor: "#10B981",
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  hospNoteSaveBtnText: {
+    color: "#FFF",
+    fontSize: 13,
+    fontWeight: "700" as const,
     fontFamily: Fonts.sans,
   },
 });

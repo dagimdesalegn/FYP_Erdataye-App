@@ -547,7 +547,7 @@ export const acceptEmergency = async (
 
     const { error: emergencyError } = await supabase
       .from("emergency_requests")
-      .update({ status: "en_route", updated_at: new Date().toISOString() })
+      .update({ status: "assigned", updated_at: new Date().toISOString() })
       .eq("id", emergencyId);
     if (emergencyError) throw emergencyError;
 

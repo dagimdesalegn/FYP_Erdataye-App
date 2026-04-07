@@ -90,7 +90,7 @@ export default function DriverEmergencyScreen() {
         // Immediate snapshot
         try {
           const initial = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
+            accuracy: Location.Accuracy.High,
           });
           setDriverCoords({
             latitude: initial.coords.latitude,
@@ -103,7 +103,7 @@ export default function DriverEmergencyScreen() {
           intervalId = setInterval(async () => {
             try {
               const loc = await Location.getCurrentPositionAsync({
-                accuracy: Location.Accuracy.Balanced,
+                accuracy: Location.Accuracy.High,
               });
               setDriverCoords({
                 latitude: loc.coords.latitude,
@@ -114,9 +114,9 @@ export default function DriverEmergencyScreen() {
         } else {
           watcher = await Location.watchPositionAsync(
             {
-              accuracy: Location.Accuracy.Balanced,
-              timeInterval: 8000,
-              distanceInterval: 10,
+              accuracy: Location.Accuracy.High,
+              timeInterval: 5000,
+              distanceInterval: 5,
             },
             (loc) => {
               setDriverCoords({
@@ -132,7 +132,9 @@ export default function DriverEmergencyScreen() {
     startLiveLocation();
 
     return () => {
-      try { if (watcher) watcher.remove(); } catch {}
+      try {
+        if (watcher) watcher.remove();
+      } catch {}
       if (intervalId) clearInterval(intervalId);
     };
   }, []);
@@ -166,8 +168,13 @@ export default function DriverEmergencyScreen() {
         // Load patient info in parallel
         if (pid) {
           detailPromises.push(
-            getPatientInfo(pid, asgn.emergency_id || asgn.emergency_requests?.id)
-              .then(({ info }) => { if (info) setPatientInfo(info); })
+            getPatientInfo(
+              pid,
+              asgn.emergency_id || asgn.emergency_requests?.id,
+            )
+              .then(({ info }) => {
+                if (info) setPatientInfo(info);
+              })
               .catch(() => {}),
           );
         }
@@ -367,12 +374,16 @@ export default function DriverEmergencyScreen() {
   const mapHtml = (() => {
     if (driverCoords && patientCoords) {
       return buildDriverPatientMapHtml(
-        driverCoords.latitude, driverCoords.longitude,
-        patientCoords.latitude, patientCoords.longitude,
+        driverCoords.latitude,
+        driverCoords.longitude,
+        patientCoords.latitude,
+        patientCoords.longitude,
       );
     }
-    if (patientCoords) return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
-    if (driverCoords) return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
+    if (patientCoords)
+      return buildMapHtml(patientCoords.latitude, patientCoords.longitude);
+    if (driverCoords)
+      return buildMapHtml(driverCoords.latitude, driverCoords.longitude);
     return "";
   })();
 

@@ -18,6 +18,17 @@ interface HtmlMapViewProps {
 export function HtmlMapView({ html, style, title = "Map" }: HtmlMapViewProps) {
   const [hasError, setHasError] = useState(false);
 
+  // Google Maps embed URLs require being inside an iframe on native WebView.
+  const iframeHtml = useMemo(
+    () => `<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}
+iframe{width:100%;height:100%;border:none}</style></head>
+<body><iframe src="${html}" allowfullscreen loading="eager"></iframe></body></html>`,
+    [html],
+  );
+  const webViewSource = useMemo(() => ({ html: iframeHtml }), [iframeHtml]);
+
   if (Platform.OS === "web") {
     return (
       <View style={style}>
@@ -38,18 +49,6 @@ export function HtmlMapView({ html, style, title = "Map" }: HtmlMapViewProps) {
       </View>
     );
   }
-
-  // Google Maps embed URLs require being inside an iframe.
-  // Wrap the embed URL in a minimal HTML document with a full-size iframe.
-  const iframeHtml = useMemo(
-    () => `<!DOCTYPE html>
-<html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}
-iframe{width:100%;height:100%;border:none}</style></head>
-<body><iframe src="${html}" allowfullscreen loading="eager"></iframe></body></html>`,
-    [html],
-  );
-  const webViewSource = useMemo(() => ({ html: iframeHtml }), [iframeHtml]);
 
   return (
     <View style={style}>

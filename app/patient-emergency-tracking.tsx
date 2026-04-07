@@ -3,12 +3,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, {
-    useCallback,
-    useEffect,
-    useRef,
-    useState
-} from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -33,7 +28,12 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendPatch } from "@/utils/api";
-import { buildDriverPatientMapHtml, buildMapHtml, calculateDistance, parsePostGISPoint } from "@/utils/emergency";
+import {
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    calculateDistance,
+    parsePostGISPoint,
+} from "@/utils/emergency";
 import {
     cancelEmergencyWithinWindow,
     createFamilyShareLink,
@@ -171,6 +171,38 @@ export default function PatientEmergencyTrackingScreen() {
     longitude: number;
   } | null>(null);
   const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
+  const detailRefreshKeyRef = useRef("");
+  const hospitalFetchInFlightRef = useRef(false);
+  const lastHospitalFetchAtRef = useRef(0);
+
+  const refreshHospitalStatus = useCallback(
+    async (force: boolean = false) => {
+      if (!emergencyId || typeof emergencyId !== "string") return;
+
+      const now = Date.now();
+      if (
+        !force &&
+        (hospitalFetchInFlightRef.current ||
+          now - lastHospitalFetchAtRef.current < 15000)
+      ) {
+        return;
+      }
+
+      hospitalFetchInFlightRef.current = true;
+      try {
+        const { data } = await getEmergencyHospitalStatus(emergencyId);
+        if (data) {
+          setHospitalStatus(data);
+          lastHospitalFetchAtRef.current = Date.now();
+        }
+      } catch {
+        // keep existing hospital snapshot if refresh fails
+      } finally {
+        hospitalFetchInFlightRef.current = false;
+      }
+    },
+    [emergencyId],
+  );
 
   const applyAmbulanceFix = useCallback(
     (latitude: number, longitude: number) => {
@@ -230,13 +262,11 @@ export default function PatientEmergencyTrackingScreen() {
         setError(err.message);
       } else {
         setEmergency(emerg);
+        detailRefreshKeyRef.current = `${String(emerg?.status || "")}|${String(emerg?.assigned_ambulance_id || "")}|${String(emerg?.hospital_id || "")}`;
         setAssignment(assign);
         setAmbulance(amb);
         if (emerg?.id) {
-          const { data: hospitalData } = await getEmergencyHospitalStatus(
-            emerg.id,
-          );
-          if (hospitalData) setHospitalStatus(hospitalData);
+          void refreshHospitalStatus(true);
         }
         if (amb?.last_known_location) {
           const parsed = parsePostGISPoint(amb.last_known_location);
@@ -249,7 +279,7 @@ export default function PatientEmergencyTrackingScreen() {
     } finally {
       setLoading(false);
     }
-  }, [emergencyId]);
+  }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus]);
 
   useEffect(() => {
     void loadData();
@@ -259,24 +289,28 @@ export default function PatientEmergencyTrackingScreen() {
   useEffect(() => {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const unsub = subscribeToEmergency(emergencyId, (updated) => {
+      const nextKey = `${String(updated?.status || "")}|${String(updated?.assigned_ambulance_id || "")}|${String(updated?.hospital_id || "")}`;
+      const keyChanged = detailRefreshKeyRef.current !== nextKey;
+
       setEmergency(updated);
-      // Also refresh assignment/ambulance details (phone, vehicle, ETA) on live status updates.
+      if (!keyChanged) return;
+
+      detailRefreshKeyRef.current = nextKey;
+      // Refresh heavy details only when status/assignment/hospital linkage actually changes.
       void getEmergencyDetails(emergencyId).then(
         ({ assignment, ambulance }) => {
           setAssignment(assignment);
           setAmbulance(ambulance);
-          void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
-            if (data) setHospitalStatus(data);
-          });
           if (ambulance?.last_known_location) {
             const parsed = parsePostGISPoint(ambulance.last_known_location);
             if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
           }
         },
       );
+      void refreshHospitalStatus(true);
     });
     return unsub;
-  }, [emergencyId, applyAmbulanceFix]);
+  }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus]);
 
   // Polling fallback: check status every 30s in case realtime misses updates
   useEffect(() => {
@@ -289,9 +323,7 @@ export default function PatientEmergencyTrackingScreen() {
           ambulance: amb,
         } = await getEmergencyDetails(emergencyId);
         if (emerg && emerg.status !== emergency?.status) setEmergency(emerg);
-        void getEmergencyHospitalStatus(emergencyId).then(({ data }) => {
-          if (data) setHospitalStatus(data);
-        });
+        void refreshHospitalStatus();
         if (assign) setAssignment(assign);
         if (amb) {
           setAmbulance(amb);
@@ -303,7 +335,12 @@ export default function PatientEmergencyTrackingScreen() {
       } catch {}
     }, 30000);
     return () => clearInterval(interval);
-  }, [emergencyId, emergency?.status, applyAmbulanceFix]);
+  }, [
+    emergencyId,
+    emergency?.status,
+    applyAmbulanceFix,
+    refreshHospitalStatus,
+  ]);
 
   // Show notification toast when status changes
   useEffect(() => {
@@ -410,7 +447,9 @@ export default function PatientEmergencyTrackingScreen() {
     void startPatientTracking();
     return () => {
       mounted = false;
-      try { if (watcher) watcher.remove(); } catch {}
+      try {
+        if (watcher) watcher.remove();
+      } catch {}
     };
   }, [emergencyId]);
 
@@ -756,18 +795,30 @@ export default function PatientEmergencyTrackingScreen() {
   const mapHtml = (() => {
     if (isTransportPhase && mapAmbulanceCoords && hospitalCoords) {
       return buildDriverPatientMapHtml(
-        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
-        hospitalCoords.latitude, hospitalCoords.longitude,
+        mapAmbulanceCoords.latitude,
+        mapAmbulanceCoords.longitude,
+        hospitalCoords.latitude,
+        hospitalCoords.longitude,
       );
     }
     if (mapAmbulanceCoords && mapPatientCoords) {
       return buildDriverPatientMapHtml(
-        mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude,
-        mapPatientCoords.latitude, mapPatientCoords.longitude,
+        mapAmbulanceCoords.latitude,
+        mapAmbulanceCoords.longitude,
+        mapPatientCoords.latitude,
+        mapPatientCoords.longitude,
       );
     }
-    if (mapPatientCoords) return buildMapHtml(mapPatientCoords.latitude, mapPatientCoords.longitude);
-    if (mapAmbulanceCoords) return buildMapHtml(mapAmbulanceCoords.latitude, mapAmbulanceCoords.longitude);
+    if (mapPatientCoords)
+      return buildMapHtml(
+        mapPatientCoords.latitude,
+        mapPatientCoords.longitude,
+      );
+    if (mapAmbulanceCoords)
+      return buildMapHtml(
+        mapAmbulanceCoords.latitude,
+        mapAmbulanceCoords.longitude,
+      );
     return "";
   })();
 

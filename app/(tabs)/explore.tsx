@@ -135,7 +135,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     elevation: 2,
-    elevation: 2,
     gap: 8,
   },
   backButtonLight: {
@@ -166,7 +165,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#EEF2F6",
-    elevation: 6,
     elevation: 6,
   },
   title: {

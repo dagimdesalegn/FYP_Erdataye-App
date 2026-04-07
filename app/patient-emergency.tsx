@@ -36,6 +36,7 @@ import {
     getEmergencyCancelWindowState,
     retryEmergencyDispatch,
     subscribeToEmergency,
+    updatePatientLiveLocation,
 } from "@/utils/patient";
 import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -128,6 +129,11 @@ export default function PatientEmergencyScreen() {
   const hasNearbyAmbulance = nearbyAmbulances.length > 0;
   const lastDispatchRetry = React.useRef<number>(0);
   const lastFallbackAssign = React.useRef<number>(0);
+  const lastPatientLiveSyncRef = React.useRef<{
+    latitude: number;
+    longitude: number;
+    at: number;
+  } | null>(null);
   const fetchingNearbyRef = React.useRef(false);
   const lastNearbyFetchRef = useRef<{
     latitude: number;
@@ -516,6 +522,35 @@ export default function PatientEmergencyScreen() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!activeEmergencyId || !location) return;
+    const now = Date.now();
+    const prev = lastPatientLiveSyncRef.current;
+    if (prev) {
+      const movedMeters =
+        calculateDistance(
+          prev.latitude,
+          prev.longitude,
+          location.latitude,
+          location.longitude,
+        ) * 1000;
+      const elapsed = now - prev.at;
+      if (movedMeters < 8 && elapsed < 15000) return;
+    }
+
+    lastPatientLiveSyncRef.current = {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      at: now,
+    };
+
+    void updatePatientLiveLocation(
+      activeEmergencyId,
+      location.latitude,
+      location.longitude,
+    );
+  }, [activeEmergencyId, location?.latitude, location?.longitude]);
 
   const handleSOS = async () => {
     if (!user?.id) {

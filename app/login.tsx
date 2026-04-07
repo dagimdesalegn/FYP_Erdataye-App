@@ -1,5 +1,6 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
@@ -134,6 +135,22 @@ export default function LoginScreen() {
           route = "/help";
           break;
       }
+
+      if (route === "/help") {
+        try {
+          const permission = await Location.requestForegroundPermissionsAsync();
+          if (permission.status === "granted") {
+            const current = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.High,
+              mayShowUserSettingsDialog: true,
+            });
+            route = `/help?lat=${current.coords.latitude}&lng=${current.coords.longitude}`;
+          }
+        } catch {
+          // Non-blocking: help screen will still request realtime location itself.
+        }
+      }
+
       setLoading(false);
       router.replace(route);
     } catch (err) {

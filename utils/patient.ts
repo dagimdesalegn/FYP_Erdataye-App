@@ -102,6 +102,46 @@ export const retryEmergencyDispatch = async (
   }
 };
 
+export const updatePatientLiveLocation = async (
+  emergencyId: string,
+  latitude: number,
+  longitude: number,
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    if (
+      !emergencyId ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+      return {
+        success: false,
+        error: new Error("Invalid emergency/location payload"),
+      };
+    }
+
+    const res = await backendPatch<{ success?: boolean; reason?: string }>(
+      `/ops/patient/emergencies/${emergencyId}/patient-location`,
+      {
+        latitude,
+        longitude,
+      },
+    );
+
+    if (res?.success === false) {
+      return {
+        success: false,
+        error: new Error(
+          String(res.reason || "Failed to update live location"),
+        ),
+      };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+};
+
 export interface AmbulanceInfo {
   id: string;
   vehicle_number: string;
