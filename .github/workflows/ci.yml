@@ -48,7 +48,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Backend tests
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://test.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          SUPABASE_JWT_SECRET: test-jwt-secret
+          DEEPSEEK_API_KEY: test-deepseek-key
         run: pytest tests -v
 
       - name: Migration syntax check
-        run: python -m compileall ../backend/migrate.py
+        run: python -m compileall migrate.py
