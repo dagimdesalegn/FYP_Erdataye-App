@@ -17,7 +17,6 @@ import {
     View,
 } from "react-native";
 
-import ambulanceFavicon from "@/assets/images/ambulance-favicon.png";
 import faydaLogo from "@/assets/images/fayda-logo.webp";
 import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
@@ -446,13 +445,6 @@ export default function RegisterScreen() {
         translucent
         backgroundColor="transparent"
       />
-      {/* Back button */}
-      <Pressable
-        onPress={() => router.back()}
-        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-      >
-        <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
-      </Pressable>
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -493,16 +485,17 @@ export default function RegisterScreen() {
               isSmallScreen && styles.cardMobile,
             ]}
           >
-            {/* Logo / Header area */}
-            <View style={styles.headerArea}>
-              <View style={styles.logoContainer}>
-                <Image
-                  source={ambulanceFavicon}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
+            {/* Back button inside card */}
+            <Pressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [
+                styles.cardBackBtn,
+                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] },
+              ]}
+            >
+              <MaterialIcons name="arrow-back" size={20} color={textPrimary} />
+            </Pressable>
 
             {/* Header */}
             <ThemedText style={[styles.title, { color: textPrimary }]}>
@@ -1250,13 +1243,14 @@ const styles = StyleSheet.create({
       ? { minHeight: "100vh" as any, overflow: "auto" as any }
       : {}),
   },
-  backBtn: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 10,
-    padding: 8,
-    borderRadius: 20,
+  cardBackBtn: {
+    alignSelf: "flex-start",
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   flex: {
     flex: 1,
@@ -1307,23 +1301,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     flexGrow: 0,
   },
-  headerArea: { alignItems: "center", marginBottom: 12 },
-  logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: "rgba(220, 38, 38, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.12)",
-  },
-  logoImage: {
-    width: 48,
-    height: 48,
-  },
+
   title: {
     fontSize: 24,
     fontFamily: Fonts.sansExtraBold,

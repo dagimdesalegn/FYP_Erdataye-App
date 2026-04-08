@@ -23,7 +23,6 @@ import { signIn } from "@/utils/auth";
 import { t } from "@/utils/i18n";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-const ambulanceFavicon = require("../assets/images/ambulance-favicon.png");
 
 const CARD_MAX_W = 440;
 
@@ -228,17 +227,6 @@ export default function LoginScreen() {
             },
           ]}
         >
-          {/* Logo / Header area */}
-          <View style={styles.headerArea}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={ambulanceFavicon}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-          </View>
-
           {/* Title */}
           <ThemedText style={[styles.title, { color: textPrimary }]}>
             {t("login")}
@@ -544,23 +532,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   /* ---- Header ---- */
-  headerArea: { alignItems: "center", marginBottom: 24 },
-  logoContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: "rgba(220, 38, 38, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.12)",
-  },
-  logoImage: {
-    width: 60,
-    height: 60,
-  },
+
   /* ---- Title / Subtitle ---- */
   title: {
     fontSize: 24,
