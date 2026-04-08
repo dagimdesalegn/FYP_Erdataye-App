@@ -14,6 +14,7 @@ import {
     buildMapHtml,
     formatCoords,
     normalizeEmergency,
+    parsePostGISPoint,
 } from "@/utils/emergency";
 import {
     NOTE_TYPE_LABELS,
@@ -24,6 +25,7 @@ import {
     type NoteType,
     type Vitals,
 } from "@/utils/medical-notes";
+import { subscribeToAmbulanceLocation } from "@/utils/patient";
 import { MedicalProfile, UserProfile } from "@/utils/profile";
 import { supabase } from "@/utils/supabase";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -99,7 +101,7 @@ const TYPE_COLORS: Record<string, string> = {
 /* ─── Component ───────────────────────────────────────────────── */
 
 export default function HospitalDashboard() {
-  const authLoading = useAuthGuard(["hospital"]);
+  const _authLoading = useAuthGuard(["hospital"]);
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
@@ -143,12 +145,17 @@ export default function HospitalDashboard() {
   const [hospitalNoteContent, setHospitalNoteContent] = useState("");
   const [hospitalNoteType, setHospitalNoteType] =
     useState<NoteType>("treatment");
+  const [hospitalMedicalConditions, setHospitalMedicalConditions] = useState("");
   const [hospitalVitals, setHospitalVitals] = useState<Vitals>({});
   const [showHospitalVitals, setShowHospitalVitals] = useState(false);
   const [submittingHospitalNote, setSubmittingHospitalNote] = useState(false);
 
   // Notification bell badge state
   const [notifCount, setNotifCount] = useState(0);
+  const [notifHistory, setNotifHistory] = useState<
+    { message: string; color: string; time: number }[]
+  >([]);
+  const [notifPanelVisible, setNotifPanelVisible] = useState(false);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -168,10 +175,36 @@ export default function HospitalDashboard() {
   useEffect(() => {
     if (!selectedEmergency || !modalVisible) return;
     const updated = emergencies.find((e) => e.id === selectedEmergency.id);
-    if (updated && updated.status !== selectedEmergency.status) {
-      setSelectedEmergency(updated);
+    if (updated) {
+      const changed =
+        updated.status !== selectedEmergency.status ||
+        updated.ambulance_latitude !== selectedEmergency.ambulance_latitude ||
+        updated.ambulance_longitude !== selectedEmergency.ambulance_longitude;
+      if (changed) setSelectedEmergency(updated);
     }
   }, [emergencies, selectedEmergency, modalVisible]);
+
+  // Realtime ambulance location tracking when modal is open
+  useEffect(() => {
+    if (!selectedEmergency || !modalVisible) return;
+    const ambId = selectedEmergency.assigned_ambulance_id;
+    if (!ambId) return;
+    const unsub = subscribeToAmbulanceLocation(ambId, (lat, lng) => {
+      setSelectedEmergency((prev) =>
+        prev ? { ...prev, ambulance_latitude: lat, ambulance_longitude: lng } : prev,
+      );
+      // Also update the emergencies list so it stays in sync
+      setEmergencies((prev) =>
+        prev.map((e) =>
+          e.id === selectedEmergency.id
+            ? { ...e, ambulance_latitude: lat, ambulance_longitude: lng }
+            : e,
+        ),
+      );
+    });
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEmergency?.id, selectedEmergency?.assigned_ambulance_id, modalVisible]);
 
   // Load medical notes when modal opens
   useEffect(() => {
@@ -187,28 +220,100 @@ export default function HospitalDashboard() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEmergency?.id, modalVisible]);
 
+  useEffect(() => {
+    if (!selectedEmergency || !modalVisible) return;
+    setHospitalMedicalConditions(
+      selectedEmergency.patient_medical?.medical_conditions || "",
+    );
+  }, [selectedEmergency?.id, selectedEmergency?.patient_medical?.medical_conditions, modalVisible]);
+
   const handleSubmitHospitalNote = async () => {
-    if (!selectedEmergency || !hospitalNoteContent.trim()) return;
+    if (!selectedEmergency) return;
+    const nextMedicalConditions = hospitalMedicalConditions.trim();
+    const prevMedicalConditions = String(
+      selectedEmergency.patient_medical?.medical_conditions || "",
+    ).trim();
+    const shouldUpdateMedicalConditions =
+      nextMedicalConditions !== prevMedicalConditions;
+    if (!hospitalNoteContent.trim() && !shouldUpdateMedicalConditions) return;
+
     setSubmittingHospitalNote(true);
     const hasVitals = Object.values(hospitalVitals).some(
       (v) => v !== undefined && v !== "" && v !== null,
     );
-    const { note, error } = await addMedicalNote(
-      selectedEmergency.id,
-      hospitalNoteType,
-      hospitalNoteContent.trim(),
-      hasVitals ? hospitalVitals : null,
-    );
-    if (error) {
-      showError("Note Failed", error);
-    } else if (note) {
-      setMedicalNotes((prev) => [...prev, note]);
-      setHospitalNoteContent("");
-      setHospitalVitals({});
-      setShowHospitalVitals(false);
-      showSuccess("Note Saved", "Medical note recorded successfully.");
+
+    let savedNote = false;
+    let savedMedicalConditions = false;
+
+    if (hospitalNoteContent.trim()) {
+      const { note, error } = await addMedicalNote(
+        selectedEmergency.id,
+        hospitalNoteType,
+        hospitalNoteContent.trim(),
+        hasVitals ? hospitalVitals : null,
+      );
+      if (error) {
+        showError("Note Failed", error);
+      } else if (note) {
+        savedNote = true;
+        setMedicalNotes((prev) => [...prev, note]);
+        setHospitalNoteContent("");
+        setHospitalVitals({});
+        setShowHospitalVitals(false);
+      }
+    }
+
+    if (shouldUpdateMedicalConditions) {
+      try {
+        await backendPut(
+          `/ops/emergencies/${selectedEmergency.id}/patient-medical`,
+          { medical_conditions: nextMedicalConditions },
+        );
+        savedMedicalConditions = true;
+        const now = new Date().toISOString();
+        const fallbackMedical: MedicalProfile = {
+          id: selectedEmergency.patient_medical?.id || "",
+          user_id:
+            selectedEmergency.patient_medical?.user_id ||
+            selectedEmergency.patient_id,
+          blood_type: selectedEmergency.patient_medical?.blood_type || "",
+          allergies: selectedEmergency.patient_medical?.allergies || "",
+          medical_conditions: nextMedicalConditions,
+          emergency_contact_name:
+            selectedEmergency.patient_medical?.emergency_contact_name || "",
+          emergency_contact_phone:
+            selectedEmergency.patient_medical?.emergency_contact_phone || "",
+          created_at: selectedEmergency.patient_medical?.created_at || now,
+          updated_at: now,
+        };
+        setSelectedEmergency((prev) =>
+          prev && prev.id === selectedEmergency.id
+            ? { ...prev, patient_medical: fallbackMedical }
+            : prev,
+        );
+        setEmergencies((prev) =>
+          prev.map((emergency) =>
+            emergency.id === selectedEmergency.id
+              ? { ...emergency, patient_medical: fallbackMedical }
+              : emergency,
+          ),
+        );
+      } catch (error: any) {
+        showError(
+          "Medical Conditions Failed",
+          error?.message || "Unable to update patient medical conditions.",
+        );
+      }
+    }
+
+    if (savedNote || savedMedicalConditions) {
+      const parts = [];
+      if (savedNote) parts.push("medical note saved");
+      if (savedMedicalConditions) parts.push("medical conditions updated");
+      showSuccess("Saved", `${parts.join(" and ")} successfully.`);
     }
     setSubmittingHospitalNote(false);
   };
@@ -236,6 +341,10 @@ export default function HospitalDashboard() {
   const showNotification = useCallback(
     (message: string, color: string) => {
       setNotification({ message, color });
+      setNotifHistory((prev) => [
+        { message, color, time: Date.now() },
+        ...prev.slice(0, 49),
+      ]);
       notifOpacity.setValue(0);
       Animated.sequence([
         Animated.timing(notifOpacity, {
@@ -339,6 +448,7 @@ export default function HospitalDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showError, setUser, user, user?.fullName]);
 
   useEffect(() => {
@@ -371,8 +481,11 @@ export default function HospitalDashboard() {
         "Status Updated",
         `Status updated to ${newStatus.replace("_", " ")}`,
       );
+      // Update selected emergency in-place so the modal stays open
+      setSelectedEmergency((prev) =>
+        prev && prev.id === emergencyId ? { ...prev, status: newStatus } : prev,
+      );
       fetchEmergencies();
-      setModalVisible(false);
     } catch {
       showError("Update Failed", "Failed to update status");
     } finally {
@@ -410,6 +523,7 @@ export default function HospitalDashboard() {
     return [];
   };
 
+   
   useEffect(() => {
     fetchEmergencies();
     const channel = supabase
@@ -454,7 +568,23 @@ export default function HospitalDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ambulances" },
-        () => fetchEmergencies(),
+        (payload: any) => {
+          // Inline-update ambulance coords for instant map refresh
+          if (payload.eventType === "UPDATE" && payload.new) {
+            const ambId = String(payload.new.id || "");
+            const parsed = parsePostGISPoint(payload.new.last_known_location);
+            if (parsed && ambId) {
+              setEmergencies((prev) =>
+                prev.map((e) =>
+                  e.assigned_ambulance_id === ambId
+                    ? { ...e, ambulance_latitude: parsed.latitude, ambulance_longitude: parsed.longitude }
+                    : e,
+                ),
+              );
+            }
+          }
+          fetchEmergencies();
+        },
       )
       .on(
         "postgres_changes",
@@ -480,6 +610,7 @@ export default function HospitalDashboard() {
     return () => {
       channel.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchEmergencies]);
 
   const onRefresh = useCallback(() => {
@@ -917,7 +1048,10 @@ export default function HospitalDashboard() {
         rightExtra={
           <Pressable
             style={styles.notifBellWrap}
-            onPress={() => setNotifCount(0)}
+            onPress={() => {
+              setNotifPanelVisible(true);
+              setNotifCount(0);
+            }}
           >
             <MaterialIcons
               name={
@@ -1218,6 +1352,47 @@ export default function HospitalDashboard() {
                       </ThemedText>
                     )}
                   </View>
+
+                  {/* Live tracking map — prominent at top */}
+                  {selectedEmergency.latitude !== 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                      <View style={styles.sectionHeader}>
+                        <MaterialIcons name="map" size={18} color="#06B6D4" />
+                        <ThemedText
+                          style={[
+                            styles.sectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {["completed", "cancelled"].includes(
+                            selectedEmergency.status,
+                          )
+                            ? "Location"
+                            : "Live Tracking"}
+                        </ThemedText>
+                      </View>
+                      <HtmlMapView
+                        html={
+                          selectedEmergency.ambulance_latitude &&
+                          selectedEmergency.ambulance_longitude
+                            ? buildDriverPatientMapHtml(
+                                selectedEmergency.ambulance_latitude,
+                                selectedEmergency.ambulance_longitude,
+                                selectedEmergency.latitude,
+                                selectedEmergency.longitude,
+                              )
+                            : buildMapHtml(
+                                selectedEmergency.latitude,
+                                selectedEmergency.longitude,
+                                15,
+                              )
+                        }
+                        style={styles.modalMap}
+                        title="Emergency Location"
+                      />
+                    </View>
+                  )}
+
                   {/* Patient Info Section */}
                   <View style={[styles.section, { borderColor: cardBorder }]}>
                     <View style={styles.sectionHeader}>
@@ -1822,6 +1997,27 @@ export default function HospitalDashboard() {
                             maxLength={2000}
                           />
 
+                          <TextInput
+                            style={[
+                              styles.hospNoteInput,
+                              {
+                                backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                                borderColor: cardBorder,
+                                color: colors.text,
+                                minHeight: 72,
+                                marginTop: 10,
+                              },
+                            ]}
+                            value={hospitalMedicalConditions}
+                            onChangeText={setHospitalMedicalConditions}
+                            placeholder="Updated patient medical conditions for the profile, e.g. Diabetes, Hypertension"
+                            placeholderTextColor={subText}
+                            multiline
+                            numberOfLines={2}
+                            textAlignVertical="top"
+                            maxLength={500}
+                          />
+
                           {/* Vitals Toggle */}
                           <Pressable
                             onPress={() =>
@@ -2109,14 +2305,24 @@ export default function HospitalDashboard() {
                               {
                                 opacity:
                                   submittingHospitalNote ||
-                                  !hospitalNoteContent.trim()
+                                  (!hospitalNoteContent.trim() &&
+                                    hospitalMedicalConditions.trim() ===
+                                      String(
+                                        selectedEmergency.patient_medical
+                                          ?.medical_conditions || "",
+                                      ).trim())
                                     ? 0.5
                                     : 1,
                               },
                             ]}
                             disabled={
                               submittingHospitalNote ||
-                              !hospitalNoteContent.trim()
+                              (!hospitalNoteContent.trim() &&
+                                hospitalMedicalConditions.trim() ===
+                                  String(
+                                    selectedEmergency.patient_medical
+                                      ?.medical_conditions || "",
+                                  ).trim())
                             }
                             onPress={handleSubmitHospitalNote}
                           >
@@ -2168,45 +2374,6 @@ export default function HospitalDashboard() {
                       </View>
                     </View>
                   )}
-
-                  {/* Live map preview — hidden for completed/cancelled */}
-                  {selectedEmergency.latitude !== 0 &&
-                    !["completed", "cancelled"].includes(
-                      selectedEmergency.status,
-                    ) && (
-                      <View style={{ marginBottom: 16 }}>
-                        <View style={styles.sectionHeader}>
-                          <MaterialIcons name="map" size={18} color="#06B6D4" />
-                          <ThemedText
-                            style={[
-                              styles.sectionTitle,
-                              { color: colors.text },
-                            ]}
-                          >
-                            Live Location
-                          </ThemedText>
-                        </View>
-                        <HtmlMapView
-                          html={
-                            selectedEmergency.ambulance_latitude &&
-                            selectedEmergency.ambulance_longitude
-                              ? buildDriverPatientMapHtml(
-                                  selectedEmergency.ambulance_latitude,
-                                  selectedEmergency.ambulance_longitude,
-                                  selectedEmergency.latitude,
-                                  selectedEmergency.longitude,
-                                )
-                              : buildMapHtml(
-                                  selectedEmergency.latitude,
-                                  selectedEmergency.longitude,
-                                  15,
-                                )
-                          }
-                          style={styles.modalMap}
-                          title="Emergency Location"
-                        />
-                      </View>
-                    )}
 
                   {/* Action buttons — hospital-owned stages only */}
                   {(() => {
@@ -2684,6 +2851,122 @@ export default function HospitalDashboard() {
           </Pressable>
         </View>
       </Modal>
+
+      {/* Notification History Panel */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={notifPanelVisible}
+        onRequestClose={() => setNotifPanelVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setNotifPanelVisible(false)}
+        >
+          <Pressable
+            style={[
+              styles.notifPanelContent,
+              { backgroundColor: isDark ? "#1E2028" : "#FFFFFF" },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeader}>
+              <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
+                Notifications
+              </ThemedText>
+              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+                {notifHistory.length > 0 && (
+                  <Pressable onPress={() => setNotifHistory([])}>
+                    <ThemedText
+                      style={{ fontSize: 13, color: "#DC2626", fontFamily: Fonts.sans, fontWeight: "600" }}
+                    >
+                      Clear All
+                    </ThemedText>
+                  </Pressable>
+                )}
+                <Pressable
+                  onPress={() => setNotifPanelVisible(false)}
+                  style={styles.closeBtn}
+                >
+                  <MaterialIcons name="close" size={22} color={colors.text} />
+                </Pressable>
+              </View>
+            </View>
+
+            {notifHistory.length === 0 ? (
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <MaterialIcons
+                  name="notifications-none"
+                  size={48}
+                  color={isDark ? "#475569" : "#CBD5E1"}
+                />
+                <ThemedText
+                  style={{
+                    fontSize: 14,
+                    color: subText,
+                    marginTop: 10,
+                    fontFamily: Fonts.sans,
+                  }}
+                >
+                  No notifications yet
+                </ThemedText>
+              </View>
+            ) : (
+              <FlatList
+                data={notifHistory}
+                keyExtractor={(_item, index) => String(index)}
+                style={{ maxHeight: 400 }}
+                renderItem={({ item }) => {
+                  const ago = Math.round((Date.now() - item.time) / 1000);
+                  const timeStr =
+                    ago < 60
+                      ? `${ago}s ago`
+                      : ago < 3600
+                        ? `${Math.round(ago / 60)}m ago`
+                        : `${Math.round(ago / 3600)}h ago`;
+                  return (
+                    <View
+                      style={[
+                        styles.notifHistoryItem,
+                        { borderColor: cardBorder },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.notifHistoryDot,
+                          { backgroundColor: item.color },
+                        ]}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <ThemedText
+                          style={{
+                            fontSize: 13,
+                            color: colors.text,
+                            fontFamily: Fonts.sans,
+                            fontWeight: "600",
+                          }}
+                        >
+                          {item.message}
+                        </ThemedText>
+                        <ThemedText
+                          style={{
+                            fontSize: 11,
+                            color: subText,
+                            fontFamily: Fonts.sans,
+                            marginTop: 2,
+                          }}
+                        >
+                          {timeStr}
+                        </ThemedText>
+                      </View>
+                    </View>
+                  );
+                }}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -2797,6 +3080,31 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     fontFamily: Fonts.sans,
+  },
+  notifPanelContent: {
+    width: "90%",
+    maxWidth: 420,
+    maxHeight: "70%",
+    borderRadius: 18,
+    padding: 20,
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+  },
+  notifHistoryItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  notifHistoryDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 4,
   },
   scrollOuter: { flex: 1 },
   scrollContent: { paddingTop: 16, paddingBottom: 60 },
@@ -3118,7 +3426,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.sans },
   modalMap: {
     width: "100%",
-    height: 200,
+    height: 320,
     borderRadius: 12,
     overflow: "hidden",
   },

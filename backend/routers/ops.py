@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 
 from deps import get_current_user
-from services.supabase import db_insert, db_query, db_select, db_update
+from services.supabase import db_insert, db_query, db_select, db_update, db_upsert
 
 router = APIRouter(prefix="/ops", tags=["Operations"])
 logger = logging.getLogger("ops_router")
@@ -239,6 +239,10 @@ class PatientMedicalProfile(BaseModel):
     emergency_contact_name: str | None = None
     emergency_contact_phone: str | None = None
     updated_at: str | None = None
+
+
+class EmergencyPatientMedicalUpdate(BaseModel):
+    medical_conditions: str | None = Field(default=None, max_length=500)
 
 
 class PatientContextResponse(BaseModel):
@@ -1379,43 +1383,54 @@ async def hospital_emergencies(
     if eme_code not in (200, 206):
         raise HTTPException(status_code=502, detail="Failed to load emergencies")
 
-    # Batch-load all patient profiles and medical profiles in 2 queries (fixes N+1)
+    # Batch-load all patient profiles, medical profiles, and ambulances in parallel
+    import asyncio as _asyncio
     patient_ids = list({str(raw.get("patient_id") or "") for raw in emergencies if raw.get("patient_id")})
+    ambulance_ids = list({str(raw.get("assigned_ambulance_id") or "") for raw in emergencies if raw.get("assigned_ambulance_id")})
     profiles_by_id: dict[str, dict] = {}
     medical_by_id: dict[str, dict] = {}
+    vehicles_by_amb: dict[str, str] = {}
+    amb_rows: list = []
 
+    # Fire all batch queries in parallel
+    profile_task = None
+    medical_task = None
+    amb_task = None
     if patient_ids:
         ids_csv = ",".join(patient_ids)
-        profile_rows, _ = await db_query(
+        profile_task = _asyncio.create_task(db_query(
             "profiles",
             columns="id,full_name,phone,national_id",
             params={"id": f"in.({ids_csv})"},
-        )
-        for p in (profile_rows or []):
-            profiles_by_id[str(p.get("id") or "")] = p
-
-        medical_rows, _ = await db_query(
+        ))
+        medical_task = _asyncio.create_task(db_query(
             "medical_profiles",
             columns="user_id,blood_type,allergies,medical_conditions,emergency_contact_name,emergency_contact_phone,updated_at",
             params={"user_id": f"in.({ids_csv})"},
-        )
+        ))
+    if ambulance_ids:
+        amb_csv = ",".join(ambulance_ids)
+        amb_task = _asyncio.create_task(db_query(
+            "ambulances",
+            columns="id,vehicle_number,registration_number,last_known_location",
+            params={"id": f"in.({amb_csv})"},
+        ))
+
+    if profile_task:
+        profile_rows, _ = await profile_task
+        for p in (profile_rows or []):
+            profiles_by_id[str(p.get("id") or "")] = p
+    if medical_task:
+        medical_rows, _ = await medical_task
         for m in (medical_rows or []):
             uid = str(m.get("user_id") or "")
             existing = medical_by_id.get(uid)
             if not existing or (m.get("updated_at") or "") > (existing.get("updated_at") or ""):
                 medical_by_id[uid] = m
-
-    # Batch-load assigned ambulance vehicles
-    ambulance_ids = list({str(raw.get("assigned_ambulance_id") or "") for raw in emergencies if raw.get("assigned_ambulance_id")})
-    vehicles_by_amb: dict[str, str] = {}
-    if ambulance_ids:
-        amb_csv = ",".join(ambulance_ids)
-        amb_rows, _ = await db_query(
-            "ambulances",
-            columns="id,vehicle_number,registration_number,last_known_location",
-            params={"id": f"in.({amb_csv})"},
-        )
-        for a in (amb_rows or []):
+    if amb_task:
+        amb_rows_result, _ = await amb_task
+        amb_rows = amb_rows_result or []
+        for a in amb_rows:
             aid = str(a.get("id") or "")
             vehicles_by_amb[aid] = str(a.get("vehicle_number") or a.get("registration_number") or "")
 
@@ -3508,20 +3523,24 @@ async def get_patient_emergency_detail(
     emergency_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> dict:
+    import asyncio
     user_id = str(current_user.get("sub") or "")
     await _require_role(user_id, current_user, ("patient", "admin", "ambulance", "driver", "hospital"))
 
-    rows, code = await db_select("emergency_requests", {"id": emergency_id}, columns="*")
+    # Parallel: fetch emergency + assignment at the same time
+    eme_task = asyncio.create_task(db_select("emergency_requests", {"id": emergency_id}, columns="*"))
+    assign_task = asyncio.create_task(db_query(
+        "emergency_assignments",
+        columns="*",
+        params={"emergency_id": f"eq.{emergency_id}", "order": "assigned_at.desc", "limit": "1"},
+    ))
+
+    rows, code = await eme_task
     if code not in (200, 206) or not rows:
         raise HTTPException(status_code=404, detail="Emergency not found")
     emergency = rows[0]
 
-    # Assignment
-    assign_rows, _ = await db_query(
-        "emergency_assignments",
-        columns="*",
-        params={"emergency_id": f"eq.{emergency_id}", "order": "assigned_at.desc", "limit": "1"},
-    )
+    assign_rows, _ = await assign_task
     assignment = assign_rows[0] if assign_rows else None
 
     # Ambulance + driver phone
@@ -3784,6 +3803,65 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
         raise HTTPException(status_code=400, detail="Failed to create ambulance")
     amb_id = result[0]["id"] if isinstance(result, list) and result else None
     return {"ambulance_id": amb_id}
+
+
+@router.put(
+    "/emergencies/{emergency_id}/patient-medical",
+    summary="Update patient medical conditions for a hospital-owned emergency",
+)
+async def update_emergency_patient_medical(
+    emergency_id: str,
+    body: EmergencyPatientMedicalUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    requester_profile = await _require_role(
+        user_id,
+        current_user,
+        ("hospital", "admin"),
+    )
+
+    rows, code = await db_select("emergency_requests", {"id": emergency_id})
+    if code not in (200, 206) or not rows:
+        raise HTTPException(status_code=404, detail="Emergency not found")
+
+    emergency = rows[0]
+    patient_id = str(emergency.get("patient_id") or "")
+    if not patient_id:
+        raise HTTPException(status_code=400, detail="Emergency has no patient")
+
+    requester_role = str(requester_profile.get("role") or "").lower()
+    if requester_role == "hospital":
+        requester_hospital_id = str(requester_profile.get("hospital_id") or "")
+        emergency_hospital_id = str(emergency.get("hospital_id") or "")
+        if not requester_hospital_id or requester_hospital_id != emergency_hospital_id:
+            raise HTTPException(
+                status_code=403,
+                detail="Emergency does not belong to your hospital",
+            )
+
+    medical_conditions = (body.medical_conditions or "").strip()
+    payload = {
+        "user_id": patient_id,
+        "medical_conditions": medical_conditions,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _, upsert_code = await db_upsert(
+        "medical_profiles",
+        payload,
+        on_conflict="user_id",
+    )
+    if upsert_code not in (200, 201):
+        raise HTTPException(
+            status_code=400,
+            detail="Failed to update patient medical conditions",
+        )
+
+    return {
+        "success": True,
+        "user_id": patient_id,
+        "medical_conditions": medical_conditions,
+    }
 
 
 @router.put("/driver/ambulance/availability", summary="Toggle ambulance availability")
@@ -4255,29 +4333,24 @@ async def register_push_token(
     if caller_id != payload.user_id and caller_role != "admin":
         raise HTTPException(status_code=403, detail="Cannot register token for another user")
 
+    token = payload.token.strip()
+    if not token.startswith("ExponentPushToken["):
+        raise HTTPException(status_code=400, detail="Invalid Expo push token")
+
     now = datetime.now(timezone.utc).isoformat()
-    # Upsert — check for existing token first
-    existing, _ = await db_query(
+    _, code = await db_upsert(
         "push_tokens",
-        params={"user_id": f"eq.{payload.user_id}", "limit": "1"},
+        {
+            "user_id": payload.user_id,
+            "token": token,
+            "platform": payload.platform,
+            "is_active": True,
+            "failure_count": 0,
+            "last_error": None,
+            "updated_at": now,
+        },
+        on_conflict="token",
     )
-    if existing:
-        _, code = await db_update(
-            "push_tokens",
-            {"user_id": payload.user_id},
-            {"token": payload.token, "platform": payload.platform, "updated_at": now},
-        )
-    else:
-        _, code = await db_insert(
-            "push_tokens",
-            {
-                "user_id": payload.user_id,
-                "token": payload.token,
-                "platform": payload.platform,
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
 
     if code not in (200, 201, 204):
         logger.warning("push_token_upsert_failed user_id=%s code=%s", payload.user_id, code)
@@ -4293,34 +4366,101 @@ async def _send_push_notification(
     body: str,
     data: dict[str, Any] | None = None,
 ) -> bool:
-    """Send an Expo push notification to a user. Best-effort, never raises."""
+    """Send an Expo push notification to all active tokens for a user."""
     try:
         rows, code = await db_query(
             "push_tokens",
-            params={"user_id": f"eq.{user_id}", "limit": "1"},
+            params={
+                "user_id": f"eq.{user_id}",
+                "is_active": "eq.true",
+                "order": "updated_at.desc",
+                "limit": "10",
+            },
         )
         if code not in (200, 206) or not rows:
             return False
 
-        token = str(rows[0].get("token") or "")
-        if not token or not token.startswith("ExponentPushToken["):
-            return False
-
+        sent_any = False
         import httpx
         async with httpx.AsyncClient(timeout=10) as client:
-            resp = await client.post(
-                "https://exp.host/--/api/v2/push/send",
-                json={
-                    "to": token,
-                    "title": title,
-                    "body": body,
-                    "sound": "default",
-                    "priority": "high",
-                    "data": data or {},
-                },
-                headers={"Content-Type": "application/json"},
-            )
-            return resp.status_code == 200
+            for row in rows:
+                token = str(row.get("token") or "")
+                if not token.startswith("ExponentPushToken["):
+                    continue
+
+                resp = await client.post(
+                    "https://exp.host/--/api/v2/push/send",
+                    json={
+                        "to": token,
+                        "title": title,
+                        "body": body,
+                        "sound": "default",
+                        "priority": "high",
+                        "data": data or {},
+                    },
+                    headers={"Content-Type": "application/json"},
+                )
+
+                ticket_id = None
+                delivery_error = None
+                delivery_status = "failed"
+
+                if resp.status_code == 200:
+                    try:
+                        payload = resp.json()
+                        ticket = (payload.get("data") or [{}])[0]
+                        delivery_status = str(ticket.get("status") or "ok")
+                        ticket_id = ticket.get("id")
+                        details = ticket.get("details") or {}
+                        delivery_error = details.get("error") or ticket.get("message")
+                    except Exception:
+                        delivery_status = "failed"
+                        delivery_error = "Invalid Expo response"
+                else:
+                    delivery_error = f"HTTP {resp.status_code}"
+
+                await db_insert(
+                    "push_delivery_logs",
+                    {
+                        "user_id": user_id,
+                        "token": token,
+                        "title": title,
+                        "body": body,
+                        "status": delivery_status,
+                        "error": delivery_error,
+                        "ticket_id": ticket_id,
+                    },
+                )
+
+                if delivery_status == "ok":
+                    sent_any = True
+                    await db_update(
+                        "push_tokens",
+                        {"token": token},
+                        {
+                            "last_sent_at": datetime.now(timezone.utc).isoformat(),
+                            "failure_count": 0,
+                            "last_error": None,
+                            "is_active": True,
+                        },
+                    )
+                    continue
+
+                # Expo signals token invalid/unregistered for cleanup.
+                error_text = str(delivery_error or "unknown")
+                deactivate = "DeviceNotRegistered" in error_text
+                await db_update(
+                    "push_tokens",
+                    {"token": token},
+                    {
+                        "failure_count": int(row.get("failure_count") or 0) + 1,
+                        "last_error": error_text,
+                        "is_active": False if deactivate else bool(row.get("is_active", True)),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+
+        return sent_any
     except Exception as exc:
         logger.warning("push_notification_failed user_id=%s error=%s", user_id, exc)
         return False
@@ -4338,4 +4478,30 @@ async def send_notification_endpoint(
         payload.user_id, payload.title, payload.body, payload.data
     )
     return {"ok": sent}
+
+
+@router.get("/push-health", summary="Push delivery health summary (admin only)")
+async def push_health(current_user: dict = Depends(get_current_user)) -> dict:
+    caller_id = str(current_user.get("sub") or "")
+    await _require_role(caller_id, current_user, ("admin",))
+
+    tokens, _ = await db_query("push_tokens", params={"select": "id,is_active"})
+    logs, _ = await db_query(
+        "push_delivery_logs",
+        params={"order": "created_at.desc", "limit": "200"},
+    )
+
+    total_tokens = len(tokens or [])
+    active_tokens = sum(1 for row in (tokens or []) if bool(row.get("is_active")))
+    total_logs = len(logs or [])
+    delivered = sum(1 for row in (logs or []) if str(row.get("status") or "") == "ok")
+
+    success_rate = round((delivered / total_logs) * 100, 2) if total_logs else 0.0
+    return {
+        "total_tokens": total_tokens,
+        "active_tokens": active_tokens,
+        "recent_messages": total_logs,
+        "recent_successful": delivered,
+        "recent_success_rate": success_rate,
+    }
 

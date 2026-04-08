@@ -77,7 +77,7 @@ export const retryEmergencyDispatch = async (
   error: Error | null;
 }> => {
   try {
-    const res = await backendPost<EmergencyDispatchApiResponse>(
+    const _res = await backendPost<EmergencyDispatchApiResponse>(
       `/ops/patient/emergencies/${emergencyId}/retry-dispatch`,
       { max_radius_km: maxRadiusKm },
     );
@@ -186,7 +186,18 @@ interface FamilyShareCreateResponse {
 
 const resolvePublicBackendUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-  if (envUrl && envUrl.trim().length > 0) return envUrl;
+  if (envUrl && isShareablePublicUrl(envUrl.trim())) return envUrl.trim();
+
+  const fallbackUrls = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const publicFallback = fallbackUrls.find((value) =>
+    isShareablePublicUrl(value),
+  );
+  if (publicFallback) return publicFallback;
+
+  if (envUrl && envUrl.trim().length > 0) return envUrl.trim();
   if (typeof window !== "undefined" && window.location?.origin) {
     return window.location.origin;
   }

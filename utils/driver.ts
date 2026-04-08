@@ -290,6 +290,7 @@ export const upsertDriverAmbulance = async (
         "/ops/driver/ambulance",
         {
           vehicle_number: vehicleNumber,
+          registration_number: registrationNumber || undefined,
           type: ambulanceType,
           hospital_id: hospitalId || undefined,
         },
