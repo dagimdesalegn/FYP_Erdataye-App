@@ -6,6 +6,8 @@ function roundCoord(value: number, decimals: number = 5): number {
   return Math.round(value * factor) / factor;
 }
 
+const MIN_ROUTE_PREVIEW_DISTANCE_KM = 0.15;
+
 // ─── PostGIS helpers ─────────────────────────────────────────────────
 
 /**
@@ -55,18 +57,16 @@ export function buildDriverPatientMapHtml(
     redPopup?: string;
   },
 ): string {
-  // Keep map clear: if units are far apart, center on destination with tighter zoom
-  // instead of the very wide auto-fitted directions frame.
-  const km = calculateDistance(driverLat, driverLng, patientLat, patientLng);
   const dLat = roundCoord(driverLat);
   const dLng = roundCoord(driverLng);
   const pLat = roundCoord(patientLat);
   const pLng = roundCoord(patientLng);
-  if (km > 10) {
-    return `https://maps.google.com/maps?q=${pLat},${pLng}&z=15&t=m&output=embed`;
+
+  const distanceKm = calculateDistance(driverLat, driverLng, patientLat, patientLng);
+  if (distanceKm < MIN_ROUTE_PREVIEW_DISTANCE_KM) {
+    return buildMapHtml(patientLat, patientLng, 18);
   }
 
-  // For closer distances, use embedded directions for route context.
   return `https://maps.google.com/maps?saddr=${dLat},${dLng}&daddr=${pLat},${pLng}&dirflg=d&t=m&output=embed`;
 }
 
@@ -103,9 +103,8 @@ export function buildPatientRequestMapHtml(
       }
     }
 
-    // Avoid very wide map in request screen when nearest unit is far.
-    if (bestDistance > 10) {
-      return `https://maps.google.com/maps?q=${roundCoord(patientLat)},${roundCoord(patientLng)}&z=15&t=m&output=embed`;
+    if (bestDistance < MIN_ROUTE_PREVIEW_DISTANCE_KM) {
+      return buildMapHtml(patientLat, patientLng, 18);
     }
 
     return `https://maps.google.com/maps?saddr=${roundCoord(nearest.lat)},${roundCoord(nearest.lng)}&daddr=${roundCoord(patientLat)},${roundCoord(patientLng)}&dirflg=d&t=m&output=embed`;
@@ -445,17 +444,17 @@ export const recommendBestDispatch = async (
     if (allAmbulancesRes.error) throw allAmbulancesRes.error;
     if (activeEmergenciesRes.error) throw activeEmergenciesRes.error;
 
-    const allAmbulances = (allAmbulancesRes.data ?? []) as Array<{
+    const allAmbulances = (allAmbulancesRes.data ?? []) as {
       id: string;
       hospital_id?: string | null;
       is_available?: boolean;
       last_known_location?: string | null;
-    }>;
+    }[];
 
-    const activeEmergencies = (activeEmergenciesRes.data ?? []) as Array<{
+    const activeEmergencies = (activeEmergenciesRes.data ?? []) as {
       hospital_id?: string | null;
       status: string;
-    }>;
+    }[];
 
     const availableAmbulances = allAmbulances.filter(
       (a) => a.is_available === true,
@@ -937,11 +936,11 @@ export const getExplainableTriage = async (input: {
   });
 
 export const syncOfflineQueue = async (
-  items: Array<{
+  items: {
     type: "location_ping" | "emergency_create" | "status_update";
     payload: Record<string, unknown>;
     queuedAt?: string;
-  }>,
+  }[],
 ) =>
   backendPost("/ops/offline/sync", {
     items: items.map((item) => ({

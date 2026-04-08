@@ -5,17 +5,19 @@
  */
 
 // We need to mock the modules that emergency.ts imports
+import {
+  formatCoords,
+  buildMapHtml,
+  buildDriverPatientMapHtml,
+  buildPatientRequestMapHtml,
+  calculateDistance,
+  parsePostGISPoint,
+} from "../utils/emergency";
+
 jest.mock("../utils/api", () => ({
   backendGet: jest.fn(),
   backendPost: jest.fn(),
 }));
-
-import {
-  formatCoords,
-  buildMapHtml,
-  calculateDistance,
-  parsePostGISPoint,
-} from "../utils/emergency";
 
 describe("formatCoords", () => {
   test("formats positive coordinates (N, E)", () => {
@@ -59,6 +61,30 @@ describe("buildMapHtml", () => {
   test("accepts custom zoom", () => {
     const url = buildMapHtml(9.02, 38.75, 12);
     expect(url).toContain("z=12");
+  });
+});
+
+describe("route map builders", () => {
+  test("buildDriverPatientMapHtml falls back to tight marker view for same location", () => {
+    const url = buildDriverPatientMapHtml(7.690906, 36.818489, 7.690906, 36.818489);
+    expect(url).toContain("q=7.69091,36.81849");
+    expect(url).toContain("z=18");
+    expect(url).not.toContain("saddr=");
+  });
+
+  test("buildDriverPatientMapHtml keeps route view when points are meaningfully apart", () => {
+    const url = buildDriverPatientMapHtml(9.02, 38.75, 9.03, 38.76);
+    expect(url).toContain("saddr=");
+    expect(url).toContain("daddr=");
+  });
+
+  test("buildPatientRequestMapHtml falls back to tight marker view for near-zero distance", () => {
+    const url = buildPatientRequestMapHtml(7.690906, 36.818489, [
+      { lat: 7.690907, lng: 36.818488, label: "Nearby ambulance" },
+    ]);
+    expect(url).toContain("q=7.69091,36.81849");
+    expect(url).toContain("z=18");
+    expect(url).not.toContain("saddr=");
   });
 });
 
