@@ -283,6 +283,13 @@ export default function HelpScreen() {
   }, []);
 
   const mapLocation = React.useMemo(() => {
+    const hasMeaningfulEmergencyCoords =
+      !!activeEmergency &&
+      Number.isFinite(activeEmergency.latitude) &&
+      Number.isFinite(activeEmergency.longitude) &&
+      Math.abs(activeEmergency.latitude) > 0.0001 &&
+      Math.abs(activeEmergency.longitude) > 0.0001;
+
     if (currentLocation) {
       return {
         latitude: currentLocation.latitude,
@@ -290,14 +297,10 @@ export default function HelpScreen() {
         sourceLabel: "Current device location",
       };
     }
-    if (
-      activeEmergency &&
-      Number.isFinite(activeEmergency.latitude) &&
-      Number.isFinite(activeEmergency.longitude)
-    ) {
+    if (hasMeaningfulEmergencyCoords) {
       return {
-        latitude: activeEmergency.latitude,
-        longitude: activeEmergency.longitude,
+        latitude: activeEmergency!.latitude,
+        longitude: activeEmergency!.longitude,
         sourceLabel: "Emergency location",
       };
     }

@@ -6,12 +6,12 @@
 
 // We need to mock the modules that emergency.ts imports
 import {
-  formatCoords,
-  buildMapHtml,
-  buildDriverPatientMapHtml,
-  buildPatientRequestMapHtml,
-  calculateDistance,
-  parsePostGISPoint,
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    buildPatientRequestMapHtml,
+    calculateDistance,
+    formatCoords,
+    parsePostGISPoint,
 } from "../utils/emergency";
 
 jest.mock("../utils/api", () => ({
@@ -66,7 +66,12 @@ describe("buildMapHtml", () => {
 
 describe("route map builders", () => {
   test("buildDriverPatientMapHtml falls back to tight marker view for same location", () => {
-    const url = buildDriverPatientMapHtml(7.690906, 36.818489, 7.690906, 36.818489);
+    const url = buildDriverPatientMapHtml(
+      7.690906,
+      36.818489,
+      7.690906,
+      36.818489,
+    );
     expect(url).toContain("q=7.69091,36.81849");
     expect(url).toContain("z=18");
     expect(url).not.toContain("saddr=");

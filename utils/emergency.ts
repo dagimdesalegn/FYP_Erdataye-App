@@ -62,7 +62,12 @@ export function buildDriverPatientMapHtml(
   const pLat = roundCoord(patientLat);
   const pLng = roundCoord(patientLng);
 
-  const distanceKm = calculateDistance(driverLat, driverLng, patientLat, patientLng);
+  const distanceKm = calculateDistance(
+    driverLat,
+    driverLng,
+    patientLat,
+    patientLng,
+  );
   if (distanceKm < MIN_ROUTE_PREVIEW_DISTANCE_KM) {
     return buildMapHtml(patientLat, patientLng, 18);
   }

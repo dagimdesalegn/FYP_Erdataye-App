@@ -11,6 +11,8 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import { backendPost } from "./api";
 
+const IS_EXPO_GO = Constants.appOwnership === "expo";
+
 // Lazy-load expo-notifications to avoid web SSR crash (localStorage not available)
 type NotificationsModule = typeof import("expo-notifications");
 type NotificationType = unknown;
@@ -25,7 +27,7 @@ const getNotifications = async () => {
 };
 
 // ── Configure notification behaviour (skip on web) ──────────────────────
-if (Platform.OS !== "web") {
+if (Platform.OS !== "web" && !IS_EXPO_GO) {
   getNotifications().then((N) => {
     N.setNotificationHandler({
       handleNotification: async () => ({
@@ -63,6 +65,14 @@ export async function registerForPushNotifications(
 ): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
+      return null;
+    }
+
+    // Expo Go SDK 53+ no longer supports remote push notifications.
+    if (IS_EXPO_GO) {
+      console.warn(
+        "[notifications] Remote push is disabled in Expo Go. Use a development build for push testing.",
+      );
       return null;
     }
 
@@ -112,6 +122,10 @@ export async function registerForPushNotifications(
 export function onNotificationReceived(
   callback: (notification: NotificationType) => void,
 ): () => void {
+  if (Platform.OS === "web" || IS_EXPO_GO) {
+    return () => {};
+  }
+
   let subscription: { remove: () => void } | null = null;
   void getNotifications()
     .then((Notifications) => {
@@ -130,6 +144,10 @@ export function onNotificationReceived(
 export function onNotificationResponse(
   callback: (response: NotificationResponseType) => void,
 ): () => void {
+  if (Platform.OS === "web" || IS_EXPO_GO) {
+    return () => {};
+  }
+
   let subscription: { remove: () => void } | null = null;
   void getNotifications()
     .then((Notifications) => {
@@ -151,7 +169,7 @@ export async function showLocalNotification(
   body: string,
   data?: Record<string, unknown>,
 ): Promise<void> {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" || IS_EXPO_GO) {
     return;
   }
 

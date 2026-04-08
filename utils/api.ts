@@ -8,8 +8,8 @@ import { Platform } from "react-native";
 
 import { supabase } from "./supabase";
 
-const ENV_BACKEND_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
+const ENV_BACKEND_URL = ENV_BACKEND_URL_RAW || "http://localhost:8000";
 const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .split(",")
   .map((value) => value.trim())
@@ -36,6 +36,17 @@ const TRANSIENT_ERROR_SNIPPETS = [
   "failed to fetch",
 ];
 
+const isLocalBackendUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return ["localhost", "127.0.0.1", "0.0.0.0", "10.0.2.2"].includes(
+      parsed.hostname,
+    );
+  } catch {
+    return false;
+  }
+};
+
 const addCandidate = (list: string[], candidate?: string | null) => {
   if (!candidate) return;
   if (!/^https?:\/\//i.test(candidate)) return;
@@ -46,7 +57,16 @@ const addCandidate = (list: string[], candidate?: string | null) => {
 
 const buildBackendCandidates = (): string[] => {
   const candidates: string[] = [];
-  addCandidate(candidates, ENV_BACKEND_URL);
+
+  // Prioritize public fallbacks on mobile/web when localhost is unreachable.
+  BACKEND_FALLBACKS.filter((value) => !isLocalBackendUrl(value)).forEach(
+    (value) => addCandidate(candidates, value),
+  );
+
+  if (ENV_BACKEND_URL_RAW) {
+    addCandidate(candidates, ENV_BACKEND_URL_RAW);
+  }
+
   BACKEND_FALLBACKS.forEach((value) => addCandidate(candidates, value));
 
   const localDefaults = ["http://localhost:8000", "http://127.0.0.1:8000"];
@@ -57,6 +77,10 @@ const buildBackendCandidates = (): string[] => {
     localDefaults.push("http://127.0.0.1:8000");
   }
   localDefaults.forEach((value) => addCandidate(candidates, value));
+
+  if (!ENV_BACKEND_URL_RAW) {
+    addCandidate(candidates, ENV_BACKEND_URL);
+  }
 
   if (typeof window !== "undefined") {
     const host = window.location.hostname || "";

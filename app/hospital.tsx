@@ -145,7 +145,8 @@ export default function HospitalDashboard() {
   const [hospitalNoteContent, setHospitalNoteContent] = useState("");
   const [hospitalNoteType, setHospitalNoteType] =
     useState<NoteType>("treatment");
-  const [hospitalMedicalConditions, setHospitalMedicalConditions] = useState("");
+  const [hospitalMedicalConditions, setHospitalMedicalConditions] =
+    useState("");
   const [hospitalVitals, setHospitalVitals] = useState<Vitals>({});
   const [showHospitalVitals, setShowHospitalVitals] = useState(false);
   const [submittingHospitalNote, setSubmittingHospitalNote] = useState(false);
@@ -191,7 +192,9 @@ export default function HospitalDashboard() {
     if (!ambId) return;
     const unsub = subscribeToAmbulanceLocation(ambId, (lat, lng) => {
       setSelectedEmergency((prev) =>
-        prev ? { ...prev, ambulance_latitude: lat, ambulance_longitude: lng } : prev,
+        prev
+          ? { ...prev, ambulance_latitude: lat, ambulance_longitude: lng }
+          : prev,
       );
       // Also update the emergencies list so it stays in sync
       setEmergencies((prev) =>
@@ -204,7 +207,11 @@ export default function HospitalDashboard() {
     });
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEmergency?.id, selectedEmergency?.assigned_ambulance_id, modalVisible]);
+  }, [
+    selectedEmergency?.id,
+    selectedEmergency?.assigned_ambulance_id,
+    modalVisible,
+  ]);
 
   // Load medical notes when modal opens
   useEffect(() => {
@@ -228,7 +235,11 @@ export default function HospitalDashboard() {
     setHospitalMedicalConditions(
       selectedEmergency.patient_medical?.medical_conditions || "",
     );
-  }, [selectedEmergency?.id, selectedEmergency?.patient_medical?.medical_conditions, modalVisible]);
+  }, [
+    selectedEmergency?.id,
+    selectedEmergency?.patient_medical?.medical_conditions,
+    modalVisible,
+  ]);
 
   const handleSubmitHospitalNote = async () => {
     if (!selectedEmergency) return;
@@ -523,7 +534,6 @@ export default function HospitalDashboard() {
     return [];
   };
 
-   
   useEffect(() => {
     fetchEmergencies();
     const channel = supabase
@@ -577,7 +587,11 @@ export default function HospitalDashboard() {
               setEmergencies((prev) =>
                 prev.map((e) =>
                   e.assigned_ambulance_id === ambId
-                    ? { ...e, ambulance_latitude: parsed.latitude, ambulance_longitude: parsed.longitude }
+                    ? {
+                        ...e,
+                        ambulance_latitude: parsed.latitude,
+                        ambulance_longitude: parsed.longitude,
+                      }
                     : e,
                 ),
               );
@@ -1359,10 +1373,7 @@ export default function HospitalDashboard() {
                       <View style={styles.sectionHeader}>
                         <MaterialIcons name="map" size={18} color="#06B6D4" />
                         <ThemedText
-                          style={[
-                            styles.sectionTitle,
-                            { color: colors.text },
-                          ]}
+                          style={[styles.sectionTitle, { color: colors.text }]}
                         >
                           {["completed", "cancelled"].includes(
                             selectedEmergency.status,
@@ -2852,11 +2863,17 @@ export default function HospitalDashboard() {
               <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
                 Notifications
               </ThemedText>
-              <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <View
+                style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
+              >
                 {notifHistory.length > 0 && (
                   <Pressable onPress={() => setNotifHistory([])}>
                     <ThemedText
-                      style={{ fontSize: 13, color: "#DC2626", fontFamily: Fonts.sansSemiBold }}
+                      style={{
+                        fontSize: 13,
+                        color: "#DC2626",
+                        fontFamily: Fonts.sansSemiBold,
+                      }}
                     >
                       Clear All
                     </ThemedText>

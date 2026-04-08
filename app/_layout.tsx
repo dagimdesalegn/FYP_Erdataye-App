@@ -1,4 +1,3 @@
-import { MaterialIcons } from "@expo/vector-icons";
 import {
     Inter_400Regular,
     Inter_500Medium,
@@ -7,6 +6,7 @@ import {
     Inter_800ExtraBold,
     Inter_900Black,
 } from "@expo-google-fonts/inter";
+import { MaterialIcons } from "@expo/vector-icons";
 import {
     DarkTheme,
     DefaultTheme,
@@ -21,8 +21,8 @@ import "react-native-reanimated";
 import { AppStateProvider } from "@/components/app-state";
 import { ModalProvider } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
-import { initSentry } from "@/utils/sentry";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { initSentry } from "@/utils/sentry";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
 import { Platform, View } from "react-native";
@@ -99,7 +99,8 @@ function ThemedRoot() {
           <Stack.Screen
             name="staff"
             options={{ headerShown: false, title: "Staff Login" }}
-          /><Stack.Screen
+          />
+          <Stack.Screen
             name="register"
             options={{ headerShown: false, title: "Register" }}
           />
@@ -173,4 +174,3 @@ function ThemedRoot() {
     </View>
   );
 }
-

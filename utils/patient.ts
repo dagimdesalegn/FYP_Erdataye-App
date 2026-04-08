@@ -276,11 +276,24 @@ export const createFamilyShareLink = async (
 
 const normalizeEmergency = (raw: any): PatientEmergency => {
   const parsed = parsePostGISPoint(raw?.patient_location);
+  const latitude = Number(raw?.latitude);
+  const longitude = Number(raw?.longitude);
+  const hasNumericLatLng =
+    Number.isFinite(latitude) && Number.isFinite(longitude);
+
   return {
     ...raw,
     emergency_type: raw?.emergency_type ?? "medical",
-    latitude: parsed?.latitude ?? 0,
-    longitude: parsed?.longitude ?? 0,
+    latitude: hasNumericLatLng
+      ? latitude
+      : Number.isFinite(parsed?.latitude)
+        ? Number(parsed?.latitude)
+        : 0,
+    longitude: hasNumericLatLng
+      ? longitude
+      : Number.isFinite(parsed?.longitude)
+        ? Number(parsed?.longitude)
+        : 0,
     status: (raw?.status ?? "pending") as PatientEmergency["status"],
     created_at: raw?.created_at ?? new Date().toISOString(),
     updated_at: raw?.updated_at ?? raw?.created_at ?? new Date().toISOString(),

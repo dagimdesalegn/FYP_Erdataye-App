@@ -28,11 +28,11 @@ import {
     RegistrationHospitalOption,
     signUp,
 } from "@/utils/auth";
-import { t } from "@/utils/i18n";
 import {
     ensureAmbulanceHospitalLink,
     upsertDriverAmbulance,
 } from "@/utils/driver";
+import { t } from "@/utils/i18n";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -490,7 +490,11 @@ export default function RegisterScreen() {
               onPress={() => router.back()}
               style={({ pressed }) => [
                 styles.cardBackBtn,
-                { backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)" },
+                {
+                  backgroundColor: isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(0,0,0,0.05)",
+                },
                 pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] },
               ]}
             >
@@ -511,7 +515,11 @@ export default function RegisterScreen() {
                 {t("i_am_a")}
               </ThemedText>
               <View style={styles.roleButtons}>
-                <RoleButton role="patient" label={t("role_patient")} icon="favorite" />
+                <RoleButton
+                  role="patient"
+                  label={t("role_patient")}
+                  icon="favorite"
+                />
                 <RoleButton
                   role="ambulance"
                   label={t("role_driver")}

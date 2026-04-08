@@ -71,6 +71,14 @@ export const Fonts = {
   sansBlack: "Inter_900Black",
   /** Rounded feel for brand headings (same as bold) */
   rounded: "Inter_700Bold",
-  serif: Platform.select({ ios: "New York", android: "serif", default: "Georgia" }) as string,
-  mono: Platform.select({ ios: "SF Mono", android: "monospace", default: "monospace" }) as string,
+  serif: Platform.select({
+    ios: "New York",
+    android: "serif",
+    default: "Georgia",
+  }) as string,
+  mono: Platform.select({
+    ios: "SF Mono",
+    android: "monospace",
+    default: "monospace",
+  }) as string,
 };

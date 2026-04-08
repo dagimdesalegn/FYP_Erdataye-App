@@ -2,12 +2,25 @@ import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
-const ENV_BACKEND_URL =
-  process.env.EXPO_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
+const ENV_BACKEND_URL = ENV_BACKEND_URL_RAW || "http://localhost:8000";
 const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .split(",")
   .map((v) => v.trim())
   .filter(Boolean);
+
+const CONNECT_TIMEOUT_MS = 5000;
+
+const isLocalUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return ["localhost", "127.0.0.1", "0.0.0.0", "10.0.2.2"].includes(
+      parsed.hostname,
+    );
+  } catch {
+    return false;
+  }
+};
 
 /**
  * Build an ordered list of backend base URLs to try, matching the same logic
@@ -20,13 +33,24 @@ function buildBackendCandidates(): string[] {
     if (url && /^https?:\/\//i.test(url) && !list.includes(url)) list.push(url);
   };
 
-  add(ENV_BACKEND_URL);
+  // Prefer explicitly configured/public URLs first for real devices.
+  const publicFallbacks = BACKEND_FALLBACKS.filter((url) => !isLocalUrl(url));
+  publicFallbacks.forEach(add);
+
+  if (ENV_BACKEND_URL_RAW) {
+    add(ENV_BACKEND_URL_RAW);
+  }
+
+  // Keep any remaining fallbacks (including local URLs) afterward.
   BACKEND_FALLBACKS.forEach(add);
 
   // Platform-specific localhost alternatives for emulators
   if (Platform.OS === "android") add("http://10.0.2.2:8000");
   add("http://localhost:8000");
   add("http://127.0.0.1:8000");
+
+  // If no explicit env URL was provided, keep the default localhost last.
+  if (!ENV_BACKEND_URL_RAW) add(ENV_BACKEND_URL);
 
   return list.length > 0 ? list : ["http://localhost:8000"];
 }
@@ -51,7 +75,7 @@ async function fetchBackend(
   for (const base of order) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
+      const timeout = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
       const res = await fetch(`${base}${path}`, {
         ...init,
         signal: controller.signal,

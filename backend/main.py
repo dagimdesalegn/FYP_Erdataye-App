@@ -26,7 +26,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from config import settings
-from routers import auth, chat, ops, profiles
+from routers import (
+    auth,
+    chat,
+    ops,
+    profiles,
+)
 from services.supabase import close_client
 from services.sentry import init_sentry
 

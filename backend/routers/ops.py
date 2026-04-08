@@ -1,9 +1,9 @@
-"""
-Operations router — non-breaking backend enhancements.
+﻿"""
+Operations router ΓÇö non-breaking backend enhancements.
 
 Provides:
-  • Dashboard-friendly operational summary metrics.
-  • A deterministic triage scoring endpoint for decision support demos.
+  ΓÇó Dashboard-friendly operational summary metrics.
+  ΓÇó A deterministic triage scoring endpoint for decision support demos.
 
 These endpoints do not modify existing tables or flows.
 """
@@ -64,7 +64,7 @@ def _save_persisted() -> None:
             with open(_DATA_FILE, "w", encoding="utf-8") as f:
                 _json.dump({"timelines": _TIMELINES, "share_links": _SHARE_LINKS}, f, default=str)
     except OSError:
-        pass  # non-fatal — in-memory copy is authoritative
+        pass  # non-fatal ΓÇö in-memory copy is authoritative
 
 
 _persisted_tl, _persisted_sl = _load_persisted()
@@ -202,9 +202,9 @@ class EmergencyHospitalStatusResponse(BaseModel):
     source: str
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 # Role helpers
-# ─────────────────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 
 async def _get_profile(user_id: str, current_user: dict | None = None) -> dict | None:
@@ -300,7 +300,7 @@ class HospitalEmergency(BaseModel):
     ambulance_longitude: float | None = None
 
 
-# ─── Medical Notes models ────────────────────────────────────────
+# ΓöÇΓöÇΓöÇ Medical Notes models ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 class MedicalNoteInput(BaseModel):
     note_type: Literal[
@@ -383,11 +383,11 @@ class HospitalBasicResponse(BaseModel):
 
 
 def _parse_point_wkt(value: Any) -> tuple[float, float] | None:
-    """Parse a PostGIS point from WKT, EWKB hex, or GeoJSON dict → (lat, lon)."""
+    """Parse a PostGIS point from WKT, EWKB hex, or GeoJSON dict ΓåÆ (lat, lon)."""
     if value is None:
         return None
 
-    # ── GeoJSON dict (Supabase REST returns this for geometry columns) ───
+    # ΓöÇΓöÇ GeoJSON dict (Supabase REST returns this for geometry columns) ΓöÇΓöÇΓöÇ
     if isinstance(value, dict):
         if value.get("type") == "Point":
             coords = value.get("coordinates")
@@ -786,7 +786,7 @@ async def _find_and_reserve_best_ambulance(
         # With `Prefer: return=representation`, PostgREST returns 200 with
         # the updated rows if any matched, or 200 with an empty list if the
         # WHERE clause matched nothing (ambulance was already taken).
-        # A 204 means `return=minimal` or zero matches — never a success.
+        # A 204 means `return=minimal` or zero matches ΓÇö never a success.
         reserved = False
         if update_code in (200, 201):
             if isinstance(updated_rows, list) and len(updated_rows) > 0:
@@ -1752,11 +1752,11 @@ async def repair_hospital_fleet_links(
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Admin Settings — runtime API key + provider management
-# ─────────────────────────────────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+# Admin Settings ΓÇö runtime API key + provider management
+# ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-# Supported AI providers — each maps to an OpenAI-compatible base_url + default model
+# Supported AI providers ΓÇö each maps to an OpenAI-compatible base_url + default model
 _AI_PROVIDERS: dict[str, dict] = {
     "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
     "openai":   {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini"},
@@ -2433,7 +2433,7 @@ async def create_patient_emergency(
             eta_minutes=None,
             route_to_patient_url=None,
             route_to_hospital_url=None,
-            reason=reason or "All ambulances are currently busy. Your emergency request has been saved — an ambulance will be dispatched as soon as one becomes available. You can try again shortly.",
+            reason=reason or "All ambulances are currently busy. Your emergency request has been saved ΓÇö an ambulance will be dispatched as soon as one becomes available. You can try again shortly.",
         )
 
     hospital_id = best.get("hospital_id") or preferred_hospital_id
@@ -2509,7 +2509,7 @@ async def create_patient_emergency(
         distance_km=f"{distance_to_ambulance_km:.2f}",
     )
 
-    # ── Best-effort push notification to driver ──────────────────────────
+    # ΓöÇΓöÇ Best-effort push notification to driver ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     try:
         driver_rows, _ = await db_query(
             "profiles",
@@ -2520,7 +2520,7 @@ async def create_patient_emergency(
             if driver_user_id:
                 await _send_push_notification(
                     driver_user_id,
-                    "🚨 New Emergency Assignment",
+                    "≡ƒÜ¿ New Emergency Assignment",
                     f"You have been assigned to emergency {emergency_id[:8]}. Open the app to respond.",
                     {"type": "assignment", "emergency_id": emergency_id},
                 )
@@ -3493,7 +3493,7 @@ async def contextual_first_aid(
     }
 
 
-# ── Patient emergency read/write endpoints (service-role, RLS-bypassed) ──────
+# ΓöÇΓöÇ Patient emergency read/write endpoints (service-role, RLS-bypassed) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 @router.get("/patient/emergencies/active", summary="Get patient's current active emergency")
 async def get_patient_active_emergency(
@@ -3754,7 +3754,7 @@ async def list_active_emergencies(
     return {"emergencies": rows or []}
 
 
-# ── Driver-specific endpoints ────────────────────────────────────────────────
+# ΓöÇΓöÇ Driver-specific endpoints ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 @router.get("/driver/ambulance", summary="Get driver's ambulance ID + details")
 async def get_driver_ambulance(current_user: dict = Depends(get_current_user)) -> dict:
@@ -4189,7 +4189,7 @@ async def get_chat_stats(current_user: dict = Depends(get_current_user)) -> dict
     return {"total_messages": total}
 
 
-# ─── Medical Notes endpoints ─────────────────────────────────────────────────
+# ΓöÇΓöÇΓöÇ Medical Notes endpoints ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 @router.post(
     "/emergencies/{emergency_id}/medical-notes",
@@ -4304,9 +4304,9 @@ async def get_medical_notes(
     return results
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 # Push notification management
-# ═══════════════════════════════════════════════════════════════════════════════
+# ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
 
 
 class PushTokenPayload(BaseModel):
@@ -4354,8 +4354,8 @@ async def register_push_token(
 
     if code not in (200, 201, 204):
         logger.warning("push_token_upsert_failed user_id=%s code=%s", payload.user_id, code)
-        # Don't fail the whole request — token storage is best-effort
-        return {"ok": False, "detail": "Token storage failed — will retry"}
+        # Don't fail the whole request ΓÇö token storage is best-effort
+        return {"ok": False, "detail": "Token storage failed ΓÇö will retry"}
 
     return {"ok": True}
 
