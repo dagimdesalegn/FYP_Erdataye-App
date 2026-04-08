@@ -4,7 +4,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
     Animated,
-    Image,
     Platform,
     Pressable,
     StatusBar,
@@ -20,8 +19,6 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn, signOut } from "@/utils/auth";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const ambulanceFavicon = require("../assets/images/ambulance-favicon.png");
 
 export default function StaffLoginScreen() {
   const router = useRouter();
@@ -190,33 +187,11 @@ export default function StaffLoginScreen() {
             },
           ]}
         >
-          <View style={styles.headerArea}>
-            <View style={styles.logoContainer}>
-              <Image
-                source={ambulanceFavicon}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
-            <View style={styles.roleRow}>
-              <View style={[styles.roleChip, { backgroundColor: "#FCE7F3" }]}>
-                <ThemedText style={[styles.roleChipText, { color: "#BE185D" }]}>
-                  ADMIN
-                </ThemedText>
-              </View>
-              <View style={[styles.roleChip, { backgroundColor: "#D1FAE5" }]}>
-                <ThemedText style={[styles.roleChipText, { color: "#059669" }]}>
-                  HOSPITAL
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
           <ThemedText style={[styles.title, { color: textPrimary }]}>
-            Staff Portal Login
+            Sign In
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-            Sign in with admin or hospital credentials.
+            Enter your credentials to continue
           </ThemedText>
 
           <View style={styles.form}>
@@ -410,27 +385,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     paddingVertical: 32,
     elevation: 8,
-  },
-  headerArea: { alignItems: "center", marginBottom: 24, gap: 12 },
-  logoContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: "rgba(220, 38, 38, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 10,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "rgba(220, 38, 38, 0.12)",
-  },
-  logoImage: { width: 60, height: 60 },
-  roleRow: { flexDirection: "row", gap: 8 },
-  roleChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
-  roleChipText: {
-    fontSize: 11,
-    letterSpacing: 0.4,
-    fontFamily: Fonts.sansExtraBold,
   },
   title: {
     fontSize: 24,
