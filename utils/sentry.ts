@@ -17,11 +17,8 @@ let _Sentry: any = null;
 
 async function loadSentryModule(): Promise<any> {
   try {
-    const dynamicImport = new Function(
-      "specifier",
-      "return import(specifier);",
-    ) as (specifier: string) => Promise<any>;
-    return await dynamicImport("@sentry/react-native");
+    // @sentry/react-native is not in dependencies, so require will fail gracefully
+    return require("@sentry/react-native");
   } catch {
     return null;
   }

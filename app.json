@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.erdatayeambulance",
-      "versionCode": 8,
+      "versionCode": 9,
       "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -29,7 +29,7 @@
       ]
     },
     "experiments": {
-      "reactCompiler": true,
+      "reactCompiler": false,
       "typedRoutes": true
     },
     "icon": "./assets/images/icon.png",
@@ -37,7 +37,7 @@
       "supportsTablet": true
     },
     "name": "እርዳታዬ",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "orientation": "portrait",
     "plugins": [
       "expo-router",
