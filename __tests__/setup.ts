@@ -38,6 +38,20 @@ jest.mock("expo-constants", () => ({
   easConfig: { projectId: "test-project-id" },
 }));
 
+// Mock async storage used by offline queue
+const _memoryStore: Record<string, string> = {};
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  getItem: jest.fn((k: string) => Promise.resolve(_memoryStore[k] ?? null)),
+  setItem: jest.fn((k: string, v: string) => {
+    _memoryStore[k] = v;
+    return Promise.resolve();
+  }),
+  removeItem: jest.fn((k: string) => {
+    delete _memoryStore[k];
+    return Promise.resolve();
+  }),
+}));
+
 // Mock supabase client
 jest.mock("../utils/supabase", () => ({
   supabase: {

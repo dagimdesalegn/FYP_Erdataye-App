@@ -29,6 +29,7 @@ import {
     RegistrationHospitalOption,
     signUp,
 } from "@/utils/auth";
+import { t } from "@/utils/i18n";
 import {
     ensureAmbulanceHospitalLink,
     upsertDriverAmbulance,
@@ -505,22 +506,22 @@ export default function RegisterScreen() {
 
             {/* Header */}
             <ThemedText style={[styles.title, { color: textPrimary }]}>
-              Create Account
+              {t("register")}
             </ThemedText>
             <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-              Register for emergency ambulance assistance.
+              {t("register_subtitle")}
             </ThemedText>
 
             {/* Role Selection */}
             <View style={styles.roleSection}>
               <ThemedText style={[styles.roleLabel, { color: textPrimary }]}>
-                I am a:
+                {t("i_am_a")}
               </ThemedText>
               <View style={styles.roleButtons}>
-                <RoleButton role="patient" label="Patient" icon="favorite" />
+                <RoleButton role="patient" label={t("role_patient")} icon="favorite" />
                 <RoleButton
                   role="ambulance"
-                  label="Ambulance"
+                  label={t("role_driver")}
                   icon="local-shipping"
                 />
               </View>
@@ -531,7 +532,7 @@ export default function RegisterScreen() {
               <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Phone Number *
+                    {t("phone_number")} *
                   </ThemedText>
                   <View
                     style={[
@@ -577,7 +578,7 @@ export default function RegisterScreen() {
                 </View>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Password *
+                    {t("password")} *
                   </ThemedText>
                   <View
                     style={[
@@ -621,7 +622,7 @@ export default function RegisterScreen() {
               <View style={isSmallScreen ? styles.rowMobile : styles.row}>
                 <View style={styles.fieldHalf}>
                   <ThemedText style={[styles.label, { color: textPrimary }]}>
-                    Full Name *
+                    {t("full_name")} *
                   </ThemedText>
                   <View
                     style={[
@@ -1140,7 +1141,7 @@ export default function RegisterScreen() {
                     <MaterialIcons name="person-add" size={18} color="#fff" />
                   )}
                   <ThemedText style={styles.primaryBtnText}>
-                    {loading ? "Creating..." : "Create Account"}
+                    {loading ? t("loading") : t("register")}
                   </ThemedText>
                 </LinearGradient>
               </Pressable>

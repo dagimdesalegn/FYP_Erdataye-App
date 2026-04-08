@@ -47,7 +47,7 @@ import {
     type NoteType,
     type Vitals,
 } from "@/utils/medical-notes";
-import supabase from "@/utils/supabase";
+import { supabase } from "@/utils/supabase";
 
 type Tab = "map" | "status" | "notes";
 
@@ -73,7 +73,7 @@ const STATUS_LABELS: Record<
 };
 
 export default function DriverEmergencyTrackingScreen() {
-  const authLoading = useAuthGuard(["ambulance", "driver"]);
+  const _authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
@@ -294,6 +294,7 @@ export default function DriverEmergencyTrackingScreen() {
       }, 1500);
       return () => clearTimeout(timeout);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStatus]);
 
   // Location tracking - updates driver position + sends to DB

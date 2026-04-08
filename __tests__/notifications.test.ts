@@ -3,15 +3,20 @@
  */
 
 // Mock backendPost before importing
+import {
+  registerForPushNotifications,
+  showLocalNotification,
+} from "../utils/notifications";
+
 jest.mock("../utils/api", () => ({
   backendPost: jest.fn().mockResolvedValue({ ok: true }),
   backendGet: jest.fn(),
 }));
 
-import {
-  registerForPushNotifications,
-  showLocalNotification,
-} from "../utils/notifications";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { backendPost: mockBackendPost } = require("../utils/api");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const MockNotifications = require("expo-notifications");
 
 describe("Push notification utilities", () => {
   test("registerForPushNotifications returns a token on success", async () => {
@@ -20,12 +25,11 @@ describe("Push notification utilities", () => {
   });
 
   test("registerForPushNotifications calls backendPost with correct payload", async () => {
-    const { backendPost } = require("../utils/api");
-    backendPost.mockClear();
+    mockBackendPost.mockClear();
 
     await registerForPushNotifications("user-456");
 
-    expect(backendPost).toHaveBeenCalledWith("/ops/push-token", {
+    expect(mockBackendPost).toHaveBeenCalledWith("/ops/push-token", {
       user_id: "user-456",
       token: "ExponentPushToken[test123]",
       platform: "android",
@@ -33,12 +37,11 @@ describe("Push notification utilities", () => {
   });
 
   test("showLocalNotification calls scheduleNotificationAsync", async () => {
-    const Notifications = require("expo-notifications");
-    Notifications.scheduleNotificationAsync.mockClear();
+    MockNotifications.scheduleNotificationAsync.mockClear();
 
     await showLocalNotification("Test Title", "Test Body", { key: "value" });
 
-    expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+    expect(MockNotifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.objectContaining({
           title: "Test Title",

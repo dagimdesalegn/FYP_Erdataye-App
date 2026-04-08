@@ -75,7 +75,7 @@ const parseAllergiesToString = (raw: unknown): string => {
 };
 
 export default function PatientProfileScreen() {
-  const authLoading = useAuthGuard();
+  const _authLoading = useAuthGuard();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";

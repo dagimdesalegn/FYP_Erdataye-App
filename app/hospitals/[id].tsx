@@ -26,12 +26,12 @@ type HospitalDetailsResponse = {
 };
 
 export default function AdminHospitalDetailsScreen() {
-  const authLoading = useAuthGuard(["admin"]);
+  const _authLoading = useAuthGuard(["admin"]);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
-  const isDark = theme === "dark";
+  const _isDark = theme === "dark";
   const colors = Colors[theme];
 
   const [loading, setLoading] = useState(true);

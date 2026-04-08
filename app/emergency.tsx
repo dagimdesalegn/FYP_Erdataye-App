@@ -26,7 +26,7 @@ import {
 } from "react-native";
 
 export default function EmergencyScreen() {
-  const authLoading = useAuthGuard();
+  const _authLoading = useAuthGuard();
   const { user } = useAppState();
   const { showError, showAlert, showConfirm } = useModal();
   const router = useRouter();

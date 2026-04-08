@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Multilingual support for the First Aid Chatbot.
  * Supports: English (en), Amharic (am), Afaan Oromo (om).
  */

@@ -15,6 +15,18 @@ const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN ?? "";
 let _initialised = false;
 let _Sentry: any = null;
 
+async function loadSentryModule(): Promise<any> {
+  try {
+    const dynamicImport = new Function(
+      "specifier",
+      "return import(specifier);",
+    ) as (specifier: string) => Promise<any>;
+    return await dynamicImport("@sentry/react-native");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Initialise Sentry SDK. Call once at app startup.
  */
@@ -22,7 +34,10 @@ export async function initSentry(): Promise<void> {
   if (_initialised || !SENTRY_DSN) return;
 
   try {
-    _Sentry = await import("@sentry/react-native");
+    _Sentry = await loadSentryModule();
+    if (!_Sentry) {
+      return;
+    }
     _Sentry.init({
       dsn: SENTRY_DSN,
       tracesSampleRate: 0.2,

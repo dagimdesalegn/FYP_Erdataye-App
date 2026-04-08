@@ -41,9 +41,9 @@ def _get_migration_files() -> list[tuple[int, str, str]]:
 
 async def _ensure_migration_table(db_query, db_insert):
     """Create the _migrations tracking table if it doesn't exist."""
-    from services.supabase import get_client
+    from services.supabase import _client
 
-    client = await get_client()
+    client = _client()
     # Use rpc to run raw SQL for creating the migrations table
     try:
         await client.post(
@@ -79,7 +79,7 @@ async def get_applied_versions() -> set[int]:
 
 async def apply_migration(version: int, name: str, sql_path: str) -> bool:
     """Apply a single migration file."""
-    from services.supabase import db_insert, get_client
+    from services.supabase import db_insert, _client
 
     with open(sql_path, "r", encoding="utf-8") as f:
         sql = f.read().strip()
@@ -88,7 +88,7 @@ async def apply_migration(version: int, name: str, sql_path: str) -> bool:
         print(f"  SKIP {version:04d}_{name} (empty)")
         return True
 
-    client = await get_client()
+    client = _client()
     try:
         resp = await client.post(
             "/rest/v1/rpc/exec_sql",

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { AuthUser, onAuthStateChange } from '../utils/auth';
 import { registerForPushNotifications } from '../utils/notifications';
+import { loadLang } from '../utils/i18n';
 
 type AppState = {
   isRegistered: boolean;
@@ -26,6 +27,8 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
 
   // Listen to auth state changes
   useEffect(() => {
+    loadLang().catch(() => {});
+
     const unsubscribe = onAuthStateChange((authUser) => {
       setUser(authUser);
       setIsRegistered(!!authUser);

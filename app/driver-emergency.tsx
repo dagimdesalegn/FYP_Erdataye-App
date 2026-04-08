@@ -54,7 +54,7 @@ interface PatientInfo {
 }
 
 export default function DriverEmergencyScreen() {
-  const authLoading = useAuthGuard(["ambulance", "driver"]);
+  const _authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";

@@ -45,7 +45,7 @@ export function CustomModal({
 }: CustomModalProps) {
   const scheme = useColorScheme();
   const theme = scheme ?? "light";
-  const colors = Colors[theme];
+  const _colors = Colors[theme];
   const isDark = theme === "dark";
   const scaleAnim = React.useRef(new Animated.Value(0.85)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;

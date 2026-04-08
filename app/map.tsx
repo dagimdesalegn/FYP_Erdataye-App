@@ -32,7 +32,7 @@ import {
 } from "react-native";
 
 export default function MapScreen() {
-  const authLoading = useAuthGuard();
+  const _authLoading = useAuthGuard();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";

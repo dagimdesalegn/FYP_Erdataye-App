@@ -1,4 +1,4 @@
-﻿import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -30,6 +30,11 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
+  createOrQueueEmergency,
+  flushQueue,
+  getQueue,
+} from "@/utils/offline-queue";
+import {
     cancelEmergencyWithinWindow,
     createEmergency,
     getActiveEmergency,
@@ -42,7 +47,7 @@ import { supabase } from "@/utils/supabase";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function PatientEmergencyScreen() {
-  const authLoading = useAuthGuard();
+  const _authLoading = useAuthGuard();
   const router = useRouter();
   const params = useLocalSearchParams<{
     forOther?: string;
@@ -101,24 +106,24 @@ export default function PatientEmergencyScreen() {
       distanceKm: number;
     }[]
   >([]);
-  const [smartPreview, setSmartPreview] = useState<string>(
+  const [_smartPreview, setSmartPreview] = useState<string>(
     "Tap to preview smart dispatch guidance.",
   );
-  const [triagePreview, setTriagePreview] = useState<{
+  const [_triagePreview, _setTriagePreview] = useState<{
     priority: string;
     score: number;
     recommendation: string;
   } | null>(null);
-  const [dispatchPreview, setDispatchPreview] = useState<{
+  const [_dispatchPreview, _setDispatchPreview] = useState<{
     etaMinutes: number | null;
     distanceKm: number | null;
   } | null>(null);
-  const [firstAidTips, setFirstAidTips] = useState<string[]>([]);
-  const [fallbackAssigning, setFallbackAssigning] = useState(false);
-  const [tipsLoading, setTipsLoading] = useState(false);
+  const [_firstAidTips, _setFirstAidTips] = useState<string[]>([]);
+  const [_fallbackAssigning, setFallbackAssigning] = useState(false);
+  const [_tipsLoading, _setTipsLoading] = useState(false);
   const locationWatchRef = useRef<Location.LocationSubscription | null>(null);
   const recentLocationFixesRef = useRef<
-    Array<{ latitude: number; longitude: number }>
+    { latitude: number; longitude: number }[]
   >([]);
 
   const scaleAnim = React.useRef(new Animated.Value(1)).current;
@@ -150,6 +155,7 @@ export default function PatientEmergencyScreen() {
     checkActiveEmergency();
     requestLocationPermission();
     loadNearbyAmbulances();
+    void flushQueue(createEmergency);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
@@ -202,6 +208,7 @@ export default function PatientEmergencyScreen() {
     };
     lastMapUpdateRef.current = { ...stable, at: now };
     setMapLocation(stable);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
 
   // Auto-refresh ambulance count every 30s.
@@ -235,7 +242,7 @@ export default function PatientEmergencyScreen() {
   }, [location?.latitude, location?.longitude]);
 
   const MAX_AMBULANCE_DISTANCE_KM = 50; // Only show ambulances within 50km
-  const handleSmartPreview = async () => {
+  const _handleSmartPreview = async () => {
     if (!location) {
       showError("Location Required", "Enable location to run smart preview.");
       return;
@@ -309,13 +316,13 @@ export default function PatientEmergencyScreen() {
 
       const finalList = inRange.length > 0 ? inRange : (parsedAll as any[]);
       // Show up to 3 nearest ambulances and avoid unnecessary state churn.
-      const nextList = finalList.slice(0, 3) as Array<{
+      const nextList = finalList.slice(0, 3) as {
         lat: number;
         lng: number;
         label: string;
         distance: string;
         distanceKm: number;
-      }>;
+      }[];
 
       setNearbyAmbulances((prev) => {
         if (prev.length !== nextList.length) return nextList;
@@ -363,9 +370,6 @@ export default function PatientEmergencyScreen() {
         setActiveEmergencyCreatedAt(null);
         setActiveEmergencyStatus(null);
       } else {
-        const prettyStatus = String(status || "pending")
-          .replaceAll("_", " ")
-          .replace(/\b\w/g, (c) => c.toUpperCase());
         setActiveEmergencyStatus(status);
       }
     });
@@ -550,6 +554,7 @@ export default function PatientEmergencyScreen() {
       location.latitude,
       location.longitude,
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeEmergencyId, location?.latitude, location?.longitude]);
 
   const handleSOS = async () => {
@@ -576,7 +581,7 @@ export default function PatientEmergencyScreen() {
     );
   };
 
-  const attemptDispatchRetry = async () => {
+  const _attemptDispatchRetry = async () => {
     if (!activeEmergencyId) return;
     if (activeEmergencyStatus !== "pending") return;
     if (!hasNearbyAmbulance) return;
@@ -658,13 +663,23 @@ export default function PatientEmergencyScreen() {
       ].filter(Boolean);
       const fullDescription = parts.length > 0 ? parts.join(" - ") : undefined;
 
-      const { emergency, error } = await createEmergency(
+      const { queued, emergency, error } = await createOrQueueEmergency(
+        createEmergency,
         user.id,
         location.latitude,
         location.longitude,
         severity, // stored as emergency_type in DB
         fullDescription,
       );
+
+      if (queued) {
+        const queuedItems = await getQueue();
+        showAlert(
+          "Offline Queue",
+          `No network right now. Emergency request saved offline and will auto-send when back online. Pending: ${queuedItems.length}`,
+        );
+        return;
+      }
 
       if (error || !emergency) {
         const msg = `Failed to create emergency: ${error?.message}`;

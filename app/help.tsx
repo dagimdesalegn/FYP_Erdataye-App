@@ -223,8 +223,10 @@ export default function HelpScreen() {
       currentLocation.latitude,
       currentLocation.longitude,
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeEmergencyId,
+     
     currentLocation?.latitude,
     currentLocation?.longitude,
   ]);

@@ -1,7 +1,7 @@
 /**
  * Tests for utils/i18n.ts — translation utility.
  */
-import { t, setLang, getLang, loadLang } from "../utils/i18n";
+import { t, setLang, getLang, loadLang as _loadLang } from "../utils/i18n";
 
 describe("i18n translation utility", () => {
   beforeEach(() => {

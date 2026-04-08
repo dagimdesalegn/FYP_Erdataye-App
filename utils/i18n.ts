@@ -11,7 +11,7 @@
 
 export type Lang = "en" | "am";
 
-const STORAGE_KEY = "erdataye_lang";
+const _STORAGE_KEY = "erdataye_lang";
 let _currentLang: Lang = "en";
 
 /** Set the active language and persist. */
@@ -74,6 +74,7 @@ const translations: Record<string, Record<Lang, string>> = {
   email: { en: "Email", am: "ኢሜይል" },
   already_have_account: { en: "Already have an account?", am: "መለያ አለዎት?" },
   no_account: { en: "Don't have an account?", am: "መለያ የለዎትም?" },
+  i_am_a: { en: "I am a:", am: "እኔ:" },
   login_subtitle: { en: "Sign in to your account", am: "ወደ መለያዎ ይግቡ" },
   register_subtitle: { en: "Create a new account", am: "አዲስ መለያ ይፍጠሩ" },
   role_patient: { en: "Patient", am: "ታካሚ" },

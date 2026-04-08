@@ -97,7 +97,7 @@ const STATUS_NOTIFICATIONS: Record<
 };
 
 export default function PatientEmergencyTrackingScreen() {
-  const authLoading = useAuthGuard();
+  const _authLoading = useAuthGuard();
   const distanceMeters = (
     lat1: number,
     lon1: number,
@@ -159,7 +159,7 @@ export default function PatientEmergencyTrackingScreen() {
     longitude: number;
   } | null>(null);
   const ambulanceFixesRef = useRef<
-    Array<{ latitude: number; longitude: number; at: number }>
+    { latitude: number; longitude: number; at: number }[]
   >([]);
   const lastAmbulanceFixRef = useRef<{
     latitude: number;
@@ -172,6 +172,7 @@ export default function PatientEmergencyTrackingScreen() {
   } | null>(null);
   const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
   const detailRefreshKeyRef = useRef("");
+  const hasDataRef = useRef(false);
   const hospitalFetchInFlightRef = useRef(false);
   const lastHospitalFetchAtRef = useRef(0);
 
@@ -244,14 +245,14 @@ export default function PatientEmergencyTrackingScreen() {
     [],
   );
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showSpinner = true) => {
     if (!emergencyId || typeof emergencyId !== "string") {
       setError("Invalid emergency ID");
       setLoading(false);
       return;
     }
     try {
-      setLoading(true);
+      if (showSpinner && !hasDataRef.current) setLoading(true);
       const {
         emergency: emerg,
         assignment: assign,
@@ -261,6 +262,7 @@ export default function PatientEmergencyTrackingScreen() {
       if (err) {
         setError(err.message);
       } else {
+        hasDataRef.current = true;
         setEmergency(emerg);
         detailRefreshKeyRef.current = `${String(emerg?.status || "")}|${String(emerg?.assigned_ambulance_id || "")}|${String(emerg?.hospital_id || "")}`;
         setAssignment(assign);
@@ -462,7 +464,7 @@ export default function PatientEmergencyTrackingScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData();
+    await loadData(false);
     setRefreshing(false);
   };
 

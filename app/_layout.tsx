@@ -154,8 +154,12 @@ function ThemedRoot() {
             options={{ headerShown: false, title: "Emergency" }}
           />
           <Stack.Screen
-            name="modal"
-            options={{ presentation: "modal", title: "Modal" }}
+            name="admin-login"
+            options={{ headerShown: false, title: "Admin Login" }}
+          />
+          <Stack.Screen
+            name="hospital-login"
+            options={{ headerShown: false, title: "Hospital Login" }}
           />
         </Stack>
         <StatusBar style={resolved === "dark" ? "light" : "dark"} />

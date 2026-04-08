@@ -37,7 +37,7 @@ interface PatientData {
  * Driver Patient Information Screen - View Patient Medical Data
  */
 export default function DriverPatientInfoScreen() {
-  const authLoading = useAuthGuard(["ambulance", "driver"]);
+  const _authLoading = useAuthGuard(["ambulance", "driver"]);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? "light";
   const colors = Colors[colorScheme];

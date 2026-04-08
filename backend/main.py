@@ -72,10 +72,11 @@ _RATE_BUCKETS: dict[str, list] = defaultdict(lambda: [0.0, 0])  # [window_start,
 _RATE_WINDOW = 60.0  # seconds
 _RATE_LOCK = Lock()
 
+# Per-path limits (exact match).  Everything else → _DEFAULT_LIMIT per path.
 _ROUTE_LIMITS: dict[str, int] = {
-    "/ops/patient/emergencies": 3,
+    "/ops/patient/emergencies": 3,   # prevent spam emergency creation
 }
-_DEFAULT_LIMIT = 60
+_DEFAULT_LIMIT = 200   # generous per-path budget for polling endpoints
 
 
 def _client_ip(request: Request) -> str:
@@ -100,7 +101,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         limit = _ROUTE_LIMITS.get(path, _DEFAULT_LIMIT)
-        key = f"{client_ip}:{path}" if path in _ROUTE_LIMITS else f"{client_ip}:*"
+        # Key per path so one polling endpoint can't starve others
+        key = f"{client_ip}:{path}"
 
         now = time.monotonic()
         with _RATE_LOCK:

@@ -117,7 +117,7 @@ const getRoleFromMetadata = (value: unknown): UserRole | null =>
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const isObfuscatedExistingSignupUser = (
+const _isObfuscatedExistingSignupUser = (
   user: any,
   session: Session | null,
 ): boolean => {
@@ -230,7 +230,7 @@ export const getRegistrationHospitalOptions = async (): Promise<{
   }
 };
 
-const findExistingProfileByPhone = async (phone: string) => {
+const _findExistingProfileByPhone = async (phone: string) => {
   try {
     const candidates = toProfilePhoneCandidates(phone);
     const { data, error } = await supabase

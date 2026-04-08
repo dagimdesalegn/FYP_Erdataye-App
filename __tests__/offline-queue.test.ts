@@ -11,22 +11,22 @@ import {
 } from "../utils/offline-queue";
 
 describe("Offline emergency queue", () => {
-  beforeEach(() => {
-    clearQueue();
+  beforeEach(async () => {
+    await clearQueue();
   });
 
-  test("starts empty", () => {
-    expect(getQueue()).toEqual([]);
+  test("starts empty", async () => {
+    await expect(getQueue()).resolves.toEqual([]);
   });
 
-  test("enqueue adds an item", () => {
-    enqueue({
+  test("enqueue adds an item", async () => {
+    await enqueue({
       patientId: "patient-1",
       latitude: 9.02,
       longitude: 38.75,
       emergencyType: "accident",
     });
-    const queue = getQueue();
+    const queue = await getQueue();
     expect(queue).toHaveLength(1);
     expect(queue[0].patientId).toBe("patient-1");
     expect(queue[0].latitude).toBe(9.02);
@@ -34,34 +34,34 @@ describe("Offline emergency queue", () => {
     expect(queue[0].queuedAt).toBeTruthy();
   });
 
-  test("enqueue adds multiple items", () => {
-    enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
-    enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
-    expect(getQueue()).toHaveLength(2);
+  test("enqueue adds multiple items", async () => {
+    await enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
+    await enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
+    await expect(getQueue()).resolves.toHaveLength(2);
   });
 
-  test("dequeue removes the correct item", () => {
-    enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
-    enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
+  test("dequeue removes the correct item", async () => {
+    await enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
+    await enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
 
-    const queue = getQueue();
-    dequeue(queue[0].id);
+    const queue = await getQueue();
+    await dequeue(queue[0].id);
 
-    const remaining = getQueue();
+    const remaining = await getQueue();
     expect(remaining).toHaveLength(1);
     expect(remaining[0].patientId).toBe("p2");
   });
 
-  test("clearQueue empties everything", () => {
-    enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
-    enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
-    clearQueue();
-    expect(getQueue()).toEqual([]);
+  test("clearQueue empties everything", async () => {
+    await enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
+    await enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
+    await clearQueue();
+    await expect(getQueue()).resolves.toEqual([]);
   });
 
   test("flushQueue calls createEmergency for each item", async () => {
-    enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
-    enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
+    await enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
+    await enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
 
     const mockCreate = jest.fn().mockResolvedValue({
       emergency: { id: "e1" },
@@ -71,12 +71,12 @@ describe("Offline emergency queue", () => {
     const flushed = await flushQueue(mockCreate);
     expect(flushed).toBe(2);
     expect(mockCreate).toHaveBeenCalledTimes(2);
-    expect(getQueue()).toEqual([]);
+    await expect(getQueue()).resolves.toEqual([]);
   });
 
   test("flushQueue stops on first failure", async () => {
-    enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
-    enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
+    await enqueue({ patientId: "p1", latitude: 9.0, longitude: 38.7 });
+    await enqueue({ patientId: "p2", latitude: 8.5, longitude: 39.2 });
 
     const mockCreate = jest.fn()
       .mockRejectedValueOnce(new Error("Network error"))
@@ -84,7 +84,7 @@ describe("Offline emergency queue", () => {
 
     const flushed = await flushQueue(mockCreate);
     expect(flushed).toBe(0); // stopped after first failure
-    expect(getQueue()).toHaveLength(2); // both still in queue
+    await expect(getQueue()).resolves.toHaveLength(2); // both still in queue
   });
 
   test("createOrQueueEmergency returns emergency on success", async () => {
@@ -112,7 +112,7 @@ describe("Offline emergency queue", () => {
     );
 
     expect(result.queued).toBe(true);
-    expect(getQueue()).toHaveLength(1);
+    await expect(getQueue()).resolves.toHaveLength(1);
   });
 
   test("createOrQueueEmergency queues when error message indicates network issue", async () => {

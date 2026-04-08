@@ -76,7 +76,7 @@ const STATUS_COLORS: Record<string, string> = {
 /* ─── Component ───────────────────────────────────────────────── */
 
 export default function AdminScreen() {
-  const authLoading = useAuthGuard(["admin"]);
+  const _authLoading = useAuthGuard(["admin"]);
   const colorScheme = useColorScheme();
   const theme = colorScheme ?? "light";
   const isDark = theme === "dark";
@@ -112,7 +112,7 @@ export default function AdminScreen() {
   const [emergencies, setEmergencies] = useState<EmergencyRequest[]>([]);
   const [ambulances, setAmbulances] = useState<Ambulance[]>([]);
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
-  const [opsInsights, setOpsInsights] = useState<{
+  const [_opsInsights, setOpsInsights] = useState<{
     emergenciesTotal: number;
     avgCompletionMinutes: number | null;
   } | null>(null);
@@ -268,6 +268,7 @@ export default function AdminScreen() {
     return () => {
       channel.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchAll]);
 
   const onRefresh = useCallback(() => {

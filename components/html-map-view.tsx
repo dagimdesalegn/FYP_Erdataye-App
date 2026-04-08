@@ -75,11 +75,13 @@ iframe{width:100%;height:100%;border:none}</style></head>
           javaScriptEnabled
           domStorageEnabled
           geolocationEnabled
-          startInLoadingState
+          startInLoadingState={false}
           scalesPageToFit={false}
           scrollEnabled={false}
           overScrollMode="never"
           mixedContentMode="always"
+          cacheEnabled
+          cacheMode="LOAD_CACHE_ELSE_NETWORK"
           onError={() => setHasError(true)}
         />
       )}

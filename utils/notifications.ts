@@ -8,29 +8,45 @@
  *  - Handling incoming notifications
  */
 import { Platform } from "react-native";
-import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 import { backendPost } from "./api";
 
-// ── Configure notification behaviour ──────────────────────────────────────
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    priority: Notifications.AndroidNotificationPriority.HIGH,
-  }),
-});
+// Lazy-load expo-notifications to avoid web SSR crash (localStorage not available)
+type NotificationsModule = typeof import("expo-notifications");
+type NotificationType = unknown;
+type NotificationResponseType = unknown;
 
-// ── Android channel ───────────────────────────────────────────────────────
-if (Platform.OS === "android") {
-  Notifications.setNotificationChannelAsync("emergencies", {
-    name: "Emergency Alerts",
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 250, 250, 250],
-    sound: "default",
+let Notifications: NotificationsModule | null = null;
+const getNotifications = async () => {
+  if (!Notifications) {
+    Notifications = await import("expo-notifications");
+  }
+  return Notifications;
+};
+
+// ── Configure notification behaviour (skip on web) ──────────────────────
+if (Platform.OS !== "web") {
+  getNotifications().then((N) => {
+    N.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        priority: N.AndroidNotificationPriority.HIGH,
+      }),
+    });
+
+    // ── Android channel ─────────────────────────────────────────────────
+    if (Platform.OS === "android") {
+      N.setNotificationChannelAsync("emergencies", {
+        name: "Emergency Alerts",
+        importance: N.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: "default",
+      }).catch(() => {});
+    }
   }).catch(() => {});
 }
 
@@ -46,6 +62,11 @@ export async function registerForPushNotifications(
   userId: string,
 ): Promise<string | null> {
   try {
+    if (Platform.OS === "web") {
+      return null;
+    }
+
+    const Notifications = await getNotifications();
     const { status: existingStatus } =
       await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -89,11 +110,17 @@ export async function registerForPushNotifications(
  * Returns an unsubscribe function.
  */
 export function onNotificationReceived(
-  callback: (notification: Notifications.Notification) => void,
+  callback: (notification: NotificationType) => void,
 ): () => void {
-  const subscription =
-    Notifications.addNotificationReceivedListener(callback);
-  return () => subscription.remove();
+  let subscription: { remove: () => void } | null = null;
+  void getNotifications()
+    .then((Notifications) => {
+      subscription = Notifications.addNotificationReceivedListener(callback);
+    })
+    .catch(() => {});
+  return () => {
+    subscription?.remove();
+  };
 }
 
 /**
@@ -101,11 +128,18 @@ export function onNotificationReceived(
  * Returns an unsubscribe function.
  */
 export function onNotificationResponse(
-  callback: (response: Notifications.NotificationResponse) => void,
+  callback: (response: NotificationResponseType) => void,
 ): () => void {
-  const subscription =
-    Notifications.addNotificationResponseReceivedListener(callback);
-  return () => subscription.remove();
+  let subscription: { remove: () => void } | null = null;
+  void getNotifications()
+    .then((Notifications) => {
+      subscription =
+        Notifications.addNotificationResponseReceivedListener(callback);
+    })
+    .catch(() => {});
+  return () => {
+    subscription?.remove();
+  };
 }
 
 /**
@@ -117,6 +151,11 @@ export async function showLocalNotification(
   body: string,
   data?: Record<string, unknown>,
 ): Promise<void> {
+  if (Platform.OS === "web") {
+    return;
+  }
+
+  const Notifications = await getNotifications();
   await Notifications.scheduleNotificationAsync({
     content: {
       title,

@@ -20,6 +20,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
+import { t } from "@/utils/i18n";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 const ambulanceFavicon = require("../assets/images/ambulance-favicon.png");
@@ -240,10 +241,10 @@ export default function LoginScreen() {
 
           {/* Title */}
           <ThemedText style={[styles.title, { color: textPrimary }]}>
-            Welcome Back
+            {t("login")}
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-            Sign in to access emergency services
+            {t("login_subtitle")}
           </ThemedText>
 
           {/* Form */}
@@ -251,7 +252,7 @@ export default function LoginScreen() {
             {/* Phone Number */}
             <View style={styles.fieldGroup}>
               <ThemedText style={[styles.label, { color: textPrimary }]}>
-                Phone Number
+                {t("phone_number")}
               </ThemedText>
               <View
                 style={[
@@ -309,7 +310,7 @@ export default function LoginScreen() {
             {/* Password */}
             <View style={styles.fieldGroup}>
               <ThemedText style={[styles.label, { color: textPrimary }]}>
-                Password
+                {t("password")}
               </ThemedText>
               <View
                 style={[
@@ -339,7 +340,7 @@ export default function LoginScreen() {
                 <TextInput
                   ref={passwordInputRef}
                   style={[styles.input, { color: textPrimary }]}
-                  placeholder="Enter your password"
+                  placeholder={t("password")}
                   placeholderTextColor={placeholderColor}
                   secureTextEntry={!showPassword}
                   value={form.password}
@@ -386,13 +387,13 @@ export default function LoginScreen() {
               >
                 {loading ? (
                   <ThemedText style={styles.primaryBtnText}>
-                    Signing In...
+                    {t("loading")}
                   </ThemedText>
                 ) : (
                   <>
                     <MaterialIcons name="login" size={20} color="#fff" />
                     <ThemedText style={styles.primaryBtnText}>
-                      Sign In
+                      {t("login")}
                     </ThemedText>
                   </>
                 )}
