@@ -417,7 +417,7 @@ export default function LoginScreen() {
               <ThemedText
                 style={{
                   marginHorizontal: 12,
-                  fontWeight: "700",
+                  fontFamily: Fonts.sansBold,
                   fontSize: 12,
                   color: textSecondary,
                 }}
@@ -463,7 +463,7 @@ export default function LoginScreen() {
               <ThemedText
                 style={{
                   color: "#fff",
-                  fontWeight: "800",
+                  fontFamily: Fonts.sansExtraBold,
                   fontSize: 15,
                   letterSpacing: 0.2,
                 }}
@@ -564,16 +564,14 @@ const styles = StyleSheet.create({
   /* ---- Title / Subtitle ---- */
   title: {
     fontSize: 24,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.5,
     marginBottom: 4,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     lineHeight: 20,
     marginBottom: 20,
     textAlign: "center",
@@ -583,8 +581,7 @@ const styles = StyleSheet.create({
   fieldGroup: { gap: 6 },
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.2,
   },
   inputWrap: {
@@ -598,22 +595,19 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   phonePrefix: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginRight: 6,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     height: "100%",
     ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   fieldError: {
     fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
@@ -632,8 +626,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
   },
   /* ---- Divider ---- */
@@ -644,7 +637,7 @@ const styles = StyleSheet.create({
     marginVertical: 14,
   },
   dividerLine: { flex: 1, height: 1 },
-  dividerText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  dividerText: { fontSize: 12, fontFamily: Fonts.sansSemiBold },
   /* ---- Secondary button ---- */
   secondaryBtn: {
     flexDirection: "row",
@@ -657,8 +650,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.2,
   },
 });

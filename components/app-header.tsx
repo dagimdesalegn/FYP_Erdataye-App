@@ -3,7 +3,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { type Href, useRouter } from "expo-router";
 import React from "react";
-import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -222,9 +222,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: Platform.select({ ios: "700", default: "800" }),
-    letterSpacing: 0.2,
-    fontFamily: Fonts.sans,
+    letterSpacing: -0.2,
+    fontFamily: Fonts.sansExtraBold,
   },
   right: {
     flexDirection: "row",
@@ -247,8 +246,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 15,
-    fontWeight: "800",
     letterSpacing: 0.2,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
 });

@@ -69,7 +69,8 @@
           "color": "#B91C1C",
           "defaultChannel": "emergencies"
         }
-      ]
+      ],
+      "expo-font"
     ],
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",

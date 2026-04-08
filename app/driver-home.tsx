@@ -984,8 +984,7 @@ const styles = StyleSheet.create({
   },
   greeting: {
     fontSize: 22,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 3,
     letterSpacing: -0.3,
   },
@@ -1009,9 +1008,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 17,
-    fontWeight: "700",
     marginBottom: 14,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: -0.2,
   },
   statusToggle: {
@@ -1028,9 +1026,8 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     fontSize: 18,
-    fontWeight: "700",
     color: "#fff",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   statusSubtitle: {
     fontSize: 13,
@@ -1056,10 +1053,9 @@ const styles = StyleSheet.create({
   },
   alertTitle: {
     fontSize: 16,
-    fontWeight: "600",
     marginLeft: 8,
     color: "#DC2626",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   alertSubtitle: {
     fontSize: 13,
@@ -1085,16 +1081,14 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: "800",
     marginTop: 8,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   statLabel: {
     fontSize: 12,
     opacity: 0.6,
     marginTop: 4,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
   },
   /* ---- Completed History ---- */
   historyHeader: {
@@ -1110,8 +1104,7 @@ const styles = StyleSheet.create({
   },
   historyBadgeText: {
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   historyEmpty: {
     fontSize: 13,
@@ -1139,8 +1132,7 @@ const styles = StyleSheet.create({
   },
   historyTypeText: {
     fontSize: 11,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textTransform: "capitalize",
   },
   historyDate: {
@@ -1211,8 +1203,7 @@ const styles = StyleSheet.create({
   },
   profileTitle: {
     fontSize: 22,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   infoRow: {
     flexDirection: "row",
@@ -1223,14 +1214,12 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12,
-    fontWeight: "600",
     opacity: 0.5,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
 });

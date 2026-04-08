@@ -278,10 +278,9 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "bold",
     marginBottom: 16,
     textAlign: "center",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   error: {
     color: "#DC2626",
@@ -329,9 +328,8 @@ const styles = StyleSheet.create({
   callButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "800",
     textAlign: "center",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   quickActions: {
     flexDirection: "row",
@@ -356,8 +354,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   ambulancesSection: {
     width: "100%",
@@ -380,14 +377,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ambulanceText: {
-    fontWeight: "600",
     fontSize: 15,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   ambulanceType: {
     fontSize: 12,
-    fontWeight: "500",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansMedium,
   },
   ambulanceLocation: {
     fontSize: 12,

@@ -808,8 +808,7 @@ export default function DriverEmergencyTrackingScreen() {
                           style={{
                             color: meta.color,
                             fontSize: 10,
-                            fontWeight: "700",
-                            fontFamily: Fonts.sans,
+                            fontFamily: Fonts.sansBold,
                           }}
                         >
                           CURRENT
@@ -1670,8 +1669,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  headerTitle: { fontSize: 16, fontWeight: "800", fontFamily: Fonts.sans },
-  headerSub: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  headerTitle: { fontSize: 16, fontFamily: Fonts.sansExtraBold },
+  headerSub: { fontSize: 12, fontFamily: Fonts.sansSemiBold },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
 
   // Tabs
@@ -1691,7 +1690,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: "#0EA5E9",
   },
-  tabLabel: { fontSize: 13, fontWeight: "600", fontFamily: Fonts.sans },
+  tabLabel: { fontSize: 13, fontFamily: Fonts.sansSemiBold },
 
   // Map tab
   mapTabWrap: { flex: 1, position: "relative", overflow: "hidden" as any },
@@ -1719,8 +1718,7 @@ const styles = StyleSheet.create({
   overlayText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   navOverlayBtn: {
     flexDirection: "row",
@@ -1736,8 +1734,7 @@ const styles = StyleSheet.create({
   navOverlayText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   mapLegend: {
@@ -1774,8 +1771,7 @@ const styles = StyleSheet.create({
   floatingBtnText: {
     color: "#FFF",
     fontSize: 14,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
 
   // Status tab
@@ -1795,7 +1791,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
   },
-  statusCardLabel: { fontSize: 17, fontWeight: "800", fontFamily: Fonts.sans },
+  statusCardLabel: { fontSize: 17, fontFamily: Fonts.sansExtraBold },
   statusCardSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
 
   timelineCard: {
@@ -1806,8 +1802,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 14,
   },
 
@@ -1839,7 +1834,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
   },
-  nextBadgeText: { fontSize: 15, fontWeight: "700", fontFamily: Fonts.sans },
+  nextBadgeText: { fontSize: 15, fontFamily: Fonts.sansBold },
 
   infoCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 12 },
   cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
@@ -1854,16 +1849,15 @@ const styles = StyleSheet.create({
   infoRow: { marginBottom: 10 },
   infoLabel: {
     fontSize: 13,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  infoValue: { fontSize: 14, fontWeight: "600", fontFamily: Fonts.sans },
+  infoValue: { fontSize: 14, fontFamily: Fonts.sansSemiBold },
   phoneLink: {
     fontSize: 14,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     color: "#0EA5E9",
     textDecorationLine: "underline",
   },
@@ -1876,7 +1870,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 12,
   },
-  trackingLabel: { fontSize: 14, fontWeight: "600", fontFamily: Fonts.sans },
+  trackingLabel: { fontSize: 14, fontFamily: Fonts.sansSemiBold },
   trackingSub: { fontSize: 13, fontFamily: Fonts.sans, marginTop: 2 },
   togglePill: {
     width: 44,
@@ -1914,7 +1908,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 6,
   },
-  noteTypeText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  noteTypeText: { fontSize: 12, fontFamily: Fonts.sansSemiBold },
   noteTime: { fontSize: 11, fontFamily: Fonts.sans },
   noteContent: {
     fontSize: 14,
@@ -1937,12 +1931,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 6,
   },
-  vitalLabel: { fontSize: 11, fontWeight: "600", fontFamily: Fonts.sans },
-  vitalValue: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  vitalLabel: { fontSize: 11, fontFamily: Fonts.sansSemiBold },
+  vitalValue: { fontSize: 12, fontFamily: Fonts.sansBold },
   formLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -1958,7 +1951,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1.5,
   },
-  noteTypeChipText: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  noteTypeChipText: { fontSize: 12, fontFamily: Fonts.sansSemiBold },
   noteInput: {
     borderWidth: 1,
     borderRadius: 12,
@@ -1979,16 +1972,14 @@ const styles = StyleSheet.create({
   vitalsToggleText: {
     flex: 1,
     fontSize: 14,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   vitalsGrid: { gap: 8, marginTop: 8 },
   vitalInputRow: { flexDirection: "row", gap: 10 },
   vitalInputWrap: { flex: 1 },
   vitalInputLabel: {
     fontSize: 11,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginBottom: 4,
   },
   vitalInputField: {

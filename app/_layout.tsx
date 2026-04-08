@@ -1,5 +1,13 @@
 import { MaterialIcons } from "@expo/vector-icons";
 import {
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Inter_900Black,
+} from "@expo-google-fonts/inter";
+import {
     DarkTheme,
     DefaultTheme,
     ThemeProvider,
@@ -29,6 +37,12 @@ initSentry().catch(() => {});
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     ...MaterialIcons.font,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
+    Inter_900Black,
   });
 
   useEffect(() => {

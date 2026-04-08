@@ -233,7 +233,7 @@ export default function DriverPatientInfoScreen() {
                   <View style={{ marginLeft: 12, flex: 1 }}>
                     <ThemedText style={styles.infoLabel}>Blood Type</ThemedText>
                     <ThemedText
-                      style={[styles.infoValue, { fontWeight: "700" }]}
+                      style={[styles.infoValue, { fontFamily: Fonts.sansBold }]}
                     >
                       {medical.blood_type}
                     </ThemedText>
@@ -317,8 +317,7 @@ const styles = StyleSheet.create({
   },
   screenTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   scroll: {
     padding: 16,
@@ -353,8 +352,7 @@ const styles = StyleSheet.create({
   },
   patientName: {
     fontSize: 18,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   patientPhone: {
     fontSize: 12,
@@ -369,9 +367,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: "600",
     marginBottom: 16,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   infoRow: {
     flexDirection: "row",
@@ -381,13 +378,12 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     opacity: 0.6,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansMedium,
     marginBottom: 2,
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: "500",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansMedium,
   },
   divider: {
     height: 1,

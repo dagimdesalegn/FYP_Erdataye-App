@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { View, TextInput, Button, Text } from "react-native";
 import { useRouter } from "expo-router";
+import { Fonts } from "@/constants/theme";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function AdminLogin() {
 
   return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold", marginBottom: 16 }}>Admin Login</Text>
+      <Text style={{ fontSize: 24, fontFamily: Fonts.sansBold, marginBottom: 16 }}>Admin Login</Text>
       <TextInput
         placeholder="Phone"
         value={phone}

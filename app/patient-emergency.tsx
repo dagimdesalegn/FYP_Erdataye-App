@@ -796,7 +796,7 @@ export default function PatientEmergencyScreen() {
         <ThemedText
           style={[
             styles.severityLabel,
-            isSelected && { color: "#FFFFFF", fontWeight: "700" },
+            isSelected && { color: "#FFFFFF", fontFamily: Fonts.sansBold },
           ]}
         >
           {label}
@@ -839,7 +839,7 @@ export default function PatientEmergencyScreen() {
               <ThemedText
                 style={[
                   styles.statusText,
-                  hasActiveEmergency && { color: "#10B981", fontWeight: "700" },
+                  hasActiveEmergency && { color: "#10B981", fontFamily: Fonts.sansBold },
                   { flex: 1 },
                 ]}
               >
@@ -1229,22 +1229,19 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     color: "#94A3B8",
   },
   title: {
     fontSize: 26,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
     color: "#64748B",
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -1278,14 +1275,12 @@ const styles = StyleSheet.create({
   },
   liveStatusLabel: {
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0369A1",
   },
   liveStatusValue: {
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0F172A",
   },
   section: {
@@ -1296,8 +1291,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 14,
     letterSpacing: -0.2,
   },
@@ -1316,14 +1310,12 @@ const styles = StyleSheet.create({
   },
   severityLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     color: "#64748B",
   },
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 6,
     marginTop: 12,
   },
@@ -1336,8 +1328,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     fontSize: 15,
     color: "#11181C",
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
   },
   inputDark: {
     backgroundColor: "#0B1220",
@@ -1364,16 +1355,14 @@ const styles = StyleSheet.create({
   },
   sosButtonText: {
     fontSize: 18,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     color: "white",
     letterSpacing: 0.3,
   },
   disclaimerText: {
     fontSize: 12,
     color: "#EF4444",
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
     paddingHorizontal: 12,
     lineHeight: 16,
@@ -1407,8 +1396,7 @@ const styles = StyleSheet.create({
   },
   nearbyTitle: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   nearbyItem: {
     flexDirection: "row",
@@ -1428,8 +1416,7 @@ const styles = StyleSheet.create({
   nearbyLabel: {
     flex: 1,
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   distBadge: {
     backgroundColor: "#0EA5E910",
@@ -1439,8 +1426,7 @@ const styles = StyleSheet.create({
   },
   distText: {
     fontSize: 11,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0EA5E9",
   },
   nearbyEmpty: {
@@ -1474,8 +1460,7 @@ const styles = StyleSheet.create({
   },
   etaText: {
     fontSize: 11,
-    fontFamily: Fonts.sans,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
     color: "#0369A1",
   },
 });

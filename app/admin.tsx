@@ -1386,8 +1386,7 @@ export default function AdminScreen() {
                         style={{
                           color: activeProvider === p ? "#FFF" : colors.text,
                           fontSize: 13,
-                          fontWeight: "700",
-                          fontFamily: Fonts.sans,
+                          fontFamily: Fonts.sansBold,
                           textTransform: "uppercase",
                         }}
                       >
@@ -1781,8 +1780,7 @@ export default function AdminScreen() {
                         color: hospitalForm.traumaCapable
                           ? "#166534"
                           : "#374151",
-                        fontWeight: "700",
-                        fontFamily: Fonts.sans,
+                        fontFamily: Fonts.sansBold,
                         fontSize: 12,
                       }}
                     >
@@ -1811,8 +1809,7 @@ export default function AdminScreen() {
                         color: hospitalForm.isAcceptingEmergencies
                           ? "#1D4ED8"
                           : "#374151",
-                        fontWeight: "700",
-                        fontFamily: Fonts.sans,
+                        fontFamily: Fonts.sansBold,
                         fontSize: 12,
                       }}
                     >
@@ -1969,8 +1966,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 18,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   heroSub: {
     marginTop: 4,
@@ -1986,8 +1982,7 @@ const styles = StyleSheet.create({
   },
   webOnlyTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     textAlign: "center",
   },
   webOnlySub: { fontSize: 14, fontFamily: Fonts.sans, textAlign: "center" },
@@ -1995,8 +1990,7 @@ const styles = StyleSheet.create({
   pageHeader: { marginTop: 20, marginBottom: 16 },
   pageTitle: {
     fontSize: 26,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.5,
   },
   pageSub: { fontSize: 14, fontFamily: Fonts.sans, marginTop: 2 },
@@ -2025,11 +2019,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 4,
   },
-  statCount: { fontSize: 24, fontWeight: "800", fontFamily: Fonts.sans },
+  statCount: { fontSize: 24, fontFamily: Fonts.sansExtraBold },
   statLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
 
@@ -2051,8 +2044,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
   },
   tabActive: { borderBottomColor: "#DC2626" },
-  tabLabel: { fontSize: 13, fontWeight: "600", fontFamily: Fonts.sans },
-  tabLabelActive: { fontWeight: "800" },
+  tabLabel: { fontSize: 13, fontFamily: Fonts.sansSemiBold },
+  tabLabelActive: { fontFamily: Fonts.sansExtraBold },
 
   searchWrap: {
     flexDirection: "row",
@@ -2083,7 +2076,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  chipText: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  chipText: { fontSize: 12, fontFamily: Fonts.sansBold },
 
   itemCard: {
     borderRadius: 14,
@@ -2100,13 +2093,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cardInfo: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: 15, fontWeight: "700", fontFamily: Fonts.sans },
+  cardTitle: { fontSize: 15, fontFamily: Fonts.sansBold },
   cardSub: { fontSize: 12, fontFamily: Fonts.sans },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgeText: {
     fontSize: 12,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -2162,8 +2154,7 @@ const styles = StyleSheet.create({
   createBtnText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   modalOverlay: {
@@ -2196,8 +2187,7 @@ const styles = StyleSheet.create({
   },
   createModalTitle: {
     fontSize: 16,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 4,
   },
   createInput: {
@@ -2223,8 +2213,7 @@ const styles = StyleSheet.create({
   quickLocationText: {
     color: "#111827",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   toggleChip: {
     flex: 1,
@@ -2249,15 +2238,13 @@ const styles = StyleSheet.create({
   cancelBtnText: {
     color: "#111827",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   saveBtn: { backgroundColor: "#DC2626" },
   saveBtnText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   dropdownOverlay: {
@@ -2288,7 +2275,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dropdownName: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.sans },
+  dropdownName: { fontSize: 16, fontFamily: Fonts.sansBold },
   dropdownPhone: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
   dropdownRoleBadge: {
     alignSelf: "flex-start",
@@ -2299,8 +2286,7 @@ const styles = StyleSheet.create({
   },
   dropdownRoleLabel: {
     fontSize: 10,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.5,
   },
   dropdownDivider: { height: 1, marginVertical: 12 },
@@ -2312,8 +2298,7 @@ const styles = StyleSheet.create({
   },
   dropdownSignOutText: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#DC2626",
   },
 
@@ -2332,8 +2317,7 @@ const styles = StyleSheet.create({
   },
   settingsTitle: {
     fontSize: 17,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   settingsDesc: {
     fontSize: 13,
@@ -2371,13 +2355,11 @@ const styles = StyleSheet.create({
   settingsSaveBtnText: {
     color: "#FFF",
     fontSize: 14,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   settingsLabel: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginTop: 14,
     marginBottom: 6,
   },
@@ -2402,8 +2384,7 @@ const styles = StyleSheet.create({
   },
   settingsStatNumber: {
     fontSize: 22,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   settingsStatLabel: {
     fontSize: 11,

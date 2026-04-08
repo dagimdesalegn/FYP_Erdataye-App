@@ -429,22 +429,19 @@ const styles = StyleSheet.create({
   roleChip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   roleChipText: {
     fontSize: 11,
-    fontWeight: "800",
     letterSpacing: 0.4,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   title: {
     fontSize: 24,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.5,
     marginBottom: 4,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 14,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     lineHeight: 20,
     marginBottom: 20,
     textAlign: "center",
@@ -453,8 +450,7 @@ const styles = StyleSheet.create({
   fieldGroup: { gap: 6 },
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.2,
   },
   inputWrap: {
@@ -468,22 +464,19 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10 },
   phonePrefix: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginRight: 6,
   },
   input: {
     flex: 1,
     fontSize: 15,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     height: "100%",
     ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   fieldError: {
     fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
@@ -501,8 +494,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
   },
 });

@@ -1186,7 +1186,7 @@ export default function PatientEmergencyTrackingScreen() {
               >
                 <MaterialIcons name="alt-route" size={16} color="#FFF" />
                 <ThemedText
-                  style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
+                  style={{ color: "#FFF", fontFamily: Fonts.sansBold, marginLeft: 8 }}
                 >
                   Open Clear Route View
                 </ThemedText>
@@ -1309,7 +1309,7 @@ export default function PatientEmergencyTrackingScreen() {
                 <ThemedText
                   style={{
                     color: "#FFF",
-                    fontWeight: "bold",
+                    fontFamily: Fonts.sansBold,
                     fontSize: 16,
                     marginLeft: 8,
                   }}
@@ -1338,7 +1338,7 @@ export default function PatientEmergencyTrackingScreen() {
                 <ThemedText
                   style={{
                     color: "#FFF",
-                    fontWeight: "800",
+                    fontFamily: Fonts.sansExtraBold,
                     fontSize: 14,
                     marginLeft: 7,
                   }}
@@ -1513,7 +1513,7 @@ export default function PatientEmergencyTrackingScreen() {
             >
               <MaterialIcons name="share" size={18} color="#FFF" />
               <ThemedText
-                style={{ color: "#FFF", fontWeight: "700", marginLeft: 8 }}
+                style={{ color: "#FFF", fontFamily: Fonts.sansBold, marginLeft: 8 }}
               >
                 {sharingLink
                   ? "Preparing Share Link..."
@@ -1587,8 +1587,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: "center",
     fontSize: 17,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   root: { flex: 1, overflow: "hidden" },
   heroGlow: {
@@ -1636,8 +1635,7 @@ const styles = StyleSheet.create({
   notifTitle: {
     color: "#FFF",
     fontSize: 16,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   notifMsg: {
     color: "rgba(255,255,255,0.95)",
@@ -1663,8 +1661,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     fontSize: 20,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   tagRow: {
     flexDirection: "row",
@@ -1674,8 +1671,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
 
   // Error
@@ -1698,7 +1694,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#0EA5E9",
     borderRadius: 10,
   },
-  errBtnText: { color: "#FFF", fontWeight: "700", fontFamily: Fonts.sans },
+  errBtnText: { color: "#FFF", fontFamily: Fonts.sansBold },
 
   // Status banner
   statusBanner: {
@@ -1722,7 +1718,7 @@ const styles = StyleSheet.create({
     }) as object),
     elevation: 10,
   },
-  statusLabel: { fontSize: 17, fontWeight: "800", fontFamily: Fonts.sans },
+  statusLabel: { fontSize: 17, fontFamily: Fonts.sansExtraBold },
   statusSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
   sevChip: {
     borderWidth: 1.5,
@@ -1730,7 +1726,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  sevChipText: { fontSize: 11, fontWeight: "700", fontFamily: Fonts.sans },
+  sevChipText: { fontSize: 11, fontFamily: Fonts.sansBold },
 
   // Steps
   stepsCard: {
@@ -1761,8 +1757,7 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 12,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
   stepLine: {
@@ -1801,8 +1796,7 @@ const styles = StyleSheet.create({
   },
   mapTitle: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginLeft: 8,
     flex: 1,
   },
@@ -1817,8 +1811,7 @@ const styles = StyleSheet.create({
   distText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   mapFrame: {
     width: "100%" as any,
@@ -1858,8 +1851,7 @@ const styles = StyleSheet.create({
   },
   cardHeading: {
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginLeft: 10,
     flex: 1,
   },
@@ -1889,7 +1881,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  detailValue: { fontSize: 14, fontWeight: "600", fontFamily: Fonts.sans },
+  detailValue: { fontSize: 14, fontFamily: Fonts.sansSemiBold },
 
   etaBadge: {
     flexDirection: "row",
@@ -1903,8 +1895,7 @@ const styles = StyleSheet.create({
   },
   etaText: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0EA5E9",
   },
 
@@ -1963,7 +1954,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 6,
   },
-  actionLabel: { fontSize: 12, fontWeight: "600", fontFamily: Fonts.sans },
+  actionLabel: { fontSize: 12, fontFamily: Fonts.sansSemiBold },
 
   homeBtn: {
     flexDirection: "row",
@@ -1978,8 +1969,7 @@ const styles = StyleSheet.create({
   homeBtnText: {
     color: "#FFF",
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   fabDock: {
     position: "absolute",

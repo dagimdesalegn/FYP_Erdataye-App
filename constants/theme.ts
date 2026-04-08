@@ -51,34 +51,26 @@ export const Colors = {
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: "SF Pro Display, -apple-system, BlinkMacSystemFont, sans-serif",
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: "New York, Georgia, serif",
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: "SF Pro Rounded, -apple-system, BlinkMacSystemFont, sans-serif",
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: "SF Mono, Monaco, monospace",
-  },
-  android: {
-    sans: "Roboto",
-    serif: "serif",
-    rounded: "Roboto",
-    mono: "monospace",
-  },
-  default: {
-    sans: "System, -apple-system, BlinkMacSystemFont, sans-serif",
-    serif: "serif",
-    rounded: "System, -apple-system, BlinkMacSystemFont, sans-serif",
-    mono: "monospace",
-  },
-  web: {
-    sans: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded:
-      "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+/**
+ * Inter font families – weight-mapped for cross-platform correctness.
+ * On Android custom fonts ignore `fontWeight`, so each weight gets its own
+ * registered family name.  Use Fonts.sansBold instead of fontWeight: "700", etc.
+ */
+export const Fonts = {
+  /** 400 – body / default */
+  sans: "Inter_400Regular",
+  /** 500 – medium emphasis */
+  sansMedium: "Inter_500Medium",
+  /** 600 – labels, sub-headings */
+  sansSemiBold: "Inter_600SemiBold",
+  /** 700 – cards, buttons, headings */
+  sansBold: "Inter_700Bold",
+  /** 800 – page titles, large stats */
+  sansExtraBold: "Inter_800ExtraBold",
+  /** 900 – hero text */
+  sansBlack: "Inter_900Black",
+  /** Rounded feel for brand headings (same as bold) */
+  rounded: "Inter_700Bold",
+  serif: Platform.select({ ios: "New York", android: "serif", default: "Georgia" }) as string,
+  mono: Platform.select({ ios: "SF Mono", android: "monospace", default: "monospace" }) as string,
+};

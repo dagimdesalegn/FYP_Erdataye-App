@@ -466,16 +466,15 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
-  locationText: { fontSize: 12, fontFamily: Fonts.sans, marginBottom: 12 },
+  locationText: { fontSize: 12, fontFamily: Fonts.sansBold, marginBottom: 12 },
   errorText: {
     marginBottom: 10,
     fontSize: 13,
     fontFamily: Fonts.sans,
   },
   sectionTitle: {
-    fontWeight: "bold",
     fontSize: 16,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginTop: 12,
     marginBottom: 8,
   },
@@ -496,7 +495,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  cardTitle: { fontWeight: "700", fontSize: 14, fontFamily: Fonts.sans },
+  cardTitle: {  fontSize: 14, fontFamily: Fonts.sansBold },
   cardSub: {
     fontSize: 12,
     fontFamily: Fonts.sans,

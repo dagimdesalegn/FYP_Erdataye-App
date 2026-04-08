@@ -904,8 +904,7 @@ const styles = StyleSheet.create({
   },
   topEmergencyTitle: {
     fontSize: 14,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.45,
   },
   topEmergencySub: {
@@ -938,8 +937,7 @@ const styles = StyleSheet.create({
   },
   sevLabel: {
     fontSize: 16,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.5,
   },
   sevSub: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
@@ -959,8 +957,7 @@ const styles = StyleSheet.create({
   },
   mapTitle: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginLeft: 8,
     flex: 1,
   },
@@ -973,8 +970,7 @@ const styles = StyleSheet.create({
   distText: {
     color: "#FFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   mapFrame: {
     width: "100%" as any,
@@ -995,9 +991,8 @@ const styles = StyleSheet.create({
   },
   navBtnText: {
     color: "#FFF",
-    fontWeight: "700",
     fontSize: 14,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   // Info card
@@ -1021,8 +1016,7 @@ const styles = StyleSheet.create({
   },
   cardHeading: {
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginLeft: 10,
   },
 
@@ -1034,12 +1028,11 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  infoValue: { fontSize: 15, fontWeight: "600", fontFamily: Fonts.sans },
+  infoValue: { fontSize: 15, fontFamily: Fonts.sansSemiBold },
 
   phoneLink: {
     fontSize: 15,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     color: "#0EA5E9",
     textDecorationLine: "underline",
   },
@@ -1060,8 +1053,7 @@ const styles = StyleSheet.create({
   },
   phoneValue: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0EA5E9",
   },
   callNowBtn: {
@@ -1076,8 +1068,7 @@ const styles = StyleSheet.create({
   callNowText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   descBox: {
@@ -1118,8 +1109,7 @@ const styles = StyleSheet.create({
   },
   medicalGridValue: {
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
   medicalGridLabel: {
@@ -1149,9 +1139,8 @@ const styles = StyleSheet.create({
   },
   bloodText: {
     color: "#FFF",
-    fontWeight: "800",
     fontSize: 16,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
 
   // Bottom bar
@@ -1179,8 +1168,7 @@ const styles = StyleSheet.create({
   },
   bottomTitle: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     maxWidth: 230,
     textAlign: "center",
   },
@@ -1193,8 +1181,7 @@ const styles = StyleSheet.create({
   distChipText: {
     color: "#FFF",
     fontSize: 11,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   buttonRow: {
     flexDirection: "row",
@@ -1217,9 +1204,8 @@ const styles = StyleSheet.create({
   },
   declineBtnText: {
     color: "#DC2626",
-    fontWeight: "700",
     fontSize: 14,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   acceptWrapper: {
     flex: 1,
@@ -1235,9 +1221,8 @@ const styles = StyleSheet.create({
   },
   acceptBtnText: {
     color: "#FFF",
-    fontWeight: "700",
     fontSize: 14,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   // Medical info merged into patient card
@@ -1255,8 +1240,7 @@ const styles = StyleSheet.create({
   },
   medicalInlineTitle: {
     fontSize: 14,
-    fontFamily: Fonts.sans,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
   },
   medicalInlineGrid: {
     flexDirection: "row",
@@ -1280,8 +1264,7 @@ const styles = StyleSheet.create({
   },
   medicalTileValue: {
     fontSize: 13,
-    fontFamily: Fonts.sans,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
     color: "#0F172A",
   },
   medicalDetailBox: {
@@ -1302,8 +1285,7 @@ const styles = StyleSheet.create({
   },
   emergencyContactName: {
     fontSize: 15,
-    fontFamily: Fonts.sans,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
   },
   emergencyCallBtn: {
     marginTop: 2,
@@ -1319,19 +1301,17 @@ const styles = StyleSheet.create({
   emergencyCallBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
   },
   medicalDetailLabel: {
     fontSize: 11,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginBottom: 4,
   },
   medicalDetailValue: {
     fontSize: 14,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
   },
 });

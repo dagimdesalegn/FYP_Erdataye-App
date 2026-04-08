@@ -1,7 +1,7 @@
 import { useAppState } from "@/components/app-state";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
-import { Colors } from "@/constants/theme";
+import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     addChatbotMessage,
@@ -423,7 +423,7 @@ export default function ChatbotPage() {
                   <Text
                     style={{
                       color: item.role === "user" ? "#FFFFFF" : colors.text,
-                      fontWeight: "600",
+                      fontFamily: Fonts.sansSemiBold,
                       fontSize: 14,
                       lineHeight: 20,
                     }}
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   },
   welcomeMsg: {
     fontSize: 14,
-    fontWeight: "800",
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 14,
     textAlign: "center",
     letterSpacing: 0.2,
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   },
   topBarTitle: {
     fontSize: 16,
-    fontWeight: "900",
+    fontFamily: Fonts.sansBlack,
     letterSpacing: 0.2,
   },
   langRow: {
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   langBtnActive: {},
   langText: {
     fontSize: 11,
-    fontWeight: "800",
+    fontFamily: Fonts.sansExtraBold,
   },
   langTextActive: {},
   clearBtn: {
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   },
   clearBtnText: {
     fontSize: 12,
-    fontWeight: "800",
+    fontFamily: Fonts.sansExtraBold,
   },
   userMsg: {
     alignSelf: "flex-end",
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
   },
   inputBar: {
     flexDirection: "row",
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     textAlignVertical: "center",
     minHeight: 40,
     maxHeight: 48,
@@ -742,13 +742,13 @@ const styles = StyleSheet.create({
   },
   voiceStatus: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
     marginTop: 8,
     textAlign: "center",
   },
   voiceHint: {
     fontSize: 12,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     marginTop: 8,
     textAlign: "center",
   },

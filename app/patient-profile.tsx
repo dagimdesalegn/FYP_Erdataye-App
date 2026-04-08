@@ -626,15 +626,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 13,
     color: "#64748B",
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
   },
   section: {
     marginBottom: 14,
@@ -646,15 +644,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 12,
     color: "#0EA5E9",
   },
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.1,
     marginBottom: 6,
     marginTop: 12,
@@ -668,8 +664,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     fontSize: 15,
     color: "#11181C",
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
   },
   inputDark: {
     backgroundColor: "#0B1220",
@@ -731,7 +726,6 @@ const styles = StyleSheet.create({
   successText: {
     color: "#FFFFFF",
     fontSize: 15,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
 });

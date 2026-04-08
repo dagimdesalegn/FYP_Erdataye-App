@@ -1611,9 +1611,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 11,
-                                      fontWeight: "600",
                                       color: meta.color,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                     }}
                                   >
                                     {meta.label}
@@ -1656,9 +1655,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         BP
@@ -1666,7 +1664,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1689,9 +1686,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         HR
@@ -1699,7 +1695,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1722,9 +1717,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         SpO₂
@@ -1732,7 +1726,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1755,9 +1748,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         Temp
@@ -1765,7 +1757,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1788,9 +1779,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         RR
@@ -1798,7 +1788,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1821,9 +1810,8 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 10,
-                                          fontWeight: "600",
                                           color: subText,
-                                          fontFamily: Fonts.sans,
+                                          fontFamily: Fonts.sansSemiBold,
                                         }}
                                       >
                                         AVPU
@@ -1831,7 +1819,6 @@ export default function HospitalDashboard() {
                                       <ThemedText
                                         style={{
                                           fontSize: 11,
-                                          fontWeight: "700",
                                           color: colors.text,
                                           fontFamily: Fonts.sans,
                                         }}
@@ -1914,9 +1901,8 @@ export default function HospitalDashboard() {
                             <ThemedText
                               style={{
                                 fontSize: 14,
-                                fontWeight: "700",
                                 color: colors.text,
-                                fontFamily: Fonts.sans,
+                                fontFamily: Fonts.sansBold,
                               }}
                             >
                               Add Treatment Note
@@ -1965,9 +1951,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 11,
-                                      fontWeight: "600",
                                       color: sel ? meta.color : subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                     }}
                                   >
                                     {meta.label}
@@ -2040,9 +2025,8 @@ export default function HospitalDashboard() {
                               style={{
                                 flex: 1,
                                 fontSize: 13,
-                                fontWeight: "600",
                                 color: colors.text,
-                                fontFamily: Fonts.sans,
+                                fontFamily: Fonts.sansSemiBold,
                               }}
                             >
                               {showHospitalVitals
@@ -2067,9 +2051,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2102,9 +2085,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2141,9 +2123,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2181,9 +2162,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2220,9 +2200,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2261,9 +2240,8 @@ export default function HospitalDashboard() {
                                   <ThemedText
                                     style={{
                                       fontSize: 10,
-                                      fontWeight: "600",
                                       color: subText,
-                                      fontFamily: Fonts.sans,
+                                      fontFamily: Fonts.sansSemiBold,
                                       marginBottom: 3,
                                     }}
                                   >
@@ -2878,7 +2856,7 @@ export default function HospitalDashboard() {
                 {notifHistory.length > 0 && (
                   <Pressable onPress={() => setNotifHistory([])}>
                     <ThemedText
-                      style={{ fontSize: 13, color: "#DC2626", fontFamily: Fonts.sans, fontWeight: "600" }}
+                      style={{ fontSize: 13, color: "#DC2626", fontFamily: Fonts.sansSemiBold }}
                     >
                       Clear All
                     </ThemedText>
@@ -2942,8 +2920,7 @@ export default function HospitalDashboard() {
                           style={{
                             fontSize: 13,
                             color: colors.text,
-                            fontFamily: Fonts.sans,
-                            fontWeight: "600",
+                            fontFamily: Fonts.sansSemiBold,
                           }}
                         >
                           {item.message}
@@ -3006,12 +2983,11 @@ const infoStyles = StyleSheet.create({
   row: { marginBottom: 10 },
   label: {
     fontSize: 12,
-    fontWeight: "600",
     marginBottom: 2,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   value: { fontSize: 15, fontFamily: Fonts.sans },
-  highlight: { fontSize: 18, fontWeight: "700", color: "#DC2626" },
+  highlight: { fontSize: 18, fontFamily: Fonts.sansBold, color: "#DC2626" },
 });
 
 /* ─── Styles ────────────────────────────────────────────────────── */
@@ -3047,8 +3023,7 @@ const styles = StyleSheet.create({
   notifText: {
     color: "#fff",
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   notifSub: {
     color: "rgba(255,255,255,0.75)",
@@ -3078,8 +3053,7 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     color: "#FFF",
     fontSize: 10,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   notifPanelContent: {
     width: "90%",
@@ -3123,20 +3097,18 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: 22,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.3,
   },
   heroSub: {
     marginTop: 4,
     fontSize: 13,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     lineHeight: 18,
   },
   webOnlyTitle: {
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     textAlign: "center",
   },
   webOnlySub: { fontSize: 14, fontFamily: Fonts.sans, textAlign: "center" },
@@ -3144,8 +3116,7 @@ const styles = StyleSheet.create({
   pageHeader: { marginTop: 20, marginBottom: 16 },
   pageTitle: {
     fontSize: 26,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.5,
   },
   pageSub: { fontSize: 14, fontFamily: Fonts.sans, marginTop: 2 },
@@ -3174,11 +3145,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 4,
   },
-  statCount: { fontSize: 24, fontWeight: "800", fontFamily: Fonts.sans },
+  statCount: { fontSize: 24, fontFamily: Fonts.sansExtraBold },
   statLabel: {
     fontSize: 13,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
 
@@ -3191,8 +3161,7 @@ const styles = StyleSheet.create({
   },
   capacityInlineText: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   fleetActionsRow: {
     marginBottom: 12,
@@ -3216,8 +3185,7 @@ const styles = StyleSheet.create({
   repairBtnText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   searchWrap: {
@@ -3249,7 +3217,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
   },
-  chipText: { fontSize: 12, fontWeight: "700", fontFamily: Fonts.sans },
+  chipText: { fontSize: 12, fontFamily: Fonts.sansBold },
 
   itemCard: {
     borderRadius: 14,
@@ -3282,8 +3250,7 @@ const styles = StyleSheet.create({
   },
   cardTimeAgo: {
     fontSize: 11,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginLeft: 8,
   },
   statusBadge: {
@@ -3297,8 +3264,7 @@ const styles = StyleSheet.create({
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   badgeText: {
     fontSize: 12,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
@@ -3325,7 +3291,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cardInfo: { flex: 1, gap: 2 },
-  cardTitle: { fontSize: 15, fontWeight: "700", fontFamily: Fonts.sans },
+  cardTitle: { fontSize: 15, fontFamily: Fonts.sansBold },
   cardSub: { fontSize: 12, fontFamily: Fonts.sans },
   cardChevronWrap: {
     width: 30,
@@ -3388,8 +3354,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     flex: 1,
   },
   closeBtn: { padding: 10, marginLeft: 8 },
@@ -3404,16 +3369,14 @@ const styles = StyleSheet.create({
   },
   modalStatusText: {
     fontSize: 12,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.8,
     flex: 1,
   },
   liveDot: { width: 8, height: 8, borderRadius: 4 },
   liveLabel: {
     fontSize: 10,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 1,
   },
   section: { marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1 },
@@ -3423,7 +3386,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.sans },
+  sectionTitle: { fontSize: 16, fontFamily: Fonts.sansBold },
   modalMap: {
     width: "100%",
     height: 320,
@@ -3443,7 +3406,7 @@ const styles = StyleSheet.create({
   },
   fleetItem: { alignItems: "center", flex: 1 },
   fleetDivider: { width: 1, height: 36 },
-  fleetNum: { fontSize: 22, fontWeight: "800", fontFamily: Fonts.sans },
+  fleetNum: { fontSize: 22, fontFamily: Fonts.sansExtraBold },
   fleetLabel: { fontSize: 11, fontFamily: Fonts.sans, marginTop: 2 },
   actionRow: { flexDirection: "row", gap: 12, marginTop: 4, marginBottom: 16 },
   actionHintCard: {
@@ -3468,8 +3431,7 @@ const styles = StyleSheet.create({
   actionBtnText: {
     color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   dropdownOverlay: {
@@ -3500,7 +3462,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  dropdownName: { fontSize: 16, fontWeight: "700", fontFamily: Fonts.sans },
+  dropdownName: { fontSize: 16, fontFamily: Fonts.sansBold },
   dropdownPhone: { fontSize: 12, fontFamily: Fonts.sans, marginTop: 2 },
   dropdownRoleBadge: {
     alignSelf: "flex-start",
@@ -3511,8 +3473,7 @@ const styles = StyleSheet.create({
   },
   dropdownRoleLabel: {
     fontSize: 10,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.5,
   },
   dropdownDivider: { height: 1, marginVertical: 12 },
@@ -3524,8 +3485,7 @@ const styles = StyleSheet.create({
   },
   dropdownActionText: {
     fontSize: 14,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#0F766E",
   },
   dropdownSignOut: {
@@ -3536,8 +3496,7 @@ const styles = StyleSheet.create({
   },
   dropdownSignOutText: {
     fontSize: 15,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     color: "#DC2626",
   },
   profileInput: {
@@ -3546,25 +3505,23 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 12,
     fontSize: 13,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginBottom: 8,
   },
   profileSectionTitle: {
     fontSize: 14,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     marginTop: 4,
     marginBottom: 4,
   },
   profileHint: {
     fontSize: 12,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 8,
   },
   profileFieldLabel: {
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     marginBottom: 4,
   },
   profileInputRow: {
@@ -3599,8 +3556,7 @@ const styles = StyleSheet.create({
   },
   profileToggleText: {
     fontSize: 12,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
   profileSaveBtn: {
     height: 40,
@@ -3615,8 +3571,7 @@ const styles = StyleSheet.create({
   profileSaveBtnText: {
     color: "#FFFFFF",
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 
   // Medical notes styles
@@ -3689,7 +3644,6 @@ const styles = StyleSheet.create({
   hospNoteSaveBtnText: {
     color: "#FFF",
     fontSize: 13,
-    fontWeight: "700" as const,
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
   },
 });

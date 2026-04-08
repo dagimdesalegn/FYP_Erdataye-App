@@ -1163,7 +1163,7 @@ export default function RegisterScreen() {
                 <ThemedText
                   style={{
                     marginHorizontal: 12,
-                    fontWeight: "700",
+                    fontFamily: Fonts.sansBold,
                     fontSize: 12,
                     color: textSecondary,
                   }}
@@ -1209,7 +1209,7 @@ export default function RegisterScreen() {
                 <ThemedText
                   style={{
                     color: "#fff",
-                    fontWeight: "800",
+                    fontFamily: Fonts.sansExtraBold,
                     fontSize: 15,
                     letterSpacing: 0.2,
                   }}
@@ -1326,16 +1326,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.5,
     marginBottom: 4,
     textAlign: "center",
   },
   subtitle: {
     fontSize: 13,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     lineHeight: 18,
     marginBottom: 10,
     textAlign: "center",
@@ -1348,8 +1346,7 @@ const styles = StyleSheet.create({
   },
   roleLabel: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.1,
     marginBottom: 6,
   },
@@ -1386,13 +1383,12 @@ const styles = StyleSheet.create({
   },
   roleButtonLabel: {
     fontSize: 11,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     color: "#6B7280",
   },
   roleButtonLabelSelected: {
     color: "#0EA5E9",
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
   },
   form: {
     gap: 10,
@@ -1411,8 +1407,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.2,
   },
   inputWrap: {
@@ -1426,22 +1421,19 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 6 },
   phonePrefix: {
     fontSize: 14,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     marginRight: 4,
   },
   input: {
     flex: 1,
     fontSize: 13,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
     height: "100%",
     ...(Platform.OS === "web" ? { outlineStyle: "none" as any } : {}),
   },
   fieldError: {
     fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
@@ -1457,8 +1449,7 @@ const styles = StyleSheet.create({
   },
   hospitalLoadingText: {
     fontSize: 12,
-    fontFamily: Fonts.sans,
-    fontWeight: "600",
+    fontFamily: Fonts.sansSemiBold,
   },
   hospitalListWrap: {
     gap: 8,
@@ -1502,14 +1493,12 @@ const styles = StyleSheet.create({
   hospitalBadgeText: {
     color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: 0.2,
   },
   hospitalName: {
     fontSize: 12,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
   hospitalMetaRow: {
     flexDirection: "row",
@@ -1539,8 +1528,7 @@ const styles = StyleSheet.create({
   },
   hospitalEmptyText: {
     fontSize: 12,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
   primaryBtn: {
@@ -1560,8 +1548,7 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
   },
   footerDivider: {
@@ -1578,13 +1565,11 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
-    fontFamily: Fonts.sans,
-    fontWeight: "500",
+    fontFamily: Fonts.sansMedium,
   },
   footerLink: {
     fontSize: 14,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     color: "#DC2626",
   },
 });

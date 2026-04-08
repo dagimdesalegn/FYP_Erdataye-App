@@ -5,7 +5,7 @@ import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { Colors } from "@/constants/theme";
+import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   heroTextCol: { flex: 1 },
-  heroTitle: { fontSize: 18, fontWeight: "900", letterSpacing: -0.3 },
+  heroTitle: { fontSize: 18, fontFamily: Fonts.sansBlack, letterSpacing: -0.3 },
   mapShell: {
     borderRadius: 20,
     borderWidth: 1,
@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 18,
   },
-  mapPlaceholderText: { fontSize: 13, fontWeight: "600", textAlign: "center" },
+  mapPlaceholderText: { fontSize: 13, fontFamily: Fonts.sansSemiBold, textAlign: "center" },
   liveMapRoot: { flex: 1 },
   mapMetaRow: {
     minHeight: 56,
@@ -920,8 +920,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   mapMetaLeft: { flexDirection: "row", alignItems: "center", gap: 8, flex: 1 },
-  mapMetaLabel: { fontSize: 12, fontWeight: "800" },
-  mapMetaValue: { fontSize: 12, marginTop: 2, fontWeight: "500" },
+  mapMetaLabel: { fontSize: 12, fontFamily: Fonts.sansExtraBold },
+  mapMetaValue: { fontSize: 12, marginTop: 2, fontFamily: Fonts.sansMedium },
   openMapBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -932,7 +932,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  openMapText: { fontSize: 12, fontWeight: "700" },
+  openMapText: { fontSize: 12, fontFamily: Fonts.sansBold },
   mapFrameWrap: { flex: 1, minHeight: 300 },
   actionsRow: { marginTop: 14, flexDirection: "row", gap: 14 },
   modalActionsRow: { marginTop: 14, flexDirection: "row", gap: 14 },
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 6,
   },
-  sheetTitle: { fontSize: 17, fontWeight: "900" },
+  sheetTitle: { fontSize: 17, fontFamily: Fonts.sansBlack },
   sheetClose: {
     width: 34,
     height: 34,
@@ -1030,8 +1030,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  profileEmail: { fontSize: 12, fontWeight: "600", flex: 1 },
-  profileName: { fontSize: 14, fontWeight: "700", marginBottom: 2 },
+  profileEmail: { fontSize: 12, fontFamily: Fonts.sansSemiBold, flex: 1 },
+  profileName: { fontSize: 14, fontFamily: Fonts.sansBold, marginBottom: 2 },
   profileCloseBtn: {
     width: 28,
     height: 28,
@@ -1047,11 +1047,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
   },
-  profileMenuText: { fontSize: 14, fontWeight: "600" },
+  profileMenuText: { fontSize: 14, fontFamily: Fonts.sansSemiBold },
   profileDivider: { height: 1, marginVertical: 4, marginHorizontal: 8 },
   contactSectionTitle: {
     fontSize: 12,
-    fontWeight: "700",
+    fontFamily: Fonts.sansBold,
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -1074,6 +1074,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   contactInfo: { flex: 1, gap: 3 },
-  contactName: { fontSize: 15, fontWeight: "700" },
-  contactNumber: { fontSize: 14, fontWeight: "600" },
+  contactName: { fontSize: 15, fontFamily: Fonts.sansBold },
+  contactNumber: { fontSize: 14, fontFamily: Fonts.sansSemiBold },
 });

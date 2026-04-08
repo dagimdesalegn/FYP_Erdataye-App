@@ -349,7 +349,7 @@ export default function FirstAidChatScreen() {
         {/* Welcome message always at top */}
         <View style={{ alignItems: "center", marginTop: 8, marginBottom: 4 }}>
           <ThemedText
-            style={{ color: "#DC2626", fontSize: 13, fontWeight: "700" }}
+            style={{ color: "#DC2626", fontSize: 13, fontFamily: Fonts.sansBold }}
           >
             👋 Welcome! Ask me anything about first aid or emergencies.
           </ThemedText>
@@ -542,8 +542,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: TYPE.title,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     letterSpacing: -0.3,
   },
   statusRow: {
@@ -554,8 +553,7 @@ const styles = StyleSheet.create({
   },
   headerSub: {
     fontSize: TYPE.caption,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
   },
   onlineDot: {
     width: 7,
@@ -575,8 +573,7 @@ const styles = StyleSheet.create({
   },
   langChipText: {
     fontSize: TYPE.caption,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
   },
 
   // Disclaimer
@@ -590,8 +587,7 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     fontSize: 12,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     flex: 1,
   },
 
@@ -614,14 +610,12 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: TYPE.hero,
-    fontWeight: "800",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansExtraBold,
     textAlign: "center",
   },
   emptySub: {
     fontSize: TYPE.body,
-    fontWeight: "500",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansMedium,
     textAlign: "center",
     lineHeight: 20,
   },
@@ -709,8 +703,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: Platform.OS === "ios" ? 12 : 10,
     fontSize: TYPE.bodyLg,
-    fontWeight: "600",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlignVertical: "top",
     maxHeight: 110,
     minHeight: 46,

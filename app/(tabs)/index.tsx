@@ -270,11 +270,10 @@ const styles = StyleSheet.create({
   },
   titleAmharic: {
     fontSize: 40,
-    fontWeight: "900",
     color: "#F1F5F9",
     letterSpacing: 0,
     textAlign: "center",
-    fontFamily: Platform.OS === "android" ? "sans-serif" : Fonts.rounded,
+    fontFamily: Fonts.sansBlack,
     marginBottom: 14,
     paddingHorizontal: 20,
     paddingVertical: 6,
@@ -283,18 +282,16 @@ const styles = StyleSheet.create({
   } as any,
   subtitle: {
     fontSize: 18,
-    fontWeight: "700",
     color: "#CBD5E1",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     textAlign: "center",
     letterSpacing: 0.3,
     marginBottom: 14,
   },
   desc: {
     fontSize: 14,
-    fontWeight: "500",
     color: "#64748B",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansMedium,
     lineHeight: 22,
     textAlign: "center",
     paddingHorizontal: 8,
@@ -324,8 +321,7 @@ const styles = StyleSheet.create({
   btnPrimaryText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
   },
   btnOutline: {
@@ -342,8 +338,7 @@ const styles = StyleSheet.create({
   btnOutlineText: {
     color: "#E2E8F0",
     fontSize: 16,
-    fontWeight: "700",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
   },
   btnPressed: {
@@ -352,9 +347,8 @@ const styles = StyleSheet.create({
   },
   footerNote: {
     fontSize: 12,
-    fontWeight: "600",
     color: "#475569",
-    fontFamily: Fonts.sans,
+    fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
     marginTop: 8,
     letterSpacing: 0.3,
