@@ -55,6 +55,14 @@ interface AdminDashboardResponse {
   hospitals: Hospital[];
 }
 
+interface ProviderConfig {
+  provider: string;
+  base_url: string;
+  model: string;
+  api_key_set: boolean;
+  api_key_preview: string;
+}
+
 const ROLE_COLORS: Record<string, { bg: string; text: string }> = {
   patient: { bg: "#DBEAFE", text: "#1D4ED8" },
   ambulance: { bg: "#FEF3C7", text: "#B45309" },
@@ -128,6 +136,15 @@ export default function AdminScreen() {
     "openai",
     "groq",
   ]);
+  const [providerConfigs, setProviderConfigs] = useState<
+    Record<string, ProviderConfig>
+  >({});
+  const [providerNameInput, setProviderNameInput] = useState("");
+  const [providerBaseUrl, setProviderBaseUrl] = useState("");
+  const [providerModel, setProviderModel] = useState("");
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [editingProviderSettings, setEditingProviderSettings] =
+    useState(false);
   const [totalChatRequests, setTotalChatRequests] = useState(0);
   const [uniqueChatUsers, setUniqueChatUsers] = useState(0);
   const [todayChatRequests, setTodayChatRequests] = useState(0);
@@ -141,6 +158,7 @@ export default function AdminScreen() {
   const inputBg = colors.surfaceMuted;
   const inputBorder = colors.border;
   const subText = colors.textMuted;
+  const activeProviderConfig = providerConfigs[activeProvider];
 
   /* ─── data fetching ───────────────────────────────────────── */
 
@@ -183,6 +201,7 @@ export default function AdminScreen() {
         deepseek_api_key_preview: string;
         active_provider: string;
         available_providers: string[];
+        provider_configs: ProviderConfig[];
         total_chat_requests: number;
         unique_chat_users: number;
         today_chat_requests: number;
@@ -193,6 +212,14 @@ export default function AdminScreen() {
         setActiveProvider(data.active_provider || "deepseek");
         if (data.available_providers?.length)
           setAvailableProviders(data.available_providers);
+        const configMap = (data.provider_configs || []).reduce(
+          (acc, cfg) => {
+            acc[cfg.provider] = cfg;
+            return acc;
+          },
+          {} as Record<string, ProviderConfig>,
+        );
+        setProviderConfigs(configMap);
         setTotalChatRequests(data.total_chat_requests || 0);
         setUniqueChatUsers(data.unique_chat_users || 0);
         setTodayChatRequests(data.today_chat_requests || 0);
@@ -218,6 +245,7 @@ export default function AdminScreen() {
         `Chatbot now using ${activeProvider.toUpperCase()} provider.`,
       );
       setNewApiKey("");
+      setEditingProviderSettings(false);
       fetchSettings();
     } catch (err: any) {
       showError(
@@ -228,6 +256,62 @@ export default function AdminScreen() {
       setSavingApiKey(false);
     }
   };
+
+  const handleUpsertProvider = async () => {
+    const normalizedProvider = providerNameInput.trim().toLowerCase();
+    if (!normalizedProvider) {
+      showError("Missing Provider", "Enter a provider name (e.g. anthropic).");
+      return;
+    }
+    if (!providerBaseUrl.trim()) {
+      showError("Missing Base URL", "Enter provider base URL.");
+      return;
+    }
+    if (!providerModel.trim()) {
+      showError("Missing Model", "Enter provider model name.");
+      return;
+    }
+
+    setSavingProvider(true);
+    try {
+      const result = await backendPost<{
+        provider: string;
+        active_provider: string;
+      }>("/ops/admin/settings/providers", {
+        provider: normalizedProvider,
+        base_url: providerBaseUrl.trim(),
+        model: providerModel.trim(),
+        api_key: newApiKey.trim() || undefined,
+        set_active: true,
+      });
+      setActiveProvider(result.active_provider || normalizedProvider);
+      setProviderNameInput(result.provider || normalizedProvider);
+      setNewApiKey("");
+      setEditingProviderSettings(false);
+      await fetchSettings();
+      showSuccess(
+        "Provider Saved",
+        `${(result.provider || normalizedProvider).toUpperCase()} is ready and active.`,
+      );
+    } catch (err: any) {
+      showError(
+        "Provider Save Failed",
+        String(err?.message || "Failed to save provider configuration"),
+      );
+    } finally {
+      setSavingProvider(false);
+    }
+  };
+
+  useEffect(() => {
+    const cfg = providerConfigs[activeProvider];
+    if (!cfg) return;
+    setProviderNameInput(cfg.provider);
+    setProviderBaseUrl(cfg.base_url);
+    setProviderModel(cfg.model);
+    setApiKeySet(cfg.api_key_set);
+    setApiKeyPreview(cfg.api_key_preview);
+  }, [activeProvider, providerConfigs]);
 
   useEffect(() => {
     fetchAll();
@@ -1361,111 +1445,257 @@ export default function AdminScreen() {
                   provider requires its own API key.
                 </ThemedText>
 
-                {/* Provider selector */}
-                <ThemedText
-                  style={[styles.settingsLabel, { color: colors.text }]}
-                >
-                  Provider
-                </ThemedText>
-                <View style={styles.settingsProviderRow}>
-                  {availableProviders.map((p) => (
-                    <Pressable
-                      key={p}
-                      onPress={() => setActiveProvider(p)}
-                      style={[
-                        styles.settingsProviderBtn,
-                        {
-                          backgroundColor:
-                            activeProvider === p ? "#DC2626" : inputBg,
-                          borderColor:
-                            activeProvider === p ? "#DC2626" : inputBorder,
-                        },
-                      ]}
-                    >
-                      <ThemedText
-                        style={{
-                          color: activeProvider === p ? "#FFF" : colors.text,
-                          fontSize: 13,
-                          fontFamily: Fonts.sansBold,
-                          textTransform: "uppercase",
-                        }}
-                      >
-                        {p}
-                      </ThemedText>
-                    </Pressable>
-                  ))}
-                </View>
-
-                {/* Current key status */}
                 <View
                   style={[
-                    styles.settingsKeyStatus,
+                    styles.settingsCurrentCard,
                     { backgroundColor: inputBg, borderColor: inputBorder },
                   ]}
                 >
-                  <MaterialIcons
-                    name={apiKeySet ? "check-circle" : "error-outline"}
-                    size={18}
-                    color={apiKeySet ? "#10B981" : "#F59E0B"}
-                  />
-                  <ThemedText
-                    style={{
-                      color: colors.text,
-                      fontSize: 13,
-                      fontFamily: Fonts.sans,
-                      flex: 1,
-                    }}
+                  <View style={styles.settingsCurrentTopRow}>
+                    <View style={{ flex: 1 }}>
+                      <ThemedText
+                        style={[styles.settingsCurrentTitle, { color: colors.text }]}
+                      >
+                        Current Provider
+                      </ThemedText>
+                      <ThemedText
+                        style={[styles.settingsCurrentMeta, { color: subText }]}
+                      >
+                        {(activeProviderConfig?.provider || activeProvider)
+                          .toUpperCase()} · Model: {activeProviderConfig?.model || "-"}
+                      </ThemedText>
+                    </View>
+                    <Pressable
+                      onPress={() => setEditingProviderSettings((prev) => !prev)}
+                      style={({ pressed }) => [
+                        styles.settingsEditBtn,
+                        {
+                          backgroundColor: editingProviderSettings
+                            ? "#DC2626"
+                            : isDark
+                              ? "#0F172A"
+                              : "#EFF6FF",
+                          borderColor: editingProviderSettings
+                            ? "#DC2626"
+                            : "#93C5FD",
+                        },
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name={editingProviderSettings ? "close" : "edit"}
+                        size={14}
+                        color={editingProviderSettings ? "#FFF" : "#1D4ED8"}
+                      />
+                      <ThemedText
+                        style={[
+                          styles.settingsEditBtnText,
+                          { color: editingProviderSettings ? "#FFF" : "#1D4ED8" },
+                        ]}
+                      >
+                        {editingProviderSettings ? "Close Edit" : "Edit Settings"}
+                      </ThemedText>
+                    </Pressable>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.settingsKeyStatus,
+                      { backgroundColor: cardBg, borderColor: inputBorder },
+                    ]}
                   >
-                    Current key: {apiKeyPreview || "(loading...)"}
-                  </ThemedText>
-                  <Pressable onPress={fetchSettings} hitSlop={8}>
-                    <MaterialIcons name="refresh" size={18} color={subText} />
-                  </Pressable>
+                    <MaterialIcons
+                      name={apiKeySet ? "check-circle" : "error-outline"}
+                      size={18}
+                      color={apiKeySet ? "#10B981" : "#F59E0B"}
+                    />
+                    <ThemedText
+                      style={{
+                        color: colors.text,
+                        fontSize: 13,
+                        fontFamily: Fonts.sans,
+                        flex: 1,
+                      }}
+                    >
+                      Current key: {apiKeyPreview || "(loading...)"}
+                    </ThemedText>
+                    <Pressable onPress={fetchSettings} hitSlop={8}>
+                      <MaterialIcons name="refresh" size={18} color={subText} />
+                    </Pressable>
+                  </View>
                 </View>
 
-                {/* New key input */}
-                <ThemedText
-                  style={[styles.settingsLabel, { color: colors.text }]}
-                >
-                  New API Key
-                </ThemedText>
-                <TextInput
-                  style={[
-                    styles.settingsInput,
-                    {
-                      color: colors.text,
-                      borderColor: inputBorder,
-                      backgroundColor: inputBg,
-                    },
-                  ]}
-                  placeholder="sk-..."
-                  placeholderTextColor={subText}
-                  value={newApiKey}
-                  onChangeText={setNewApiKey}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                />
+                {editingProviderSettings && (
+                  <>
+                    <ThemedText
+                      style={[styles.settingsLabel, { color: colors.text }]}
+                    >
+                      Provider
+                    </ThemedText>
+                    <View style={styles.settingsProviderRow}>
+                      {availableProviders.map((p) => (
+                        <Pressable
+                          key={p}
+                          onPress={() => setActiveProvider(p)}
+                          style={[
+                            styles.settingsProviderBtn,
+                            {
+                              backgroundColor:
+                                activeProvider === p ? "#DC2626" : inputBg,
+                              borderColor:
+                                activeProvider === p ? "#DC2626" : inputBorder,
+                            },
+                          ]}
+                        >
+                          <ThemedText
+                            style={{
+                              color: activeProvider === p ? "#FFF" : colors.text,
+                              fontSize: 13,
+                              fontFamily: Fonts.sansBold,
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {p}
+                          </ThemedText>
+                        </Pressable>
+                      ))}
+                    </View>
 
-                <Pressable
-                  style={[
-                    styles.settingsSaveBtn,
-                    savingApiKey && { opacity: 0.7 },
-                  ]}
-                  onPress={handleSaveApiKey}
-                  disabled={savingApiKey}
-                >
-                  {savingApiKey ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <MaterialIcons name="save" size={18} color="#FFF" />
-                  )}
-                  <ThemedText style={styles.settingsSaveBtnText}>
-                    {savingApiKey
-                      ? "Saving..."
-                      : `Update ${activeProvider.toUpperCase()} Key`}
-                  </ThemedText>
-                </Pressable>
+                    <ThemedText
+                      style={[styles.settingsLabel, { color: colors.text }]}
+                    >
+                      Provider Name
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.settingsInput,
+                        {
+                          color: colors.text,
+                          borderColor: inputBorder,
+                          backgroundColor: inputBg,
+                        },
+                      ]}
+                      placeholder="deepseek / openai / custom"
+                      placeholderTextColor={subText}
+                      value={providerNameInput}
+                      onChangeText={setProviderNameInput}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <ThemedText
+                      style={[styles.settingsLabel, { color: colors.text }]}
+                    >
+                      Provider Base URL
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.settingsInput,
+                        {
+                          color: colors.text,
+                          borderColor: inputBorder,
+                          backgroundColor: inputBg,
+                        },
+                      ]}
+                      placeholder="https://api.provider.com/v1"
+                      placeholderTextColor={subText}
+                      value={providerBaseUrl}
+                      onChangeText={setProviderBaseUrl}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <ThemedText
+                      style={[styles.settingsLabel, { color: colors.text }]}
+                    >
+                      Provider Model
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.settingsInput,
+                        {
+                          color: colors.text,
+                          borderColor: inputBorder,
+                          backgroundColor: inputBg,
+                        },
+                      ]}
+                      placeholder="gpt-4o-mini"
+                      placeholderTextColor={subText}
+                      value={providerModel}
+                      onChangeText={setProviderModel}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <ThemedText
+                      style={[styles.settingsLabel, { color: colors.text }]}
+                    >
+                      New API Key
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.settingsInput,
+                        {
+                          color: colors.text,
+                          borderColor: inputBorder,
+                          backgroundColor: inputBg,
+                        },
+                      ]}
+                      placeholder="sk-..."
+                      placeholderTextColor={subText}
+                      value={newApiKey}
+                      onChangeText={setNewApiKey}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      secureTextEntry
+                    />
+
+                    <Pressable
+                      style={[
+                        styles.settingsSaveBtn,
+                        savingApiKey && { opacity: 0.7 },
+                      ]}
+                      onPress={handleSaveApiKey}
+                      disabled={savingApiKey}
+                    >
+                      {savingApiKey ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <MaterialIcons name="save" size={18} color="#FFF" />
+                      )}
+                      <ThemedText style={styles.settingsSaveBtnText}>
+                        {savingApiKey
+                          ? "Saving..."
+                          : `Update ${(activeProviderConfig?.provider || activeProvider).toUpperCase()} Key`}
+                      </ThemedText>
+                    </Pressable>
+
+                    <Pressable
+                      style={[
+                        styles.settingsSaveBtn,
+                        { backgroundColor: "#2563EB" },
+                        savingProvider && { opacity: 0.7 },
+                      ]}
+                      onPress={handleUpsertProvider}
+                      disabled={savingProvider}
+                    >
+                      {savingProvider ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <MaterialIcons
+                          name="published-with-changes"
+                          size={18}
+                          color="#FFF"
+                        />
+                      )}
+                      <ThemedText style={styles.settingsSaveBtnText}>
+                        {savingProvider
+                          ? "Saving Provider..."
+                          : "Create / Update Provider"}
+                      </ThemedText>
+                    </Pressable>
+                  </>
+                )}
               </View>
             </View>
           ) : loading ? (
@@ -2323,6 +2553,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: Fonts.sans,
     lineHeight: 19,
+  },
+  settingsCurrentCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+    marginTop: 10,
+  },
+  settingsCurrentTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  settingsCurrentTitle: {
+    fontSize: 13,
+    fontFamily: Fonts.sansBold,
+  },
+  settingsCurrentMeta: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+    marginTop: 2,
+  },
+  settingsEditBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  settingsEditBtnText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansBold,
   },
   settingsKeyStatus: {
     flexDirection: "row",

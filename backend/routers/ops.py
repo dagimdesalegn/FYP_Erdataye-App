@@ -1756,15 +1756,137 @@ async def repair_hospital_fleet_links(
 # Admin Settings ΓÇö runtime API key + provider management
 # ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-# Supported AI providers ΓÇö each maps to an OpenAI-compatible base_url + default model
-_AI_PROVIDERS: dict[str, dict] = {
-    "deepseek": {"base_url": "https://api.deepseek.com", "model": "deepseek-chat"},
-    "openai":   {"base_url": "https://api.openai.com/v1", "model": "gpt-4o-mini"},
-    "groq":     {"base_url": "https://api.groq.com/openai/v1", "model": "llama-3.1-8b-instant"},
+# Supported AI providers — each maps to an OpenAI-compatible base_url + default model.
+_DEFAULT_AI_PROVIDERS: dict[str, dict[str, str]] = {
+    "deepseek": {
+        "base_url": "https://api.deepseek.com",
+        "model": "deepseek-chat",
+    },
+    "openai": {
+        "base_url": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+    },
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        "model": "llama-3.1-8b-instant",
+    },
 }
 
-# Runtime mutable provider state (default: deepseek)
+_AI_SETTINGS_FILE = _os.path.join(_os.path.dirname(__file__), "..", "_admin_ai_settings.json")
+_AI_SETTINGS_LOCK = _threading.Lock()
+
+# Runtime mutable provider/config state (default: deepseek).
+_AI_PROVIDERS: dict[str, dict[str, str]] = dict(_DEFAULT_AI_PROVIDERS)
+_PROVIDER_API_KEYS: dict[str, str] = {}
 _active_provider: str = "deepseek"
+
+
+def _normalize_provider_name(provider: str) -> str:
+    normalized = "".join(ch for ch in provider.strip().lower() if ch.isalnum() or ch in ("-", "_"))
+    return normalized
+
+
+def _mask_key(api_key: str) -> str:
+    text = (api_key or "").strip()
+    if len(text) <= 4:
+        return "(not set)"
+    return f"{text[:4]}...{text[-4:]}"
+
+
+def _load_ai_settings() -> None:
+    global _AI_PROVIDERS, _PROVIDER_API_KEYS, _active_provider
+    from config import settings as app_settings
+
+    providers = dict(_DEFAULT_AI_PROVIDERS)
+    provider_keys: dict[str, str] = {}
+
+    deepseek_key = (app_settings.deepseek_api_key or "").strip()
+    if deepseek_key:
+        provider_keys["deepseek"] = deepseek_key
+
+    active_provider = "deepseek"
+
+    try:
+        with open(_AI_SETTINGS_FILE, "r", encoding="utf-8") as handle:
+            payload = _json.load(handle)
+    except (FileNotFoundError, OSError, _json.JSONDecodeError):
+        payload = {}
+
+    file_providers = payload.get("providers") if isinstance(payload, dict) else None
+    if isinstance(file_providers, dict):
+        for raw_name, cfg in file_providers.items():
+            provider = _normalize_provider_name(str(raw_name or ""))
+            if not provider or not isinstance(cfg, dict):
+                continue
+            base_url = str(cfg.get("base_url") or "").strip()
+            model = str(cfg.get("model") or "").strip()
+            if not base_url or not model:
+                continue
+            providers[provider] = {"base_url": base_url, "model": model}
+
+    file_keys = payload.get("provider_keys") if isinstance(payload, dict) else None
+    if isinstance(file_keys, dict):
+        for raw_name, raw_key in file_keys.items():
+            provider = _normalize_provider_name(str(raw_name or ""))
+            if not provider:
+                continue
+            key = str(raw_key or "").strip()
+            if key:
+                provider_keys[provider] = key
+
+    raw_active = payload.get("active_provider") if isinstance(payload, dict) else None
+    if isinstance(raw_active, str):
+        normalized = _normalize_provider_name(raw_active)
+        if normalized in providers:
+            active_provider = normalized
+
+    _AI_PROVIDERS = providers
+    _PROVIDER_API_KEYS = provider_keys
+    _active_provider = active_provider
+
+
+def _persist_ai_settings() -> None:
+    payload = {
+        "providers": _AI_PROVIDERS,
+        "provider_keys": _PROVIDER_API_KEYS,
+        "active_provider": _active_provider,
+    }
+    try:
+        with _AI_SETTINGS_LOCK:
+            with open(_AI_SETTINGS_FILE, "w", encoding="utf-8") as handle:
+                _json.dump(payload, handle)
+    except OSError:
+        pass
+
+
+def _provider_has_key(provider: str) -> bool:
+    return len((_PROVIDER_API_KEYS.get(provider) or "").strip()) > 4
+
+
+def _provider_preview(provider: str) -> str:
+    return _mask_key(_PROVIDER_API_KEYS.get(provider) or "")
+
+
+def _apply_chat_provider(provider: str, api_key: str) -> None:
+    import routers.chat as chat_module
+
+    cfg = _AI_PROVIDERS[provider]
+    chat_module._deepseek = chat_module.AsyncOpenAI(
+        api_key=api_key,
+        base_url=cfg["base_url"],
+    )
+    chat_module._MODEL = cfg["model"]
+
+
+_load_ai_settings()
+
+
+class AdminProviderConfigResponse(BaseModel):
+    provider: str
+    base_url: str
+    model: str
+    api_key_set: bool
+    api_key_preview: str
 
 
 class AdminSettingsResponse(BaseModel):
@@ -1772,14 +1894,23 @@ class AdminSettingsResponse(BaseModel):
     deepseek_api_key_preview: str
     active_provider: str
     available_providers: list[str]
+    provider_configs: list[AdminProviderConfigResponse]
     total_chat_requests: int
     unique_chat_users: int
     today_chat_requests: int
 
 
 class AdminUpdateApiKeyRequest(BaseModel):
-    api_key: str = Field(..., min_length=1, max_length=200)
+    api_key: str | None = Field(default=None, min_length=1, max_length=200)
     provider: str = Field(default="deepseek")
+
+
+class AdminUpsertProviderRequest(BaseModel):
+    provider: str = Field(..., min_length=1, max_length=40)
+    base_url: str = Field(..., min_length=8, max_length=200)
+    model: str = Field(..., min_length=1, max_length=120)
+    api_key: str | None = Field(default=None, min_length=1, max_length=200)
+    set_active: bool = True
 
 
 @router.get(
@@ -1793,12 +1924,25 @@ async def admin_get_settings(
     user_id = str(current_user.get("sub") or "")
     await _require_role(user_id, current_user, ("admin",))
 
-    from config import settings as app_settings
     global _active_provider
 
-    key = app_settings.deepseek_api_key or ""
-    has_key = len(key) > 4
-    preview = (key[:4] + "..." + key[-4:]) if has_key else "(not set)"
+    active_provider = _active_provider if _active_provider in _AI_PROVIDERS else "deepseek"
+    if active_provider != _active_provider:
+        _active_provider = active_provider
+
+    active_has_key = _provider_has_key(active_provider)
+    active_preview = _provider_preview(active_provider)
+
+    provider_configs = [
+        AdminProviderConfigResponse(
+            provider=name,
+            base_url=cfg["base_url"],
+            model=cfg["model"],
+            api_key_set=_provider_has_key(name),
+            api_key_preview=_provider_preview(name),
+        )
+        for name, cfg in sorted(_AI_PROVIDERS.items(), key=lambda item: item[0])
+    ]
 
     # Chat stats
     rows, _ = await db_query("chatbot_messages", params={"select": "id,user_id,created_at"})
@@ -1809,10 +1953,11 @@ async def admin_get_settings(
     today_count = sum(1 for r in all_rows if (r.get("created_at") or "").startswith(today_str))
 
     return AdminSettingsResponse(
-        deepseek_api_key_set=has_key,
-        deepseek_api_key_preview=preview,
-        active_provider=_active_provider,
+        deepseek_api_key_set=active_has_key,
+        deepseek_api_key_preview=active_preview,
+        active_provider=active_provider,
         available_providers=list(_AI_PROVIDERS.keys()),
+        provider_configs=provider_configs,
         total_chat_requests=total,
         unique_chat_users=unique_users,
         today_chat_requests=today_count,
@@ -1830,27 +1975,83 @@ async def admin_update_api_key(
     user_id = str(current_user.get("sub") or "")
     await _require_role(user_id, current_user, ("admin",))
 
-    from config import settings as app_settings
-    import routers.chat as chat_module
     global _active_provider
 
-    new_key = payload.api_key.strip()
-    provider = payload.provider.strip().lower()
+    provider = _normalize_provider_name(payload.provider)
     if provider not in _AI_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}. Supported: {list(_AI_PROVIDERS.keys())}")
 
-    provider_cfg = _AI_PROVIDERS[provider]
-    # Update the runtime settings object
-    app_settings.deepseek_api_key = new_key
+    if payload.api_key is not None:
+        new_key = payload.api_key.strip()
+        if not new_key:
+            raise HTTPException(status_code=400, detail="api_key cannot be empty")
+        _PROVIDER_API_KEYS[provider] = new_key
+
+    provider_key = (_PROVIDER_API_KEYS.get(provider) or "").strip()
+    if not provider_key:
+        raise HTTPException(
+            status_code=400,
+            detail=f"No API key stored for provider '{provider}'. Save a key first.",
+        )
+
     _active_provider = provider
-    # Rebuild the AsyncOpenAI client used by the chat router
-    chat_module._deepseek = chat_module.AsyncOpenAI(
-        api_key=new_key,
-        base_url=provider_cfg["base_url"],
-    )
-    # Update the model name so the chat endpoint uses the correct model
-    chat_module._MODEL = provider_cfg["model"]
-    return {"success": True, "message": f"API key updated. Provider: {provider}, Model: {provider_cfg['model']}"}
+    _apply_chat_provider(provider, provider_key)
+    _persist_ai_settings()
+
+    provider_cfg = _AI_PROVIDERS[provider]
+    return {
+        "success": True,
+        "message": f"Provider activated: {provider}, model: {provider_cfg['model']}",
+    }
+
+
+@router.post(
+    "/admin/settings/providers",
+    summary="Create or update AI provider configuration",
+)
+async def admin_upsert_provider(
+    payload: AdminUpsertProviderRequest,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    user_id = str(current_user.get("sub") or "")
+    await _require_role(user_id, current_user, ("admin",))
+
+    global _active_provider
+
+    provider = _normalize_provider_name(payload.provider)
+    if not provider:
+        raise HTTPException(status_code=400, detail="Invalid provider name")
+
+    base_url = payload.base_url.strip()
+    model = payload.model.strip()
+    if not base_url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="base_url must start with http:// or https://")
+
+    _AI_PROVIDERS[provider] = {
+        "base_url": base_url,
+        "model": model,
+    }
+
+    if payload.api_key is not None and payload.api_key.strip():
+        _PROVIDER_API_KEYS[provider] = payload.api_key.strip()
+
+    if payload.set_active:
+        provider_key = (_PROVIDER_API_KEYS.get(provider) or "").strip()
+        if not provider_key:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Provider '{provider}' saved, but no api_key is stored for it yet.",
+            )
+        _active_provider = provider
+        _apply_chat_provider(provider, provider_key)
+
+    _persist_ai_settings()
+    return {
+        "success": True,
+        "provider": provider,
+        "active_provider": _active_provider,
+        "message": f"Provider '{provider}' saved successfully.",
+    }
 
 
 class StatusUpdate(BaseModel):
