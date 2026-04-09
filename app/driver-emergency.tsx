@@ -119,10 +119,12 @@ export default function DriverEmergencyScreen() {
               distanceInterval: 5,
             },
             (loc) => {
-              setDriverCoords({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-              });
+              try {
+                setDriverCoords({
+                  latitude: loc.coords.latitude,
+                  longitude: loc.coords.longitude,
+                });
+              } catch {}
             },
           );
         }

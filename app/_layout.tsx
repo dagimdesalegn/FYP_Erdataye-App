@@ -19,20 +19,31 @@ import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 
 import { AppStateProvider } from "@/components/app-state";
+import { ErrorBoundary } from "@/components/error-boundary";
 import { ModalProvider } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { initSentry } from "@/utils/sentry";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { LogBox, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+
+// Suppress non-critical warnings that can mask real issues in dev
+LogBox.ignoreLogs(["Require cycle:"]);
 
 // Prevent the splash screen from auto-hiding before fonts load
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Initialise Sentry error tracking (no-op if DSN not set)
 initSentry().catch(() => {});
+
+// Global handler for unhandled promise rejections — prevents silent crash
+const _origHandler = (globalThis as any).onunhandledrejection;
+(globalThis as any).onunhandledrejection = (e: any) => {
+  console.warn("[Unhandled Rejection]", e?.reason ?? e);
+  _origHandler?.(e);
+};
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -58,13 +69,15 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <AppStateProvider>
-        <ModalProvider>
-          <ThemedRoot />
-        </ModalProvider>
-      </AppStateProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <AppStateProvider>
+          <ModalProvider>
+            <ThemedRoot />
+          </ModalProvider>
+        </AppStateProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }
 

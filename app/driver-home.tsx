@@ -332,10 +332,12 @@ export default function DriverHomeScreen() {
               distanceInterval: 5,
             },
             async (loc) => {
-              await maybeSendLocation(
-                loc.coords.latitude,
-                loc.coords.longitude,
-              );
+              try {
+                await maybeSendLocation(
+                  loc.coords.latitude,
+                  loc.coords.longitude,
+                );
+              } catch {}
             },
           );
         }

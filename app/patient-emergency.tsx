@@ -476,39 +476,43 @@ export default function PatientEmergencyScreen() {
             distanceInterval: 5,
           },
           (loc) => {
-            const accuracy = loc.coords.accuracy ?? 999;
-            if (accuracy > 120) return;
+            try {
+              const accuracy = loc.coords.accuracy ?? 999;
+              if (accuracy > 120) return;
 
-            const nextFix = {
-              latitude: loc.coords.latitude,
-              longitude: loc.coords.longitude,
-            };
+              const nextFix = {
+                latitude: loc.coords.latitude,
+                longitude: loc.coords.longitude,
+              };
 
-            recentLocationFixesRef.current = [
-              ...recentLocationFixesRef.current,
-              nextFix,
-            ].slice(-3);
-            const count = recentLocationFixesRef.current.length;
-            const smoothed = recentLocationFixesRef.current.reduce(
-              (acc, item) => ({
-                latitude: acc.latitude + item.latitude / count,
-                longitude: acc.longitude + item.longitude / count,
-              }),
-              { latitude: 0, longitude: 0 },
-            );
+              recentLocationFixesRef.current = [
+                ...recentLocationFixesRef.current,
+                nextFix,
+              ].slice(-3);
+              const count = recentLocationFixesRef.current.length;
+              const smoothed = recentLocationFixesRef.current.reduce(
+                (acc, item) => ({
+                  latitude: acc.latitude + item.latitude / count,
+                  longitude: acc.longitude + item.longitude / count,
+                }),
+                { latitude: 0, longitude: 0 },
+              );
 
-            setLocation((prev) => {
-              if (!prev) return smoothed;
-              const movedMeters =
-                calculateDistance(
-                  prev.latitude,
-                  prev.longitude,
-                  smoothed.latitude,
-                  smoothed.longitude,
-                ) * 1000;
-              if (movedMeters < 4) return prev;
-              return smoothed;
-            });
+              setLocation((prev) => {
+                if (!prev) return smoothed;
+                const movedMeters =
+                  calculateDistance(
+                    prev.latitude,
+                    prev.longitude,
+                    smoothed.latitude,
+                    smoothed.longitude,
+                  ) * 1000;
+                if (movedMeters < 4) return prev;
+                return smoothed;
+              });
+            } catch {
+              // Protect against any crash inside watcher callback
+            }
           },
         );
 
