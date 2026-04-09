@@ -1,30 +1,30 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    "skipLibCheck": true,
-    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
-    "types": [
-      "jest",
-      "node"
-    ],
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "skipLibCheck": true,
+    "strict": true,
+    "types": [
+      "jest",
+      "node"
+    ]
   },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".expo"
+  ],
+  "extends": "expo/tsconfig.base",
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "**/*.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    ".expo"
   ]
 }
