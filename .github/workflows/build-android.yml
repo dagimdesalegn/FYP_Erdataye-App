@@ -41,6 +41,11 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
 
+      - name: Disable ProGuard to prevent release crashes
+        run: |
+          sed -i 's/enableProguardInReleaseBuilds = true/enableProguardInReleaseBuilds = false/g' android/app/build.gradle || true
+          sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/g' android/app/build.gradle || true
+
       - name: Generate release keystore
         run: |
           keytool -genkeypair -v \
