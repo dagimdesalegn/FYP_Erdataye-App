@@ -37,7 +37,7 @@
       "supportsTablet": true
     },
     "name": "እርዳታዬ",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "orientation": "portrait",
     "plugins": [
       "expo-router",
