@@ -11,6 +11,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://padezipdfcicydyncmkw.supabase.co
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZGV6aXBkZmNpY3lkeW5jbWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MDM3MzIsImV4cCI6MjA4Njk3OTczMn0.B8PpSm4sa9JYeDMqSL1u93-MyQUTwfDX4j3w6mOFCvw
+      EXPO_PUBLIC_BACKEND_URL: http://207.180.205.85:8000
+      EXPO_PUBLIC_BACKEND_FALLBACKS: http://207.180.205.85:8000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,7 +26,7 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -33,17 +38,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup EAS CLI
-        run: npm install -g eas-cli
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --no-install --clean
 
-      - name: Build APK locally
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas build --local --platform android --profile production --non-interactive --output ./erdataye.apk
+      - name: Generate release keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore android/app/erdataye-release.keystore \
+            -alias erdataye \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass Erdataye2026 \
+            -keypass Erdataye2026 \
+            -dname "CN=Erdataye App, OU=Mobile, O=Erdataye, L=Addis Ababa, ST=AA, C=ET"
+
+      - name: Build release APK
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/erdataye-release.keystore \
+            -Pandroid.injected.signing.store.password=Erdataye2026 \
+            -Pandroid.injected.signing.key.alias=erdataye \
+            -Pandroid.injected.signing.key.password=Erdataye2026
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: erdataye-apk
-          path: ./erdataye.apk
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.2-build${{ github.run_number }}
+          name: "Erdataye v1.0.2 (Build #${{ github.run_number }})"
+          files: android/app/build/outputs/apk/release/*.apk
+          generate_release_notes: true
