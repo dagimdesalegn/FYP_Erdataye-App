@@ -53,6 +53,13 @@ jobs:
           sed -i 's/enableProguardInReleaseBuilds = true/enableProguardInReleaseBuilds = false/g' android/app/build.gradle || true
           sed -i 's/isMinifyEnabled = true/isMinifyEnabled = false/g' android/app/build.gradle || true
 
+      - name: Verify JS bundle and Hermes
+        run: |
+          echo "--- Checking build.gradle for Hermes ---"
+          grep -i 'hermes' android/app/build.gradle || echo "No hermes config found"
+          echo "--- Checking gradle.properties ---"
+          cat android/gradle.properties | grep -i 'newArch\|hermes\|react' || true
+
       - name: Generate release keystore
         run: |
           keytool -genkeypair -v \
@@ -63,14 +70,29 @@ jobs:
             -keypass Erdataye2026 \
             -dname "CN=Erdataye App, OU=Mobile, O=Erdataye, L=Addis Ababa, ST=AA, C=ET"
 
+      - name: Build debug APK (for crash diagnosis)
+        working-directory: android
+        env:
+          NODE_ENV: production
+        run: ./gradlew assembleDebug
+
       - name: Build release APK
         working-directory: android
+        env:
+          NODE_ENV: production
         run: |
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=${{ github.workspace }}/android/app/erdataye-release.keystore \
             -Pandroid.injected.signing.store.password=Erdataye2026 \
             -Pandroid.injected.signing.key.alias=erdataye \
             -Pandroid.injected.signing.key.password=Erdataye2026
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: erdataye-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -79,10 +101,17 @@ jobs:
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
 
+      - name: Rename APKs for clarity
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/erdataye-debug.apk || true
+          cp android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/erdataye-release.apk || true
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.2-build${{ github.run_number }}
           name: "Erdataye v1.0.2 (Build #${{ github.run_number }})"
-          files: android/app/build/outputs/apk/release/*.apk
+          files: |
+            android/app/build/outputs/apk/release/erdataye-release.apk
+            android/app/build/outputs/apk/debug/erdataye-debug.apk
           generate_release_notes: true
