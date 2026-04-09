@@ -7,6 +7,10 @@ on:
     paths:
       - ".github/workflows/build-android.yml"
       - "app.json"
+      - "app/**"
+      - "components/**"
+      - "utils/**"
+      - "package.json"
 
 jobs:
   build:
