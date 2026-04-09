@@ -187,13 +187,6 @@ export default function LoginScreen() {
         translucent
         backgroundColor="transparent"
       />
-      {/* Back button */}
-      <Pressable
-        onPress={() => router.back()}
-        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}
-      >
-        <MaterialIcons name="arrow-back" size={24} color={textPrimary} />
-      </Pressable>
       {/* Top accent gradient */}
       <LinearGradient
         colors={[colors.primary, "#EF4444", bg]}
@@ -227,6 +220,22 @@ export default function LoginScreen() {
             },
           ]}
         >
+          {/* Back button inside card */}
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.cardBackBtn,
+              {
+                backgroundColor: isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(0,0,0,0.05)",
+              },
+              pressed && { opacity: 0.7, transform: [{ scale: 0.92 }] },
+            ]}
+          >
+            <MaterialIcons name="arrow-back" size={20} color={textPrimary} />
+          </Pressable>
+
           {/* Title */}
           <ThemedText style={[styles.title, { color: textPrimary }]}>
             {t("login")}
@@ -494,13 +503,14 @@ const styles = StyleSheet.create({
       ? { minHeight: "100vh" as any, overflow: "auto" as any }
       : {}),
   },
-  backBtn: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 10,
-    padding: 8,
-    borderRadius: 20,
+  cardBackBtn: {
+    alignSelf: "flex-start",
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   flex: {
     flex: 1,

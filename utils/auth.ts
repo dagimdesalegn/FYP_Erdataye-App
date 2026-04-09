@@ -22,6 +22,44 @@ const isLocalUrl = (url: string): boolean => {
   }
 };
 
+const trimTrailingSlash = (value: string): string =>
+  value.replace(/\/+$/, "");
+
+const addDerivedPublicCandidates = (
+  add: (url?: string | null) => void,
+  sourceUrl: string,
+) => {
+  try {
+    const parsed = new URL(sourceUrl);
+    const sourcePath = trimTrailingSlash(parsed.pathname || "");
+    const hostOnly = parsed.hostname;
+    const origin = `${parsed.protocol}//${parsed.host}`;
+    const hostOrigin = `${parsed.protocol}//${hostOnly}`;
+
+    if (!hostOnly || isLocalUrl(sourceUrl)) return;
+
+    // If configured with :8000, also try port-80 /api for mobile carriers
+    // that block non-standard ports.
+    if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
+      add(`${hostOrigin}/api`);
+    }
+
+    // If configured root URL, try /api path too.
+    if (!sourcePath || sourcePath === "/") {
+      add(`${origin}/api`);
+      return;
+    }
+
+    // If already configured at /api, also try direct origin and :8000.
+    if (sourcePath === "/api") {
+      add(origin);
+      add(`${parsed.protocol}//${hostOnly}:8000`);
+    }
+  } catch {
+    // Ignore invalid URLs; they are already filtered by add().
+  }
+};
+
 /**
  * Build an ordered list of backend base URLs to try, matching the same logic
  * used in api.ts so that auth calls (register, login) also benefit from
@@ -30,15 +68,21 @@ const isLocalUrl = (url: string): boolean => {
 function buildBackendCandidates(): string[] {
   const list: string[] = [];
   const add = (url?: string | null) => {
-    if (url && /^https?:\/\//i.test(url) && !list.includes(url)) list.push(url);
+    if (!url || !/^https?:\/\//i.test(url)) return;
+    const normalized = trimTrailingSlash(url);
+    if (!list.includes(normalized)) list.push(normalized);
   };
 
   // Prefer explicitly configured/public URLs first for real devices.
   const publicFallbacks = BACKEND_FALLBACKS.filter((url) => !isLocalUrl(url));
-  publicFallbacks.forEach(add);
+  publicFallbacks.forEach((url) => {
+    add(url);
+    addDerivedPublicCandidates(add, url);
+  });
 
   if (ENV_BACKEND_URL_RAW) {
     add(ENV_BACKEND_URL_RAW);
+    addDerivedPublicCandidates(add, ENV_BACKEND_URL_RAW);
   }
 
   // Keep any remaining fallbacks (including local URLs) afterward.
@@ -71,6 +115,7 @@ async function fetchBackend(
     ...BACKEND_CANDIDATES.filter((u) => u !== activeBackendBase),
   ];
   let lastError: Error | null = null;
+  const failedAttempts: string[] = [];
 
   for (const base of order) {
     try {
@@ -85,10 +130,18 @@ async function fetchBackend(
       return res;
     } catch (err: any) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      failedAttempts.push(`${base} -> ${lastError.message}`);
     }
   }
 
-  throw lastError ?? new Error("All backend URLs unreachable");
+  const fallbackError =
+    failedAttempts.length > 0
+      ? new Error(
+          `Unable to reach backend. Tried: ${failedAttempts.join(" | ")}`,
+        )
+      : new Error("All backend URLs unreachable");
+
+  throw lastError ?? fallbackError;
 }
 
 export type UserRole =

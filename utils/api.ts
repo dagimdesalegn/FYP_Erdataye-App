@@ -47,11 +47,49 @@ const isLocalBackendUrl = (url: string): boolean => {
   }
 };
 
+const trimTrailingSlash = (value: string): string =>
+  value.replace(/\/+$/, "");
+
+const addDerivedPublicCandidates = (
+  list: string[],
+  sourceUrl: string,
+) => {
+  try {
+    const parsed = new URL(sourceUrl);
+    const sourcePath = trimTrailingSlash(parsed.pathname || "");
+    const hostOnly = parsed.hostname;
+    const origin = `${parsed.protocol}//${parsed.host}`;
+    const hostOrigin = `${parsed.protocol}//${hostOnly}`;
+
+    if (!hostOnly || isLocalBackendUrl(sourceUrl)) return;
+
+    // When env points to :8000, also try /api on port 80.
+    if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
+      addCandidate(list, `${hostOrigin}/api`);
+    }
+
+    // When env points to origin, also try /api.
+    if (!sourcePath || sourcePath === "/") {
+      addCandidate(list, `${origin}/api`);
+      return;
+    }
+
+    // When env points to /api, also keep direct origin and :8000.
+    if (sourcePath === "/api") {
+      addCandidate(list, origin);
+      addCandidate(list, `${parsed.protocol}//${hostOnly}:8000`);
+    }
+  } catch {
+    // Ignore invalid URLs.
+  }
+};
+
 const addCandidate = (list: string[], candidate?: string | null) => {
   if (!candidate) return;
   if (!/^https?:\/\//i.test(candidate)) return;
-  if (!list.includes(candidate)) {
-    list.push(candidate);
+  const normalized = trimTrailingSlash(candidate);
+  if (!list.includes(normalized)) {
+    list.push(normalized);
   }
 };
 
@@ -60,11 +98,15 @@ const buildBackendCandidates = (): string[] => {
 
   // Prioritize public fallbacks on mobile/web when localhost is unreachable.
   BACKEND_FALLBACKS.filter((value) => !isLocalBackendUrl(value)).forEach(
-    (value) => addCandidate(candidates, value),
+    (value) => {
+      addCandidate(candidates, value);
+      addDerivedPublicCandidates(candidates, value);
+    },
   );
 
   if (ENV_BACKEND_URL_RAW) {
     addCandidate(candidates, ENV_BACKEND_URL_RAW);
+    addDerivedPublicCandidates(candidates, ENV_BACKEND_URL_RAW);
   }
 
   BACKEND_FALLBACKS.forEach((value) => addCandidate(candidates, value));
