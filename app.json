@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.erdatayeambulance",
-      "versionCode": 9,
+      "versionCode": 10,
       "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -37,7 +37,7 @@
       "supportsTablet": true
     },
     "name": "እርዳታዬ",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "orientation": "portrait",
     "plugins": [
       "expo-router",
@@ -76,7 +76,7 @@
     "scheme": "ambulanceemergencyapp",
     "slug": "erdataye-ambulance",
     "userInterfaceStyle": "automatic",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "web": {
       "favicon": "./assets/images/ambulance-favicon.png",
       "output": "static",
