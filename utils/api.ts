@@ -82,7 +82,7 @@ const buildBackendCandidates = (): string[] => {
     addCandidate(candidates, ENV_BACKEND_URL);
   }
 
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && typeof window.location !== "undefined" && window.location) {
     const host = window.location.hostname || "";
     const isLocalHost = host === "localhost" || host === "127.0.0.1";
     const hostLooksLikeLanIp = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
