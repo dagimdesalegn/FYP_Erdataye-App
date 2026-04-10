@@ -9,7 +9,14 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((v) => v.trim())
   .filter(Boolean);
 
-const CONNECT_TIMEOUT_MS = 5000;
+// Safety net for release builds where EXPO_PUBLIC_* env values may not be
+// embedded as expected. Keep public URLs here so auth still works on devices.
+const DEFAULT_PUBLIC_BACKENDS = [
+  "http://207.180.205.85/api",
+  "http://207.180.205.85:8000",
+];
+
+const CONNECT_TIMEOUT_MS = 12000;
 
 const isLocalUrl = (url: string): boolean => {
   try {
@@ -88,6 +95,15 @@ function buildBackendCandidates(): string[] {
   // Keep any remaining fallbacks (including local URLs) afterward.
   BACKEND_FALLBACKS.forEach(add);
 
+  // If nothing public was configured, inject stable production fallbacks.
+  // This prevents mobile auth failures caused by localhost-only candidates.
+  if (!list.some((url) => !isLocalUrl(url))) {
+    DEFAULT_PUBLIC_BACKENDS.forEach((url) => {
+      add(url);
+      addDerivedPublicCandidates(add, url);
+    });
+  }
+
   // Platform-specific localhost alternatives for emulators
   if (Platform.OS === "android") add("http://10.0.2.2:8000");
   add("http://localhost:8000");
@@ -118,19 +134,20 @@ async function fetchBackend(
   const failedAttempts: string[] = [];
 
   for (const base of order) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
       const res = await fetch(`${base}${path}`, {
         ...init,
         signal: controller.signal,
       });
-      clearTimeout(timeout);
       activeBackendBase = base;
       return res;
     } catch (err: any) {
       lastError = err instanceof Error ? err : new Error(String(err));
       failedAttempts.push(`${base} -> ${lastError.message}`);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -141,7 +158,7 @@ async function fetchBackend(
         )
       : new Error("All backend URLs unreachable");
 
-  throw lastError ?? fallbackError;
+  throw fallbackError;
 }
 
 export type UserRole =

@@ -15,6 +15,13 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((value) => value.trim())
   .filter(Boolean);
 
+// Safety net for release builds where EXPO_PUBLIC_* env values may not be
+// embedded as expected. Keep public URLs here so mobile requests still work.
+const DEFAULT_PUBLIC_BACKENDS = [
+  "http://207.180.205.85/api",
+  "http://207.180.205.85:8000",
+];
+
 const DEFAULT_TIMEOUT_MS = 12000;
 const GET_TIMEOUT_MS = 12000;
 
@@ -110,6 +117,15 @@ const buildBackendCandidates = (): string[] => {
   }
 
   BACKEND_FALLBACKS.forEach((value) => addCandidate(candidates, value));
+
+  // If nothing public was configured, inject stable production fallbacks.
+  // This prevents mobile requests from getting stuck on localhost.
+  if (!candidates.some((value) => !isLocalBackendUrl(value))) {
+    DEFAULT_PUBLIC_BACKENDS.forEach((value) => {
+      addCandidate(candidates, value);
+      addDerivedPublicCandidates(candidates, value);
+    });
+  }
 
   const localDefaults = ["http://localhost:8000", "http://127.0.0.1:8000"];
   if (Platform.OS === "android") {
