@@ -95,6 +95,56 @@ RULES:
 """
 
 
+_ETHIOPIC_RE = re.compile(r"[\u1200-\u137F]")
+
+
+def _needs_language_rewrite(reply: str, lang: str) -> bool:
+    """Return True when output clearly violates requested language."""
+    if lang == "am":
+        # Amharic should contain Ethiopic script.
+        return not bool(_ETHIOPIC_RE.search(reply))
+    if lang == "en":
+        # English should not contain Ethiopic script.
+        return bool(_ETHIOPIC_RE.search(reply))
+    return False
+
+
+async def _rewrite_reply_to_lang(reply: str, lang: str) -> str:
+    target = {
+        "en": "English",
+        "am": "Amharic (Ethiopic script)",
+        "om": "Afaan Oromoo",
+    }.get(lang, "English")
+
+    rewrite_messages = [
+        {
+            "role": "system",
+            "content": (
+                "Rewrite the provided first-aid response into the requested language. "
+                "Keep meaning and structure, keep plain text, and never use markdown."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Requested language: {target}\n\n"
+                f"Text to rewrite:\n{reply}"
+            ),
+        },
+    ]
+
+    completion = await _deepseek.chat.completions.create(
+        model=_MODEL,
+        messages=rewrite_messages,
+        temperature=0.1,
+        max_tokens=1024,
+    )
+    rewritten = (completion.choices[0].message.content or "").strip()
+    rewritten = rewritten.replace("**", "").replace("*", "")
+    rewritten = re.sub(r"^#{1,6}\s*", "", rewritten, flags=re.MULTILINE)
+    return rewritten or reply
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Models
 # ─────────────────────────────────────────────────────────────────────────────
@@ -134,10 +184,19 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
             detail="Rate limit exceeded. Please wait a moment before sending another message.",
         )
     lang_instruction = {
-        "en": "Respond in English.",
-        "am": "Respond in Amharic (አማርኛ).",
-        "om": "Respond in Afaan Oromoo.",
-    }.get(req.lang, "Respond in English.")
+        "en": (
+            "Respond only in English. "
+            "Never switch to Amharic or Afaan Oromoo unless the user asks for translation."
+        ),
+        "am": (
+            "Respond only in Amharic (አማርኛ) using Ethiopic script. "
+            "Do not respond in English or Afaan Oromoo."
+        ),
+        "om": (
+            "Respond only in Afaan Oromoo. "
+            "Do not switch to English unless the user asks for translation."
+        ),
+    }.get(req.lang, "Respond only in English.")
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT + "\n" + lang_instruction}]
 
     # Keep last 20 history entries to bound token usage
@@ -180,6 +239,12 @@ async def chat(req: ChatRequest, request: Request) -> ChatResponse:
                 follow_ups = [str(x) for x in parsed[:3]]
         except (json.JSONDecodeError, ValueError):
             follow_ups = []
+
+    if _needs_language_rewrite(reply, req.lang):
+        try:
+            reply = await _rewrite_reply_to_lang(reply, req.lang)
+        except OpenAIError:
+            logger.warning("Language rewrite fallback failed", exc_info=True)
 
     return ChatResponse(reply=reply, follow_ups=follow_ups)
 

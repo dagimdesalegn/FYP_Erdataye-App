@@ -54,6 +54,7 @@ export default function ChatbotPage() {
   const [voiceDraft, setVoiceDraft] = useState("");
   const [typingAnim] = useState(new Animated.Value(0));
   const [lang, setLang] = useState<Lang>("en");
+  const previousLangRef = useRef<Lang>("en");
   const flatListRef = useRef<FlatList>(null);
   const voiceBaseRef = useRef("");
 
@@ -111,6 +112,16 @@ export default function ChatbotPage() {
       setSpeechAvailable(false);
     }
   }, [speechModule]);
+
+  useEffect(() => {
+    if (previousLangRef.current === lang) return;
+    previousLangRef.current = lang;
+
+    // Start a fresh thread when language changes so mixed-language history
+    // does not influence future AI responses.
+    setMessages([]);
+    setInputText("");
+  }, [lang]);
 
   useEffect(() => {
     if (!speechModule?.addListener) return;
