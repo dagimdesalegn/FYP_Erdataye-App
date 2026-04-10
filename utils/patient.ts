@@ -216,6 +216,7 @@ const resolvePublicBackendUrl = (): string => {
     .filter(Boolean);
 
   const candidates: string[] = [];
+  candidates.push(...PREFERRED_SHARE_BASES);
   if (
     typeof window !== "undefined" &&
     window.location?.origin &&
@@ -223,7 +224,6 @@ const resolvePublicBackendUrl = (): string => {
   ) {
     candidates.push(`${window.location.origin}/api`);
   }
-  candidates.push(...PREFERRED_SHARE_BASES);
   if (envUrl?.trim()) candidates.push(envUrl.trim());
   candidates.push(...fallbackUrls);
 
