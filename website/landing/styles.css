@@ -308,52 +308,29 @@ h1 {
   line-height: 1.55;
 }
 
-.team-orbit {
+
+.team-stage {
   margin-top: 22px;
-  position: relative;
-  min-height: 740px;
   border: 1px solid var(--line);
   border-radius: 28px;
   background:
-    radial-gradient(500px 240px at 50% 50%, #f7fcfd 0%, #ffffff 58%),
+    radial-gradient(520px 200px at 14% 8%, rgba(199, 42, 47, 0.1) 0%, transparent 65%),
+    radial-gradient(500px 220px at 88% 90%, rgba(31, 106, 114, 0.11) 0%, transparent 66%),
     #fff;
-  overflow: hidden;
-}
-
-.team-orbit::before,
-.team-orbit::after {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.team-orbit::before {
-  width: 560px;
-  height: 560px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px dashed #d8e8ee;
-}
-
-.team-orbit::after {
-  width: 320px;
-  height: 320px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  border: 1px dashed #e7cfd2;
+  padding: 22px;
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) minmax(390px, 1.4fr);
+  gap: 16px;
+  align-items: stretch;
 }
 
 .member {
-  position: absolute;
-  width: 220px;
-  padding: 12px;
-  text-align: center;
+  width: 100%;
+  padding: 14px;
+  text-align: left;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 18px;
+  border-radius: 20px;
   box-shadow: 0 14px 26px rgba(17, 40, 61, 0.1);
   transition: transform 0.25s ease;
 }
@@ -363,22 +340,22 @@ h1 {
 }
 
 .member img {
-  width: 120px;
-  height: 120px;
+  width: 96px;
+  height: 96px;
   border-radius: 999px;
   object-fit: cover;
   border: 4px solid #fff;
-  box-shadow: 0 10px 22px rgba(17, 40, 61, 0.18);
+  box-shadow: 0 10px 22px rgba(17, 40, 61, 0.16);
 }
 
 .member h3 {
   margin-top: 10px;
-  font-size: 1rem;
+  font-size: 1.02rem;
 }
 
 .member p {
   margin: 6px 0 0;
-  font-size: 0.85rem;
+  font-size: 0.86rem;
   color: #567180;
   font-weight: 600;
 }
@@ -393,7 +370,7 @@ h1 {
 
 .member-badge {
   display: inline-block;
-  margin-top: 8px;
+  margin-top: 10px;
   padding: 4px 10px;
   border-radius: 999px;
   background: rgba(199, 42, 47, 0.12);
@@ -404,45 +381,29 @@ h1 {
   text-transform: uppercase;
 }
 
-.member-center {
-  width: 230px;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+.member-lead {
   border-color: #f2ccd1;
-  box-shadow: 0 18px 28px rgba(199, 42, 47, 0.16);
-  z-index: 4;
+  background: linear-gradient(180deg, #fff 0%, #fff7f8 100%);
+  box-shadow: 0 18px 34px rgba(199, 42, 47, 0.14);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.member-center img {
-  width: 136px;
-  height: 136px;
+.member-lead img {
+  width: 130px;
+  height: 130px;
   border-color: #ffe6ea;
 }
 
-.member-top {
-  left: 50%;
-  top: 34px;
-  transform: translateX(-50%);
-  z-index: 3;
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
-.member-left {
-  left: 56px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.member-right {
-  right: 42px;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.member-bottom {
-  left: 50%;
-  bottom: 26px;
-  transform: translateX(-50%);
+.member-card {
+  min-height: 246px;
 }
 
 @keyframes floatY {
@@ -477,32 +438,19 @@ h1 {
     min-height: 220px;
   }
 
-  .team-orbit {
-    min-height: 0;
+  .team-stage {
     padding: 18px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
-  .team-orbit::before,
-  .team-orbit::after {
-    display: none;
-  }
-
-  .member,
-  .member-top,
-  .member-left,
-  .member-right,
-  .member-bottom,
-  .member-center {
-    position: static;
-    width: auto;
-    transform: none;
+  .team-grid {
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   }
 
   .member:hover {
-    transform: none;
+    transform: translateY(-2px);
   }
 }
 
@@ -567,6 +515,19 @@ h1 {
 
   .mini-note {
     font-size: 0.78rem;
+  }
+
+  .team-stage {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .member {
+    text-align: center;
+  }
+
+  .member-card {
+    min-height: 0;
   }
 }
 

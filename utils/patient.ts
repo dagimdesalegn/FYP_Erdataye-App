@@ -184,18 +184,53 @@ interface FamilyShareCreateResponse {
   expires_at: string;
 }
 
+const PREFERRED_SHARE_BASES = [
+  "https://erdatayee.tech/api",
+  "https://www.erdatayee.tech/api",
+  "https://staff.erdatayee.tech/api",
+];
+
+const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
+
+const normalizeShareBase = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    const path = trimTrailingSlash(parsed.pathname || "");
+    if (!path || path === "/") {
+      if (parsed.port && parsed.port !== "80" && parsed.port !== "443") {
+        return trimTrailingSlash(url);
+      }
+      return `${parsed.protocol}//${parsed.host}/api`;
+    }
+    return trimTrailingSlash(url);
+  } catch {
+    return trimTrailingSlash(url);
+  }
+};
+
 const resolvePublicBackendUrl = (): string => {
   const envUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-  if (envUrl && isShareablePublicUrl(envUrl.trim())) return envUrl.trim();
-
   const fallbackUrls = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
-  const publicFallback = fallbackUrls.find((value) =>
-    isShareablePublicUrl(value),
-  );
-  if (publicFallback) return publicFallback;
+
+  const candidates: string[] = [];
+  if (
+    typeof window !== "undefined" &&
+    window.location?.origin &&
+    window.location?.protocol === "https:"
+  ) {
+    candidates.push(`${window.location.origin}/api`);
+  }
+  candidates.push(...PREFERRED_SHARE_BASES);
+  if (envUrl?.trim()) candidates.push(envUrl.trim());
+  candidates.push(...fallbackUrls);
+
+  const publicCandidate = candidates
+    .map((value) => normalizeShareBase(value))
+    .find((value) => isShareablePublicUrl(value));
+  if (publicCandidate) return publicCandidate;
 
   if (envUrl && envUrl.trim().length > 0) return envUrl.trim();
   if (typeof window !== "undefined" && window.location?.origin) {

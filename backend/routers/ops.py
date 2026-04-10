@@ -16,6 +16,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
 from deps import get_current_user
@@ -3454,81 +3455,480 @@ async def family_share_resolve(share_token: str = Query(..., min_length=16)) -> 
     }
 
 
-@router.get("/family/share/live", summary="Public live emergency status for family share links")
-async def family_share_live(share_token: str = Query(..., min_length=16)) -> dict:
-    row = _SHARE_LINKS.get(share_token)
-    if not row:
-        raise HTTPException(status_code=404, detail="Invalid share token")
+async def _build_family_share_live_payload(share_token: str) -> dict:
+        row = _SHARE_LINKS.get(share_token)
+        if not row:
+                raise HTTPException(status_code=404, detail="Invalid share token")
 
-    expires = _parse_iso(str(row.get("expires_at") or ""))
-    if not expires or expires < datetime.now(timezone.utc):
-        raise HTTPException(status_code=410, detail="Share token expired")
+        expires = _parse_iso(str(row.get("expires_at") or ""))
+        if not expires or expires < datetime.now(timezone.utc):
+                raise HTTPException(status_code=410, detail="Share token expired")
 
-    emergency_id = str(row.get("emergency_id") or "")
-    emerg_rows, emerg_code = await db_select(
-        "emergency_requests",
-        {"id": emergency_id},
-        columns="id,status,emergency_type,updated_at,hospital_id,assigned_ambulance_id,patient_location",
-    )
-    if emerg_code not in (200, 206) or not emerg_rows:
-        raise HTTPException(status_code=404, detail="Emergency not found")
-
-    emergency = emerg_rows[0]
-    hospital_id = str(emergency.get("hospital_id") or "")
-    hospital_name = None
-    hospital_accepting = None
-    distance_hospital_km = None
-
-    hospital_loc = None
-    if hospital_id:
-        hosp_rows, hosp_code = await db_select(
-            "hospitals",
-            {"id": hospital_id},
-            columns="name,is_accepting_emergencies,location",
+        emergency_id = str(row.get("emergency_id") or "")
+        emerg_rows, emerg_code = await db_select(
+                "emergency_requests",
+                {"id": emergency_id},
+            columns="id,status,emergency_type,updated_at,hospital_id,assigned_ambulance_id,patient_location",
         )
-        if hosp_code in (200, 206) and hosp_rows:
-            hospital = hosp_rows[0]
-            hospital_name = hospital.get("name")
-            hospital_accepting = bool(hospital.get("is_accepting_emergencies", True))
-            hospital_loc = _parse_point_wkt(hospital.get("location"))
+        if emerg_code not in (200, 206) or not emerg_rows:
+                raise HTTPException(status_code=404, detail="Emergency not found")
 
-    ambulance_vehicle = None
-    distance_patient_km = None
-    eta_minutes = None
-    ambulance_loc = None
-    assigned_ambulance_id = str(emergency.get("assigned_ambulance_id") or "")
-    if assigned_ambulance_id:
-        amb_rows, amb_code = await db_select(
-            "ambulances",
-            {"id": assigned_ambulance_id},
-            columns="vehicle_number,last_known_location",
-        )
-        if amb_code in (200, 206) and amb_rows:
-            ambulance_vehicle = amb_rows[0].get("vehicle_number")
-            ambulance_loc = _parse_point_wkt(amb_rows[0].get("last_known_location"))
+        emergency = emerg_rows[0]
+        hospital_id = str(emergency.get("hospital_id") or "")
+        hospital_name = None
+        hospital_accepting = None
+        distance_hospital_km = None
 
-    patient_loc = _parse_point_wkt(emergency.get("patient_location"))
-    if ambulance_loc and patient_loc:
-        distance_patient_km = round(_distance_km(ambulance_loc[0], ambulance_loc[1], patient_loc[0], patient_loc[1]), 2)
-        eta_minutes = max(2, round((distance_patient_km / 35.0) * 60 + 1))
+        hospital_loc = None
+        if hospital_id:
+                hosp_rows, hosp_code = await db_select(
+                        "hospitals",
+                        {"id": hospital_id},
+                        columns="name,is_accepting_emergencies,location",
+                )
+                if hosp_code in (200, 206) and hosp_rows:
+                        hospital = hosp_rows[0]
+                        hospital_name = hospital.get("name")
+                        hospital_accepting = bool(hospital.get("is_accepting_emergencies", True))
+                        hospital_loc = _parse_point_wkt(hospital.get("location"))
 
-    if hospital_loc and patient_loc:
-        distance_hospital_km = round(_distance_km(patient_loc[0], patient_loc[1], hospital_loc[0], hospital_loc[1]), 2)
+        ambulance_vehicle = None
+        distance_patient_km = None
+        eta_minutes = None
+        ambulance_loc = None
+        route_to_patient_url = None
+        route_to_hospital_url = None
 
-    return {
-        "share_token": share_token,
-        "emergency_id": emergency_id,
-        "status": emergency.get("status"),
-        "emergency_type": emergency.get("emergency_type"),
-        "updated_at": emergency.get("updated_at"),
-        "hospital_name": hospital_name,
-        "hospital_accepting": hospital_accepting,
-        "ambulance_vehicle": ambulance_vehicle,
-        "distance_to_patient_km": distance_patient_km,
-        "distance_to_hospital_km": distance_hospital_km,
-        "eta_minutes": eta_minutes,
-        "expires_at": row.get("expires_at"),
-    }
+        assigned_ambulance_id = str(emergency.get("assigned_ambulance_id") or "")
+        if assigned_ambulance_id:
+                amb_rows, amb_code = await db_select(
+                        "ambulances",
+                        {"id": assigned_ambulance_id},
+                        columns="vehicle_number,last_known_location",
+                )
+                if amb_code in (200, 206) and amb_rows:
+                        ambulance_vehicle = amb_rows[0].get("vehicle_number")
+                        ambulance_loc = _parse_point_wkt(amb_rows[0].get("last_known_location"))
+
+        patient_loc = _parse_point_wkt(emergency.get("patient_location"))
+        if ambulance_loc and patient_loc:
+                distance_patient_km = round(
+                        _distance_km(ambulance_loc[0], ambulance_loc[1], patient_loc[0], patient_loc[1]),
+                        2,
+                )
+                eta_minutes = max(2, round((distance_patient_km / 35.0) * 60 + 1))
+                route_to_patient_url = _gmaps_route_url(
+                        ambulance_loc[0], ambulance_loc[1], patient_loc[0], patient_loc[1]
+                )
+
+        if hospital_loc and patient_loc:
+                distance_hospital_km = round(
+                        _distance_km(patient_loc[0], patient_loc[1], hospital_loc[0], hospital_loc[1]),
+                        2,
+                )
+                route_to_hospital_url = _gmaps_route_url(
+                        patient_loc[0], patient_loc[1], hospital_loc[0], hospital_loc[1]
+                )
+
+        return {
+                "share_token": share_token,
+                "emergency_id": emergency_id,
+                "status": emergency.get("status") or "pending",
+                "emergency_type": emergency.get("emergency_type") or "medical",
+                "updated_at": emergency.get("updated_at"),
+                "hospital_name": hospital_name,
+                "hospital_accepting": hospital_accepting,
+                "ambulance_vehicle": ambulance_vehicle,
+                "distance_to_patient_km": distance_patient_km,
+                "distance_to_hospital_km": distance_hospital_km,
+                "eta_minutes": eta_minutes,
+                "expires_at": row.get("expires_at"),
+                "patient_latitude": patient_loc[0] if patient_loc else None,
+                "patient_longitude": patient_loc[1] if patient_loc else None,
+                "ambulance_latitude": ambulance_loc[0] if ambulance_loc else None,
+                "ambulance_longitude": ambulance_loc[1] if ambulance_loc else None,
+                "hospital_latitude": hospital_loc[0] if hospital_loc else None,
+                "hospital_longitude": hospital_loc[1] if hospital_loc else None,
+                "route_to_patient_url": route_to_patient_url,
+                "route_to_hospital_url": route_to_hospital_url,
+        }
+
+
+def _render_family_share_error_html(title: str, message: str) -> str:
+        return f"""<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Erdataye Family Tracking</title>
+    <style>
+        body {{ margin: 0; font-family: Inter, Segoe UI, sans-serif; background: #f4f8fb; color: #102233; }}
+        .wrap {{ min-height: 100vh; display: grid; place-items: center; padding: 20px; }}
+        .card {{ max-width: 560px; width: 100%; border: 1px solid #d9e7ef; border-radius: 16px; background: #fff; box-shadow: 0 14px 30px rgba(16, 36, 52, 0.12); padding: 22px; }}
+        h1 {{ margin: 0; font-size: 1.5rem; }}
+        p {{ margin: 12px 0 0; color: #4f6778; line-height: 1.55; }}
+    </style>
+</head>
+<body>
+    <main class=\"wrap\">
+        <section class=\"card\">
+            <h1>{title}</h1>
+            <p>{message}</p>
+        </section>
+    </main>
+</body>
+</html>"""
+
+
+def _render_family_share_live_html(payload: dict) -> str:
+        data_json = _json.dumps(payload).replace("</", "<\\/")
+        html = """<!doctype html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"utf-8\" />
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+    <title>Erdataye Family Live Tracking</title>
+    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\" />
+    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin />
+    <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap\" rel=\"stylesheet\" />
+    <link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.css\" crossorigin=\"\" />
+    <style>
+        :root {
+            --bg: #f2f7fb;
+            --surface: #ffffff;
+            --ink: #0d1723;
+            --muted: #557082;
+            --line: #d8e7ef;
+            --brand: #c3272f;
+            --ok: #0f766e;
+            --warn: #b45309;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Inter, Segoe UI, sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(720px 260px at 95% -5%, #fee4e7 0%, transparent 60%),
+                radial-gradient(720px 260px at -5% 15%, #dff2f2 0%, transparent 62%),
+                var(--bg);
+        }
+        .container {
+            width: min(1080px, 94vw);
+            margin: 0 auto;
+            padding: 18px 0 24px;
+        }
+        .top {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        h1 {
+            margin: 0;
+            font-size: clamp(1.25rem, 3vw, 1.9rem);
+        }
+        .status-pill {
+            border-radius: 999px;
+            padding: 7px 12px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            background: #e6f4f1;
+            color: var(--ok);
+            border: 1px solid #cde7df;
+        }
+        .meta { color: var(--muted); font-size: 0.92rem; margin-top: 6px; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 8px 20px rgba(20, 41, 56, 0.07);
+        }
+        .kpi .label { color: #698293; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+        .kpi .value { margin-top: 6px; font-size: 1.1rem; font-weight: 800; }
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--surface);
+            overflow: hidden;
+            box-shadow: 0 10px 24px rgba(16, 38, 52, 0.08);
+        }
+        #map {
+            height: min(58vh, 520px);
+            min-height: 340px;
+            width: 100%;
+            background: #eef5fa;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 10px 12px;
+            border-top: 1px solid var(--line);
+            background: #fcfeff;
+            color: #4c6678;
+            font-size: 0.86rem;
+            font-weight: 600;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 6px; }
+        .actions {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid #cedfe8;
+            text-decoration: none;
+            color: #1d3f52;
+            font-weight: 700;
+            font-size: 0.88rem;
+            padding: 9px 14px;
+            background: #fff;
+        }
+        .btn.primary {
+            border-color: #f2ccd1;
+            background: linear-gradient(130deg, #c3272f, #9e1f25);
+            color: #fff;
+        }
+        .note {
+            margin-top: 10px;
+            color: #607889;
+            font-size: 0.82rem;
+        }
+    </style>
+</head>
+<body>
+    <main class=\"container\">
+        <section class=\"top\">
+            <div>
+                <h1>Family Live Emergency Tracking</h1>
+                <p class=\"meta\" id=\"metaLine\">Live status for emergency response</p>
+            </div>
+            <div class=\"status-pill\" id=\"statusPill\">Status</div>
+        </section>
+
+        <section class=\"grid\">
+            <article class=\"kpi\"><div class=\"label\">Emergency Type</div><div class=\"value\" id=\"emType\">-</div></article>
+            <article class=\"kpi\"><div class=\"label\">Ambulance</div><div class=\"value\" id=\"ambVehicle\">-</div></article>
+            <article class=\"kpi\"><div class=\"label\">ETA To Patient</div><div class=\"value\" id=\"eta\">-</div></article>
+            <article class=\"kpi\"><div class=\"label\">To Patient</div><div class=\"value\" id=\"distPatient\">-</div></article>
+            <article class=\"kpi\"><div class=\"label\">To Hospital</div><div class=\"value\" id=\"distHospital\">-</div></article>
+            <article class=\"kpi\"><div class=\"label\">Hospital</div><div class=\"value\" id=\"hospital\">-</div></article>
+        </section>
+
+        <section class=\"panel\">
+            <div id=\"map\"></div>
+            <div class=\"legend\">
+                <span><span class=\"dot\" style=\"background:#c3272f\"></span>Patient</span>
+                <span><span class=\"dot\" style=\"background:#0f766e\"></span>Ambulance</span>
+                <span><span class=\"dot\" style=\"background:#1d4ed8\"></span>Hospital</span>
+                <span id=\"lastUpdated\">Updating...</span>
+            </div>
+        </section>
+
+        <section class=\"actions\">
+            <a class=\"btn primary\" id=\"routePatientBtn\" href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">Route To Patient</a>
+            <a class=\"btn\" id=\"routeHospitalBtn\" href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">Route To Hospital</a>
+        </section>
+        <p class=\"note\" id=\"expiryLine\">Share link expiry: -</p>
+    </main>
+
+    <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\" crossorigin=\"\"></script>
+    <script>
+        const initialData = __DATA_JSON__;
+        const statusPill = document.getElementById("statusPill");
+        const metaLine = document.getElementById("metaLine");
+        const emType = document.getElementById("emType");
+        const ambVehicle = document.getElementById("ambVehicle");
+        const eta = document.getElementById("eta");
+        const distPatient = document.getElementById("distPatient");
+        const distHospital = document.getElementById("distHospital");
+        const hospital = document.getElementById("hospital");
+        const lastUpdated = document.getElementById("lastUpdated");
+        const expiryLine = document.getElementById("expiryLine");
+        const routePatientBtn = document.getElementById("routePatientBtn");
+        const routeHospitalBtn = document.getElementById("routeHospitalBtn");
+
+        const statusMap = {
+            pending: { label: "Pending", bg: "#fff5e8", color: "#b45309", border: "#f4dcb7" },
+            assigned: { label: "Assigned", bg: "#e6f4f1", color: "#0f766e", border: "#cce7df" },
+            en_route: { label: "En Route", bg: "#e8f0fe", color: "#1e40af", border: "#ceddff" },
+            at_scene: { label: "At Scene", bg: "#eef2ff", color: "#4338ca", border: "#dce2ff" },
+            transporting: { label: "Transporting", bg: "#ecfdf5", color: "#047857", border: "#c8eedc" },
+            at_hospital: { label: "At Hospital", bg: "#f0fdfa", color: "#0f766e", border: "#cdeee8" },
+            completed: { label: "Completed", bg: "#ecfdf3", color: "#166534", border: "#c8eccf" },
+            cancelled: { label: "Cancelled", bg: "#fff1f2", color: "#9f1239", border: "#f6d4db" }
+        };
+
+        const toPoint = (lat, lon) => {
+            const la = Number(lat);
+            const lo = Number(lon);
+            if (!Number.isFinite(la) || !Number.isFinite(lo)) return null;
+            return [la, lo];
+        };
+
+        const formatKm = (value) => {
+            const n = Number(value);
+            return Number.isFinite(n) ? `${n.toFixed(2)} km` : "-";
+        };
+
+        const formatDate = (value) => {
+            if (!value) return "-";
+            const d = new Date(value);
+            return Number.isFinite(d.getTime()) ? d.toLocaleString() : "-";
+        };
+
+        let map = null;
+        let mapLayer = null;
+
+        const initMap = () => {
+            if (!window.L) {
+                const mapEl = document.getElementById("map");
+                mapEl.innerHTML = "<div style='padding:16px;color:#5f7383'>Map failed to load.</div>";
+                return;
+            }
+            map = window.L.map("map", { zoomControl: true, scrollWheelZoom: false });
+            window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap contributors"
+            }).addTo(map);
+            mapLayer = window.L.layerGroup().addTo(map);
+            map.setView([9.03, 38.74], 11);
+            setTimeout(() => map.invalidateSize(), 100);
+        };
+
+        const renderMap = (data) => {
+            if (!map || !mapLayer) return;
+            mapLayer.clearLayers();
+
+            const patient = toPoint(data.patient_latitude, data.patient_longitude);
+            const ambulance = toPoint(data.ambulance_latitude, data.ambulance_longitude);
+            const hospitalPoint = toPoint(data.hospital_latitude, data.hospital_longitude);
+            const points = [];
+
+            if (patient) {
+                window.L.circleMarker(patient, { radius: 8, color: "#c3272f", fillColor: "#c3272f", fillOpacity: 0.9 }).addTo(mapLayer).bindPopup("Patient");
+                points.push(patient);
+            }
+            if (ambulance) {
+                window.L.circleMarker(ambulance, { radius: 8, color: "#0f766e", fillColor: "#0f766e", fillOpacity: 0.9 }).addTo(mapLayer).bindPopup("Ambulance");
+                points.push(ambulance);
+            }
+            if (hospitalPoint) {
+                window.L.circleMarker(hospitalPoint, { radius: 8, color: "#1d4ed8", fillColor: "#1d4ed8", fillOpacity: 0.9 }).addTo(mapLayer).bindPopup("Hospital");
+                points.push(hospitalPoint);
+            }
+
+            if (ambulance && patient) {
+                window.L.polyline([ambulance, patient], { color: "#0f766e", weight: 4, opacity: 0.75 }).addTo(mapLayer);
+            }
+            if (patient && hospitalPoint) {
+                window.L.polyline([patient, hospitalPoint], { color: "#1d4ed8", weight: 4, opacity: 0.72, dashArray: "10 6" }).addTo(mapLayer);
+            }
+
+            if (points.length > 0) {
+                map.fitBounds(window.L.latLngBounds(points), { padding: [26, 26], maxZoom: 15 });
+            }
+        };
+
+        const updateRouteButton = (button, href) => {
+            if (href) {
+                button.href = href;
+                button.style.pointerEvents = "auto";
+                button.style.opacity = "1";
+            } else {
+                button.href = "#";
+                button.style.pointerEvents = "none";
+                button.style.opacity = "0.45";
+            }
+        };
+
+        const render = (data) => {
+            const statusKey = String(data.status || "pending").toLowerCase();
+            const status = statusMap[statusKey] || statusMap.pending;
+
+            statusPill.textContent = status.label;
+            statusPill.style.background = status.bg;
+            statusPill.style.color = status.color;
+            statusPill.style.borderColor = status.border;
+
+            metaLine.textContent = `Emergency ID: ${data.emergency_id || "-"} | Last update: ${formatDate(data.updated_at)}`;
+            emType.textContent = String(data.emergency_type || "-").replaceAll("_", " ");
+            ambVehicle.textContent = data.ambulance_vehicle || "Not assigned";
+            eta.textContent = Number.isFinite(Number(data.eta_minutes)) ? `${Math.round(Number(data.eta_minutes))} min` : "-";
+            distPatient.textContent = formatKm(data.distance_to_patient_km);
+            distHospital.textContent = formatKm(data.distance_to_hospital_km);
+            hospital.textContent = data.hospital_name || "Pending";
+            lastUpdated.textContent = `Auto refresh every 25s | ${new Date().toLocaleTimeString()}`;
+            expiryLine.textContent = `Share link expiry: ${formatDate(data.expires_at)}`;
+
+            updateRouteButton(routePatientBtn, data.route_to_patient_url);
+            updateRouteButton(routeHospitalBtn, data.route_to_hospital_url);
+            renderMap(data);
+        };
+
+        const fetchLatest = async () => {
+            try {
+                const params = new URLSearchParams({ share_token: initialData.share_token, format: "json" });
+                const response = await fetch(`${window.location.pathname}?${params.toString()}`, { cache: "no-store" });
+                if (!response.ok) return;
+                const json = await response.json();
+                render(json);
+            } catch {
+            }
+        };
+
+        initMap();
+        render(initialData);
+        setInterval(fetchLatest, 25000);
+    </script>
+</body>
+</html>"""
+        return html.replace("__DATA_JSON__", data_json)
+
+
+@router.get(
+    "/family/share/live",
+    summary="Public live emergency status for family share links",
+    response_model=None,
+)
+async def family_share_live(
+        share_token: str = Query(..., min_length=16),
+        format: Literal["ui", "json"] = Query("ui"),
+) -> Any:
+        try:
+                payload = await _build_family_share_live_payload(share_token)
+        except HTTPException as exc:
+                if format == "json":
+                        raise
+
+                title = "Share link unavailable"
+                if exc.status_code == 410:
+                        title = "Share link expired"
+                return HTMLResponse(
+                        content=_render_family_share_error_html(title=title, message=str(exc.detail)),
+                        status_code=exc.status_code,
+                )
+
+        if format == "json":
+                return payload
+        return HTMLResponse(content=_render_family_share_live_html(payload), status_code=200)
 
 
 @router.post("/driver/safety", summary="Driver safety coaching score (MVP)")
