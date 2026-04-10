@@ -14,16 +14,20 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=20260410-3" />
   </head>
   <body>
     <header class="navbar">
       <div class="container nav-wrap">
         <a href="#home" class="brand">ERDATAYE</a>
-        <nav class="nav-links" aria-label="Main navigation">
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mainNav">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <nav class="nav-links" id="mainNav" aria-label="Main navigation">
           <a href="#home">Home</a>
           <a href="#features">Features</a>
-          <a href="#release">Release</a>
           <a href="#team">Team</a>
         </nav>
       </div>
@@ -44,23 +48,15 @@
               guidance while medical teams are on the way.
             </p>
             <div class="actions">
-              <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android APK</a>
-              <a class="btn btn-ghost" href="/erdataye.apk">Direct Download</a>
+              <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android App</a>
             </div>
             <p class="mini-note">Secure transport • Real-time updates • Offline-first aid</p>
           </div>
 
           <div class="hero-visual" aria-hidden="true">
-            <div class="status-card">
-              <p class="status-kicker">Live Dispatch</p>
-              <h2>3 Active Emergencies</h2>
-              <ul>
-                <li><span class="dot red"></span><span>Ambulance en route • 6 min ETA</span></li>
-                <li><span class="dot amber"></span><span>Patient triage started</span></li>
-                <li><span class="dot green"></span><span>Hospital notified and ready</span></li>
-              </ul>
-            </div>
-            <div class="pulse"></div>
+            <div class="hero-orb orb-a"></div>
+            <div class="hero-orb orb-b"></div>
+            <div class="hero-orb orb-c"></div>
           </div>
         </div>
       </section>
@@ -93,27 +89,6 @@
         </div>
       </section>
 
-      <section class="section" id="release">
-        <div class="container">
-          <div class="release-card">
-            <div>
-              <p class="release-badge">Stable Release</p>
-              <h2>Erdataye 2.0.4</h2>
-              <p>
-                Includes refined dispatch coordination, stronger live-sync behavior,
-                and improved first-aid chat support for faster field decisions.
-              </p>
-              <div class="pills">
-                <span>APK: 15.6 MB</span>
-                <span>Android 10+</span>
-                <span>April 2026</span>
-              </div>
-            </div>
-            <a class="btn btn-primary" href="/downloads/erdataye.apk">Get Latest APK</a>
-          </div>
-        </div>
-      </section>
-
       <section class="section" id="team">
         <div class="container">
           <p class="section-tag">Project Team</p>
@@ -125,39 +100,71 @@
           <div class="team-orbit" aria-label="Team members">
             <article class="member member-top">
               <img src="/assets/images/Abeni.jpg" alt="Abenezar Tekola" />
+              <span class="member-badge">Team Leader</span>
               <h3>Abenezar Tekola</h3>
               <p>Backend Development</p>
+              <p class="member-note">
+                Leads backend architecture, API design, and system reliability.
+              </p>
             </article>
 
             <article class="member member-right">
               <img src="/assets/images/Dagi.jpg" alt="Dagim Desalegn" />
               <h3>Dagim Desalegn</h3>
               <p>Backend Development</p>
+              <p class="member-note">
+                Builds secure services and optimizes emergency data workflows.
+              </p>
             </article>
 
             <article class="member member-center">
               <img src="/assets/images/Hermi.jpg" alt="Hermela Mekonnen" />
               <h3>Hermela Mekonnen</h3>
               <p>Frontend Development</p>
+              <p class="member-note">
+                Crafts user experience and responsive interfaces across devices.
+              </p>
             </article>
 
             <article class="member member-left">
               <img src="/assets/images/migen.jpg" alt="Shugute Shura" />
               <h3>Shugute Shura</h3>
               <p>Frontend Development</p>
+              <p class="member-note">
+                Develops polished UI flows and improves mobile usability.
+              </p>
             </article>
 
             <article class="member member-bottom">
               <img src="/assets/images/nati.jpg" alt="Natinael Asefa" />
               <h3>Natinael Asefa</h3>
               <p>Backend Development</p>
+              <p class="member-note">
+                Supports backend integration, performance, and API stability.
+              </p>
             </article>
           </div>
         </div>
       </section>
     </main>
 
+    <footer class="site-footer">
+      <div class="container footer-wrap">
+        <p>© 2026 Erdataye. Built with care for faster emergency response.</p>
+      </div>
+    </footer>
+
     <script>
+      const navToggle = document.getElementById('navToggle');
+      const mainNav = document.getElementById('mainNav');
+
+      if (navToggle && mainNav) {
+        navToggle.addEventListener('click', () => {
+          const isOpen = mainNav.classList.toggle('open');
+          navToggle.setAttribute('aria-expanded', String(isOpen));
+        });
+      }
+
       document.querySelectorAll('.nav-links a').forEach((anchor) => {
         anchor.addEventListener('click', (event) => {
           const targetId = anchor.getAttribute('href');
@@ -166,6 +173,10 @@
           if (!section) return;
           event.preventDefault();
           section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (mainNav && mainNav.classList.contains('open')) {
+            mainNav.classList.remove('open');
+            navToggle?.setAttribute('aria-expanded', 'false');
+          }
         });
       });
     </script>
