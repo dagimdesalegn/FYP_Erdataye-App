@@ -57,6 +57,23 @@ jobs:
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
 
+      - name: Force cleartext HTTP for backend
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "AndroidManifest.xml not found at $MANIFEST"
+            exit 1
+          fi
+
+          if grep -q 'android:usesCleartextTraffic=' "$MANIFEST"; then
+            sed -i 's/android:usesCleartextTraffic="false"/android:usesCleartextTraffic="true"/g' "$MANIFEST"
+          else
+            sed -i 's/<application /<application android:usesCleartextTraffic="true" /' "$MANIFEST"
+          fi
+
+          echo "--- Manifest cleartext flag ---"
+          grep -n "usesCleartextTraffic" "$MANIFEST"
+
       - name: Disable ProGuard to prevent release crashes
         run: |
           sed -i 's/enableProguardInReleaseBuilds = true/enableProguardInReleaseBuilds = false/g' android/app/build.gradle || true
