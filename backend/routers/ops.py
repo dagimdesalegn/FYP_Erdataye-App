@@ -3641,7 +3641,6 @@ def _render_family_share_live_html(payload: dict) -> str:
             color: var(--ok);
             border: 1px solid #cde7df;
         }
-        .meta { color: var(--muted); font-size: 0.92rem; margin-top: 6px; }
         .grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -3682,35 +3681,6 @@ def _render_family_share_live_html(payload: dict) -> str:
             font-weight: 600;
         }
         .dot { width: 10px; height: 10px; border-radius: 999px; display: inline-block; margin-right: 6px; }
-        .actions {
-            margin-top: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 999px;
-            border: 1px solid #cedfe8;
-            text-decoration: none;
-            color: #1d3f52;
-            font-weight: 700;
-            font-size: 0.88rem;
-            padding: 9px 14px;
-            background: #fff;
-        }
-        .btn.primary {
-            border-color: #f2ccd1;
-            background: linear-gradient(130deg, #c3272f, #9e1f25);
-            color: #fff;
-        }
-        .note {
-            margin-top: 10px;
-            color: #607889;
-            font-size: 0.82rem;
-        }
     </style>
 </head>
 <body>
@@ -3718,7 +3688,6 @@ def _render_family_share_live_html(payload: dict) -> str:
         <section class=\"top\">
             <div>
                 <h1>Family Live Emergency Tracking</h1>
-                <p class=\"meta\" id=\"metaLine\">Live status for emergency response</p>
             </div>
             <div class=\"status-pill\" id=\"statusPill\">Status</div>
         </section>
@@ -3741,19 +3710,12 @@ def _render_family_share_live_html(payload: dict) -> str:
                 <span id=\"lastUpdated\">Updating...</span>
             </div>
         </section>
-
-        <section class=\"actions\">
-            <a class=\"btn primary\" id=\"routePatientBtn\" href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">Route To Patient</a>
-            <a class=\"btn\" id=\"routeHospitalBtn\" href=\"#\" target=\"_blank\" rel=\"noopener noreferrer\">Route To Hospital</a>
-        </section>
-        <p class=\"note\" id=\"expiryLine\">Share link expiry: -</p>
     </main>
 
     <script src=\"https://unpkg.com/leaflet@1.9.4/dist/leaflet.js\" crossorigin=\"\"></script>
     <script>
         const initialData = __DATA_JSON__;
         const statusPill = document.getElementById("statusPill");
-        const metaLine = document.getElementById("metaLine");
         const emType = document.getElementById("emType");
         const ambVehicle = document.getElementById("ambVehicle");
         const eta = document.getElementById("eta");
@@ -3761,9 +3723,6 @@ def _render_family_share_live_html(payload: dict) -> str:
         const distHospital = document.getElementById("distHospital");
         const hospital = document.getElementById("hospital");
         const lastUpdated = document.getElementById("lastUpdated");
-        const expiryLine = document.getElementById("expiryLine");
-        const routePatientBtn = document.getElementById("routePatientBtn");
-        const routeHospitalBtn = document.getElementById("routeHospitalBtn");
 
         const statusMap = {
             pending: { label: "Pending", bg: "#fff5e8", color: "#b45309", border: "#f4dcb7" },
@@ -3794,6 +3753,27 @@ def _render_family_share_live_html(payload: dict) -> str:
             return Number.isFinite(d.getTime()) ? d.toLocaleString() : "-";
         };
 
+        const isPoint = (point) => Array.isArray(point) && point.length === 2 && Number.isFinite(point[0]) && Number.isFinite(point[1]);
+
+        const fetchRoadRoute = async (from, to) => {
+            if (!isPoint(from) || !isPoint(to)) return null;
+            try {
+                const path = `${from[1]},${from[0]};${to[1]},${to[0]}`;
+                const query = "overview=full&geometries=geojson";
+                const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?${query}`, { cache: "no-store" });
+                if (!response.ok) return null;
+                const data = await response.json();
+                const coords = data?.routes?.[0]?.geometry?.coordinates;
+                if (!Array.isArray(coords) || coords.length < 2) return null;
+                const mapped = coords
+                    .map((entry) => [Number(entry?.[1]), Number(entry?.[0])])
+                    .filter((entry) => isPoint(entry));
+                return mapped.length >= 2 ? mapped : null;
+            } catch {
+                return null;
+            }
+        };
+
         let map = null;
         let mapLayer = null;
 
@@ -3803,7 +3783,7 @@ def _render_family_share_live_html(payload: dict) -> str:
                 mapEl.innerHTML = "<div style='padding:16px;color:#5f7383'>Map failed to load.</div>";
                 return;
             }
-            map = window.L.map("map", { zoomControl: true, scrollWheelZoom: false });
+            map = window.L.map("map", { zoomControl: true, scrollWheelZoom: true });
             window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 19,
                 attribution: "&copy; OpenStreetMap contributors"
@@ -3813,7 +3793,7 @@ def _render_family_share_live_html(payload: dict) -> str:
             setTimeout(() => map.invalidateSize(), 100);
         };
 
-        const renderMap = (data) => {
+        const renderMap = async (data) => {
             if (!map || !mapLayer) return;
             mapLayer.clearLayers();
 
@@ -3835,27 +3815,27 @@ def _render_family_share_live_html(payload: dict) -> str:
                 points.push(hospitalPoint);
             }
 
-            if (ambulance && patient) {
+            const [routeToPatient, routeToHospital] = await Promise.all([
+                ambulance && patient ? fetchRoadRoute(ambulance, patient) : Promise.resolve(null),
+                patient && hospitalPoint ? fetchRoadRoute(patient, hospitalPoint) : Promise.resolve(null),
+            ]);
+
+            if (routeToPatient) {
+                window.L.polyline(routeToPatient, { color: "#0f766e", weight: 5, opacity: 0.8 }).addTo(mapLayer);
+            } else if (ambulance && patient) {
                 window.L.polyline([ambulance, patient], { color: "#0f766e", weight: 4, opacity: 0.75 }).addTo(mapLayer);
             }
-            if (patient && hospitalPoint) {
+            if (routeToHospital) {
+                window.L.polyline(routeToHospital, { color: "#1d4ed8", weight: 5, opacity: 0.78, dashArray: "10 6" }).addTo(mapLayer);
+            } else if (patient && hospitalPoint) {
                 window.L.polyline([patient, hospitalPoint], { color: "#1d4ed8", weight: 4, opacity: 0.72, dashArray: "10 6" }).addTo(mapLayer);
             }
 
-            if (points.length > 0) {
+            const bounds = mapLayer.getBounds();
+            if (bounds && bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [26, 26], maxZoom: 16 });
+            } else if (points.length > 0) {
                 map.fitBounds(window.L.latLngBounds(points), { padding: [26, 26], maxZoom: 15 });
-            }
-        };
-
-        const updateRouteButton = (button, href) => {
-            if (href) {
-                button.href = href;
-                button.style.pointerEvents = "auto";
-                button.style.opacity = "1";
-            } else {
-                button.href = "#";
-                button.style.pointerEvents = "none";
-                button.style.opacity = "0.45";
             }
         };
 
@@ -3868,7 +3848,6 @@ def _render_family_share_live_html(payload: dict) -> str:
             statusPill.style.color = status.color;
             statusPill.style.borderColor = status.border;
 
-            metaLine.textContent = `Emergency ID: ${data.emergency_id || "-"} | Last update: ${formatDate(data.updated_at)}`;
             emType.textContent = String(data.emergency_type || "-").replaceAll("_", " ");
             ambVehicle.textContent = data.ambulance_vehicle || "Not assigned";
             eta.textContent = Number.isFinite(Number(data.eta_minutes)) ? `${Math.round(Number(data.eta_minutes))} min` : "-";
@@ -3876,11 +3855,7 @@ def _render_family_share_live_html(payload: dict) -> str:
             distHospital.textContent = formatKm(data.distance_to_hospital_km);
             hospital.textContent = data.hospital_name || "Pending";
             lastUpdated.textContent = `Auto refresh every 25s | ${new Date().toLocaleTimeString()}`;
-            expiryLine.textContent = `Share link expiry: ${formatDate(data.expires_at)}`;
-
-            updateRouteButton(routePatientBtn, data.route_to_patient_url);
-            updateRouteButton(routeHospitalBtn, data.route_to_hospital_url);
-            renderMap(data);
+            void renderMap(data);
         };
 
         const fetchLatest = async () => {
