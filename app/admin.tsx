@@ -90,7 +90,7 @@ export default function AdminScreen() {
   const isDark = theme === "dark";
   const colors = Colors[theme];
   const router = useRouter();
-  const { user, setUser } = useAppState();
+  const { user, setUser, setRegistered } = useAppState();
   const { showError, showSuccess } = useModal();
 
   const [activeTab, setActiveTab] = useState<Tab>("users");
@@ -143,8 +143,7 @@ export default function AdminScreen() {
   const [providerBaseUrl, setProviderBaseUrl] = useState("");
   const [providerModel, setProviderModel] = useState("");
   const [savingProvider, setSavingProvider] = useState(false);
-  const [editingProviderSettings, setEditingProviderSettings] =
-    useState(false);
+  const [editingProviderSettings, setEditingProviderSettings] = useState(false);
   const [totalChatRequests, setTotalChatRequests] = useState(0);
   const [uniqueChatUsers, setUniqueChatUsers] = useState(0);
   const [todayChatRequests, setTodayChatRequests] = useState(0);
@@ -365,7 +364,8 @@ export default function AdminScreen() {
     const { error: logoutErr } = await signOut();
     if (!logoutErr) {
       setUser(null);
-      router.replace("/");
+      setRegistered(false);
+      router.replace("/staff");
     } else {
       showError("Logout Failed", "Failed to sign out");
     }
@@ -1454,19 +1454,26 @@ export default function AdminScreen() {
                   <View style={styles.settingsCurrentTopRow}>
                     <View style={{ flex: 1 }}>
                       <ThemedText
-                        style={[styles.settingsCurrentTitle, { color: colors.text }]}
+                        style={[
+                          styles.settingsCurrentTitle,
+                          { color: colors.text },
+                        ]}
                       >
                         Current Provider
                       </ThemedText>
                       <ThemedText
                         style={[styles.settingsCurrentMeta, { color: subText }]}
                       >
-                        {(activeProviderConfig?.provider || activeProvider)
-                          .toUpperCase()} · Model: {activeProviderConfig?.model || "-"}
+                        {(
+                          activeProviderConfig?.provider || activeProvider
+                        ).toUpperCase()}{" "}
+                        · Model: {activeProviderConfig?.model || "-"}
                       </ThemedText>
                     </View>
                     <Pressable
-                      onPress={() => setEditingProviderSettings((prev) => !prev)}
+                      onPress={() =>
+                        setEditingProviderSettings((prev) => !prev)
+                      }
                       style={({ pressed }) => [
                         styles.settingsEditBtn,
                         {
@@ -1490,10 +1497,14 @@ export default function AdminScreen() {
                       <ThemedText
                         style={[
                           styles.settingsEditBtnText,
-                          { color: editingProviderSettings ? "#FFF" : "#1D4ED8" },
+                          {
+                            color: editingProviderSettings ? "#FFF" : "#1D4ED8",
+                          },
                         ]}
                       >
-                        {editingProviderSettings ? "Close Edit" : "Edit Settings"}
+                        {editingProviderSettings
+                          ? "Close Edit"
+                          : "Edit Settings"}
                       </ThemedText>
                     </Pressable>
                   </View>
@@ -1549,7 +1560,8 @@ export default function AdminScreen() {
                         >
                           <ThemedText
                             style={{
-                              color: activeProvider === p ? "#FFF" : colors.text,
+                              color:
+                                activeProvider === p ? "#FFF" : colors.text,
                               fontSize: 13,
                               fontFamily: Fonts.sansBold,
                               textTransform: "uppercase",

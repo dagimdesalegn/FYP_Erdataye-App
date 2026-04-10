@@ -1,71 +1,169 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Erdataye | Emergency Ambulance App</title>
-  <meta name="description" content="Erdataye is an emergency ambulance response app with real-time dispatch, tracking, and first-aid guidance." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="./styles.css" />
-</head>
-<body>
-  <div class="shape shape-a"></div>
-  <div class="shape shape-b"></div>
-  <div class="shape shape-c"></div>
-
-  <main class="container">
-    <section class="hero panel">
-      <p class="eyebrow">ERDATAYE</p>
-      <h1>Emergency Help, Coordinated in Real Time.</h1>
-      <p class="lead">
-        Erdataye is built to reduce emergency response time by connecting patients with ambulance teams and hospitals through one simple workflow.
-      </p>
-      <p class="sublead">
-        Request help quickly, follow the ambulance live on the map, and stay guided with first-aid support while waiting.
-      </p>
-      <div class="actions">
-        <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android APK</a>
-        <a class="btn btn-soft" href="/erdataye.apk">Direct Download Link</a>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Erdataye | Real-Time Emergency Coordination</title>
+    <meta
+      name="description"
+      content="Erdataye coordinates emergency response in real time with dispatch, tracking, and first-aid support."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="container nav-wrap">
+        <a href="#home" class="brand">ERDATAYE</a>
+        <nav class="nav-links" aria-label="Main navigation">
+          <a href="#home">Home</a>
+          <a href="#features">Features</a>
+          <a href="#release">Release</a>
+          <a href="#team">Team</a>
+        </nav>
       </div>
-    </section>
+    </header>
 
-    <section class="panel">
-      <h2>How It Works</h2>
-      <div class="card-grid">
-        <article>
-          <h3>1. Send Request</h3>
-          <p>Open the app and send an emergency request with your location and condition details.</p>
-        </article>
-        <article>
-          <h3>2. Get Dispatched</h3>
-          <p>Nearby ambulance drivers receive the request and head to your location immediately.</p>
-        </article>
-        <article>
-          <h3>3. Track Live</h3>
-          <p>Track driver progress in real time and share updates until emergency support arrives.</p>
-        </article>
-      </div>
-    </section>
+    <main>
+      <section class="hero" id="home">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Emergency Platform 2.0</p>
+            <h1>Emergency Help, Coordinated in Real Time.</h1>
+            <p class="lead">
+              Erdataye connects patients, ambulance teams, and hospitals with one
+              fast emergency workflow built for urgent response.
+            </p>
+            <p class="sublead">
+              Request help, track ambulance movement live, and get first-aid
+              guidance while medical teams are on the way.
+            </p>
+            <div class="actions">
+              <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android APK</a>
+              <a class="btn btn-ghost" href="/erdataye.apk">Direct Download</a>
+            </div>
+            <p class="mini-note">Secure transport • Real-time updates • Offline-first aid</p>
+          </div>
 
-    <section class="panel">
-      <h2>What You Get</h2>
-      <div class="card-grid">
-        <article>
-          <h3>Fast Emergency Dispatch</h3>
-          <p>Structured dispatch flow designed for urgent ambulance response.</p>
-        </article>
-        <article>
-          <h3>First-Aid Guidance</h3>
-          <p>Get in-app first-aid guidance while waiting for professional care.</p>
-        </article>
-        <article>
-          <h3>Real-Time Tracking</h3>
-          <p>See emergency progress and transport updates directly from your phone.</p>
-        </article>
-      </div>
-    </section>
-  </main>
-</body>
+          <div class="hero-visual" aria-hidden="true">
+            <div class="status-card">
+              <p class="status-kicker">Live Dispatch</p>
+              <h2>3 Active Emergencies</h2>
+              <ul>
+                <li><span class="dot red"></span><span>Ambulance en route • 6 min ETA</span></li>
+                <li><span class="dot amber"></span><span>Patient triage started</span></li>
+                <li><span class="dot green"></span><span>Hospital notified and ready</span></li>
+              </ul>
+            </div>
+            <div class="pulse"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="container">
+          <p class="section-tag">Core Capabilities</p>
+          <h2>Everything needed in a crisis, in one app</h2>
+          <p class="section-sub">
+            Designed for speed, clarity, and teamwork between responders and hospitals.
+          </p>
+          <div class="feature-grid">
+            <article>
+              <h3>Live Ambulance Tracking</h3>
+              <p>Track ambulance movement in real time with status and ETA updates.</p>
+            </article>
+            <article>
+              <h3>First-Aid Guidance</h3>
+              <p>Step-by-step first-aid support while emergency teams are in transit.</p>
+            </article>
+            <article>
+              <h3>Hospital Readiness</h3>
+              <p>Notify hospitals early with emergency context before arrival.</p>
+            </article>
+            <article>
+              <h3>Low-Bandwidth Ready</h3>
+              <p>Optimized flows that continue to work on unstable mobile networks.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="release">
+        <div class="container">
+          <div class="release-card">
+            <div>
+              <p class="release-badge">Stable Release</p>
+              <h2>Erdataye 2.0.4</h2>
+              <p>
+                Includes refined dispatch coordination, stronger live-sync behavior,
+                and improved first-aid chat support for faster field decisions.
+              </p>
+              <div class="pills">
+                <span>APK: 15.6 MB</span>
+                <span>Android 10+</span>
+                <span>April 2026</span>
+              </div>
+            </div>
+            <a class="btn btn-primary" href="/downloads/erdataye.apk">Get Latest APK</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="team">
+        <div class="container">
+          <p class="section-tag">Project Team</p>
+          <h2>Behind the Mission</h2>
+          <p class="section-sub">
+            Add your 5 team member photos and names here when ready.
+          </p>
+
+          <div class="team-grid">
+            <article class="team-card">
+              <div class="avatar">T1</div>
+              <h3>Team Member 1</h3>
+              <p>Lead Developer</p>
+            </article>
+            <article class="team-card">
+              <div class="avatar">T2</div>
+              <h3>Team Member 2</h3>
+              <p>Product and Operations</p>
+            </article>
+            <article class="team-card">
+              <div class="avatar">T3</div>
+              <h3>Team Member 3</h3>
+              <p>Frontend and UX</p>
+            </article>
+            <article class="team-card">
+              <div class="avatar">T4</div>
+              <h3>Team Member 4</h3>
+              <p>Emergency Coordination</p>
+            </article>
+            <article class="team-card">
+              <div class="avatar">T5</div>
+              <h3>Team Member 5</h3>
+              <p>AI and Data</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      document.querySelectorAll('.nav-links a').forEach((anchor) => {
+        anchor.addEventListener('click', (event) => {
+          const targetId = anchor.getAttribute('href');
+          if (!targetId || !targetId.startsWith('#')) return;
+          const section = document.querySelector(targetId);
+          if (!section) return;
+          event.preventDefault();
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    </script>
+  </body>
 </html>

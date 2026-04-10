@@ -107,7 +107,7 @@ export default function HospitalDashboard() {
   const isDark = theme === "dark";
   const colors = Colors[theme];
   const router = useRouter();
-  const { user, setUser } = useAppState();
+  const { user, setUser, setRegistered } = useAppState();
   const { showError, showSuccess } = useModal();
 
   const [emergencies, setEmergencies] = useState<EmergencyWithPatient[]>([]);
@@ -157,6 +157,7 @@ export default function HospitalDashboard() {
     { message: string; color: string; time: number }[]
   >([]);
   const [notifPanelVisible, setNotifPanelVisible] = useState(false);
+  const isLoggingOutRef = useRef(false);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -389,6 +390,12 @@ export default function HospitalDashboard() {
   /* ─── Data fetching ─────────────────────────────────────────── */
 
   const fetchEmergencies = useCallback(async () => {
+    if (isLoggingOutRef.current || !user?.id) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
     try {
       const [emergencyResult, fleetResult, profileResult] =
         await Promise.allSettled([
@@ -452,7 +459,14 @@ export default function HospitalDashboard() {
       console.error("Error fetching emergencies:", error);
       // Avoid noisy popup loops on free-tier/temporary data inconsistencies.
       const msg = String((error as any)?.message ?? error ?? "").toLowerCase();
-      if (!msg.includes("hospital_id is required")) {
+      const isAuthTransitionError =
+        msg.includes("auth session missing") ||
+        msg.includes("not authenticated") ||
+        msg.includes("session does not exist") ||
+        msg.includes("session missing") ||
+        msg.includes("jwt expired") ||
+        msg.includes("401");
+      if (!msg.includes("hospital_id is required") && !isAuthTransitionError) {
         showError("Load Failed", "Failed to load emergency requests");
       }
     } finally {
@@ -460,7 +474,7 @@ export default function HospitalDashboard() {
       setRefreshing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showError, setUser, user, user?.fullName]);
+  }, [showError, setUser, user, user?.fullName, user?.id]);
 
   useEffect(() => {
     if (!hospitalProfile) return;
@@ -633,12 +647,18 @@ export default function HospitalDashboard() {
   }, [fetchEmergencies]);
 
   const handleLogout = async () => {
+    isLoggingOutRef.current = true;
     setProfileVisible(false);
     const { error: logoutErr } = await signOut();
     if (!logoutErr) {
+      setEmergencies([]);
+      setFleet(null);
+      setHospitalProfile(null);
       setUser(null);
-      router.replace("/");
+      setRegistered(false);
+      router.replace("/staff");
     } else {
+      isLoggingOutRef.current = false;
       showError("Logout Failed", "Failed to sign out");
     }
   };

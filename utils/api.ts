@@ -18,6 +18,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
 // embedded as expected. Keep public URLs here so mobile requests still work.
 const DEFAULT_PUBLIC_BACKENDS = [
+  "https://staff.erdatayee.tech/api",
+  "https://erdatayee.tech/api",
   "http://207.180.205.85/api",
   "http://207.180.205.85:8000",
 ];
@@ -54,13 +56,18 @@ const isLocalBackendUrl = (url: string): boolean => {
   }
 };
 
-const trimTrailingSlash = (value: string): string =>
-  value.replace(/\/+$/, "");
+const isSecureWebContext = (): boolean => {
+  if (Platform.OS !== "web") return false;
+  return (
+    typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
+    window.location?.protocol === "https:"
+  );
+};
 
-const addDerivedPublicCandidates = (
-  list: string[],
-  sourceUrl: string,
-) => {
+const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
+
+const addDerivedPublicCandidates = (list: string[], sourceUrl: string) => {
   try {
     const parsed = new URL(sourceUrl);
     const sourcePath = trimTrailingSlash(parsed.pathname || "");
@@ -94,6 +101,7 @@ const addDerivedPublicCandidates = (
 const addCandidate = (list: string[], candidate?: string | null) => {
   if (!candidate) return;
   if (!/^https?:\/\//i.test(candidate)) return;
+  if (isSecureWebContext() && /^http:\/\//i.test(candidate)) return;
   const normalized = trimTrailingSlash(candidate);
   if (!list.includes(normalized)) {
     list.push(normalized);
@@ -102,6 +110,15 @@ const addCandidate = (list: string[], candidate?: string | null) => {
 
 const buildBackendCandidates = (): string[] => {
   const candidates: string[] = [];
+
+  if (
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
+    window.location
+  ) {
+    addCandidate(candidates, `${window.location.origin}/api`);
+  }
 
   // Prioritize public fallbacks on mobile/web when localhost is unreachable.
   BACKEND_FALLBACKS.filter((value) => !isLocalBackendUrl(value)).forEach(
@@ -140,7 +157,11 @@ const buildBackendCandidates = (): string[] => {
     addCandidate(candidates, ENV_BACKEND_URL);
   }
 
-  if (typeof window !== "undefined" && typeof window.location !== "undefined" && window.location) {
+  if (
+    typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
+    window.location
+  ) {
     const host = window.location.hostname || "";
     const isLocalHost = host === "localhost" || host === "127.0.0.1";
     const hostLooksLikeLanIp = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);

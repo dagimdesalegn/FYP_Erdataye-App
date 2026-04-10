@@ -11,22 +11,27 @@ export function useAuthGuard(allowedRoles?: string[]): boolean {
   const { user, isLoading } = useAppState();
   const router = useRouter();
   const segments = useSegments();
+  const isStaffOnlyGuard =
+    !!allowedRoles &&
+    allowedRoles.length > 0 &&
+    allowedRoles.every((role) => role === "admin" || role === "hospital");
+  const loginRoute = isStaffOnlyGuard ? "/staff" : "/login";
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!user) {
-      router.replace("/login");
+      router.replace(loginRoute);
       return;
     }
 
     if (allowedRoles && allowedRoles.length > 0) {
       const userRole = user.role ?? "";
       if (!allowedRoles.includes(userRole)) {
-        router.replace("/login");
+        router.replace(loginRoute);
       }
     }
-  }, [user, isLoading, allowedRoles, router, segments]);
+  }, [user, isLoading, allowedRoles, router, segments, loginRoute]);
 
   return isLoading;
 }

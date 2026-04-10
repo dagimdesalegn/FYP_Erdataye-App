@@ -12,6 +12,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
 // embedded as expected. Keep public URLs here so auth still works on devices.
 const DEFAULT_PUBLIC_BACKENDS = [
+  "https://staff.erdatayee.tech/api",
+  "https://erdatayee.tech/api",
   "http://207.180.205.85/api",
   "http://207.180.205.85:8000",
 ];
@@ -29,8 +31,16 @@ const isLocalUrl = (url: string): boolean => {
   }
 };
 
-const trimTrailingSlash = (value: string): string =>
-  value.replace(/\/+$/, "");
+const isSecureWebContext = (): boolean => {
+  if (Platform.OS !== "web") return false;
+  return (
+    typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
+    window.location?.protocol === "https:"
+  );
+};
+
+const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
 
 const addDerivedPublicCandidates = (
   add: (url?: string | null) => void,
@@ -76,9 +86,19 @@ function buildBackendCandidates(): string[] {
   const list: string[] = [];
   const add = (url?: string | null) => {
     if (!url || !/^https?:\/\//i.test(url)) return;
+    if (isSecureWebContext() && /^http:\/\//i.test(url)) return;
     const normalized = trimTrailingSlash(url);
     if (!list.includes(normalized)) list.push(normalized);
   };
+
+  if (
+    Platform.OS === "web" &&
+    typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
+    window.location
+  ) {
+    add(`${window.location.origin}/api`);
+  }
 
   // Prefer explicitly configured/public URLs first for real devices.
   const publicFallbacks = BACKEND_FALLBACKS.filter((url) => !isLocalUrl(url));
