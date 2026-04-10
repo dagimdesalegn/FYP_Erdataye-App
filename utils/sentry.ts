@@ -62,7 +62,10 @@ export function captureException(error: Error | unknown): void {
 /**
  * Send a message to Sentry. No-op if Sentry is not initialised.
  */
-export function captureMessage(message: string, level: "info" | "warning" | "error" = "info"): void {
+export function captureMessage(
+  message: string,
+  level: "info" | "warning" | "error" = "info",
+): void {
   if (!_initialised || !_Sentry) return;
   try {
     _Sentry.captureMessage(message, level);

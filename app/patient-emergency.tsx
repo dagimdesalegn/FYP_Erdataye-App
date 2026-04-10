@@ -30,9 +30,9 @@ import {
     parsePostGISPoint,
 } from "@/utils/emergency";
 import {
-  createOrQueueEmergency,
-  flushQueue,
-  getQueue,
+    createOrQueueEmergency,
+    flushQueue,
+    getQueue,
 } from "@/utils/offline-queue";
 import {
     cancelEmergencyWithinWindow,
@@ -843,7 +843,10 @@ export default function PatientEmergencyScreen() {
               <ThemedText
                 style={[
                   styles.statusText,
-                  hasActiveEmergency && { color: "#10B981", fontFamily: Fonts.sansBold },
+                  hasActiveEmergency && {
+                    color: "#10B981",
+                    fontFamily: Fonts.sansBold,
+                  },
                   { flex: 1 },
                 ]}
               >

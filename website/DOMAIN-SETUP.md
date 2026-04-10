@@ -1,6 +1,7 @@
 # Domain Setup Plan (Without Affecting Mobile App)
 
 This setup keeps your Android app behavior unchanged and adds:
+
 - A public landing website on your root domain
 - A dedicated subdomain for staff/admin web dashboard
 - Stable APK download links
@@ -30,6 +31,7 @@ From your project root:
 ```
 
 This script:
+
 - Uploads `website/landing` to `/var/www/erdataya/site`
 - Installs nginx vhosts from `website/nginx/`
 - Reloads nginx after config validation
@@ -46,6 +48,7 @@ sudo certbot --nginx -d erdataye.com -d www.erdataye.com -d staff.erdataye.com -
 ```
 
 Then test:
+
 - `https://erdataye.com`
 - `https://erdataye.com/erdataye.apk`
 - `https://staff.erdataye.com`
@@ -60,6 +63,7 @@ If you want the app API base changed to domain later, do it in a separate contro
 Your app currently returns `404` on `/staff` at VPS root. That means dashboard static build is not currently deployed there.
 
 When your staff web build is ready, upload it to:
+
 - `/var/www/erdataya/staff`
 
 Nginx is already prepared in `website/nginx/staff-dashboard.conf`.

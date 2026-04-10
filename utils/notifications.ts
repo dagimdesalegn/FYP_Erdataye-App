@@ -7,8 +7,8 @@
  *  - Registering token with the backend
  *  - Handling incoming notifications
  */
-import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import { backendPost } from "./api";
 
 const IS_EXPO_GO = Constants.appOwnership === "expo";
@@ -28,28 +28,30 @@ const getNotifications = async () => {
 
 // ── Configure notification behaviour (skip on web) ──────────────────────
 if (Platform.OS !== "web" && !IS_EXPO_GO) {
-  getNotifications().then((N) => {
-    N.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-        priority: N.AndroidNotificationPriority.HIGH,
-      }),
-    });
+  getNotifications()
+    .then((N) => {
+      N.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          priority: N.AndroidNotificationPriority.HIGH,
+        }),
+      });
 
-    // ── Android channel ─────────────────────────────────────────────────
-    if (Platform.OS === "android") {
-      N.setNotificationChannelAsync("emergencies", {
-        name: "Emergency Alerts",
-        importance: N.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        sound: "default",
-      }).catch(() => {});
-    }
-  }).catch(() => {});
+      // ── Android channel ─────────────────────────────────────────────────
+      if (Platform.OS === "android") {
+        N.setNotificationChannelAsync("emergencies", {
+          name: "Emergency Alerts",
+          importance: N.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          sound: "default",
+        }).catch(() => {});
+      }
+    })
+    .catch(() => {});
 }
 
 // ── Push token registration ───────────────────────────────────────────────
@@ -104,7 +106,11 @@ export async function registerForPushNotifications(
     const token = tokenData.data;
 
     // Register token with backend
-    await backendPost("/ops/push-token", { user_id: userId, token, platform: Platform.OS });
+    await backendPost("/ops/push-token", {
+      user_id: userId,
+      token,
+      platform: Platform.OS,
+    });
 
     return token;
   } catch (err) {

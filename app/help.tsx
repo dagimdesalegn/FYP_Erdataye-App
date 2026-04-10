@@ -226,7 +226,7 @@ export default function HelpScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeEmergencyId,
-     
+
     currentLocation?.latitude,
     currentLocation?.longitude,
   ]);
@@ -909,7 +909,11 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 18,
   },
-  mapPlaceholderText: { fontSize: 13, fontFamily: Fonts.sansSemiBold, textAlign: "center" },
+  mapPlaceholderText: {
+    fontSize: 13,
+    fontFamily: Fonts.sansSemiBold,
+    textAlign: "center",
+  },
   liveMapRoot: { flex: 1 },
   mapMetaRow: {
     minHeight: 56,
