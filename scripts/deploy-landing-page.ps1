@@ -1,5 +1,3 @@
-$ErrorActionPreference = "Stop"
-
 param(
   [string]$ServerIp = "207.180.205.85",
   [string]$Username = "root",
@@ -8,6 +6,8 @@ param(
   [string]$WwwDomain = "www.erdataye.com",
   [string]$StaffDomain = "staff.erdataye.com"
 )
+
+$ErrorActionPreference = "Stop"
 
 if (-not $Password) {
   throw "Password is required. Example: .\\scripts\\deploy-landing-page.ps1 -Password 'your-pass'"
