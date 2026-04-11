@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260411-5" />
+    <link rel="stylesheet" href="/styles.css?v=20260411-6" />
   </head>
   <body>
     <header class="navbar">
@@ -178,7 +178,7 @@
             <div class="preview-modal-card" role="document">
               <button class="preview-close" id="previewClose" type="button" aria-label="Close preview">×</button>
               <p class="preview-modal-title" id="previewTitle">Screenshot Preview</p>
-              <img id="previewImage" src="" alt="" loading="lazy" />
+              <img id="previewImage" src="" alt="" loading="lazy" decoding="async" />
             </div>
           </div>
         </div>
@@ -194,9 +194,16 @@
 
           <div class="team-stage" aria-label="Team members">
             <article class="member member-lead">
-              <img src="/assets/images/Abeni.jpg" alt="Abenezar Tekola" />
+              <img
+                src="/assets/images/Abeni.jpg"
+                alt="Abenezer Tekola"
+                loading="lazy"
+                decoding="async"
+                width="130"
+                height="130"
+              />
               <span class="member-badge">Team Leader</span>
-              <h3>Abenezar Tekola</h3>
+              <h3>Abenezer Tekola</h3>
               <p>Backend Development</p>
               <p class="member-note">
                 Leads backend architecture, API design, and system reliability.
@@ -205,7 +212,14 @@
 
             <div class="team-grid" aria-label="Core members">
               <article class="member member-card">
-                <img src="/assets/images/Hermi.jpg" alt="Hermela Mekonnen" />
+                <img
+                  src="/assets/images/Hermi.jpg"
+                  alt="Hermela Mekonnen"
+                  loading="lazy"
+                  decoding="async"
+                  width="96"
+                  height="96"
+                />
                 <h3>Hermela Mekonnen</h3>
                 <p>Frontend Development</p>
                 <p class="member-note">
@@ -214,7 +228,14 @@
               </article>
 
               <article class="member member-card">
-                <img src="/assets/images/migen.jpg" alt="Shugute Shura" />
+                <img
+                  src="/assets/images/migen.jpg"
+                  alt="Shugute Shura"
+                  loading="lazy"
+                  decoding="async"
+                  width="96"
+                  height="96"
+                />
                 <h3>Shugute Shura</h3>
                 <p>Frontend Development</p>
                 <p class="member-note">
@@ -223,7 +244,14 @@
               </article>
 
               <article class="member member-card">
-                <img src="/assets/images/Dagi.jpg" alt="Dagim Desalegn" />
+                <img
+                  src="/assets/images/Dagi.jpg"
+                  alt="Dagim Desalegn"
+                  loading="lazy"
+                  decoding="async"
+                  width="96"
+                  height="96"
+                />
                 <h3>Dagim Desalegn</h3>
                 <p>Backend Development</p>
                 <p class="member-note">
@@ -232,7 +260,14 @@
               </article>
 
               <article class="member member-card">
-                <img src="/assets/images/nati.jpg" alt="Natinael Asefa" />
+                <img
+                  src="/assets/images/nati.jpg"
+                  alt="Natinael Asefa"
+                  loading="lazy"
+                  decoding="async"
+                  width="96"
+                  height="96"
+                />
                 <h3>Natinael Asefa</h3>
                 <p>Backend Development</p>
                 <p class="member-note">
@@ -281,6 +316,28 @@
       const previewImage = document.getElementById('previewImage');
       const previewTitle = document.getElementById('previewTitle');
       const previewClose = document.getElementById('previewClose');
+
+      const warmupPreviewImages = () => {
+        const paths = Array.from(document.querySelectorAll('.preview-btn'))
+          .map((button) => button.getAttribute('data-image'))
+          .filter(Boolean);
+
+        paths.forEach((path) => {
+          const image = new Image();
+          image.decoding = 'async';
+          image.src = path;
+        });
+      };
+
+      const scheduleWarmup = () => {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(warmupPreviewImages, { timeout: 2200 });
+          return;
+        }
+        setTimeout(warmupPreviewImages, 850);
+      };
+
+      window.addEventListener('load', scheduleWarmup, { once: true });
 
       const openPreview = (imagePath, title) => {
         if (!previewModal || !previewImage || !previewTitle) return;
