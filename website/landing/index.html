@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260411-3" />
+    <link rel="stylesheet" href="/styles.css?v=20260411-4" />
   </head>
   <body>
     <header class="navbar">
@@ -109,35 +109,81 @@
           <p class="section-tag">Product Preview</p>
           <h2>App Experience Snapshot</h2>
           <p class="section-sub">
-            These screenshots help users understand the patient and emergency tracking flows at a glance.
+            Click Preview to view each screenshot with a clean full-size view.
           </p>
 
-          <div class="showcase-grid" aria-label="Application screenshots">
-            <figure class="shot-card">
-              <img
-                src="/assets/images/Screenshot_landing.jpg"
-                alt="Erdataye app landing experience"
-                loading="lazy"
-                onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
-              />
-              <div class="shot-placeholder" style="display: none;">
-                Upload assets/images/Screenshot_landing.jpg
-              </div>
-              <figcaption>Landing Experience & Navigation</figcaption>
-            </figure>
+          <div class="preview-grid" aria-label="Application screenshots">
+            <article class="preview-card">
+              <p class="preview-file">Screenshot_landing.jpg</p>
+              <h3>Landing Overview</h3>
+              <p>
+                Public welcome screen with primary app entry points, key feature summary, and quick navigation.
+              </p>
+              <button
+                class="preview-btn"
+                data-image="/assets/images/Screenshot_landing.jpg"
+                data-title="Landing Overview"
+                type="button"
+              >
+                Preview
+              </button>
+            </article>
 
-            <figure class="shot-card">
-              <img
-                src="/assets/images/Screenshot_login.jpg"
-                alt="Erdataye app login and access flow"
-                loading="lazy"
-                onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
-              />
-              <div class="shot-placeholder" style="display: none;">
-                Upload assets/images/Screenshot_login.jpg
-              </div>
-              <figcaption>Login Flow & Access Gateway</figcaption>
-            </figure>
+            <article class="preview-card">
+              <p class="preview-file">Screenshot_login.jpg</p>
+              <h3>Login Screen</h3>
+              <p>
+                Secure login form with phone number and password, designed for fast sign-in and role-based routing.
+              </p>
+              <button
+                class="preview-btn"
+                data-image="/assets/images/Screenshot_login.jpg"
+                data-title="Login Screen"
+                type="button"
+              >
+                Preview
+              </button>
+            </article>
+
+            <article class="preview-card">
+              <p class="preview-file">Screenshot_home.jpg</p>
+              <h3>Home Dashboard</h3>
+              <p>
+                Main home view with quick emergency actions and core navigation for daily patient-side use.
+              </p>
+              <button
+                class="preview-btn"
+                data-image="/assets/images/Screenshot_home.jpg"
+                data-title="Home Dashboard"
+                type="button"
+              >
+                Preview
+              </button>
+            </article>
+
+            <article class="preview-card">
+              <p class="preview-file">Screenshot_chatbot.jpg</p>
+              <h3>Chatbot Assistant</h3>
+              <p>
+                AI first-aid chat interface with conversational guidance and quick responses for urgent situations.
+              </p>
+              <button
+                class="preview-btn"
+                data-image="/assets/images/Screenshot_chatbot.jpg"
+                data-title="Chatbot Assistant"
+                type="button"
+              >
+                Preview
+              </button>
+            </article>
+          </div>
+
+          <div class="preview-modal" id="previewModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Screenshot preview">
+            <div class="preview-modal-card" role="document">
+              <button class="preview-close" id="previewClose" type="button" aria-label="Close preview">×</button>
+              <p class="preview-modal-title" id="previewTitle">Screenshot Preview</p>
+              <img id="previewImage" src="" alt="" loading="lazy" />
+            </div>
           </div>
         </div>
       </section>
@@ -233,6 +279,50 @@
             navToggle?.setAttribute('aria-expanded', 'false');
           }
         });
+      });
+
+      const previewModal = document.getElementById('previewModal');
+      const previewImage = document.getElementById('previewImage');
+      const previewTitle = document.getElementById('previewTitle');
+      const previewClose = document.getElementById('previewClose');
+
+      const openPreview = (imagePath, title) => {
+        if (!previewModal || !previewImage || !previewTitle) return;
+        previewImage.setAttribute('src', imagePath);
+        previewImage.setAttribute('alt', title);
+        previewTitle.textContent = title;
+        previewModal.classList.add('open');
+        previewModal.setAttribute('aria-hidden', 'false');
+      };
+
+      const closePreview = () => {
+        if (!previewModal || !previewImage) return;
+        previewModal.classList.remove('open');
+        previewModal.setAttribute('aria-hidden', 'true');
+        previewImage.setAttribute('src', '');
+      };
+
+      document.querySelectorAll('.preview-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+          const imagePath = button.getAttribute('data-image');
+          const title = button.getAttribute('data-title') || 'Screenshot Preview';
+          if (!imagePath) return;
+          openPreview(imagePath, title);
+        });
+      });
+
+      previewClose?.addEventListener('click', closePreview);
+
+      previewModal?.addEventListener('click', (event) => {
+        if (event.target === previewModal) {
+          closePreview();
+        }
+      });
+
+      window.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          closePreview();
+        }
       });
     </script>
   </body>
