@@ -197,16 +197,25 @@ h1 {
   transform: translateX(120%);
 }
 
-.btn-secondary {
-  color: #173447;
-  background: linear-gradient(180deg, #ffffff 0%, #edf4f8 100%);
-  border: 1px solid #cfe0e8;
-  box-shadow: 0 10px 20px rgba(24, 61, 89, 0.08);
+.btn-github {
+  color: #e9f2ff;
+  background: linear-gradient(135deg, #0f2741 0%, #172f4d 55%, #244a6f 100%);
+  border: 1px solid #355879;
+  box-shadow: 0 12px 24px rgba(9, 34, 59, 0.28);
+  gap: 10px;
+  padding-inline: 18px;
 }
 
-.btn-secondary:hover {
-  border-color: #b8d0db;
-  box-shadow: 0 14px 26px rgba(24, 61, 89, 0.12);
+.btn-github:hover {
+  border-color: #4f7395;
+  box-shadow: 0 16px 30px rgba(8, 32, 58, 0.34);
+}
+
+.btn-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
 }
 
 .mini-note {
@@ -318,6 +327,55 @@ h1 {
   margin: 8px 0 0;
   color: var(--ink-soft);
   line-height: 1.55;
+}
+
+.showcase-grid {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.shot-card {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(20, 43, 62, 0.08);
+}
+
+.shot-card img,
+.shot-placeholder {
+  width: 100%;
+  height: min(420px, 56vw);
+  min-height: 260px;
+}
+
+.shot-card img {
+  display: block;
+  object-fit: cover;
+  object-position: top center;
+  background: #e8f2f8;
+}
+
+.shot-placeholder {
+  place-items: center;
+  text-align: center;
+  padding: 16px;
+  color: #567081;
+  font-weight: 600;
+  background:
+    linear-gradient(145deg, rgba(199, 42, 47, 0.08) 0%, rgba(31, 106, 114, 0.08) 100%),
+    #f8fbfd;
+}
+
+.shot-card figcaption {
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #233e52;
+  border-top: 1px solid #dce9f0;
 }
 
 
@@ -527,6 +585,10 @@ h1 {
 
   .mini-note {
     font-size: 0.78rem;
+  }
+
+  .btn-github {
+    justify-content: center;
   }
 
   .team-stage {
