@@ -395,7 +395,7 @@ h1 {
 }
 
 .preview-modal-card {
-  width: min(980px, 96vw);
+  width: min(460px, 92vw);
   max-height: 90vh;
   overflow: auto;
   background: #ffffff;
@@ -430,13 +430,22 @@ h1 {
 
 #previewImage {
   width: 100%;
+  height: auto;
   max-height: 78vh;
+  aspect-ratio: 9 / 19.5;
   object-fit: contain;
+  object-position: center top;
   border-radius: 12px;
   border: 1px solid #dbe8ef;
   background:
     radial-gradient(520px 220px at 88% 10%, rgba(199, 42, 47, 0.18) 0%, transparent 58%),
     linear-gradient(150deg, #09192b 0%, #10253a 62%, #16314a 100%);
+}
+
+@media (min-width: 1100px) {
+  .preview-modal-card {
+    width: 430px;
+  }
 }
 
 .team-stage {
