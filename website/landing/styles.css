@@ -347,15 +347,6 @@ h1 {
   gap: 8px;
 }
 
-.preview-file {
-  margin: 0;
-  color: #557082;
-  font-size: 0.76rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  font-weight: 800;
-}
-
 .preview-card h3 {
   margin: 0;
   font-size: 1rem;
