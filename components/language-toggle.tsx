@@ -64,9 +64,12 @@ export function LanguageToggle() {
         animationType="fade"
         onRequestClose={() => setOpen(false)}
       >
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+        <View style={styles.backdrop}>
           <Pressable
-            onPress={(event) => event.stopPropagation()}
+            style={styles.backdropTapArea}
+            onPress={() => setOpen(false)}
+          />
+          <View
             style={[
               styles.menu,
               {
@@ -105,8 +108,8 @@ export function LanguageToggle() {
                 </Pressable>
               );
             })}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -119,6 +122,9 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: "rgba(2, 6, 23, 0.12)",
+  },
+  backdropTapArea: {
+    ...StyleSheet.absoluteFillObject,
   },
   trigger: {
     height: 42,
