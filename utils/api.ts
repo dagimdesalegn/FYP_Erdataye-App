@@ -65,6 +65,12 @@ const isSecureWebContext = (): boolean => {
   );
 };
 
+const isInsecureHttp = (url: string): boolean => /^http:\/\//i.test(url);
+const allowInsecureHttpCandidate = (url: string): boolean => {
+  if (!isInsecureHttp(url)) return true;
+  return typeof __DEV__ !== "undefined" ? __DEV__ : false;
+};
+
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
 
 const addDerivedPublicCandidates = (list: string[], sourceUrl: string) => {
@@ -101,7 +107,8 @@ const addDerivedPublicCandidates = (list: string[], sourceUrl: string) => {
 const addCandidate = (list: string[], candidate?: string | null) => {
   if (!candidate) return;
   if (!/^https?:\/\//i.test(candidate)) return;
-  if (isSecureWebContext() && /^http:\/\//i.test(candidate)) return;
+  if (isSecureWebContext() && isInsecureHttp(candidate)) return;
+  if (!allowInsecureHttpCandidate(candidate)) return;
   const normalized = trimTrailingSlash(candidate);
   if (!list.includes(normalized)) {
     list.push(normalized);

@@ -40,6 +40,12 @@ const isSecureWebContext = (): boolean => {
   );
 };
 
+const isInsecureHttp = (url: string): boolean => /^http:\/\//i.test(url);
+const allowInsecureHttpCandidate = (url: string): boolean => {
+  if (!isInsecureHttp(url)) return true;
+  return typeof __DEV__ !== "undefined" ? __DEV__ : false;
+};
+
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
 
 const addDerivedPublicCandidates = (
@@ -86,7 +92,8 @@ function buildBackendCandidates(): string[] {
   const list: string[] = [];
   const add = (url?: string | null) => {
     if (!url || !/^https?:\/\//i.test(url)) return;
-    if (isSecureWebContext() && /^http:\/\//i.test(url)) return;
+    if (isSecureWebContext() && isInsecureHttp(url)) return;
+    if (!allowInsecureHttpCandidate(url)) return;
     const normalized = trimTrailingSlash(url);
     if (!list.includes(normalized)) list.push(normalized);
   };

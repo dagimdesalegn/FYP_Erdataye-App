@@ -12,6 +12,7 @@ Security rationale:
 """
 
 import re
+import secrets
 from datetime import datetime, timezone
 from math import asin, cos, radians, sin, sqrt
 from typing import Literal
@@ -413,9 +414,22 @@ async def register_staff(
     req: RegisterStaffRequest,
     x_setup_key: str | None = Header(default=None, alias="X-Setup-Key"),
 ) -> RegisterResponse:
-    expected_key = settings.staff_provisioning_key or settings.supabase_service_role_key
+    expected_key = (settings.staff_provisioning_key or "").strip()
 
-    if not x_setup_key or x_setup_key != expected_key:
+    if not expected_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Staff provisioning is disabled. Missing STAFF_PROVISIONING_KEY.",
+        )
+
+    service_role_key = (settings.supabase_service_role_key or "").strip()
+    if service_role_key and secrets.compare_digest(expected_key, service_role_key):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Staff provisioning key must be dedicated and must not match service-role key.",
+        )
+
+    if not x_setup_key or not secrets.compare_digest(x_setup_key, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid setup key.",

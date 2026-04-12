@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     deepseek_api_key: str
 
     # ── Staff provisioning ───────────────────────────────────────────────────
-    # Optional secret used by /auth/register-staff. If empty, backend falls
-    # back to SUPABASE_SERVICE_ROLE_KEY for compatibility.
+    # Dedicated secret used by /auth/register-staff.
+    # This must be set explicitly and must not match SUPABASE_SERVICE_ROLE_KEY.
     staff_provisioning_key: str = ""
 
     # ── CORS ──────────────────────────────────────────────────────────────────
