@@ -14,6 +14,7 @@ import {
 import { AppButton } from "@/components/app-button";
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -22,6 +23,7 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { calculateDistance } from "@/utils/emergency";
+import { t } from "@/utils/i18n";
 
 import {
     ensureAmbulanceHospitalLink,
@@ -456,7 +458,11 @@ export default function DriverHomeScreen() {
       ]}
     >
       {/* App Header with project name top-left, theme toggle + profile icon top-right */}
-      <AppHeader title="እርዳታዬ" onProfilePress={handleProfilePress} />
+      <AppHeader
+        title={t("app_name")}
+        onProfilePress={handleProfilePress}
+        rightExtra={<LanguageToggle />}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -485,7 +491,7 @@ export default function DriverHomeScreen() {
             </View>
             <View style={{ flex: 1, marginLeft: 14 }}>
               <ThemedText style={styles.greeting}>
-                Welcome, {user?.fullName || "Ambulance"}
+                {t("welcome")}, {user?.fullName || t("role_driver")}
               </ThemedText>
               <ThemedText style={styles.email}>{user?.phone}</ThemedText>
             </View>
@@ -504,7 +510,7 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
-          <ThemedText style={styles.cardTitle}>Ambulance Status</ThemedText>
+          <ThemedText style={styles.cardTitle}>{t("ambulance_status")}</ThemedText>
 
           <Pressable
             onPress={async () => {
@@ -585,10 +591,12 @@ export default function DriverHomeScreen() {
             )}
             <View style={{ marginLeft: 12 }}>
               <ThemedText style={styles.statusLabel}>
-                {isAvailable ? "Available" : "Offline"}
+                {isAvailable ? t("available") : t("offline")}
               </ThemedText>
               <ThemedText style={styles.statusSubtitle}>
-                {isAvailable ? "Ready to receive calls" : "Not receiving calls"}
+                {isAvailable
+                  ? t("ready_to_receive_calls")
+                  : t("not_receiving_calls")}
               </ThemedText>
             </View>
           </Pressable>
@@ -610,15 +618,15 @@ export default function DriverHomeScreen() {
               <View style={styles.alertHeader}>
                 <MaterialIcons name="priority-high" size={28} color="#DC2626" />
                 <ThemedText style={styles.alertTitle}>
-                  New Assignment!
+                  {t("new_assignment")}!
                 </ThemedText>
               </View>
               <ThemedText style={styles.alertSubtitle}>
-                You have {assignmentCount} incoming emergency
+                {t("active_emergencies")}: {assignmentCount}
                 {assignmentCount > 1 ? "s" : ""}
               </ThemedText>
               <AppButton
-                label="View Assignment"
+                label={t("view_assignment")}
                 onPress={handleViewAssignment}
                 variant="primary"
                 fullWidth
@@ -641,7 +649,7 @@ export default function DriverHomeScreen() {
             >
               <MaterialIcons name="local-shipping" size={28} color="#0EA5E9" />
               <ThemedText style={styles.statNumber}>{activeCount}</ThemedText>
-              <ThemedText style={styles.statLabel}>Active</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("active")}</ThemedText>
             </ThemedView>
 
             <ThemedView
@@ -658,7 +666,7 @@ export default function DriverHomeScreen() {
               <ThemedText style={styles.statNumber}>
                 {completedCount}
               </ThemedText>
-              <ThemedText style={styles.statLabel}>Completed</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("completed")}</ThemedText>
             </ThemedView>
 
             <ThemedView
@@ -675,7 +683,7 @@ export default function DriverHomeScreen() {
               <ThemedText style={styles.statNumber}>
                 {activeCount + completedCount}
               </ThemedText>
-              <ThemedText style={styles.statLabel}>Total</ThemedText>
+              <ThemedText style={styles.statLabel}>{t("total")}</ThemedText>
             </ThemedView>
           </View>
         </ThemedView>
@@ -704,7 +712,7 @@ export default function DriverHomeScreen() {
               <ThemedText
                 style={[styles.cardTitle, { marginBottom: 0, marginLeft: 8 }]}
               >
-                Completed History
+                {t("completed_history")}
               </ThemedText>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -735,7 +743,7 @@ export default function DriverHomeScreen() {
             <View style={{ marginTop: 12 }}>
               {history.length === 0 ? (
                 <ThemedText style={styles.historyEmpty}>
-                  No completed emergencies yet
+                  {t("no_completed_emergencies_yet")}
                 </ThemedText>
               ) : (
                 history.map((item) => (
@@ -818,7 +826,7 @@ export default function DriverHomeScreen() {
 
         {/* Sign Out */}
         <AppButton
-          label="Sign Out"
+          label={t("sign_out")}
           onPress={handleLogout}
           variant="secondary"
           fullWidth

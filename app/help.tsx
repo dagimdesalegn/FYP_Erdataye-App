@@ -3,6 +3,7 @@ import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { FirstAidFab } from "@/components/first-aid-fab";
 import { HtmlMapView } from "@/components/html-map-view";
+import { LanguageToggle } from "@/components/language-toggle";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors, Fonts } from "@/constants/theme";
@@ -10,6 +11,7 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { buildMapHtml, calculateDistance } from "@/utils/emergency";
+import { t } from "@/utils/i18n";
 import {
     getActiveEmergency,
     type PatientEmergency,
@@ -376,8 +378,9 @@ export default function HelpScreen() {
   return (
     <View style={[styles.bg, { backgroundColor: colors.background }]}>
       <AppHeader
-        title="እርዳታዬ"
+        title={t("app_name")}
         onProfilePress={() => setProfileOpen(!profileOpen)}
+        rightExtra={<LanguageToggle />}
       />
 
       {/* Profile Dropdown Backdrop */}
@@ -462,7 +465,7 @@ export default function HelpScreen() {
             <ThemedText
               style={[styles.profileMenuText, { color: colors.primary }]}
             >
-              Sign Out
+              {t("sign_out")}
             </ThemedText>
           </Pressable>
         </View>
@@ -485,7 +488,7 @@ export default function HelpScreen() {
           >
             <FirstAidFab
               triggerMode="tag"
-              triggerLabel="Ask Chatbot"
+              triggerLabel={t("ask_chatbot")}
               anchorStyle={styles.chatbotTagAnchor}
             />
           </View>
@@ -510,7 +513,7 @@ export default function HelpScreen() {
                     />
                     <View>
                       <ThemedText style={styles.mapMetaLabel}>
-                        Current location of your device
+                        {t("current_device_location")}
                       </ThemedText>
                     </View>
                   </View>
@@ -534,7 +537,7 @@ export default function HelpScreen() {
                     { color: isDark ? "#A3AAB3" : "#64748B" },
                   ]}
                 >
-                  Current location of your device
+                  {t("current_device_location")}
                 </ThemedText>
               </View>
             )}
@@ -544,7 +547,7 @@ export default function HelpScreen() {
         <View style={styles.actionsRow}>
           <View style={styles.actionCol}>
             <AppButton
-              label="Help"
+              label={t("help_short")}
               onPress={() => setHelpOpen(true)}
               variant="primary"
               fullWidth
@@ -556,7 +559,7 @@ export default function HelpScreen() {
           </View>
           <View style={styles.actionCol}>
             <AppButton
-              label="Direct"
+              label={t("direct_short")}
               onPress={() => setDirectOpen(true)}
               variant="primary"
               fullWidth
@@ -586,7 +589,7 @@ export default function HelpScreen() {
             >
               <View style={styles.sheetHeader}>
                 <ThemedText style={styles.sheetTitle}>
-                  Choose help type
+                  {t("choose_help_type")}
                 </ThemedText>
                 <Pressable
                   onPress={() => setHelpOpen(false)}
@@ -605,7 +608,7 @@ export default function HelpScreen() {
               <View style={styles.modalActionsRow}>
                 <View style={styles.actionCol}>
                   <AppButton
-                    label="For me"
+                    label={t("for_me")}
                     onPress={handleForMe}
                     variant="ghost"
                     fullWidth
@@ -621,7 +624,7 @@ export default function HelpScreen() {
                 </View>
                 <View style={styles.actionCol}>
                   <AppButton
-                    label="For other"
+                    label={t("for_other")}
                     onPress={handleForOther}
                     variant="ghost"
                     fullWidth
@@ -659,7 +662,7 @@ export default function HelpScreen() {
             >
               <View style={styles.sheetHeader}>
                 <ThemedText style={styles.sheetTitle}>
-                  Emergency Contacts
+                  {t("emergency_contacts")}
                 </ThemedText>
                 <Pressable
                   onPress={() => setDirectOpen(false)}
@@ -682,7 +685,7 @@ export default function HelpScreen() {
                   { color: isDark ? "#94A3B8" : "#64748B" },
                 ]}
               >
-                Ethiopian Emergency Services
+                {t("ethiopian_emergency_services")}
               </ThemedText>
 
               <Pressable
@@ -712,7 +715,7 @@ export default function HelpScreen() {
                   <ThemedText
                     style={[styles.contactName, { color: colors.text }]}
                   >
-                    Emergency (Ambulance)
+                    {t("emergency_ambulance")}
                   </ThemedText>
                   <ThemedText
                     style={[styles.contactNumber, { color: "#DC2626" }]}
@@ -750,7 +753,7 @@ export default function HelpScreen() {
                   <ThemedText
                     style={[styles.contactName, { color: colors.text }]}
                   >
-                    Fire & Emergency
+                    {t("fire_emergency")}
                   </ThemedText>
                   <ThemedText
                     style={[styles.contactNumber, { color: "#F59E0B" }]}
@@ -788,7 +791,7 @@ export default function HelpScreen() {
                   <ThemedText
                     style={[styles.contactName, { color: colors.text }]}
                   >
-                    Police
+                    {t("police")}
                   </ThemedText>
                   <ThemedText
                     style={[styles.contactNumber, { color: "#3B82F6" }]}
@@ -805,7 +808,7 @@ export default function HelpScreen() {
                   { color: isDark ? "#94A3B8" : "#64748B", marginTop: 12 },
                 ]}
               >
-                Family / Personal
+                {t("family_personal")}
               </ThemedText>
 
               <Pressable
@@ -835,12 +838,12 @@ export default function HelpScreen() {
                   <ThemedText
                     style={[styles.contactName, { color: colors.text }]}
                   >
-                    Emergency Contact
+                    {t("emergency_contact_label")}
                   </ThemedText>
                   <ThemedText
                     style={[styles.contactNumber, { color: "#10B981" }]}
                   >
-                    From your profile
+                    {t("from_your_profile")}
                   </ThemedText>
                 </View>
                 <MaterialIcons name="call" size={22} color="#10B981" />

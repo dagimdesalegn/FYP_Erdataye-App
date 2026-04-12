@@ -33,6 +33,7 @@ import {
     upsertDriverAmbulance,
 } from "@/utils/driver";
 import { t } from "@/utils/i18n";
+import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -243,6 +244,12 @@ export default function RegisterScreen() {
   };
 
   const performSignup = async () => {
+    const online = await hasInternetConnection();
+    if (!online) {
+      showAlert(t("internet_required_title"), t("internet_required_message"));
+      return;
+    }
+
     setLoading(true);
     try {
       const emergencyContactPhone =
@@ -265,6 +272,10 @@ export default function RegisterScreen() {
 
       if (error || !user) {
         console.error("Signup error:", error);
+        if (isLikelyConnectivityError(error)) {
+          showAlert(t("internet_required_title"), t("internet_required_message"));
+          return;
+        }
         showError(
           "Registration Failed",
           error?.message || "Failed to create account",
@@ -371,6 +382,10 @@ export default function RegisterScreen() {
       router.replace(route as any);
     } catch (error) {
       console.error("Registration exception:", error);
+      if (isLikelyConnectivityError(error)) {
+        showAlert(t("internet_required_title"), t("internet_required_message"));
+        return;
+      }
       showError("Registration Failed", `Registration failed: ${error}`);
     } finally {
       setLoading(false);

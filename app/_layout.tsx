@@ -23,6 +23,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { ModalProvider } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getLang, loadLang, subscribeLangChange } from "@/utils/i18n";
 import { initSentry } from "@/utils/sentry";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
@@ -84,10 +85,31 @@ export default function RootLayout() {
 function ThemedRoot() {
   const resolved = useColorScheme();
   const theme = resolved ?? "light";
+  const [, setLangRevision] = React.useState(0);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void loadLang().finally(() => {
+      if (mounted) {
+        setLangRevision((prev) => prev + 1);
+      }
+    });
+
+    const unsubscribe = subscribeLangChange(() => {
+      if (!mounted) return;
+      setLangRevision((prev) => prev + 1);
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     if (Platform.OS === "web") {
-      document.title = "እርዳታዬ";
+      document.title = getLang() === "en" ? "Erdataye" : "እርዳታዬ";
     }
     if (Platform.OS !== "android") return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);

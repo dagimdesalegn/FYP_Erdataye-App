@@ -9,14 +9,46 @@
  *   <Text>{t('login')}</Text>
  */
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 export type Lang = "en" | "am" | "om";
 
 const _STORAGE_KEY = "erdataye_lang";
 let _currentLang: Lang = "en";
+const _listeners = new Set<() => void>();
+
+export const LANG_OPTIONS: ReadonlyArray<Lang> = ["en", "am", "om"];
+
+const _notifyLangChanged = () => {
+  _listeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // No-op: keep broadcasting to other listeners.
+    }
+  });
+};
+
+export function subscribeLangChange(listener: () => void): () => void {
+  _listeners.add(listener);
+  return () => {
+    _listeners.delete(listener);
+  };
+}
 
 /** Set the active language and persist. */
 export async function setLang(lang: Lang): Promise<void> {
+  if (_currentLang === lang) return;
   _currentLang = lang;
+
+  try {
+    await AsyncStorage.setItem(_STORAGE_KEY, lang);
+  } catch {
+    /* best-effort local persist */
+  }
+
+  _notifyLangChanged();
+
   try {
     const { supabase } = await import("./supabase");
     const {
@@ -37,6 +69,17 @@ export function getLang(): Lang {
 
 /** Load persisted language preference (call once at app start). */
 export async function loadLang(): Promise<Lang> {
+  let nextLang: Lang | null = null;
+
+  try {
+    const storedLocal = await AsyncStorage.getItem(_STORAGE_KEY);
+    if (storedLocal === "en" || storedLocal === "am" || storedLocal === "om") {
+      nextLang = storedLocal;
+    }
+  } catch {
+    /* default to profile or fallback en */
+  }
+
   try {
     const { supabase } = await import("./supabase");
     const {
@@ -44,11 +87,23 @@ export async function loadLang(): Promise<Lang> {
     } = await supabase.auth.getUser();
     const stored = user?.user_metadata?.preferred_lang;
     if (stored === "en" || stored === "am" || stored === "om") {
-      _currentLang = stored;
+      nextLang = stored;
     }
   } catch {
-    /* default to en */
+    /* ignore and keep local/default */
   }
+
+  if (nextLang && nextLang !== _currentLang) {
+    _currentLang = nextLang;
+    _notifyLangChanged();
+
+    try {
+      await AsyncStorage.setItem(_STORAGE_KEY, nextLang);
+    } catch {
+      /* best-effort local persist */
+    }
+  }
+
   return _currentLang;
 }
 
@@ -71,6 +126,92 @@ const translations: Record<string, Record<Lang, string>> = {
   no: { en: "No", am: "አይ", om: "Lakki" },
   retry: { en: "Retry", am: "ድገም", om: "Irra Deebi'i" },
   close: { en: "Close", am: "ዝጋ", om: "Cufi" },
+  language: { en: "Language", am: "ቋንቋ", om: "Afaan" },
+  lang_en: { en: "English", am: "English", om: "English" },
+  lang_am: { en: "Amharic", am: "አማርኛ", om: "Amaariffa" },
+  lang_om: { en: "Oromo", am: "ኦሮምኛ", om: "Afaan Oromo" },
+  internet_required_title: {
+    en: "No Internet Connection",
+    am: "የኢንተርኔት ግንኙነት የለም",
+    om: "Walitti hidhamiinsi interneetii hin jiru",
+  },
+  internet_required_message: {
+    en: "Please turn on mobile data or Wi-Fi and try again.",
+    am: "እባክዎ ሞባይል ዳታ ወይም Wi-Fi ያብሩ እና እንደገና ይሞክሩ።",
+    om: "Maaloo daataa moobaayilii yookaan Wi-Fi bansiitii irra deebi'ii yaali.",
+  },
+  // Driver / patient home
+  welcome: { en: "Welcome", am: "እንኳን ደህና መጡ", om: "Baga nagaan dhuftan" },
+  ambulance_status: {
+    en: "Ambulance Status",
+    am: "የአምቡላንስ ሁኔታ",
+    om: "Haala Ambulaansii",
+  },
+  available: { en: "Available", am: "ዝግጁ", om: "Qophaa'e" },
+  offline: { en: "Offline", am: "ከመስመር ውጪ", om: "Alaa Sarara" },
+  ready_to_receive_calls: {
+    en: "Ready to receive calls",
+    am: "ጥሪዎችን ለመቀበል ዝግጁ",
+    om: "Waamicha fudhachuuf qophaa'e",
+  },
+  not_receiving_calls: {
+    en: "Not receiving calls",
+    am: "ጥሪ አይቀበልም",
+    om: "Waamicha hin fudhatu",
+  },
+  view_assignment: { en: "View Assignment", am: "ምደባ ይመልከቱ", om: "Ramaddii Ilaali" },
+  active: { en: "Active", am: "በሂደት ላይ", om: "Hojii Irra" },
+  total: { en: "Total", am: "ጠቅላላ", om: "Waliigala" },
+  completed_history: {
+    en: "Completed History",
+    am: "የተጠናቀቀ ታሪክ",
+    om: "Seenaa Xumurame",
+  },
+  no_completed_emergencies_yet: {
+    en: "No completed emergencies yet",
+    am: "እስካሁን የተጠናቀቀ አደጋ የለም",
+    om: "Ammaaf balaan xumurame hin jiru",
+  },
+  sign_out: { en: "Sign Out", am: "ውጣ", om: "Ba'i" },
+  help_short: { en: "Help", am: "እገዛ", om: "Gargaarsa" },
+  direct_short: { en: "Direct", am: "ቀጥታ", om: "Kallattiin" },
+  ask_chatbot: { en: "Ask Chatbot", am: "ቻትቦትን ይጠይቁ", om: "Chaatiin Gaafadhu" },
+  current_device_location: {
+    en: "Current location of your device",
+    am: "የመሣሪያዎ የአሁን አካባቢ",
+    om: "Bakka ammaa meeshaa keessanii",
+  },
+  choose_help_type: { en: "Choose help type", am: "የእርዳታ አይነት ይምረጡ", om: "Gosa gargaarsaa fili" },
+  for_me: { en: "For me", am: "ለእኔ", om: "Naaf" },
+  for_other: { en: "For other", am: "ለሌላ", om: "Nama biraaf" },
+  emergency_contacts: {
+    en: "Emergency Contacts",
+    am: "የአደጋ ግንኙነቶች",
+    om: "Namoota Balaa Yeroo Waamamu",
+  },
+  ethiopian_emergency_services: {
+    en: "Ethiopian Emergency Services",
+    am: "የኢትዮጵያ የአደጋ አገልግሎቶች",
+    om: "Tajaajiloota Balaa Itiyoophiyaa",
+  },
+  family_personal: { en: "Family / Personal", am: "ቤተሰብ / የግል", om: "Maatii / Dhuunfaa" },
+  emergency_ambulance: {
+    en: "Emergency (Ambulance)",
+    am: "አደጋ (አምቡላንስ)",
+    om: "Balaa (Ambulaansii)",
+  },
+  fire_emergency: { en: "Fire & Emergency", am: "እሳት እና አደጋ", om: "Ibidda fi Balaa" },
+  police: { en: "Police", am: "ፖሊስ", om: "Poolisii" },
+  emergency_contact_label: {
+    en: "Emergency Contact",
+    am: "የአደጋ ግንኙነት",
+    om: "Nama Balaa Yeroo Waamamu",
+  },
+  from_your_profile: {
+    en: "From your profile",
+    am: "ከመገለጫዎ",
+    om: "Piroofaayila kee irraa",
+  },
 
   // ── Auth ──
   login: { en: "Login", am: "ግባ", om: "Seeni" },

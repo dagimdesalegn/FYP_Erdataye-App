@@ -18,6 +18,8 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn, signOut } from "@/utils/auth";
+import { t } from "@/utils/i18n";
+import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function StaffLoginScreen() {
@@ -27,7 +29,7 @@ export default function StaffLoginScreen() {
   const colors = Colors[colorScheme ?? "light"];
   const insets = useSafeAreaInsets();
   const { setUser, setRegistered } = useAppState();
-  const { showError } = useModal();
+  const { showError, showAlert } = useModal();
 
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -95,6 +97,12 @@ export default function StaffLoginScreen() {
       return;
     }
 
+    const online = await hasInternetConnection();
+    if (!online) {
+      showAlert(t("internet_required_title"), t("internet_required_message"));
+      return;
+    }
+
     setFieldErrors({});
     setLoading(true);
 
@@ -102,6 +110,10 @@ export default function StaffLoginScreen() {
       const { user, error } = await signIn("+251" + form.phone, form.password);
       if (error || !user) {
         setLoading(false);
+        if (isLikelyConnectivityError(error)) {
+          showAlert(t("internet_required_title"), t("internet_required_message"));
+          return;
+        }
         showError("Login Failed", error?.message || "Failed to sign in");
         return;
       }
@@ -124,6 +136,10 @@ export default function StaffLoginScreen() {
       router.replace(user.role === "admin" ? "/admin" : "/hospital");
     } catch (err) {
       setLoading(false);
+      if (isLikelyConnectivityError(err)) {
+        showAlert(t("internet_required_title"), t("internet_required_message"));
+        return;
+      }
       showError("Login Failed", `Login failed: ${String(err)}`);
     }
   };

@@ -21,6 +21,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { t } from "@/utils/i18n";
+import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -103,12 +104,23 @@ export default function LoginScreen() {
       setFieldErrors(errors);
       return;
     }
+
+    const online = await hasInternetConnection();
+    if (!online) {
+      showAlert(t("internet_required_title"), t("internet_required_message"));
+      return;
+    }
+
     setFieldErrors({});
     setLoading(true);
     try {
       const { user, error } = await signIn("+251" + form.phone, form.password);
       if (error || !user) {
         setLoading(false);
+        if (isLikelyConnectivityError(error)) {
+          showAlert(t("internet_required_title"), t("internet_required_message"));
+          return;
+        }
         showError("Login Failed", error?.message || "Failed to sign in");
         return;
       }
@@ -155,6 +167,10 @@ export default function LoginScreen() {
       router.replace(route);
     } catch (err) {
       setLoading(false);
+      if (isLikelyConnectivityError(err)) {
+        showAlert(t("internet_required_title"), t("internet_required_message"));
+        return;
+      }
       showError("Login Failed", `Login failed: ${String(err)}`);
     }
   };
