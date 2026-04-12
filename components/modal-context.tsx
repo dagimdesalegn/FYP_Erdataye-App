@@ -12,6 +12,10 @@ interface ModalContextValue {
     message: string,
     onConfirm: () => void,
     onCancel?: () => void,
+    options?: {
+      confirmText?: string;
+      cancelText?: string;
+    },
   ) => void;
   showError: (title: string, message: string, onConfirm?: () => void) => void;
   showSuccess: (title: string, message: string, onConfirm?: () => void) => void;
@@ -73,6 +77,10 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
       message: string,
       onConfirm: () => void,
       onCancel?: () => void,
+      options?: {
+        confirmText?: string;
+        cancelText?: string;
+      },
     ) => {
       if (shouldSuppressDuplicate({ type: "confirm", title, message })) return;
       setModalProps({
@@ -80,6 +88,8 @@ export function ModalProvider({ children }: { children: React.ReactNode }) {
         type: "confirm",
         title,
         message,
+        confirmText: options?.confirmText,
+        cancelText: options?.cancelText,
         onConfirm: () => {
           hideModal();
           onConfirm();

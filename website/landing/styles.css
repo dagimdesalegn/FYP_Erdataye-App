@@ -224,6 +224,23 @@ h1 {
   color: #5f7a89;
 }
 
+.download-share {
+  margin-top: 8px;
+  font-size: 0.86rem;
+  color: #39596b;
+  word-break: break-word;
+}
+
+.download-share a {
+  color: var(--brand-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.download-share a:hover {
+  text-decoration: underline;
+}
+
 .hero-visual {
   position: relative;
   min-height: 350px;

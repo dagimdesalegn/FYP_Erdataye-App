@@ -21,13 +21,15 @@ import "react-native-reanimated";
 import { AppStateProvider } from "@/components/app-state";
 import { ErrorBoundary } from "@/components/error-boundary";
 import { ModalProvider } from "@/components/modal-context";
+import { useModal } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { getLang, loadLang, subscribeLangChange } from "@/utils/i18n";
+import { checkForAndroidAppUpdate } from "@/utils/app-update";
+import { getLang, loadLang, subscribeLangChange, t } from "@/utils/i18n";
 import { initSentry } from "@/utils/sentry";
 import * as SystemUI from "expo-system-ui";
 import React, { useEffect } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { Linking, LogBox, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Suppress non-critical warnings that can mask real issues in dev
@@ -86,6 +88,8 @@ function ThemedRoot() {
   const resolved = useColorScheme();
   const theme = resolved ?? "light";
   const [, setLangRevision] = React.useState(0);
+  const hasCheckedForUpdatesRef = React.useRef(false);
+  const { showAlert, showConfirm, showError } = useModal();
 
   useEffect(() => {
     let mounted = true;
@@ -114,6 +118,65 @@ function ThemedRoot() {
     if (Platform.OS !== "android") return;
     void SystemUI.setBackgroundColorAsync(Colors[theme].background);
   }, [theme]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    if (hasCheckedForUpdatesRef.current) return;
+    hasCheckedForUpdatesRef.current = true;
+
+    let cancelled = false;
+
+    const openUpdate = async (apkUrl: string) => {
+      try {
+        await Linking.openURL(apkUrl);
+      } catch {
+        if (cancelled) return;
+        showError(
+          t("update_open_failed_title"),
+          t("update_open_failed_message"),
+        );
+      }
+    };
+
+    const runUpdateCheck = async () => {
+      const update = await checkForAndroidAppUpdate();
+      if (cancelled || !update) return;
+
+      const message =
+        update.message ||
+        t(
+          "update_available_message",
+          update.latestVersionLabel,
+          update.currentVersionLabel,
+        );
+
+      if (update.forceUpdate) {
+        showAlert(t("update_required_title"), message, () => {
+          void openUpdate(update.apkUrl);
+        });
+        return;
+      }
+
+      showConfirm(
+        t("update_available_title"),
+        message,
+        () => {
+          void openUpdate(update.apkUrl);
+        },
+        undefined,
+        {
+          confirmText: t("update_now"),
+          cancelText: t("later"),
+        },
+      );
+    };
+
+    void runUpdateCheck();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAlert, showConfirm, showError]);
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors[theme].background }}>

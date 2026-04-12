@@ -140,6 +140,41 @@ const translations: Record<string, Record<Lang, string>> = {
     am: "እባክዎ ሞባይል ዳታ ወይም Wi-Fi ያብሩ እና እንደገና ይሞክሩ።",
     om: "Maaloo daataa moobaayilii yookaan Wi-Fi bansiitii irra deebi'ii yaali.",
   },
+  update_available_title: {
+    en: "Update Available",
+    am: "አዲስ ስሪት አለ",
+    om: "Fooyya'iinsi haaraan jira",
+  },
+  update_required_title: {
+    en: "Update Required",
+    am: "ማዘመን አስፈላጊ ነው",
+    om: "Fooyyeessuun dirqama",
+  },
+  update_available_message: {
+    en: "A newer app version ({0}) is available. You are using {1}. Update now for the latest fixes and features.",
+    am: "አዲስ የመተግበሪያ ስሪት ({0}) አለ። እርስዎ {1} እየተጠቀሙ ነው። አዳዲስ ማሻሻያዎችን ለማግኘት አሁን ያዘምኑ።",
+    om: "Vershinii appii haaraan ({0}) jira. Ati {1} fayyadamaa jirta. Sirreeffamoota fi fooyya'iinsa haaraa argachuuf amma fooyyessi.",
+  },
+  update_open_failed_title: {
+    en: "Update Link Error",
+    am: "የማዘመኛ ሊንክ ስህተት",
+    om: "Dogoggora liinkii fooyya'iinsaa",
+  },
+  update_open_failed_message: {
+    en: "Could not open the update link. Please visit erdatayee.tech/downloads/erdataye.apk",
+    am: "የማዘመኛ ሊንኩን መክፈት አልተቻለም። እባክዎ erdatayee.tech/downloads/erdataye.apk ይጎብኙ",
+    om: "Liinkii fooyya'iinsaa banuu hin dandeenye. Maaloo erdatayee.tech/downloads/erdataye.apk daawwadhaa",
+  },
+  update_now: {
+    en: "Update Now",
+    am: "አሁን ያዘምኑ",
+    om: "Amma Fooyyessi",
+  },
+  later: {
+    en: "Later",
+    am: "በኋላ",
+    om: "Booda",
+  },
   // Driver / patient home
   welcome: { en: "Welcome", am: "እንኳን ደህና መጡ", om: "Baga nagaan dhuftan" },
   ambulance_status: {
