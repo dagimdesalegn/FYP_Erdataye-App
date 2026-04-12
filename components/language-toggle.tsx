@@ -1,6 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import React, { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -20,6 +21,7 @@ export function LanguageToggle() {
   const { lang, setLanguage, t } = useI18n();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const insets = useSafeAreaInsets();
 
   const options = useMemo(
     () => [
@@ -35,10 +37,12 @@ export function LanguageToggle() {
     setOpen(false);
   };
 
+  const menuTop = Math.max(insets.top, 12) + 60;
+
   return (
     <View style={styles.root}>
       <Pressable
-        onPress={() => setOpen((prev) => !prev)}
+        onPress={() => setOpen(true)}
         style={({ pressed }) => [
           styles.trigger,
           {
@@ -54,42 +58,56 @@ export function LanguageToggle() {
         </ThemedText>
       </Pressable>
 
-      {open ? (
-        <View
-          style={[
-            styles.menu,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          <ThemedText style={[styles.menuTitle, { color: colors.textMuted }]}> 
-            {t("language")}
-          </ThemedText>
-          {options.map((option) => {
-            const active = option.value === lang;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => onSelect(option.value)}
-                style={({ pressed }) => [
-                  styles.option,
-                  active && {
-                    backgroundColor: colorScheme === "dark" ? "#1F2937" : "#EEF2FF",
-                    borderColor: colorScheme === "dark" ? "#334155" : "#C7D2FE",
-                  },
-                  pressed && { opacity: 0.85 },
-                ]}
-              >
-                <ThemedText style={[styles.optionText, { color: colors.text }]}> 
-                  {option.label}
-                </ThemedText>
-                {active ? (
-                  <MaterialIcons name="check" size={17} color={colors.primary} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+          <Pressable
+            onPress={(event) => event.stopPropagation()}
+            style={[
+              styles.menu,
+              {
+                top: menuTop,
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <ThemedText style={[styles.menuTitle, { color: colors.textMuted }]}> 
+              {t("language")}
+            </ThemedText>
+            {options.map((option) => {
+              const active = option.value === lang;
+              return (
+                <Pressable
+                  key={option.value}
+                  onPress={() => {
+                    void onSelect(option.value);
+                  }}
+                  style={({ pressed }) => [
+                    styles.option,
+                    active && {
+                      backgroundColor: colorScheme === "dark" ? "#1F2937" : "#EEF2FF",
+                      borderColor: colorScheme === "dark" ? "#334155" : "#C7D2FE",
+                    },
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  <ThemedText style={[styles.optionText, { color: colors.text }]}> 
+                    {option.label}
+                  </ThemedText>
+                  {active ? (
+                    <MaterialIcons name="check" size={17} color={colors.primary} />
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -97,7 +115,10 @@ export function LanguageToggle() {
 const styles = StyleSheet.create({
   root: {
     position: "relative",
-    zIndex: 60,
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.12)",
   },
   trigger: {
     height: 42,
@@ -117,8 +138,7 @@ const styles = StyleSheet.create({
   },
   menu: {
     position: "absolute",
-    top: 48,
-    right: 0,
+    right: 16,
     width: 170,
     borderRadius: 14,
     borderWidth: 1,
