@@ -11,13 +11,21 @@ Security rationale:
     but credentials still need to be valid.
 """
 
+import base64
+import hashlib
+import json
 import re
 import secrets
+import time
 from datetime import datetime, timezone
 from math import asin, cos, radians, sin, sqrt
-from typing import Literal
+from threading import Lock
+from typing import Any, Literal
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+import httpx
+import jwt
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field, field_validator
 
 from config import settings
@@ -98,6 +106,409 @@ class PublicHospitalOption(BaseModel):
     address: str | None = None
     phone: str | None = None
     is_accepting_emergencies: bool = True
+
+
+_FAYDA_STATE_TTL_SECONDS = 600
+_fayda_state_store: dict[str, dict[str, Any]] = {}
+_fayda_state_lock = Lock()
+_fayda_discovery_cache: dict[str, Any] = {
+    "expires_at": 0.0,
+    "data": None,
+}
+_fayda_jwks_cache: dict[str, Any] = {
+    "expires_at": 0.0,
+    "uri": "",
+    "keys": [],
+}
+
+
+class FaydaAuthorizeResponse(BaseModel):
+    authorization_url: str
+    state: str
+    expires_in: int
+    redirect_uri: str
+
+
+class FaydaExchangeRequest(BaseModel):
+    code: str = Field(..., min_length=8)
+    state: str = Field(..., min_length=16)
+    redirect_uri: str = Field(..., min_length=1, max_length=512)
+
+
+class FaydaMatchedProfile(BaseModel):
+    exists: bool = False
+    user_id: str | None = None
+    role: Literal["patient", "ambulance", "driver", "admin", "hospital"] | None = None
+    full_name: str | None = None
+    phone: str | None = None
+
+
+class FaydaExchangeResponse(BaseModel):
+    verified: bool
+    purpose: Literal["login", "register"]
+    individual_id: str | None = None
+    full_name: str | None = None
+    given_name: str | None = None
+    family_name: str | None = None
+    phone_number: str | None = None
+    email: str | None = None
+    birthdate: str | None = None
+    gender: str | None = None
+    matched_profile: FaydaMatchedProfile
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
+
+
+def _b64decode_padded(value: str) -> bytes:
+    padding = "=" * (-len(value) % 4)
+    return base64.b64decode(value + padding)
+
+
+def _pkce_code_challenge(code_verifier: str) -> str:
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return _b64url(digest)
+
+
+def _cleanup_fayda_state_store(now_ts: float) -> None:
+    expired = [
+        state
+        for state, payload in _fayda_state_store.items()
+        if float(payload.get("expires_at", 0)) <= now_ts
+    ]
+    for state in expired:
+        _fayda_state_store.pop(state, None)
+
+
+def _store_fayda_state(
+    state: str,
+    *,
+    code_verifier: str,
+    nonce: str,
+    redirect_uri: str,
+    purpose: Literal["login", "register"],
+) -> None:
+    now_ts = time.time()
+    with _fayda_state_lock:
+        _cleanup_fayda_state_store(now_ts)
+        _fayda_state_store[state] = {
+            "code_verifier": code_verifier,
+            "nonce": nonce,
+            "redirect_uri": redirect_uri,
+            "purpose": purpose,
+            "expires_at": now_ts + _FAYDA_STATE_TTL_SECONDS,
+        }
+
+
+def _consume_fayda_state(state: str) -> dict[str, Any] | None:
+    now_ts = time.time()
+    with _fayda_state_lock:
+        _cleanup_fayda_state_store(now_ts)
+        payload = _fayda_state_store.pop(state, None)
+    if not payload:
+        return None
+    if float(payload.get("expires_at", 0)) <= now_ts:
+        return None
+    return payload
+
+
+def _ensure_fayda_enabled() -> None:
+    if not settings.fayda_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Fayda OAuth is disabled on this deployment.",
+        )
+    if not (settings.fayda_client_id or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Fayda OAuth is not configured (missing FAYDA_CLIENT_ID).",
+        )
+    if not (settings.fayda_private_jwk_b64 or "").strip():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Fayda OAuth is not configured (missing FAYDA_PRIVATE_JWK_B64).",
+        )
+
+
+async def _load_fayda_discovery() -> dict[str, Any]:
+    override_auth = (settings.fayda_authorization_endpoint or "").strip()
+    override_token = (settings.fayda_token_endpoint or "").strip()
+    override_userinfo = (settings.fayda_userinfo_endpoint or "").strip()
+    override_jwks = (settings.fayda_jwks_uri or "").strip()
+
+    if override_auth and override_token and override_userinfo and override_jwks:
+        return {
+            "issuer": "https://esignet.ida.fayda.et",
+            "authorization_endpoint": override_auth,
+            "token_endpoint": override_token,
+            "userinfo_endpoint": override_userinfo,
+            "jwks_uri": override_jwks,
+        }
+
+    now_ts = time.time()
+    cached = _fayda_discovery_cache.get("data")
+    if cached and float(_fayda_discovery_cache.get("expires_at", 0)) > now_ts:
+        return cached
+
+    discovery_url = (settings.fayda_discovery_url or "").strip()
+    if not discovery_url:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Fayda OAuth is not configured (missing discovery URL).",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=8.0)) as client:
+            res = await client.get(discovery_url)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Fayda discovery metadata: {exc}",
+        ) from exc
+
+    if not res.is_success:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Fayda discovery metadata ({res.status_code}).",
+        )
+
+    parsed = res.json()
+    data = parsed if isinstance(parsed, dict) else {}
+    required = ["authorization_endpoint", "token_endpoint", "userinfo_endpoint", "jwks_uri"]
+    missing = [k for k in required if not data.get(k)]
+    if missing:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Invalid Fayda discovery metadata (missing: {', '.join(missing)}).",
+        )
+
+    _fayda_discovery_cache["data"] = data
+    _fayda_discovery_cache["expires_at"] = now_ts + 3600
+    return data
+
+
+async def _load_fayda_jwks(jwks_uri: str) -> list[dict[str, Any]]:
+    now_ts = time.time()
+    if (
+        _fayda_jwks_cache.get("uri") == jwks_uri
+        and float(_fayda_jwks_cache.get("expires_at", 0)) > now_ts
+    ):
+        return list(_fayda_jwks_cache.get("keys") or [])
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=8.0)) as client:
+            res = await client.get(jwks_uri)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Fayda JWKS: {exc}",
+        ) from exc
+
+    if not res.is_success:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Fayda JWKS ({res.status_code}).",
+        )
+
+    parsed = res.json()
+    data = parsed if isinstance(parsed, dict) else {}
+    keys = data.get("keys") if isinstance(data, dict) else None
+    if not isinstance(keys, list):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Invalid Fayda JWKS payload.",
+        )
+
+    _fayda_jwks_cache["uri"] = jwks_uri
+    _fayda_jwks_cache["keys"] = keys
+    _fayda_jwks_cache["expires_at"] = now_ts + 3600
+    return keys
+
+
+def _load_private_jwk() -> dict[str, Any]:
+    raw = (settings.fayda_private_jwk_b64 or "").strip()
+    try:
+        decoded = _b64decode_padded(raw).decode("utf-8")
+        data = json.loads(decoded)
+        if not isinstance(data, dict):
+            raise ValueError("JWK must be an object")
+        return data
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Invalid FAYDA_PRIVATE_JWK_B64 value: {exc}",
+        ) from exc
+
+
+def _build_private_key_jwt_assertion(token_endpoint: str) -> str:
+    private_jwk = _load_private_jwk()
+    key_obj = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(private_jwk))
+    now_ts = int(time.time())
+    headers = {"alg": "RS256", "typ": "JWT"}
+    kid = private_jwk.get("kid")
+    if isinstance(kid, str) and kid.strip():
+        headers["kid"] = kid.strip()
+
+    payload = {
+        "iss": settings.fayda_client_id,
+        "sub": settings.fayda_client_id,
+        "aud": token_endpoint,
+        "iat": now_ts,
+        "exp": now_ts + 120,
+        "jti": secrets.token_urlsafe(24),
+    }
+    return jwt.encode(payload, key_obj, algorithm="RS256", headers=headers)
+
+
+async def _decode_signed_jwt(
+    token: str,
+    *,
+    issuer: str,
+    jwks_uri: str,
+    verify_aud: bool,
+) -> dict[str, Any]:
+    try:
+        unverified_header = jwt.get_unverified_header(token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid Fayda JWT header: {exc}",
+        ) from exc
+
+    kid = str(unverified_header.get("kid") or "")
+    keys = await _load_fayda_jwks(jwks_uri)
+    candidate_keys = [k for k in keys if not kid or str(k.get("kid") or "") == kid]
+    if not candidate_keys:
+        candidate_keys = keys
+
+    last_error: Exception | None = None
+    for key_data in candidate_keys:
+        try:
+            key_obj = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key_data))
+            decode_kwargs: dict[str, Any] = {
+                "key": key_obj,
+                "algorithms": ["RS256"],
+                "issuer": issuer,
+                "options": {"verify_aud": verify_aud},
+            }
+            if verify_aud:
+                decode_kwargs["audience"] = settings.fayda_client_id
+            payload = jwt.decode(token, **decode_kwargs)
+            if isinstance(payload, dict):
+                return payload
+        except Exception as exc:
+            last_error = exc
+
+    if last_error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to verify Fayda token: {last_error}",
+        )
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to verify Fayda token.")
+
+
+def _fallback_decode_without_verification(token: str) -> dict[str, Any]:
+    try:
+        payload = jwt.decode(token, options={"verify_signature": False})
+        return payload if isinstance(payload, dict) else {}
+    except Exception:
+        return {}
+
+
+def _pick_claim(claims: dict[str, Any], key: str) -> str | None:
+    direct = claims.get(key)
+    if isinstance(direct, str) and direct.strip():
+        return direct.strip()
+
+    prefix = f"{key}#"
+    for claim_key, claim_value in claims.items():
+        if isinstance(claim_key, str) and claim_key.startswith(prefix):
+            if isinstance(claim_value, str) and claim_value.strip():
+                return claim_value.strip()
+
+    return None
+
+
+def _first_claim(claims: dict[str, Any], keys: list[str]) -> str | None:
+    for key in keys:
+        value = _pick_claim(claims, key)
+        if value:
+            return value
+    return None
+
+
+def _normalize_phone_candidates(phone: str) -> list[str]:
+    digits = re.sub(r"[^0-9]", "", phone or "")
+    if not digits:
+        return []
+    if digits.startswith("0") and len(digits) == 10:
+        digits = "251" + digits[1:]
+    if len(digits) == 9 and digits.startswith("9"):
+        digits = "251" + digits
+    if not digits.startswith("251") and len(digits) >= 9:
+        digits = digits[-12:]
+
+    plus_phone = f"+{digits}" if digits else ""
+    local = f"0{digits[3:]}" if digits.startswith("251") and len(digits) == 12 else ""
+    compact = digits
+    no_zero_local = local[1:] if local.startswith("0") else ""
+    return [value for value in dict.fromkeys([plus_phone, compact, local, no_zero_local]) if value]
+
+
+async def _match_profile(individual_id: str | None, phone_number: str | None) -> FaydaMatchedProfile:
+    if individual_id:
+        rows, code = await db_select(
+            "profiles",
+            {"national_id": individual_id},
+            columns="id,full_name,phone,role",
+        )
+        if code in (200, 206) and rows:
+            row = rows[0]
+            return FaydaMatchedProfile(
+                exists=True,
+                user_id=str(row.get("id") or "") or None,
+                role=(str(row.get("role") or "") or None),
+                full_name=(str(row.get("full_name") or "") or None),
+                phone=(str(row.get("phone") or "") or None),
+            )
+
+    for candidate in _normalize_phone_candidates(phone_number or ""):
+        rows, code = await db_select(
+            "profiles",
+            {"phone": candidate},
+            columns="id,full_name,phone,role",
+        )
+        if code in (200, 206) and rows:
+            row = rows[0]
+            return FaydaMatchedProfile(
+                exists=True,
+                user_id=str(row.get("id") or "") or None,
+                role=(str(row.get("role") or "") or None),
+                full_name=(str(row.get("full_name") or "") or None),
+                phone=(str(row.get("phone") or "") or None),
+            )
+
+    return FaydaMatchedProfile(exists=False)
+
+
+def _default_fayda_claims() -> dict[str, Any]:
+    return {
+        "userinfo": {
+            "name": {"essential": True},
+            "given_name": {"essential": False},
+            "family_name": {"essential": False},
+            "email": {"essential": False},
+            "phone_number": {"essential": False},
+            "birthdate": {"essential": False},
+            "gender": {"essential": False},
+            "individual_id": {"essential": True},
+        },
+        "id_token": {
+            "nonce": {"essential": True},
+            "individual_id": {"essential": False},
+        },
+    }
 
 
 
@@ -329,6 +740,253 @@ async def _find_nearest_hospital_id(latitude: float, longitude: float) -> str | 
 # ─────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/fayda/authorize-url",
+    response_model=FaydaAuthorizeResponse,
+    summary="Create Fayda OIDC authorization URL (PKCE)",
+)
+async def fayda_authorize_url(
+    purpose: Literal["login", "register"] = Query(default="login"),
+    redirect_uri: str = Query(..., min_length=1, max_length=512),
+    scope: str | None = Query(default=None),
+    acr_values: str | None = Query(default=None),
+    claims_locales: str | None = Query(default=None),
+) -> FaydaAuthorizeResponse:
+    _ensure_fayda_enabled()
+    discovery = await _load_fayda_discovery()
+
+    code_verifier = _b64url(secrets.token_bytes(48))
+    code_challenge = _pkce_code_challenge(code_verifier)
+    state = secrets.token_urlsafe(32)
+    nonce = secrets.token_urlsafe(24)
+
+    resolved_scope = (scope or settings.fayda_default_scope or "openid profile").strip()
+    resolved_acr = (acr_values or settings.fayda_default_acr_values or "").strip()
+    resolved_locales = (claims_locales or settings.fayda_claims_locales or "").strip()
+
+    query_params: dict[str, str] = {
+        "client_id": settings.fayda_client_id,
+        "response_type": "code",
+        "scope": resolved_scope,
+        "redirect_uri": redirect_uri,
+        "state": state,
+        "nonce": nonce,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "claims": json.dumps(_default_fayda_claims(), separators=(",", ":")),
+    }
+    if resolved_acr:
+        query_params["acr_values"] = resolved_acr
+    if resolved_locales:
+        query_params["claims_locales"] = resolved_locales
+
+    _store_fayda_state(
+        state,
+        code_verifier=code_verifier,
+        nonce=nonce,
+        redirect_uri=redirect_uri,
+        purpose=purpose,
+    )
+
+    authorization_url = f"{discovery['authorization_endpoint']}?{urlencode(query_params)}"
+    return FaydaAuthorizeResponse(
+        authorization_url=authorization_url,
+        state=state,
+        expires_in=_FAYDA_STATE_TTL_SECONDS,
+        redirect_uri=redirect_uri,
+    )
+
+
+@router.post(
+    "/fayda/exchange",
+    response_model=FaydaExchangeResponse,
+    summary="Exchange Fayda authorization code and return verified profile claims",
+)
+async def fayda_exchange(req: FaydaExchangeRequest) -> FaydaExchangeResponse:
+    _ensure_fayda_enabled()
+
+    state_payload = _consume_fayda_state(req.state)
+    if not state_payload:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired Fayda state. Start the flow again.",
+        )
+
+    expected_redirect = str(state_payload.get("redirect_uri") or "")
+    if expected_redirect != req.redirect_uri:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="redirect_uri mismatch for Fayda exchange.",
+        )
+
+    discovery = await _load_fayda_discovery()
+    issuer = str(discovery.get("issuer") or "https://esignet.ida.fayda.et")
+    token_endpoint = str(discovery.get("token_endpoint") or "")
+    userinfo_endpoint = str(discovery.get("userinfo_endpoint") or "")
+    jwks_uri = str(discovery.get("jwks_uri") or "")
+
+    if not token_endpoint or not userinfo_endpoint or not jwks_uri:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Incomplete Fayda discovery metadata.",
+        )
+
+    token_form = {
+        "grant_type": "authorization_code",
+        "code": req.code,
+        "redirect_uri": req.redirect_uri,
+        "client_id": settings.fayda_client_id,
+        "code_verifier": str(state_payload.get("code_verifier") or ""),
+        "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        "client_assertion": _build_private_key_jwt_assertion(token_endpoint),
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=10.0)) as client:
+            token_res = await client.post(
+                token_endpoint,
+                data=token_form,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to exchange Fayda authorization code: {exc}",
+        ) from exc
+
+    if not token_res.is_success:
+        detail_text = token_res.text.strip()[:400]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Fayda token exchange failed ({token_res.status_code}): {detail_text}",
+        )
+
+    token_parsed = token_res.json()
+    token_payload = token_parsed if isinstance(token_parsed, dict) else {}
+    access_token = str(token_payload.get("access_token") or "")
+    id_token = str(token_payload.get("id_token") or "")
+
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fayda token response did not include access_token.",
+        )
+
+    id_claims: dict[str, Any] = {}
+    if id_token:
+        try:
+            id_claims = await _decode_signed_jwt(
+                id_token,
+                issuer=issuer,
+                jwks_uri=jwks_uri,
+                verify_aud=True,
+            )
+        except HTTPException:
+            id_claims = _fallback_decode_without_verification(id_token)
+
+    expected_nonce = str(state_payload.get("nonce") or "")
+    token_nonce = str(id_claims.get("nonce") or "")
+    if expected_nonce and token_nonce and expected_nonce != token_nonce:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fayda nonce validation failed.",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=10.0)) as client:
+            userinfo_res = await client.get(
+                userinfo_endpoint,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Accept": "application/json, application/jwt, text/plain",
+                },
+            )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch Fayda userinfo: {exc}",
+        ) from exc
+
+    if not userinfo_res.is_success:
+        detail_text = userinfo_res.text.strip()[:400]
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Fayda userinfo request failed ({userinfo_res.status_code}): {detail_text}",
+        )
+
+    userinfo_claims: dict[str, Any] = {}
+    content_type = str(userinfo_res.headers.get("content-type") or "").lower()
+    if "application/json" in content_type:
+        body = userinfo_res.json()
+        if isinstance(body, dict):
+            userinfo_claims = body
+        elif isinstance(body, str):
+            try:
+                userinfo_claims = await _decode_signed_jwt(
+                    body,
+                    issuer=issuer,
+                    jwks_uri=jwks_uri,
+                    verify_aud=False,
+                )
+            except HTTPException:
+                userinfo_claims = _fallback_decode_without_verification(body)
+    else:
+        raw_userinfo = userinfo_res.text.strip()
+        if raw_userinfo.startswith("{"):
+            try:
+                parsed = json.loads(raw_userinfo)
+                if isinstance(parsed, dict):
+                    userinfo_claims = parsed
+            except Exception:
+                userinfo_claims = {}
+        elif raw_userinfo:
+            try:
+                userinfo_claims = await _decode_signed_jwt(
+                    raw_userinfo,
+                    issuer=issuer,
+                    jwks_uri=jwks_uri,
+                    verify_aud=False,
+                )
+            except HTTPException:
+                userinfo_claims = _fallback_decode_without_verification(raw_userinfo)
+
+    claims: dict[str, Any] = {**id_claims, **userinfo_claims}
+    if not claims:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fayda response did not contain user claims.",
+        )
+
+    individual_id = _first_claim(claims, ["individual_id", "national_id", "uin", "sub"])
+    full_name = _first_claim(claims, ["name", "full_name"])
+    given_name = _first_claim(claims, ["given_name"])
+    family_name = _first_claim(claims, ["family_name"])
+    phone_number = _first_claim(claims, ["phone_number", "phone"])
+    email = _first_claim(claims, ["email"])
+    birthdate = _first_claim(claims, ["birthdate", "date_of_birth"])
+    gender = _first_claim(claims, ["gender", "sex"])
+
+    matched_profile = await _match_profile(individual_id, phone_number)
+
+    purpose_value = state_payload.get("purpose")
+    if purpose_value not in ("login", "register"):
+        purpose_value = "login"
+
+    return FaydaExchangeResponse(
+        verified=True,
+        purpose=purpose_value,
+        individual_id=individual_id,
+        full_name=full_name,
+        given_name=given_name,
+        family_name=family_name,
+        phone_number=phone_number,
+        email=email,
+        birthdate=birthdate,
+        gender=gender,
+        matched_profile=matched_profile,
+    )
 
 
 @router.get(

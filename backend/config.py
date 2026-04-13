@@ -25,6 +25,20 @@ class Settings(BaseSettings):
     # This must be set explicitly and must not match SUPABASE_SERVICE_ROLE_KEY.
     staff_provisioning_key: str = ""
 
+    # ── Fayda / eSignet OIDC (National ID) ─────────────────────────────────
+    fayda_enabled: bool = False
+    fayda_discovery_url: str = "https://esignet.ida.fayda.et/.well-known/openid-configuration"
+    fayda_client_id: str = ""
+    # Base64-encoded JSON JWK private key used for private_key_jwt at token endpoint.
+    fayda_private_jwk_b64: str = ""
+    fayda_default_scope: str = "openid profile email phone"
+    fayda_default_acr_values: str = ""
+    fayda_claims_locales: str = ""
+    fayda_authorization_endpoint: str = ""
+    fayda_token_endpoint: str = ""
+    fayda_userinfo_endpoint: str = ""
+    fayda_jwks_uri: str = ""
+
     # ── CORS ──────────────────────────────────────────────────────────────────
     allowed_origins: str = (
         "http://localhost:8081,http://localhost:19006,exp://localhost:8081"

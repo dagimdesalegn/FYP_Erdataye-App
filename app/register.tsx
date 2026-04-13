@@ -33,9 +33,10 @@ import {
     upsertDriverAmbulance,
 } from "@/utils/driver";
 import { t } from "@/utils/i18n";
+import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { upsertMedicalProfile } from "@/utils/profile";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CARD_MAX_W = 420;
@@ -43,6 +44,11 @@ type AppRegistrationRole = "patient" | "ambulance";
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const prefillParams = useLocalSearchParams<{
+    fullName?: string | string[];
+    nationalId?: string | string[];
+    phone?: string | string[];
+  }>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme ?? "light"];
@@ -91,6 +97,26 @@ export default function RegisterScreen() {
     hospitalId: "",
     ambulanceType: "standard" as "standard" | "advanced" | "icu",
   });
+
+  useEffect(() => {
+    const fromParam = (value: string | string[] | undefined): string => {
+      if (Array.isArray(value)) return String(value[0] || "").trim();
+      return String(value || "").trim();
+    };
+
+    const fullName = fromParam(prefillParams.fullName);
+    const nationalId = fromParam(prefillParams.nationalId).replace(/[^0-9]/g, "").slice(0, 16);
+    const phone = toPhoneInputDigits(fromParam(prefillParams.phone));
+
+    if (!fullName && !nationalId && !phone) return;
+
+    setForm((prev) => ({
+      ...prev,
+      fullName: fullName || prev.fullName,
+      nationalId: nationalId || prev.nationalId,
+      phone: phone || prev.phone,
+    }));
+  }, [prefillParams.fullName, prefillParams.nationalId, prefillParams.phone]);
 
   useEffect(() => {
     let active = true;
@@ -387,6 +413,42 @@ export default function RegisterScreen() {
         return;
       }
       showError("Registration Failed", `Registration failed: ${error}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFaydaAuth = async () => {
+    const online = await hasInternetConnection();
+    if (!online) {
+      showAlert(t("internet_required_title"), t("internet_required_message"));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const verified = await startFaydaOAuth("register");
+      const phoneFromFayda = toPhoneInputDigits(verified.phone_number);
+
+      setForm((prev) => ({
+        ...prev,
+        fullName: verified.full_name || prev.fullName,
+        nationalId: (verified.individual_id || prev.nationalId || "")
+          .replace(/[^0-9]/g, "")
+          .slice(0, 16),
+        phone: phoneFromFayda || prev.phone,
+      }));
+
+      showAlert(
+        "Fayda Verified",
+        "Your National ID has been verified. Review the pre-filled details and complete registration.",
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to complete Fayda verification.";
+      showError("Fayda Verification Failed", message);
     } finally {
       setLoading(false);
     }
@@ -1191,12 +1253,7 @@ export default function RegisterScreen() {
                 />
               </View>
               <Pressable
-                onPress={() =>
-                  showAlert(
-                    "Coming Soon",
-                    "Fayda (National ID) sign-in will be available soon. Please register manually for now.",
-                  )
-                }
+                onPress={handleFaydaAuth}
                 disabled={loading}
                 style={({ pressed }) => [
                   {

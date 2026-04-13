@@ -20,6 +20,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
+import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { t } from "@/utils/i18n";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useRouter } from "expo-router";
@@ -172,6 +173,56 @@ export default function LoginScreen() {
         return;
       }
       showError("Login Failed", `Login failed: ${String(err)}`);
+    }
+  };
+
+  const handleFaydaAuth = async () => {
+    const online = await hasInternetConnection();
+    if (!online) {
+      showAlert(t("internet_required_title"), t("internet_required_message"));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const verified = await startFaydaOAuth("login");
+      const phoneFromFayda = toPhoneInputDigits(verified.phone_number);
+
+      if (phoneFromFayda) {
+        setForm((prev) => ({ ...prev, phone: phoneFromFayda }));
+      }
+
+      if (verified.matched_profile?.exists) {
+        const displayName =
+          verified.matched_profile.full_name || verified.full_name || "Verified user";
+        showAlert(
+          "Fayda Verified",
+          `${displayName} was verified. Enter your password to complete login.`,
+        );
+        return;
+      }
+
+      showAlert(
+        "Fayda Verified",
+        "No existing app account was found. Continue registration with your verified National ID details.",
+      );
+
+      router.push({
+        pathname: "/register",
+        params: {
+          fullName: verified.full_name || "",
+          nationalId: verified.individual_id || "",
+          phone: phoneFromFayda || "",
+        },
+      } as any);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unable to complete Fayda sign-in.";
+      showError("Fayda Sign-In Failed", message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -442,12 +493,7 @@ export default function LoginScreen() {
               />
             </View>
             <Pressable
-              onPress={() =>
-                showAlert(
-                  "Coming Soon",
-                  "Fayda (National ID) sign-in will be available soon. Please sign in manually for now.",
-                )
-              }
+              onPress={handleFaydaAuth}
               disabled={loading}
               style={({ pressed }) => [
                 {
