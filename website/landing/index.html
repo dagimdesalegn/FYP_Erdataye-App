@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Archivo:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/styles.css?v=20260411-7" />
+    <link rel="stylesheet" href="/styles.css?v=20260414-1" />
   </head>
   <body>
     <header class="navbar">
@@ -28,6 +28,7 @@
         <nav class="nav-links" id="mainNav" aria-label="Main navigation">
           <a href="#home">Home</a>
           <a href="#features">Features</a>
+          <a href="#impact">Impact</a>
           <a href="#screenshots">Screenshots</a>
           <a href="#team">Team</a>
         </nav>
@@ -101,6 +102,37 @@
               <p>Optimized flows that continue to work on unstable mobile networks.</p>
             </article>
           </div>
+        </div>
+      </section>
+
+      <section class="section impact" id="impact">
+        <div class="container">
+          <p class="section-tag">Impact In Numbers</p>
+          <h2>Trusted Emergency Coordination at Scale</h2>
+          <p class="section-sub">
+            Live counters from our platform operations.
+          </p>
+
+          <div class="impact-grid" aria-label="Platform impact statistics">
+            <article class="impact-card">
+              <p class="impact-label">Registered Users</p>
+              <p class="impact-value" data-stat="total_users">--</p>
+            </article>
+            <article class="impact-card">
+              <p class="impact-label">Ambulances On Platform</p>
+              <p class="impact-value" data-stat="total_ambulances">--</p>
+            </article>
+            <article class="impact-card">
+              <p class="impact-label">Resolved Emergencies</p>
+              <p class="impact-value" data-stat="resolved_emergencies">--</p>
+            </article>
+            <article class="impact-card">
+              <p class="impact-label">Total Emergencies Tracked</p>
+              <p class="impact-value" data-stat="total_emergencies">--</p>
+            </article>
+          </div>
+
+          <p class="impact-note" id="impactNote">Loading live platform statistics...</p>
         </div>
       </section>
 
@@ -280,9 +312,41 @@
       </section>
     </main>
 
-    <footer class="site-footer">
+    <footer class="site-footer" id="contact">
       <div class="container footer-wrap">
-        <p>© 2026 Erdataye. Built with care for faster emergency response.</p>
+        <section class="footer-col footer-brand-col" aria-label="Erdataye mission">
+          <a href="#home" class="footer-brand">ERDATAYE</a>
+          <p>
+            Real-time emergency coordination platform connecting patients,
+            ambulances, and hospitals for faster response.
+          </p>
+        </section>
+
+        <section class="footer-col" aria-label="Quick links">
+          <h3>Quick Links</h3>
+          <a href="#features">Features</a>
+          <a href="#impact">Impact</a>
+          <a href="#screenshots">Screenshots</a>
+          <a href="#team">Team</a>
+        </section>
+
+        <section class="footer-col" aria-label="Downloads and resources">
+          <h3>Resources</h3>
+          <a href="/downloads/erdataye.apk">Download Android App</a>
+          <a
+            href="https://github.com/dagimdesalegn/FYP_Erdataye-App"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub Repository
+          </a>
+          <a href="https://staff.erdatayee.tech/staff" target="_blank" rel="noopener noreferrer">
+            Staff Portal
+          </a>
+        </section>
+      </div>
+      <div class="container footer-meta">
+        <p>© <span id="yearNow">2026</span> Erdataye. All rights reserved.</p>
       </div>
     </footer>
 
@@ -316,6 +380,62 @@
       const previewImage = document.getElementById('previewImage');
       const previewTitle = document.getElementById('previewTitle');
       const previewClose = document.getElementById('previewClose');
+      const impactNote = document.getElementById('impactNote');
+
+      const statNumberFormatter = new Intl.NumberFormat('en-US');
+
+      const statTargets = {
+        total_users: document.querySelector('[data-stat="total_users"]'),
+        total_ambulances: document.querySelector('[data-stat="total_ambulances"]'),
+        resolved_emergencies: document.querySelector('[data-stat="resolved_emergencies"]'),
+        total_emergencies: document.querySelector('[data-stat="total_emergencies"]'),
+      };
+
+      const setStatValue = (key, value) => {
+        const target = statTargets[key];
+        if (!target) return;
+        const safeValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+        target.textContent = statNumberFormatter.format(safeValue);
+      };
+
+      const loadImpactStats = async () => {
+        const endpoints = [
+          '/api/ops/public-stats',
+          'https://erdatayee.tech/api/ops/public-stats',
+          'https://staff.erdatayee.tech/api/ops/public-stats',
+        ];
+
+        let data = null;
+        for (const endpoint of endpoints) {
+          try {
+            const response = await fetch(endpoint, { cache: 'no-store' });
+            if (!response.ok) continue;
+            data = await response.json();
+            if (data) break;
+          } catch {
+            // Try next endpoint candidate.
+          }
+        }
+
+        if (!data) {
+          if (impactNote) impactNote.textContent = 'Live counters are temporarily unavailable.';
+          return;
+        }
+
+        setStatValue('total_users', data.total_users);
+        setStatValue('total_ambulances', data.total_ambulances);
+        setStatValue('resolved_emergencies', data.resolved_emergencies);
+        setStatValue('total_emergencies', data.total_emergencies);
+
+        if (impactNote) {
+          impactNote.textContent = `Updated ${new Date(data.updated_at).toLocaleString()}`;
+        }
+      };
+
+      const yearNow = document.getElementById('yearNow');
+      if (yearNow) {
+        yearNow.textContent = String(new Date().getFullYear());
+      }
 
       const warmupPreviewImages = () => {
         const paths = Array.from(document.querySelectorAll('.preview-btn'))
@@ -338,6 +458,7 @@
       };
 
       window.addEventListener('load', scheduleWarmup, { once: true });
+      window.addEventListener('load', loadImpactStats, { once: true });
 
       const openPreview = (imagePath, title) => {
         if (!previewModal || !previewImage || !previewTitle) return;

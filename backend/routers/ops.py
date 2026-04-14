@@ -101,6 +101,15 @@ class OpsSummary(BaseModel):
     completion_rate_pct: float
 
 
+class PublicImpactStatsResponse(BaseModel):
+    total_users: int
+    total_ambulances: int
+    resolved_emergencies: int
+    active_emergencies: int
+    total_emergencies: int
+    updated_at: str
+
+
 class TriageInput(BaseModel):
     age: int | None = Field(default=None, ge=0, le=120)
     severity: Literal["low", "medium", "high", "critical"]
@@ -1085,6 +1094,46 @@ async def patient_context(
         full_name=patient.get("full_name"),
         phone=patient.get("phone"),
         medical_profiles=[PatientMedicalProfile(**m) for m in medical_profiles],
+    )
+
+
+@router.get(
+    "/public-stats",
+    response_model=PublicImpactStatsResponse,
+    summary="Public impact counters for the landing page",
+)
+async def public_stats() -> PublicImpactStatsResponse:
+    users, users_code = await db_select("profiles", {}, columns="id")
+    ambulances, amb_code = await db_select("ambulances", {}, columns="id")
+    emergencies, eme_code = await db_select(
+        "emergency_requests",
+        {},
+        columns="id,status",
+    )
+
+    if any(code not in (200, 206) for code in (users_code, amb_code, eme_code)):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Could not load public platform stats.",
+        )
+
+    total_emergencies = len(emergencies)
+    resolved_emergencies = sum(
+        1 for emergency in emergencies if str(emergency.get("status") or "").lower() == "completed"
+    )
+    active_emergencies = sum(
+        1
+        for emergency in emergencies
+        if str(emergency.get("status") or "").lower() not in ("completed", "cancelled")
+    )
+
+    return PublicImpactStatsResponse(
+        total_users=len(users),
+        total_ambulances=len(ambulances),
+        resolved_emergencies=resolved_emergencies,
+        active_emergencies=active_emergencies,
+        total_emergencies=total_emergencies,
+        updated_at=datetime.now(timezone.utc).isoformat(),
     )
 
 
