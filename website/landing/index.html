@@ -108,7 +108,7 @@
       <section class="section impact" id="impact">
         <div class="container">
           <p class="section-tag">Impact In Numbers</p>
-          <h2>Trusted Emergency Coordination at Scale</h2>
+          <h2>Live Platform Snapshot</h2>
           <p class="section-sub">
             Live counters from our platform operations.
           </p>
@@ -132,7 +132,6 @@
             </article>
           </div>
 
-          <p class="impact-note" id="impactNote">Loading live platform statistics...</p>
         </div>
       </section>
 
@@ -322,10 +321,9 @@
               class="footer-ju"
               loading="lazy"
               decoding="async"
-              width="84"
-              height="84"
+              width="110"
+              height="110"
             />
-            <p class="footer-ju-caption">In partnership with Jimma University</p>
           </div>
           <a href="#home" class="footer-brand">ERDATAYE</a>
           <p>
@@ -352,10 +350,13 @@
           >
             GitHub Repository
           </a>
-          <a href="https://staff.erdatayee.tech/staff" target="_blank" rel="noopener noreferrer">
-            Staff Portal
-          </a>
         </section>
+      </div>
+      <div class="container footer-motion" aria-hidden="true">
+        <div class="footer-lane"></div>
+        <div class="footer-car">
+          <span class="car-window"></span>
+        </div>
       </div>
       <div class="container footer-meta">
         <p>© <span id="yearNow">2026</span> Erdataye. All rights reserved.</p>
@@ -392,7 +393,6 @@
       const previewImage = document.getElementById('previewImage');
       const previewTitle = document.getElementById('previewTitle');
       const previewClose = document.getElementById('previewClose');
-      const impactNote = document.getElementById('impactNote');
 
       const statNumberFormatter = new Intl.NumberFormat('en-US');
 
@@ -430,7 +430,6 @@
         }
 
         if (!data) {
-          if (impactNote) impactNote.textContent = 'Live counters are temporarily unavailable.';
           return;
         }
 
@@ -439,9 +438,6 @@
         setStatValue('resolved_emergencies', data.resolved_emergencies);
         setStatValue('total_emergencies', data.total_emergencies);
 
-        if (impactNote) {
-          impactNote.textContent = `Updated ${new Date(data.updated_at).toLocaleString()}`;
-        }
       };
 
       const yearNow = document.getElementById('yearNow');

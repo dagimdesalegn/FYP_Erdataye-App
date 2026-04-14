@@ -682,30 +682,61 @@ h1 {
 
 .impact {
   padding-top: 44px;
+  position: relative;
+}
+
+.impact .container {
+  border: 1px solid #d6e2ef;
+  border-radius: 26px;
+  padding: 26px 22px;
+  background:
+    radial-gradient(650px 190px at 5% -18%, rgba(14, 116, 144, 0.18), transparent 58%),
+    radial-gradient(650px 190px at 98% 118%, rgba(199, 42, 47, 0.14), transparent 58%),
+    linear-gradient(165deg, #f7fbff 0%, #edf5fb 100%);
+  box-shadow: 0 18px 34px rgba(17, 53, 77, 0.1);
 }
 
 .impact-grid {
   margin-top: 22px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
 }
 
 .impact-card {
-  border: 1px solid #d2e2ea;
+  border: 1px solid #cadeec;
   border-radius: 18px;
-  padding: 18px;
-  background: linear-gradient(160deg, #ffffff 0%, #eef7fb 100%);
-  box-shadow: 0 14px 26px rgba(16, 43, 62, 0.08);
+  padding: 18px 18px 16px;
+  background: linear-gradient(150deg, #ffffff 0%, #f4f9fd 100%);
+  box-shadow: 0 12px 24px rgba(18, 61, 88, 0.09);
+  transition: transform 0.24s ease, box-shadow 0.24s ease;
+  animation: statRise 0.7s ease both;
+}
+
+.impact-card:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.impact-card:nth-child(3) {
+  animation-delay: 0.16s;
+}
+
+.impact-card:nth-child(4) {
+  animation-delay: 0.24s;
+}
+
+.impact-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 30px rgba(16, 58, 84, 0.14);
 }
 
 .impact-label {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #4c6677;
+  letter-spacing: 0.09em;
+  color: #466175;
 }
 
 .impact-value {
@@ -713,17 +744,23 @@ h1 {
   font-family: Archivo, Inter, sans-serif;
   font-size: clamp(1.9rem, 5vw, 2.5rem);
   line-height: 1;
-  color: #123448;
-}
-
-.impact-note {
-  margin-top: 12px;
-  font-size: 0.82rem;
-  color: #5d7686;
+  color: #0f3044;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.88);
 }
 
 .member-card {
   min-height: 246px;
+}
+
+@keyframes statRise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes floatY {
@@ -878,15 +915,15 @@ h1 {
 
 .site-footer {
   margin-top: 26px;
-  border-top: 1px solid #d7e7ed;
+  border-top: 1px solid #264356;
   background:
-    radial-gradient(860px 280px at 0% -15%, rgba(199, 42, 47, 0.1), transparent 60%),
-    radial-gradient(860px 280px at 100% 115%, rgba(31, 106, 114, 0.1), transparent 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(235, 245, 250, 0.95));
+    radial-gradient(900px 250px at 5% -20%, rgba(238, 63, 70, 0.24), transparent 60%),
+    radial-gradient(900px 250px at 100% 120%, rgba(18, 116, 139, 0.22), transparent 60%),
+    linear-gradient(180deg, #0c1f2f 0%, #123248 100%);
 }
 
 .footer-wrap {
-  padding: 26px 0 10px;
+  padding: 26px 0 8px;
   display: grid;
   grid-template-columns: 1.4fr 1fr 1fr;
   gap: 20px;
@@ -901,61 +938,135 @@ h1 {
 .footer-col h3 {
   margin: 0;
   font-size: 0.92rem;
-  color: #17384c;
+  color: #c9e8f8;
 }
 
 .footer-col p {
   margin: 0;
-  color: #4f6b7d;
+  color: #a7c7da;
   font-size: 0.88rem;
   line-height: 1.56;
 }
 
 .footer-col a {
-  color: #25495d;
+  color: #e2f1fa;
   text-decoration: none;
   font-weight: 600;
   font-size: 0.88rem;
 }
 
 .footer-col a:hover {
-  color: #a02229;
+  color: #ff8790;
 }
 
 .footer-brand {
   text-decoration: none;
-  color: #0f2c3f;
+  color: #ffffff;
   font-family: Archivo, Inter, sans-serif;
-  font-size: 1.06rem;
-  letter-spacing: 0.05em;
+  font-size: 1.12rem;
+  letter-spacing: 0.08em;
 }
 
 .footer-ju-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
 .footer-ju {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
+  width: 86px;
+  height: 86px;
+  border-radius: 18px;
   object-fit: cover;
-  border: 1px solid #c6dbe6;
-  box-shadow: 0 8px 20px rgba(15, 44, 63, 0.12);
+  border: 1px solid rgba(226, 241, 250, 0.42);
+  box-shadow: 0 10px 26px rgba(8, 20, 31, 0.38);
 }
 
-.footer-ju-caption {
-  margin: 0;
-  color: #355367;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+.footer-motion {
+  position: relative;
+  height: 38px;
+  margin-top: 2px;
+  overflow: hidden;
+}
+
+.footer-lane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 16px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(192, 222, 241, 0.22);
+}
+
+.footer-lane::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 100%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(229, 244, 253, 0.82) 0 18px,
+    transparent 18px 34px
+  );
+}
+
+.footer-car {
+  position: absolute;
+  top: 6px;
+  left: -58px;
+  width: 50px;
+  height: 20px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f64f59 0%, #d12a31 100%);
+  box-shadow: 0 8px 18px rgba(245, 79, 89, 0.34);
+  animation: footerDrive 8s linear infinite;
+}
+
+.footer-car::before,
+.footer-car::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e7f5ff;
+  box-shadow: inset 0 0 0 2px #153349;
+}
+
+.footer-car::before {
+  left: 7px;
+}
+
+.footer-car::after {
+  right: 7px;
+}
+
+.car-window {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  width: 20px;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(231, 245, 255, 0.9);
+}
+
+@keyframes footerDrive {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(calc(100vw + 120px));
+  }
 }
 
 .footer-meta {
-  border-top: 1px solid #d7e7ed;
+  border-top: 1px solid rgba(193, 223, 241, 0.24);
   min-height: 52px;
   display: flex;
   align-items: center;
@@ -965,7 +1076,7 @@ h1 {
 
 .footer-meta p {
   margin: 0;
-  color: #4f6b7d;
+  color: #9fc2d8;
   font-size: 0.84rem;
   font-weight: 600;
 }
@@ -983,5 +1094,13 @@ h1 {
 
   .footer-ju-wrap {
     justify-content: center;
+  }
+
+  .footer-motion {
+    height: 30px;
+  }
+
+  .footer-car {
+    top: 4px;
   }
 }
