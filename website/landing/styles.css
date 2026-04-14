@@ -930,6 +930,30 @@ h1 {
   letter-spacing: 0.05em;
 }
 
+.footer-ju-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.footer-ju {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid #c6dbe6;
+  box-shadow: 0 8px 20px rgba(15, 44, 63, 0.12);
+}
+
+.footer-ju-caption {
+  margin: 0;
+  color: #355367;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .footer-meta {
   border-top: 1px solid #d7e7ed;
   min-height: 52px;
@@ -955,5 +979,9 @@ h1 {
   .footer-col {
     text-align: center;
     align-items: center;
+  }
+
+  .footer-ju-wrap {
+    justify-content: center;
   }
 }
