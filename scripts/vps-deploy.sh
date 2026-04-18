@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Professional one-command deploy for Erdataye VPS.
+# Deploys BOTH backend (Docker) and landing frontend from GitHub main.
+
+REPO_URL="${REPO_URL:-https://github.com/dagimdesalegn/FYP_Erdataye-App.git}"
+BRANCH="${BRANCH:-main}"
+BASE_DIR="${BASE_DIR:-/opt/erdataye}"
+RELEASES_DIR="${RELEASES_DIR:-$BASE_DIR/releases}"
+SHARED_DIR="${SHARED_DIR:-$BASE_DIR/shared}"
+BACKUP_DIR="${BACKUP_DIR:-$BASE_DIR/backups}"
+WEB_ROOT="${WEB_ROOT:-/var/www/erdataya}"
+BACKEND_CONTAINER="${BACKEND_CONTAINER:-erdataye-backend}"
+BACKEND_IMAGE_PREFIX="${BACKEND_IMAGE_PREFIX:-erdataye-backend}"
+LIVE_PORT_BIND="${LIVE_PORT_BIND:-127.0.0.1:9000:8000}"
+CANARY_PORT_BIND="${CANARY_PORT_BIND:-127.0.0.1:9001:8000}"
+
+wait_for_health() {
+  local url="$1"
+  local attempts="${2:-10}"
+  local delay="${3:-2}"
+  local i
+  for i in $(seq 1 "$attempts"); do
+    if curl -fsS --max-time 5 "$url" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep "$delay"
+  done
+  return 1
+}
+
+need_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "Missing required command: $1" >&2
+    exit 1
+  }
+}
+
+for c in git docker curl rsync nginx systemctl; do
+  need_cmd "$c"
+done
+
+mkdir -p "$RELEASES_DIR" "$SHARED_DIR"
+
+timestamp="$(date +%Y%m%d-%H%M%S)"
+sha="$(git ls-remote "$REPO_URL" "refs/heads/$BRANCH" | awk '{print $1}' | head -n1)"
+[[ -n "$sha" ]] || {
+  echo "Failed to resolve commit SHA from $REPO_URL ($BRANCH)" >&2
+  exit 1
+}
+
+short_sha="${sha:0:8}"
+release_dir="$RELEASES_DIR/$short_sha"
+image_tag="$BACKEND_IMAGE_PREFIX:$short_sha"
+canary_container="$BACKEND_CONTAINER-canary-$short_sha"
+deploy_backup_dir="$BACKUP_DIR/$timestamp"
+
+echo "[1/8] Preparing release $short_sha"
+if [[ ! -d "$release_dir" ]]; then
+  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$release_dir"
+fi
+echo "$sha" > "$BASE_DIR/current.sha"
+
+echo "[2/8] Capturing runtime env"
+env_file="$SHARED_DIR/backend.env"
+existing_cid="$(docker ps -aqf "name=^/${BACKEND_CONTAINER}$" | head -n1 || true)"
+if [[ -n "$existing_cid" ]]; then
+  docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$existing_cid" > "$env_file"
+fi
+[[ -f "$env_file" ]] || {
+  echo "No backend env file found at $env_file and no running container env to capture." >&2
+  exit 1
+}
+
+echo "[3/8] Building backend image $image_tag"
+docker build -t "$image_tag" "$release_dir/backend"
+
+echo "[4/8] Starting canary container"
+docker rm -f "$canary_container" >/dev/null 2>&1 || true
+docker run -d --name "$canary_container" --restart unless-stopped --env-file "$env_file" -p "$CANARY_PORT_BIND" "$image_tag" >/dev/null
+
+cleanup() {
+  docker rm -f "$canary_container" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+echo "[5/8] Canary health check"
+if ! wait_for_health "http://127.0.0.1:9001/health" 12 2; then
+  echo "Canary health check failed. Leaving current live container unchanged." >&2
+  docker logs --tail 120 "$canary_container" || true
+  exit 1
+fi
+
+echo "[6/8] Switching live backend container"
+docker stop "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
+docker rm "$BACKEND_CONTAINER" >/dev/null 2>&1 || true
+docker run -d --name "$BACKEND_CONTAINER" --restart unless-stopped --env-file "$env_file" -p "$LIVE_PORT_BIND" "$image_tag" >/dev/null
+wait_for_health "http://127.0.0.1:9000/health" 12 2
+
+echo "[7/8] Deploying landing frontend"
+mkdir -p "$deploy_backup_dir/landing"
+[[ -f "$WEB_ROOT/index.html" ]] && cp -a "$WEB_ROOT/index.html" "$deploy_backup_dir/landing/index.html" || true
+[[ -f "$WEB_ROOT/styles.css" ]] && cp -a "$WEB_ROOT/styles.css" "$deploy_backup_dir/landing/styles.css" || true
+[[ -f "$WEB_ROOT/app-update.json" ]] && cp -a "$WEB_ROOT/app-update.json" "$deploy_backup_dir/landing/app-update.json" || true
+
+rsync -av "$release_dir/website/landing/" "$WEB_ROOT/" >/dev/null
+echo "$sha" > "$WEB_ROOT/.release-main-sha"
+
+nginx -t >/dev/null
+systemctl reload nginx
+
+echo "[8/8] Cleanup + final checks"
+curl -fsS --max-time 8 https://erdatayee.tech/api/health >/dev/null
+curl -fsS --max-time 8 https://staff.erdatayee.tech/api/health >/dev/null
+
+echo "Deploy completed"
+echo "  SHA: $sha"
+echo "  Image: $image_tag"
+echo "  Backup: $deploy_backup_dir/landing"
