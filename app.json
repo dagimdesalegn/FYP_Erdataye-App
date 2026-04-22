@@ -34,7 +34,14 @@
     },
     "icon": "./assets/images/icon.png",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.erdataye.ambulance",
+      "buildNumber": "10",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Allow እርዳታዬ Erdataye to access your location while using the app.",
+        "NSMicrophoneUsageDescription": "Allow እርዳታዬ Erdataye to use the microphone for emergency voice guidance.",
+        "NSSpeechRecognitionUsageDescription": "Allow እርዳታዬ Erdataye to convert your voice to text for emergency assistance."
+      }
     },
     "name": "እርዳታዬ",
     "newArchEnabled": true,
