@@ -57,7 +57,7 @@
             </p>
             <div class="actions">
               <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android App</a>
-              <a class="btn btn-ios" href="#ios-install">Install on iPhone (PWA)</a>
+              <a class="btn btn-ios" href="/">Install on iPhone</a>
               <a
                 class="btn btn-github"
                 href="https://github.com/dagimdesalegn/FYP_Erdataye-App"
@@ -84,41 +84,6 @@
         </div>
       </section>
 
-      <section class="section ios-install" id="ios-install">
-        <div class="container ios-grid">
-          <article class="ios-copy">
-            <p class="section-tag">iPhone Access (Free)</p>
-            <h2>Install Erdataye on iPhone with Safari</h2>
-            <p class="section-sub">
-              You can use Erdataye on iOS without App Store fees by installing this site as a Progressive Web App.
-            </p>
-
-            <ol class="ios-steps" aria-label="How to install Erdataye on iPhone">
-              <li>Open <strong>Safari</strong> and visit <a href="https://erdatayee.tech/">erdatayee.tech</a>.</li>
-              <li>Tap the <strong>Share</strong> button.</li>
-              <li>Select <strong>Add to Home Screen</strong>.</li>
-              <li>Tap <strong>Add</strong> and launch Erdataye from your home screen.</li>
-            </ol>
-
-            <div class="ios-actions">
-              <a class="btn btn-ios-primary" href="https://erdatayee.tech/">Open in Safari</a>
-              <a class="btn btn-ios-ghost" href="https://staff.erdatayee.tech/staff">Open Staff Web Portal</a>
-            </div>
-            <p class="ios-note">Tip: On iPhone, this mode behaves like an app icon and full-screen web app.</p>
-          </article>
-
-          <article class="ios-card" aria-label="PWA install status">
-            <h3>Install Status</h3>
-            <p id="pwaStatus">Checking device compatibility...</p>
-            <ul>
-              <li>Works on iOS Safari</li>
-              <li>No App Store account needed</li>
-              <li>Home Screen launch support</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
       <section class="section" id="features">
         <div class="container">
           <p class="section-tag">Core Capabilities</p>
@@ -142,6 +107,52 @@
             <article>
               <h3>Low-Bandwidth Ready</h3>
               <p>Optimized flows that continue to work on unstable mobile networks.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section advisor" id="advisor">
+        <div class="container">
+          <p class="section-tag">Advisor Checklist</p>
+          <h2>Engineering Quality and Improvement Plan</h2>
+          <p class="section-sub">
+            This section captures key feedback and the practical implementation direction for frontend quality, backend security,
+            and operational reliability.
+          </p>
+
+          <div class="advisor-grid">
+            <article class="advisor-card">
+              <h3>Frontend Quality</h3>
+              <ul>
+                <li>Strong color system and clear visual concept.</li>
+                <li>Clean, modern layout with improved typography scale (title, section, content).</li>
+                <li>Input validation should be strengthened across all forms.</li>
+                <li>Add clear permission feedback states: Fetching location and Location unavailable.</li>
+                <li>When location is denied, provide a direct Go to Settings action.</li>
+              </ul>
+            </article>
+
+            <article class="advisor-card">
+              <h3>Backend and Security Essentials</h3>
+              <ul>
+                <li>Harden data security controls in transit and at rest.</li>
+                <li>Enforce request-rate limiting to reduce abuse and DDoS risk.</li>
+                <li>Store highly sensitive values (for example National ID) using secure hashing/encryption strategy.</li>
+                <li>Add anti-spam approval flow for ambulance service provider registrations.</li>
+                <li>Display privacy notice and consent messaging before collecting sensitive demo or production data.</li>
+              </ul>
+            </article>
+
+            <article class="advisor-card">
+              <h3>Functional Reliability Improvements</h3>
+              <ul>
+                <li>Avoid repeated login prompts on every app open unless session is expired or revoked.</li>
+                <li>Use constrained dropdown options for blood type to reduce entry mistakes.</li>
+                <li>Fix login retry behavior so valid credentials succeed immediately after prior invalid attempt.</li>
+                <li>Improve emergency guidance text with region-aware support and clear official contact references.</li>
+                <li>Add visible trust indicators so users understand data security and app safety posture.</li>
+              </ul>
             </article>
           </div>
         </div>
@@ -431,7 +442,6 @@
       const previewClose = document.getElementById('previewClose');
 
       const statNumberFormatter = new Intl.NumberFormat('en-US');
-      const pwaStatus = document.getElementById('pwaStatus');
 
       const statTargets = {
         total_users: document.querySelector('[data-stat="total_users"]'),
@@ -505,31 +515,6 @@
       window.addEventListener('load', scheduleWarmup, { once: true });
       window.addEventListener('load', loadImpactStats, { once: true });
 
-      const updatePwaStatus = () => {
-        if (!pwaStatus) return;
-        const ua = navigator.userAgent || '';
-        const isIOS = /iPhone|iPad|iPod/i.test(ua);
-        const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
-        const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-
-        if (standalone) {
-          pwaStatus.textContent = 'Installed. Launching in app mode.';
-          return;
-        }
-
-        if (isIOS && isSafari) {
-          pwaStatus.textContent = 'Ready for install: use Share -> Add to Home Screen.';
-          return;
-        }
-
-        if (isIOS) {
-          pwaStatus.textContent = 'Open this page in Safari to install Erdataye on iPhone.';
-          return;
-        }
-
-        pwaStatus.textContent = 'PWA install is supported. For iPhone, use Safari.';
-      };
-
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js').catch(() => {
@@ -537,8 +522,6 @@
           });
         });
       }
-
-      updatePwaStatus();
 
       const openPreview = (imagePath, title) => {
         if (!previewModal || !previewImage || !previewTitle) return;

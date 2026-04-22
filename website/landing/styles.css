@@ -322,81 +322,34 @@ h1 {
   max-width: 64ch;
 }
 
-.ios-install {
+.advisor {
   padding-top: 24px;
 }
 
-.ios-grid {
+.advisor-grid {
+  margin-top: 20px;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 18px;
-  align-items: start;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
 }
 
-.ios-copy,
-.ios-card {
-  background: #ffffff;
-  border: 1px solid #d7e7ef;
+.advisor-card {
+  background: linear-gradient(165deg, #ffffff 0%, #f2f8fc 100%);
+  border: 1px solid #d3e4ec;
   border-radius: 18px;
-  padding: 22px;
-  box-shadow: 0 12px 26px rgba(19, 49, 70, 0.08);
+  padding: 20px;
+  box-shadow: 0 14px 26px rgba(16, 48, 70, 0.08);
 }
 
-.ios-steps {
-  margin: 16px 0 0;
-  padding-left: 18px;
-  color: #254456;
-  line-height: 1.75;
+.advisor-card h3 {
+  font-size: 1.1rem;
+  color: #12384f;
 }
 
-.ios-steps a {
-  color: #1d4e89;
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.ios-steps a:hover {
-  text-decoration: underline;
-}
-
-.ios-actions {
-  margin-top: 16px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.btn-ios-primary {
-  color: #fff;
-  background: linear-gradient(120deg, #0d5d89 0%, #1577a8 100%);
-  box-shadow: 0 12px 24px rgba(14, 97, 141, 0.28);
-}
-
-.btn-ios-ghost {
-  color: #0c445f;
-  border: 1px solid #8cc2d7;
-  background: #eef8fc;
-}
-
-.ios-note {
-  margin-top: 10px;
-  color: #557687;
-  font-size: 0.9rem;
-}
-
-.ios-card h3 {
-  font-size: 1.2rem;
-}
-
-.ios-card p {
-  color: #245168;
-  font-weight: 700;
-}
-
-.ios-card ul {
+.advisor-card ul {
   margin: 12px 0 0;
   padding-left: 18px;
-  color: #355566;
+  color: #335a6e;
   line-height: 1.7;
 }
 
@@ -910,9 +863,6 @@ h1 {
     transform: translateY(-2px);
   }
 
-  .ios-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 760px) {
