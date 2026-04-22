@@ -201,6 +201,7 @@ export interface AuthUser {
   fullName?: string;
   phone?: string;
   hospitalId?: string;
+  approvalStatus?: "pending" | "approved" | "rejected";
 }
 
 export interface RegistrationHospitalOption {
@@ -221,6 +222,7 @@ type PhoneLoginResponse = {
   full_name?: string;
   phone?: string;
   hospital_id?: string;
+  approval_status?: "pending" | "approved" | "rejected";
 };
 
 const isUserRole = (value: unknown): value is UserRole =>
@@ -426,6 +428,9 @@ export const signUp = async (
   role: UserRole = "patient",
   fullName: string = "",
   hospitalId?: string,
+  vehicleNumber?: string,
+  registrationNumber?: string,
+  ambulanceType?: "standard" | "advanced" | "icu",
   location?: { latitude: number; longitude: number } | null,
   nationalId?: string,
 ): Promise<{ user: AuthUser | null; error: AuthError | null }> => {
@@ -461,6 +466,9 @@ export const signUp = async (
             : null,
         role,
         hospital_id: hospitalId,
+        vehicle_number: vehicleNumber,
+        registration_number: registrationNumber,
+        ambulance_type: ambulanceType,
         latitude: location?.latitude,
         longitude: location?.longitude,
       }),
@@ -512,6 +520,7 @@ export const signUp = async (
       role,
       fullName,
       phone: ethPhone,
+      approvalStatus: resBody?.approval_status,
       hospitalId:
         typeof resBody?.hospital_id === "string" &&
         resBody.hospital_id.length > 0
@@ -595,6 +604,7 @@ export const signIn = async (
       role,
       fullName: dbFullName,
       phone: dbPhone,
+      approvalStatus: tokenData?.approval_status,
     };
 
     // Fire-and-forget: heal missing profile in background (don't block login)

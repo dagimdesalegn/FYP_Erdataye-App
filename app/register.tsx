@@ -1,6 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Location from "expo-location";
 import React, { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -28,10 +27,6 @@ import {
     RegistrationHospitalOption,
     signUp,
 } from "@/utils/auth";
-import {
-    ensureAmbulanceHospitalLink,
-    upsertDriverAmbulance,
-} from "@/utils/driver";
 import { t } from "@/utils/i18n";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
@@ -41,6 +36,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const CARD_MAX_W = 420;
 type AppRegistrationRole = "patient" | "ambulance";
+const BLOOD_TYPE_OPTIONS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -213,24 +209,12 @@ export default function RegisterScreen() {
     }
 
     // Blood type validation (optional, but must match valid types if given)
-    if (userRole === "patient" && form.bloodType.trim()) {
-      const validBloodTypes = [
-        "a+",
-        "a-",
-        "b+",
-        "b-",
-        "ab+",
-        "ab-",
-        "o+",
-        "o-",
-        "a",
-        "b",
-        "ab",
-        "o",
-      ];
-      if (!validBloodTypes.includes(form.bloodType.trim().toLowerCase())) {
-        errors.bloodType = "Valid types: A+, A-, B+, B-, AB+, AB-, O+, O-";
-      }
+    if (
+      userRole === "patient" &&
+      form.bloodType &&
+      !BLOOD_TYPE_OPTIONS.includes(form.bloodType as (typeof BLOOD_TYPE_OPTIONS)[number])
+    ) {
+      errors.bloodType = "Please choose one of the available blood type options";
     }
 
     // Emergency contact validation (optional but must be valid if provided, only for patients)
@@ -290,6 +274,9 @@ export default function RegisterScreen() {
         userRole,
         form.fullName.trim(),
         userRole === "ambulance" ? form.hospitalId : undefined,
+        userRole === "ambulance" ? form.plateNumber.trim() : undefined,
+        userRole === "ambulance" ? form.registrationNumber.trim() : undefined,
+        userRole === "ambulance" ? form.ambulanceType : undefined,
         undefined,
         form.nationalId.trim() || undefined,
       );
@@ -309,22 +296,7 @@ export default function RegisterScreen() {
         return;
       }
 
-      // Request location only after successful account creation.
-      let signupLocation: { latitude: number; longitude: number } | null = null;
-      try {
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status === "granted") {
-          const current = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          signupLocation = {
-            latitude: current.coords.latitude,
-            longitude: current.coords.longitude,
-          };
-        }
-      } catch {
-        signupLocation = null;
-      }
+      // Non-blocking location access remains optional and is requested later in emergency flow.
 
       console.log("User created:", user.id);
 
@@ -361,38 +333,17 @@ export default function RegisterScreen() {
         }
       }
 
-      // For ambulance role, create ambulance row
-      if (userRole === "ambulance" && form.plateNumber) {
-        try {
-          const { ambulanceId, error: ambError } = await upsertDriverAmbulance(
-            user.id,
-            form.plateNumber,
-            form.registrationNumber,
-            form.ambulanceType,
-            user.hospitalId,
-          );
-
-          if (ambError) {
-            console.warn(
-              "Warning: Ambulance creation failed:",
-              ambError.message,
-            );
-            showAlert(
-              "Warning",
-              "Account created but ambulance could not be linked. Contact admin.",
-            );
-          } else {
-            console.log("Ambulance linked to driver:", ambulanceId);
-            if (ambulanceId) {
-              await ensureAmbulanceHospitalLink(ambulanceId, {
-                latitude: signupLocation?.latitude,
-                longitude: signupLocation?.longitude,
-              });
-            }
-          }
-        } catch (err) {
-          console.warn("Exception creating ambulance:", err);
-        }
+      // Ambulance accounts now require explicit hospital approval before activation.
+      if (userRole === "ambulance") {
+        await (await import("@/utils/auth")).signOut();
+        setUser(null);
+        setRegistered(false);
+        showAlert(
+          "Registration Submitted",
+          "Your ambulance registration has been sent to the selected hospital for approval. You can sign in after approval.",
+        );
+        router.replace("/login");
+        return;
       }
 
       setUser(user);
@@ -834,26 +785,57 @@ export default function RegisterScreen() {
                     </ThemedText>
                     <View
                       style={[
-                        styles.inputWrap,
-                        { backgroundColor: inputBg, borderColor: inputBorder },
+                        styles.bloodTypePanel,
+                        {
+                          backgroundColor: inputBg,
+                          borderColor: fieldErrors.bloodType ? "#DC2626" : inputBorder,
+                        },
                       ]}
                     >
-                      <MaterialIcons
-                        name="bloodtype"
-                        size={16}
-                        color={textSecondary}
-                        style={styles.inputIcon}
-                      />
-                      <TextInput
-                        style={[styles.input, { color: textPrimary }]}
-                        placeholder="e.g. A+, O-"
-                        placeholderTextColor={placeholderColor}
-                        autoCapitalize="characters"
-                        maxLength={3}
-                        value={form.bloodType}
-                        onChangeText={(t) => handleChange("bloodType", t)}
-                        editable={!loading}
-                      />
+                      <View style={styles.bloodTypeHeader}>
+                        <MaterialIcons
+                          name="bloodtype"
+                          size={16}
+                          color={fieldErrors.bloodType ? "#DC2626" : textSecondary}
+                          style={styles.inputIcon}
+                        />
+                        <ThemedText style={[styles.bloodTypeHint, { color: textSecondary }]}>Select blood type (optional)</ThemedText>
+                      </View>
+                      <View style={styles.bloodTypeGrid}>
+                        {BLOOD_TYPE_OPTIONS.map((bloodType) => {
+                          const selected = form.bloodType === bloodType;
+                          return (
+                            <Pressable
+                              key={bloodType}
+                              onPress={() => handleChange("bloodType", selected ? "" : bloodType)}
+                              disabled={loading}
+                              style={[
+                                styles.bloodTypeChip,
+                                {
+                                  borderColor: selected ? "#DC2626" : inputBorder,
+                                  backgroundColor: selected
+                                    ? isDark
+                                      ? "rgba(220,38,38,0.2)"
+                                      : "#FEE2E2"
+                                    : isDark
+                                      ? "#121826"
+                                      : "#FFFFFF",
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={{
+                                  fontSize: 12,
+                                  fontFamily: selected ? Fonts.sansExtraBold : Fonts.sansSemiBold,
+                                  color: selected ? "#B91C1C" : textPrimary,
+                                }}
+                              >
+                                {bloodType}
+                              </ThemedText>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
                     </View>
                     {fieldErrors.bloodType ? (
                       <ThemedText style={styles.fieldError}>
@@ -1223,6 +1205,10 @@ export default function RegisterScreen() {
                   </ThemedText>
                 </LinearGradient>
               </Pressable>
+
+              <ThemedText style={[styles.privacyNote, { color: textSecondary }]}>
+                By registering, you consent to processing your emergency and profile data to coordinate ambulance response and care.
+              </ThemedText>
             </View>
 
             {/* OR divider + Continue with Fayda */}
@@ -1589,6 +1575,35 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
+  bloodTypePanel: {
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  bloodTypeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  bloodTypeHint: {
+    fontSize: 12,
+    fontFamily: Fonts.sansMedium,
+  },
+  bloodTypeGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  bloodTypeChip: {
+    minWidth: 46,
+    height: 32,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
   primaryBtn: {
     marginTop: 2,
     borderRadius: 12,
@@ -1608,6 +1623,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Fonts.sansBold,
     letterSpacing: 0.3,
+  },
+  privacyNote: {
+    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: "center",
+    fontFamily: Fonts.sans,
   },
   footerDivider: {
     borderTopWidth: 1,

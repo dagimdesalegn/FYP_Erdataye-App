@@ -19,6 +19,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
+  Linking,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -44,6 +45,9 @@ export default function EmergencyScreen() {
     (Ambulance & { lat: number; lng: number })[]
   >([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "fetching" | "ready" | "denied" | "unavailable"
+  >("idle");
 
   // Show location permission info modal before requesting
   const requestLocationWithPrompt = useCallback(async () => {
@@ -53,22 +57,31 @@ export default function EmergencyScreen() {
         "We need your precise location to dispatch the nearest ambulance to you. This helps us get help to you faster.",
         async () => {
           const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== "granted") setLocationStatus("denied");
           resolve(status === "granted");
         },
-        () => resolve(false),
+        () => {
+          setLocationStatus("denied");
+          resolve(false);
+        },
       );
     });
   }, [showConfirm]);
 
   // Get user's current location with high accuracy
-  const getUserLocation = useCallback(async () => {
+  const getUserLocation = useCallback(async (showPermissionError: boolean = true) => {
     try {
+      setLocationStatus("fetching");
+      setErrorMsg(null);
       const allowed = await requestLocationWithPrompt();
       if (!allowed) {
-        showError(
-          "Location Required",
-          "Location access is required to call an ambulance. Please enable it in your device settings.",
-        );
+        setLocation(null);
+        if (showPermissionError) {
+          showError(
+            "Location Required",
+            "Location access is required to call an ambulance. Tap Go to Settings to enable location permission.",
+          );
+        }
         return null;
       }
 
@@ -76,12 +89,26 @@ export default function EmergencyScreen() {
         accuracy: Location.Accuracy.BestForNavigation,
       });
       setLocation(currentLocation);
+      setLocationStatus("ready");
       return currentLocation;
     } catch (error) {
+      setLocationStatus("unavailable");
+      setLocation(null);
       setErrorMsg(`Error getting location: ${error}`);
       return null;
     }
   }, [requestLocationWithPrompt, showError]);
+
+  const handleOpenSettings = useCallback(async () => {
+    try {
+      await Linking.openSettings();
+    } catch {
+      showError(
+        "Settings Unavailable",
+        "Unable to open system settings from this device. Please enable location manually in your phone settings.",
+      );
+    }
+  }, [showError]);
 
   // Call emergency
   const handleEmergencyCall = async () => {
@@ -95,7 +122,7 @@ export default function EmergencyScreen() {
 
     setLoading(true);
     try {
-      const currentLocation = await getUserLocation();
+      const currentLocation = await getUserLocation(true);
       if (!currentLocation) {
         showError(
           "Location Required",
@@ -149,7 +176,7 @@ export default function EmergencyScreen() {
   };
 
   useEffect(() => {
-    getUserLocation();
+    getUserLocation(false);
   }, [getUserLocation]);
 
   return (
@@ -181,6 +208,57 @@ export default function EmergencyScreen() {
               )}
               {"  "}• Accuracy: {location.coords.accuracy?.toFixed(0)}m
             </ThemedText>
+          </View>
+        )}
+
+        {locationStatus === "fetching" && (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <ActivityIndicator size="small" color={colors.info} />
+            <ThemedText style={[styles.statusText, { color: subText }]}>Fetching your location...</ThemedText>
+          </View>
+        )}
+
+        {locationStatus === "unavailable" && (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons name="location-off" size={18} color="#DC2626" />
+            <ThemedText style={[styles.statusText, { color: subText }]}>Location unavailable. Please check GPS and network, then try again.</ThemedText>
+          </View>
+        )}
+
+        {locationStatus === "denied" && (
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: colors.surfaceMuted,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <MaterialIcons name="privacy-tip" size={18} color="#DC2626" />
+            <View style={styles.statusContent}>
+              <ThemedText style={[styles.statusText, { color: subText }]}>Location permission denied. Enable location access to dispatch the nearest ambulance.</ThemedText>
+              <Pressable style={styles.settingsBtn} onPress={handleOpenSettings}>
+                <MaterialIcons name="settings" size={14} color="#FFFFFF" />
+                <ThemedText style={styles.settingsBtnText}>Go to Settings</ThemedText>
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -277,10 +355,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 24,
+    fontSize: 30,
     marginBottom: 16,
     textAlign: "center",
-    fontFamily: Fonts.sansBold,
+    fontFamily: Fonts.sansExtraBold,
   },
   error: {
     color: "#DC2626",
@@ -302,6 +380,42 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 13,
     fontFamily: Fonts.sans,
+  },
+  statusCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 20,
+    width: "100%",
+  },
+  statusContent: {
+    flex: 1,
+    gap: 8,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: Fonts.sans,
+    lineHeight: 18,
+  },
+  settingsBtn: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#DC2626",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  settingsBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: Fonts.sansBold,
   },
   buttonContainer: {
     width: "100%",
@@ -377,15 +491,15 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   ambulanceText: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: Fonts.sansSemiBold,
   },
   ambulanceType: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: Fonts.sansMedium,
   },
   ambulanceLocation: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: Fonts.sans,
   },
 });

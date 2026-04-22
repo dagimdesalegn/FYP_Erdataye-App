@@ -314,7 +314,7 @@ export default function PatientEmergencyTrackingScreen() {
     return unsub;
   }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus]);
 
-  // Polling fallback: check status every 30s in case realtime misses updates
+  // Polling fallback: faster cadence to reduce visible status delay if realtime drops.
   useEffect(() => {
     if (!emergencyId || typeof emergencyId !== "string") return;
     const interval = setInterval(async () => {
@@ -326,20 +326,25 @@ export default function PatientEmergencyTrackingScreen() {
         } = await getEmergencyDetails(emergencyId);
         if (emerg && emerg.status !== emergency?.status) setEmergency(emerg);
         void refreshHospitalStatus();
-        if (assign) setAssignment(assign);
+        if (assign && assign.id !== assignment?.id) setAssignment(assign);
         if (amb) {
-          setAmbulance(amb);
+          if (amb.id !== ambulance?.id || amb.last_known_location !== ambulance?.last_known_location) {
+            setAmbulance(amb);
+          }
           if (amb.last_known_location) {
             const parsed = parsePostGISPoint(amb.last_known_location);
             if (parsed) applyAmbulanceFix(parsed.latitude, parsed.longitude);
           }
         }
       } catch {}
-    }, 30000);
+    }, 8000);
     return () => clearInterval(interval);
   }, [
     emergencyId,
     emergency?.status,
+    assignment?.id,
+    ambulance?.id,
+    ambulance?.last_known_location,
     applyAmbulanceFix,
     refreshHospitalStatus,
   ]);

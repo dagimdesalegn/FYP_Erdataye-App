@@ -47,6 +47,7 @@ export default function MapScreen() {
     lng: number;
   } | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationFetching, setLocationFetching] = useState(false);
   const [ambulances, setAmbulances] = useState<
     (Ambulance & { lat: number; lng: number })[]
   >([]);
@@ -58,6 +59,8 @@ export default function MapScreen() {
   const locationWatcherRef = React.useRef<Location.LocationSubscription | null>(
     null,
   );
+  const ambulanceRefreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emergencyRefreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const textColor = colors.text;
   const subText = colors.textMuted;
@@ -85,6 +88,7 @@ export default function MapScreen() {
   };
 
   const getUserLocation = async () => {
+    setLocationFetching(true);
     try {
       const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled) {
@@ -170,6 +174,7 @@ export default function MapScreen() {
               : "Try moving outdoors and enabling device location."
           }`,
         );
+        setLocationFetching(false);
         return null;
       }
     } catch (error) {
@@ -177,7 +182,10 @@ export default function MapScreen() {
       setLocationError(
         "Unable to read current location. Check permissions and GPS.",
       );
+      setLocationFetching(false);
       return null;
+    } finally {
+      setLocationFetching(false);
     }
   };
 
@@ -235,6 +243,24 @@ export default function MapScreen() {
     setLoading(false);
   };
 
+  const refreshFastData = async () => {
+    await Promise.all([fetchAmbulances(), fetchEmergencies()]);
+  };
+
+  const scheduleAmbulanceRefresh = () => {
+    if (ambulanceRefreshTimerRef.current) clearTimeout(ambulanceRefreshTimerRef.current);
+    ambulanceRefreshTimerRef.current = setTimeout(() => {
+      void fetchAmbulances();
+    }, 450);
+  };
+
+  const scheduleEmergencyRefresh = () => {
+    if (emergencyRefreshTimerRef.current) clearTimeout(emergencyRefreshTimerRef.current);
+    emergencyRefreshTimerRef.current = setTimeout(() => {
+      void fetchEmergencies();
+    }, 450);
+  };
+
   useEffect(() => {
     fetchAllData();
     const ambulanceSub = supabase
@@ -242,7 +268,7 @@ export default function MapScreen() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "ambulances" },
-        () => fetchAmbulances(),
+        () => scheduleAmbulanceRefresh(),
       )
       .subscribe();
     const emergencySub = supabase
@@ -250,7 +276,7 @@ export default function MapScreen() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "emergency_requests" },
-        () => fetchEmergencies(),
+        () => scheduleEmergencyRefresh(),
       )
       .subscribe();
     void (async () => {
@@ -287,6 +313,10 @@ export default function MapScreen() {
     return () => {
       ambulanceSub.unsubscribe();
       emergencySub.unsubscribe();
+      if (ambulanceRefreshTimerRef.current)
+        clearTimeout(ambulanceRefreshTimerRef.current);
+      if (emergencyRefreshTimerRef.current)
+        clearTimeout(emergencyRefreshTimerRef.current);
       try { locationWatcherRef.current?.remove(); } catch {}
       locationWatcherRef.current = null;
     };
@@ -331,7 +361,7 @@ export default function MapScreen() {
       <View style={styles.controls}>
         <Pressable
           style={[styles.controlBtn, { backgroundColor: accentColor }]}
-          onPress={fetchAllData}
+          onPress={refreshFastData}
         >
           <MaterialIcons name="refresh" size={24} color="#FFFFFF" />
         </Pressable>
@@ -342,6 +372,12 @@ export default function MapScreen() {
         {locationError && (
           <ThemedText style={[styles.errorText, { color: "#EF4444" }]}>
             {locationError}
+          </ThemedText>
+        )}
+
+        {locationFetching && (
+          <ThemedText style={[styles.locationText, { color: subText }]}> 
+            Fetching your current location...
           </ThemedText>
         )}
 
