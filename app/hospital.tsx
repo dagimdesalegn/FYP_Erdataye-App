@@ -6,7 +6,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { backendGet, backendPut } from "@/utils/api";
+import { backendGet, backendPost, backendPut } from "@/utils/api";
 import { signOut } from "@/utils/auth";
 import {
     EmergencyRequest,
@@ -77,6 +77,18 @@ interface HospitalProfileResponse {
   average_handover_minutes?: number | null;
 }
 
+interface AmbulanceApprovalRequest {
+  user_id: string;
+  hospital_id: string;
+  full_name?: string | null;
+  phone?: string | null;
+  vehicle_number?: string | null;
+  registration_number?: string | null;
+  ambulance_type?: string | null;
+  status: "pending" | "approved" | "rejected";
+  requested_at?: string | null;
+}
+
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -138,6 +150,8 @@ export default function HospitalDashboard() {
     icuBeds: "0",
     averageHandover: "25",
   });
+  const [approvalRequests, setApprovalRequests] = useState<AmbulanceApprovalRequest[]>([]);
+  const [approvalUpdatingUserId, setApprovalUpdatingUserId] = useState<string | null>(null);
 
   // Medical notes state
   const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
@@ -158,6 +172,7 @@ export default function HospitalDashboard() {
   >([]);
   const [notifPanelVisible, setNotifPanelVisible] = useState(false);
   const isLoggingOutRef = useRef(false);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cardBg = colors.surface;
   const cardBorder = colors.border;
@@ -397,11 +412,14 @@ export default function HospitalDashboard() {
     }
 
     try {
-      const [emergencyResult, fleetResult, profileResult] =
+      const [emergencyResult, fleetResult, profileResult, approvalsResult] =
         await Promise.allSettled([
           backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
           backendGet<HospitalFleetResponse>("/ops/hospital/fleet"),
           backendGet<HospitalProfileResponse>("/ops/hospital/profile"),
+          backendGet<AmbulanceApprovalRequest[]>(
+            "/ops/hospital/ambulance-approvals?status_filter=pending",
+          ),
         ]);
 
       if (emergencyResult.status !== "fulfilled") {
@@ -454,6 +472,10 @@ export default function HospitalDashboard() {
         }
       } else if (user?.fullName) {
         setHospitalName(user.fullName);
+      }
+
+      if (approvalsResult.status === "fulfilled") {
+        setApprovalRequests(Array.isArray(approvalsResult.value) ? approvalsResult.value : []);
       }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
@@ -548,6 +570,15 @@ export default function HospitalDashboard() {
     return [];
   };
 
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      fetchEmergencies();
+    }, 450);
+  }, [fetchEmergencies]);
+
   useEffect(() => {
     fetchEmergencies();
     const channel = supabase
@@ -586,7 +617,7 @@ export default function HospitalDashboard() {
             );
             setNotifCount((c) => c + 1);
           }
-          fetchEmergencies();
+          scheduleRefresh();
         },
       )
       .on(
@@ -611,35 +642,36 @@ export default function HospitalDashboard() {
               );
             }
           }
-          fetchEmergencies();
+          scheduleRefresh();
         },
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "hospitals" },
-        () => fetchEmergencies(),
+        () => scheduleRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },
-        () => fetchEmergencies(),
+        () => scheduleRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "hospital_ambulance_links" },
-        () => fetchEmergencies(),
+        () => scheduleRefresh(),
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "driver_profiles" },
-        () => fetchEmergencies(),
+        () => scheduleRefresh(),
       )
       .subscribe();
     return () => {
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       channel.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchEmergencies]);
+  }, [fetchEmergencies, scheduleRefresh]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -710,6 +742,37 @@ export default function HospitalDashboard() {
       );
     } finally {
       setSavingProfile(false);
+    }
+  };
+
+  const handleApprovalDecision = async (
+    requestUserId: string,
+    decision: "approved" | "rejected",
+  ) => {
+    if (approvalUpdatingUserId) return;
+    setApprovalUpdatingUserId(requestUserId);
+    try {
+      await backendPost(
+        `/ops/hospital/ambulance-approvals/${requestUserId}/decision`,
+        {
+          decision,
+          note: decision === "approved" ? "Approved by hospital dashboard" : "Rejected by hospital dashboard",
+        },
+      );
+      showSuccess(
+        decision === "approved" ? "Registration Approved" : "Registration Rejected",
+        decision === "approved"
+          ? "Ambulance registration approved and activated."
+          : "Ambulance registration rejected.",
+      );
+      fetchEmergencies();
+    } catch (error) {
+      showError(
+        "Approval Update Failed",
+        String((error as any)?.message || "Unable to update registration approval status"),
+      );
+    } finally {
+      setApprovalUpdatingUserId(null);
     }
   };
 
@@ -1211,6 +1274,57 @@ export default function HospitalDashboard() {
                   </ThemedText>
                 </View>
               </View>
+            </View>
+          )}
+
+          {approvalRequests.length > 0 && (
+            <View
+              style={[
+                styles.fleetCard,
+                { backgroundColor: cardBg, borderColor: cardBorder },
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="verified-user" size={18} color="#0EA5E9" />
+                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Ambulance Approvals</ThemedText>
+              </View>
+              {approvalRequests.map((request) => (
+                <View
+                  key={request.user_id}
+                  style={[
+                    styles.approvalItem,
+                    { borderColor: cardBorder, backgroundColor: isDark ? "#161A22" : "#F8FAFC" },
+                  ]}
+                >
+                  <View style={styles.approvalHeader}>
+                    <ThemedText style={[styles.approvalName, { color: colors.text }]}>
+                      {request.full_name || "Ambulance Applicant"}
+                    </ThemedText>
+                    <ThemedText style={[styles.approvalMeta, { color: subText }]}>
+                      {request.ambulance_type || "standard"}
+                    </ThemedText>
+                  </View>
+                  <ThemedText style={[styles.approvalMeta, { color: subText }]}>
+                    {request.phone || "No phone"} • {request.vehicle_number || "No plate"}
+                  </ThemedText>
+                  <View style={styles.approvalActions}>
+                    <Pressable
+                      style={[styles.approvalBtn, { backgroundColor: "#10B981" }]}
+                      disabled={approvalUpdatingUserId === request.user_id}
+                      onPress={() => handleApprovalDecision(request.user_id, "approved")}
+                    >
+                      <ThemedText style={styles.approvalBtnText}>Approve</ThemedText>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.approvalBtn, { backgroundColor: "#DC2626" }]}
+                      disabled={approvalUpdatingUserId === request.user_id}
+                      onPress={() => handleApprovalDecision(request.user_id, "rejected")}
+                    >
+                      <ThemedText style={styles.approvalBtnText}>Reject</ThemedText>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
             </View>
           )}
 
@@ -3445,6 +3559,44 @@ const styles = StyleSheet.create({
   fleetDivider: { width: 1, height: 36 },
   fleetNum: { fontSize: 22, fontFamily: Fonts.sansExtraBold },
   fleetLabel: { fontSize: 11, fontFamily: Fonts.sans, marginTop: 2 },
+  approvalItem: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 10,
+    gap: 4,
+  },
+  approvalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  approvalName: {
+    fontSize: 14,
+    fontFamily: Fonts.sansBold,
+  },
+  approvalMeta: {
+    fontSize: 12,
+    fontFamily: Fonts.sans,
+  },
+  approvalActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 6,
+  },
+  approvalBtn: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  approvalBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: Fonts.sansBold,
+  },
   actionRow: { flexDirection: "row", gap: 12, marginTop: 4, marginBottom: 16 },
   actionHintCard: {
     flexDirection: "row",

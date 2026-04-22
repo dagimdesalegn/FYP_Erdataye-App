@@ -21,6 +21,11 @@ from pydantic import BaseModel, Field, field_validator
 
 from deps import get_current_user
 from services.supabase import db_insert, db_query, db_select, db_update, db_upsert
+from services.ambulance_approval import (
+    get_ambulance_registration_request,
+    list_ambulance_registration_requests,
+    set_ambulance_registration_status,
+)
 
 router = APIRouter(prefix="/ops", tags=["Operations"])
 logger = logging.getLogger("ops_router")
@@ -390,6 +395,27 @@ class HospitalBasicResponse(BaseModel):
     address: str | None = None
     phone: str | None = None
     is_accepting_emergencies: bool | None = None
+
+
+class AmbulanceApprovalRequest(BaseModel):
+    user_id: str
+    hospital_id: str
+    full_name: str | None = None
+    phone: str | None = None
+    vehicle_number: str | None = None
+    registration_number: str | None = None
+    ambulance_type: str | None = None
+    status: Literal["pending", "approved", "rejected"]
+    requested_at: str | None = None
+    updated_at: str | None = None
+    reviewed_at: str | None = None
+    reviewed_by: str | None = None
+    review_note: str | None = None
+
+
+class AmbulanceApprovalDecision(BaseModel):
+    decision: Literal["approved", "rejected"]
+    note: str | None = Field(default=None, max_length=240)
 
 
 def _parse_point_wkt(value: Any) -> tuple[float, float] | None:
@@ -4392,6 +4418,17 @@ async def get_driver_ambulance(current_user: dict = Depends(get_current_user)) -
 @router.post("/driver/ambulance", summary="Upsert (create/link) ambulance for driver")
 async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_current_user)) -> dict:
     uid = str(current_user.get("sub") or "")
+    profile = await _require_role(uid, current_user, ("driver", "ambulance"))
+
+    approval_row = get_ambulance_registration_request(uid)
+    if not approval_row or str(approval_row.get("status") or "pending") != "approved":
+        raise HTTPException(
+            status_code=403,
+            detail="Ambulance account is pending hospital approval. Hospital must approve registration first.",
+        )
+
+    approved_hospital_id = str(approval_row.get("hospital_id") or "").strip()
+
     vehicle_number = str(body.get("vehicle_number") or "").strip()
     registration_number = str(body.get("registration_number") or "").strip()
     if not vehicle_number:
@@ -4406,8 +4443,8 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
             payload["type"] = body["type"]
         if registration_number:
             payload["registration_number"] = registration_number
-        if body.get("hospital_id"):
-            payload["hospital_id"] = body["hospital_id"]
+        if approved_hospital_id:
+            payload["hospital_id"] = approved_hospital_id
         await db_update("ambulances", {"id": row["id"]}, payload)
         return {"ambulance_id": row["id"]}
 
@@ -4421,13 +4458,146 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
     }
     if registration_number:
         insert_payload["registration_number"] = registration_number
-    if body.get("hospital_id"):
-        insert_payload["hospital_id"] = body["hospital_id"]
+    if approved_hospital_id:
+        insert_payload["hospital_id"] = approved_hospital_id
     result, code = await db_insert("ambulances", insert_payload)
     if code not in (200, 201):
         raise HTTPException(status_code=400, detail="Failed to create ambulance")
     amb_id = result[0]["id"] if isinstance(result, list) and result else None
+
+    if approved_hospital_id and profile.get("id"):
+        try:
+            await db_update(
+                "profiles",
+                {"id": str(profile.get("id"))},
+                {"hospital_id": approved_hospital_id, "updated_at": now},
+            )
+        except Exception:
+            pass
+
     return {"ambulance_id": amb_id}
+
+
+@router.get(
+    "/hospital/ambulance-approvals",
+    response_model=list[AmbulanceApprovalRequest],
+    summary="List pending/approved/rejected ambulance registration requests for hospital",
+)
+async def list_hospital_ambulance_approvals(
+    current_user: dict = Depends(get_current_user),
+    status_filter: str | None = Query(default=None, description="optional: pending|approved|rejected"),
+) -> list[AmbulanceApprovalRequest]:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=None,
+    )
+    if not effective_hospital_id:
+        raise HTTPException(status_code=400, detail="Hospital linkage is required")
+
+    normalized_status = None
+    if status_filter:
+        raw = str(status_filter).strip().lower()
+        if raw in ("pending", "approved", "rejected"):
+            normalized_status = raw
+
+    rows = list_ambulance_registration_requests(
+        hospital_id=str(effective_hospital_id),
+        status=normalized_status,
+    )
+
+    return [AmbulanceApprovalRequest(**row) for row in rows]
+
+
+@router.post(
+    "/hospital/ambulance-approvals/{target_user_id}/decision",
+    response_model=AmbulanceApprovalRequest,
+    summary="Approve or reject an ambulance registration request",
+)
+async def decide_hospital_ambulance_approval(
+    target_user_id: str,
+    payload: AmbulanceApprovalDecision,
+    current_user: dict = Depends(get_current_user),
+) -> AmbulanceApprovalRequest:
+    user_id = str(current_user.get("sub") or "")
+    profile = await _require_role(user_id, current_user, ("hospital", "admin"))
+
+    effective_hospital_id = await _resolve_effective_hospital_id(
+        profile=profile,
+        current_user=current_user,
+        requested_hospital_id=None,
+    )
+    if not effective_hospital_id:
+        raise HTTPException(status_code=400, detail="Hospital linkage is required")
+
+    existing = get_ambulance_registration_request(target_user_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Ambulance approval request not found")
+
+    if str(existing.get("hospital_id") or "") != str(effective_hospital_id):
+        raise HTTPException(status_code=403, detail="Request belongs to another hospital")
+
+    updated = set_ambulance_registration_status(
+        user_id=target_user_id,
+        status=payload.decision,
+        reviewed_by=user_id,
+        review_note=payload.note,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Ambulance approval request not found")
+
+    if payload.decision == "approved":
+        now_iso = datetime.now(timezone.utc).isoformat()
+        try:
+            await db_update(
+                "profiles",
+                {"id": str(target_user_id)},
+                {
+                    "hospital_id": str(effective_hospital_id),
+                    "updated_at": now_iso,
+                },
+            )
+        except Exception:
+            pass
+
+        vehicle_number = str(existing.get("vehicle_number") or "").strip()
+        if vehicle_number:
+            existing_amb_rows, _ = await db_select(
+                "ambulances",
+                {"vehicle_number": vehicle_number},
+            )
+            if existing_amb_rows:
+                await db_update(
+                    "ambulances",
+                    {"id": str(existing_amb_rows[0].get("id"))},
+                    {
+                        "current_driver_id": str(target_user_id),
+                        "hospital_id": str(effective_hospital_id),
+                        "registration_number": str(existing.get("registration_number") or "").strip() or None,
+                        "type": str(existing.get("ambulance_type") or "standard"),
+                        "is_available": True,
+                        "updated_at": now_iso,
+                    },
+                )
+            else:
+                await db_insert(
+                    "ambulances",
+                    {
+                        "vehicle_number": vehicle_number,
+                        "registration_number": str(existing.get("registration_number") or "").strip() or None,
+                        "type": str(existing.get("ambulance_type") or "standard"),
+                        "hospital_id": str(effective_hospital_id),
+                        "current_driver_id": str(target_user_id),
+                        "is_available": True,
+                        "created_at": now_iso,
+                        "updated_at": now_iso,
+                    },
+                )
+
+    return AmbulanceApprovalRequest(**updated)
 
 
 @router.put(

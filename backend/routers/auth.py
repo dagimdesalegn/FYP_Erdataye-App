@@ -40,6 +40,10 @@ from services.supabase import (
     db_select,
     db_upsert,
 )
+from services.ambulance_approval import (
+    get_ambulance_registration_request,
+    upsert_ambulance_registration_request,
+)
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -70,6 +74,9 @@ class RegisterRequest(BaseModel):
     national_id: str | None = Field(default=None, min_length=16, max_length=16, pattern=r"^\d{16}$", description="Fayda FAN number (16 digits, optional)")
     role: Literal["patient", "ambulance", "driver"] = "patient"
     hospital_id: str | None = Field(default=None, description="Optional selected hospital for ambulance/driver")
+    vehicle_number: str | None = Field(default=None, min_length=1, max_length=40)
+    registration_number: str | None = Field(default=None, min_length=1, max_length=40)
+    ambulance_type: Literal["standard", "advanced", "icu"] | None = Field(default=None)
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
 
@@ -97,6 +104,7 @@ class RegisterRequest(BaseModel):
 class RegisterResponse(BaseModel):
     user_id: str
     hospital_id: str | None = None
+    approval_status: Literal["pending", "approved", "rejected"] | None = None
     message: str
 
 
@@ -560,6 +568,7 @@ class PhoneTokenResponse(TokenResponse):
     full_name: str | None = None
     phone: str | None = None
     hospital_id: str | None = None
+    approval_status: Literal["pending", "approved", "rejected"] | None = None
 
 
 class RefreshRequest(BaseModel):
@@ -668,6 +677,7 @@ async def _create_user_with_profile(
     return RegisterResponse(
         user_id=user_id,
         hospital_id=hospital_id,
+        approval_status="approved" if canonical_role == "ambulance" and hospital_id is None else None,
         message="Account created successfully. Please sign in.",
     )
 
@@ -1051,7 +1061,7 @@ async def register(req: RegisterRequest) -> RegisterResponse:
     ):
         resolved_hospital_id = await _find_nearest_hospital_id(req.latitude, req.longitude)
 
-    return await _create_user_with_profile(
+    created = await _create_user_with_profile(
         email=req.email,
         password=req.password,
         full_name=req.full_name,
@@ -1060,6 +1070,32 @@ async def register(req: RegisterRequest) -> RegisterResponse:
         hospital_id=resolved_hospital_id,
         national_id=req.national_id,
     )
+
+    if req.role in ("ambulance", "driver"):
+        if not resolved_hospital_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ambulance registration requires selecting a hospital.",
+            )
+
+        upsert_ambulance_registration_request(
+            user_id=created.user_id,
+            hospital_id=resolved_hospital_id,
+            full_name=req.full_name,
+            phone=req.phone,
+            vehicle_number=(req.vehicle_number or "").strip(),
+            registration_number=(req.registration_number or "").strip(),
+            ambulance_type=req.ambulance_type or "standard",
+        )
+
+        return RegisterResponse(
+            user_id=created.user_id,
+            hospital_id=created.hospital_id,
+            approval_status="pending",
+            message="Ambulance account created and waiting for hospital approval. You can sign in after approval.",
+        )
+
+    return created
 
 
 @router.post(
@@ -1286,6 +1322,36 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
     user_obj = data.get("user") or {}
     metadata = user_obj.get("user_metadata") or {}
     user_id = str(user_obj.get("id") or "")
+    role_value = str(metadata.get("role") or "").lower()
+
+    approval_status: Literal["pending", "approved", "rejected"] | None = None
+    if role_value in ("ambulance", "driver"):
+        approval_row = get_ambulance_registration_request(user_id)
+        if approval_row:
+            row_status = str(approval_row.get("status") or "pending").lower()
+            if row_status in ("pending", "approved", "rejected"):
+                approval_status = row_status
+        if approval_status is None:
+            amb_rows, amb_code = await db_select(
+                "ambulances",
+                {"current_driver_id": user_id},
+                columns="id",
+            )
+            if amb_code in (200, 206) and amb_rows:
+                approval_status = "approved"
+            else:
+                approval_status = "pending"
+
+        if approval_status != "approved":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "Ambulance registration is pending hospital approval. "
+                    "Please wait until your selected hospital approves your account."
+                    if approval_status == "pending"
+                    else "Ambulance registration was rejected by hospital. Please contact hospital administration."
+                ),
+            )
 
     # Hard guarantee: hospital identities live in hospitals table, not profiles.
     hospital_id = metadata.get("hospital_id")
@@ -1349,6 +1415,7 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
         full_name=metadata.get("full_name"),
         phone=metadata.get("phone"),
         hospital_id=hospital_id or metadata.get("hospital_id"),
+        approval_status=approval_status,
     )
 
 
