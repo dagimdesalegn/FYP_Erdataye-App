@@ -211,6 +211,17 @@ h1 {
   box-shadow: 0 16px 30px rgba(8, 32, 58, 0.34);
 }
 
+.btn-ios {
+  color: #083349;
+  background: linear-gradient(135deg, #dcf4fb 0%, #c8ecf7 100%);
+  border: 1px solid #8ccadf;
+  box-shadow: 0 10px 22px rgba(24, 116, 141, 0.18);
+}
+
+.btn-ios:hover {
+  border-color: #63b3ce;
+}
+
 .btn-icon {
   width: 18px;
   height: 18px;
@@ -309,6 +320,84 @@ h1 {
   margin: 12px 0 0;
   color: var(--ink-soft);
   max-width: 64ch;
+}
+
+.ios-install {
+  padding-top: 24px;
+}
+
+.ios-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.ios-copy,
+.ios-card {
+  background: #ffffff;
+  border: 1px solid #d7e7ef;
+  border-radius: 18px;
+  padding: 22px;
+  box-shadow: 0 12px 26px rgba(19, 49, 70, 0.08);
+}
+
+.ios-steps {
+  margin: 16px 0 0;
+  padding-left: 18px;
+  color: #254456;
+  line-height: 1.75;
+}
+
+.ios-steps a {
+  color: #1d4e89;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.ios-steps a:hover {
+  text-decoration: underline;
+}
+
+.ios-actions {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.btn-ios-primary {
+  color: #fff;
+  background: linear-gradient(120deg, #0d5d89 0%, #1577a8 100%);
+  box-shadow: 0 12px 24px rgba(14, 97, 141, 0.28);
+}
+
+.btn-ios-ghost {
+  color: #0c445f;
+  border: 1px solid #8cc2d7;
+  background: #eef8fc;
+}
+
+.ios-note {
+  margin-top: 10px;
+  color: #557687;
+  font-size: 0.9rem;
+}
+
+.ios-card h3 {
+  font-size: 1.2rem;
+}
+
+.ios-card p {
+  color: #245168;
+  font-weight: 700;
+}
+
+.ios-card ul {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #355566;
+  line-height: 1.7;
 }
 
 .feature-grid {
@@ -819,6 +908,10 @@ h1 {
 
   .member:hover {
     transform: translateY(-2px);
+  }
+
+  .ios-grid {
+    grid-template-columns: 1fr;
   }
 }
 
