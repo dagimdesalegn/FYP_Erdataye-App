@@ -644,11 +644,6 @@ const literalTranslations: Record<string, Record<Lang, string>> = {
     am: "ምንም በሂደት ላይ ያለ ምደባ የለም",
     om: "Ramaddiin hojii sochiirra jiru hin jiru",
   },
-  "No active assignment": {
-    en: "No active assignment",
-    am: "ምንም በሂደት ላይ ያለ ምደባ የለም",
-    om: "Ramaddiin hojii sochiirra jiru hin jiru",
-  },
   "Emergency Tracking": {
     en: "Emergency Tracking",
     am: "የአደጋ ክትትል",
