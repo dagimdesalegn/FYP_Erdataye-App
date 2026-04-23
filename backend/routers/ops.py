@@ -4420,7 +4420,7 @@ async def upsert_driver_ambulance(body: dict, current_user: dict = Depends(get_c
     uid = str(current_user.get("sub") or "")
     profile = await _require_role(uid, current_user, ("driver", "ambulance"))
 
-    approval_row = get_ambulance_registration_request(uid)
+    approval_row = await get_ambulance_registration_request(uid)
     if not approval_row or str(approval_row.get("status") or "pending") != "approved":
         raise HTTPException(
             status_code=403,
@@ -4504,7 +4504,7 @@ async def list_hospital_ambulance_approvals(
         if raw in ("pending", "approved", "rejected"):
             normalized_status = raw
 
-    rows = list_ambulance_registration_requests(
+    rows = await list_ambulance_registration_requests(
         hospital_id=str(effective_hospital_id),
         status=normalized_status,
     )
@@ -4533,14 +4533,14 @@ async def decide_hospital_ambulance_approval(
     if not effective_hospital_id:
         raise HTTPException(status_code=400, detail="Hospital linkage is required")
 
-    existing = get_ambulance_registration_request(target_user_id)
+    existing = await get_ambulance_registration_request(target_user_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Ambulance approval request not found")
 
     if str(existing.get("hospital_id") or "") != str(effective_hospital_id):
         raise HTTPException(status_code=403, detail="Request belongs to another hospital")
 
-    updated = set_ambulance_registration_status(
+    updated = await set_ambulance_registration_status(
         user_id=target_user_id,
         status=payload.decision,
         reviewed_by=user_id,

@@ -1078,7 +1078,7 @@ async def register(req: RegisterRequest) -> RegisterResponse:
                 detail="Ambulance registration requires selecting a hospital.",
             )
 
-        upsert_ambulance_registration_request(
+        await upsert_ambulance_registration_request(
             user_id=created.user_id,
             hospital_id=resolved_hospital_id,
             full_name=req.full_name,
@@ -1326,7 +1326,7 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
 
     approval_status: Literal["pending", "approved", "rejected"] | None = None
     if role_value in ("ambulance", "driver"):
-        approval_row = get_ambulance_registration_request(user_id)
+        approval_row = await get_ambulance_registration_request(user_id)
         if approval_row:
             row_status = str(approval_row.get("status") or "pending").lower()
             if row_status in ("pending", "approved", "rejected"):
