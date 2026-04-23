@@ -21,7 +21,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
-import { t } from "@/utils/i18n";
+import { t, translateText } from "@/utils/i18n";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -94,12 +94,12 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const errors: Record<string, string> = {};
     if (!form.phone) {
-      errors.phone = "Please enter your phone number";
+      errors.phone = translateText("Please enter your phone number");
     } else if (!validatePhone(form.phone)) {
-      errors.phone = "Enter 9 digits starting with 9 (e.g. 912345678)";
+      errors.phone = translateText("Enter 9 digits starting with 9 (e.g. 912345678)");
     }
     if (!form.password) {
-      errors.password = "Please enter your password";
+      errors.password = translateText("Please enter your password");
     }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -122,7 +122,7 @@ export default function LoginScreen() {
           showAlert(t("internet_required_title"), t("internet_required_message"));
           return;
         }
-        showError("Login Failed", error?.message || "Failed to sign in");
+        showError(translateText("Login Failed"), error?.message || translateText("Failed to sign in"));
         return;
       }
       if (user.role === "admin" || user.role === "hospital") {
@@ -131,8 +131,8 @@ export default function LoginScreen() {
         setRegistered(false);
         setLoading(false);
         showAlert(
-          "Staff Portal Required",
-          "Admin and hospital accounts must log in through the Staff Portal at /staff.",
+          translateText("Staff Portal Required"),
+          translateText("Admin and hospital accounts must log in through the Staff Portal at /staff."),
         );
         return;
       }
@@ -172,7 +172,7 @@ export default function LoginScreen() {
         showAlert(t("internet_required_title"), t("internet_required_message"));
         return;
       }
-      showError("Login Failed", `Login failed: ${String(err)}`);
+      showError(translateText("Login Failed"), `${translateText("Login failed")}: ${String(err)}`);
     }
   };
 
@@ -527,7 +527,7 @@ export default function LoginScreen() {
                   letterSpacing: 0.2,
                 }}
               >
-                Continue with Fayda
+                {translateText("Continue with Fayda")}
               </ThemedText>
             </Pressable>
           </View>
@@ -549,7 +549,7 @@ export default function LoginScreen() {
             <ThemedText
               style={[styles.secondaryBtnText, { color: textPrimary }]}
             >
-              Create Account
+              {translateText("Create Account")}
             </ThemedText>
           </Pressable>
         </Animated.View>

@@ -18,7 +18,7 @@ import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn, signOut } from "@/utils/auth";
-import { t } from "@/utils/i18n";
+import { t, translateText } from "@/utils/i18n";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -85,12 +85,12 @@ export default function StaffLoginScreen() {
   const handleLogin = async () => {
     const errors: Record<string, string> = {};
     if (!form.phone) {
-      errors.phone = "Please enter your phone number";
+      errors.phone = translateText("Please enter your phone number");
     } else if (!validatePhone(form.phone)) {
-      errors.phone = "Enter 9 digits starting with 9 (e.g. 912345678)";
+      errors.phone = translateText("Enter 9 digits starting with 9 (e.g. 912345678)");
     }
     if (!form.password) {
-      errors.password = "Please enter your password";
+      errors.password = translateText("Please enter your password");
     }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -114,7 +114,7 @@ export default function StaffLoginScreen() {
           showAlert(t("internet_required_title"), t("internet_required_message"));
           return;
         }
-        showError("Login Failed", error?.message || "Failed to sign in");
+        showError(translateText("Login Failed"), error?.message || translateText("Failed to sign in"));
         return;
       }
 
@@ -124,8 +124,8 @@ export default function StaffLoginScreen() {
         setRegistered(false);
         setLoading(false);
         showError(
-          "Access Denied",
-          "This portal is only for admin and hospital accounts.",
+          translateText("Access Denied"),
+          translateText("This portal is only for admin and hospital accounts."),
         );
         return;
       }
@@ -140,7 +140,7 @@ export default function StaffLoginScreen() {
         showAlert(t("internet_required_title"), t("internet_required_message"));
         return;
       }
-      showError("Login Failed", `Login failed: ${String(err)}`);
+      showError(translateText("Login Failed"), `${translateText("Login failed")}: ${String(err)}`);
     }
   };
 
@@ -204,10 +204,10 @@ export default function StaffLoginScreen() {
           ]}
         >
           <ThemedText style={[styles.title, { color: textPrimary }]}>
-            Sign In
+            {translateText("Sign In")}
           </ThemedText>
           <ThemedText style={[styles.subtitle, { color: textSecondary }]}>
-            Enter your credentials to continue
+            {translateText("Enter your credentials to continue")}
           </ThemedText>
 
           <View style={styles.form}>
@@ -300,7 +300,7 @@ export default function StaffLoginScreen() {
                 <TextInput
                   ref={passwordInputRef}
                   style={[styles.input, { color: textPrimary }]}
-                  placeholder="Enter your password"
+                  placeholder={translateText("Enter your password")}
                   placeholderTextColor={placeholderColor}
                   secureTextEntry={!showPassword}
                   value={form.password}
@@ -347,13 +347,13 @@ export default function StaffLoginScreen() {
               >
                 {loading ? (
                   <ThemedText style={styles.primaryBtnText}>
-                    Signing In...
+                    {translateText("Signing In...")}
                   </ThemedText>
                 ) : (
                   <>
                     <MaterialIcons name="login" size={20} color="#fff" />
                     <ThemedText style={styles.primaryBtnText}>
-                      Sign In
+                      {translateText("Sign In")}
                     </ThemedText>
                   </>
                 )}

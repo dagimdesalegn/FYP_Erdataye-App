@@ -27,7 +27,7 @@ import {
     RegistrationHospitalOption,
     signUp,
 } from "@/utils/auth";
-import { t } from "@/utils/i18n";
+import { t, translateText } from "@/utils/i18n";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { upsertMedicalProfile } from "@/utils/profile";
@@ -185,28 +185,28 @@ export default function RegisterScreen() {
     // Full Name validation (must be at least two words)
     const nameParts = form.fullName.trim().split(/\s+/);
     if (!form.fullName.trim()) {
-      errors.fullName = "Please enter your full name";
+      errors.fullName = translateText("Please enter your full name");
     } else if (nameParts.length < 2 || nameParts.some((p) => p.length < 2)) {
-      errors.fullName = "Enter first and last name (e.g. Abebe Kebede)";
+      errors.fullName = translateText("Enter first and last name (e.g. Abebe Kebede)");
     }
 
     // National ID / FAN validation (optional — users without Fayda can skip)
     if (form.nationalId.trim() && !/^\d{16}$/.test(form.nationalId.trim())) {
-      errors.nationalId = "FAN number must be exactly 16 digits";
+      errors.nationalId = translateText("FAN number must be exactly 16 digits");
     }
 
     // Phone validation
     if (!form.phone) {
-      errors.phone = "Please enter your phone number";
+      errors.phone = translateText("Please enter your phone number");
     } else if (!validatePhone(form.phone)) {
-      errors.phone = "Enter 9 digits starting with 9 (e.g. 912345678)";
+      errors.phone = translateText("Enter 9 digits starting with 9 (e.g. 912345678)");
     }
 
     // Password validation
     if (!form.password) {
-      errors.password = "Please enter a password";
+      errors.password = translateText("Please enter a password");
     } else if (form.password.length < 6) {
-      errors.password = "Password must be at least 6 characters";
+      errors.password = translateText("Password must be at least 6 characters");
     }
 
     // Blood type validation (optional, but must match valid types if given)
@@ -215,7 +215,7 @@ export default function RegisterScreen() {
       form.bloodType &&
       !BLOOD_TYPE_OPTIONS.includes(form.bloodType as (typeof BLOOD_TYPE_OPTIONS)[number])
     ) {
-      errors.bloodType = "Please choose one of the available blood type options";
+      errors.bloodType = translateText("Please choose one of the available blood type options");
     }
 
     // Emergency contact validation (optional but must be valid if provided, only for patients)
@@ -224,23 +224,23 @@ export default function RegisterScreen() {
       form.contact &&
       !validatePhone(form.contact)
     ) {
-      errors.contact = "Enter 9 digits starting with 9 (e.g. 912345678)";
+      errors.contact = translateText("Enter 9 digits starting with 9 (e.g. 912345678)");
     }
 
     // Ambulance-specific validation
     if (userRole === "ambulance") {
       if (!hospitals.length) {
         errors.hospitalId =
-          "No available hospitals found. Ask admin to create one.";
+          translateText("No available hospitals found. Ask admin to create one.");
       }
       if (!form.hospitalId) {
-        errors.hospitalId = "Please select a hospital";
+        errors.hospitalId = translateText("Please select a hospital");
       }
       if (!form.plateNumber.trim()) {
-        errors.plateNumber = "Please enter the plate number";
+        errors.plateNumber = translateText("Please enter the plate number");
       }
       if (!form.registrationNumber.trim()) {
-        errors.registrationNumber = "Please enter registration number";
+        errors.registrationNumber = translateText("Please enter registration number");
       }
     }
 
@@ -291,8 +291,8 @@ export default function RegisterScreen() {
           return;
         }
         showError(
-          "Registration Failed",
-          error?.message || "Failed to create account",
+          translateText("Registration Failed"),
+          error?.message || translateText("Failed to create account"),
         );
         return;
       }
@@ -319,8 +319,8 @@ export default function RegisterScreen() {
               medicalError?.message,
             );
             showAlert(
-              "Warning",
-              "Account created but medical profile could not be saved. You can update it later in your profile.",
+              translateText("Warning"),
+              translateText("Account created but medical profile could not be saved. You can update it later in your profile."),
             );
           } else {
             console.log("Medical profile created successfully");
@@ -328,8 +328,8 @@ export default function RegisterScreen() {
         } catch (err) {
           console.warn("Exception creating medical profile:", err);
           showAlert(
-            "Warning",
-            "Account created but medical profile could not be saved. You can update it later in your profile.",
+            translateText("Warning"),
+            translateText("Account created but medical profile could not be saved. You can update it later in your profile."),
           );
         }
       }
@@ -340,8 +340,8 @@ export default function RegisterScreen() {
         setUser(null);
         setRegistered(false);
         showAlert(
-          "Registration Submitted",
-          "Your ambulance registration has been sent to the selected hospital for approval. You can sign in after approval.",
+          translateText("Registration Submitted"),
+          translateText("Your ambulance registration has been sent to the selected hospital for approval. You can sign in after approval."),
         );
         router.replace("/login");
         return;
@@ -364,7 +364,7 @@ export default function RegisterScreen() {
         showAlert(t("internet_required_title"), t("internet_required_message"));
         return;
       }
-      showError("Registration Failed", `Registration failed: ${error}`);
+      showError(translateText("Registration Failed"), `${translateText("Registration failed")}: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -392,15 +392,15 @@ export default function RegisterScreen() {
       }));
 
       showAlert(
-        "Fayda Verified",
-        "Your National ID has been verified. Review the pre-filled details and complete registration.",
+        translateText("Fayda Verified"),
+        translateText("Your National ID has been verified. Review the pre-filled details and complete registration."),
       );
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "Unable to complete Fayda verification.";
-      showError("Fayda Verification Failed", message);
+      showError(translateText("Fayda Verification Failed"), message);
     } finally {
       setLoading(false);
     }

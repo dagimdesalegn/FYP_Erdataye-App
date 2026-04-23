@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -181,7 +182,7 @@ export default function EmergencyScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <AppHeader title="እርዳታዬ" onBackPress={() => router.back()} />
+      <AppHeader title="እርዳታዬ" onBackPress={() => router.back()} rightExtra={<LanguageToggle />} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <ThemedText type="title" style={[styles.title, { color: textColor }]}>

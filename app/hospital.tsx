@@ -1,6 +1,7 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
 import { HtmlMapView } from "@/components/html-map-view";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -1143,28 +1144,31 @@ export default function HospitalDashboard() {
         title={hospitalName}
         onProfilePress={() => setProfileVisible(true)}
         rightExtra={
-          <Pressable
-            style={styles.notifBellWrap}
-            onPress={() => {
-              setNotifPanelVisible(true);
-              setNotifCount(0);
-            }}
-          >
-            <MaterialIcons
-              name={
-                notifCount > 0 ? "notifications-active" : "notifications-none"
-              }
-              size={22}
-              color={notifCount > 0 ? "#DC2626" : subText}
-            />
-            {notifCount > 0 && (
-              <View style={styles.notifBadge}>
-                <ThemedText style={styles.notifBadgeText}>
-                  {notifCount > 99 ? "99+" : notifCount}
-                </ThemedText>
-              </View>
-            )}
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <LanguageToggle />
+            <Pressable
+              style={styles.notifBellWrap}
+              onPress={() => {
+                setNotifPanelVisible(true);
+                setNotifCount(0);
+              }}
+            >
+              <MaterialIcons
+                name={
+                  notifCount > 0 ? "notifications-active" : "notifications-none"
+                }
+                size={22}
+                color={notifCount > 0 ? "#DC2626" : subText}
+              />
+              {notifCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <ThemedText style={styles.notifBadgeText}>
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </ThemedText>
+                </View>
+              )}
+            </Pressable>
+          </View>
         }
       />
 

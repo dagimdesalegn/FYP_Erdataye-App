@@ -1,5 +1,6 @@
 import { AppHeader } from "@/components/app-header";
 import { useAppState } from "@/components/app-state";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useModal } from "@/components/modal-context";
 import { ThemedText } from "@/components/themed-text";
 import { Colors, Fonts } from "@/constants/theme";
@@ -1169,6 +1170,7 @@ export default function AdminScreen() {
       <AppHeader
         title="እርዳታዬ Admin"
         onProfilePress={() => setProfileVisible(true)}
+        rightExtra={<LanguageToggle />}
       />
 
       <ScrollView

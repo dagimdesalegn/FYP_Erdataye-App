@@ -486,3 +486,227 @@ export function t(key: string, ...args: (string | number)[]): string {
   });
   return text;
 }
+
+const literalTranslations: Record<string, Record<Lang, string>> = {
+  "Sign In": { en: "Sign In", am: "ግባ", om: "Seeni" },
+  "Create Account": { en: "Create Account", am: "መለያ ፍጠር", om: "Akkaawuntii Uumi" },
+  "Enter your credentials to continue": {
+    en: "Enter your credentials to continue",
+    am: "ለመቀጠል መረጃዎን ያስገቡ",
+    om: "Itti fufuuf odeeffannoo kee galchi",
+  },
+  "Continue with Fayda": {
+    en: "Continue with Fayda",
+    am: "በፋይዳ ይቀጥሉ",
+    om: "Fayda waliin itti fufi",
+  },
+  "Warning": { en: "Warning", am: "ማስጠንቀቂያ", om: "Akeekkachiisa" },
+  "Registration Submitted": {
+    en: "Registration Submitted",
+    am: "ምዝገባ ተልኳል",
+    om: "Galmeen ergameera",
+  },
+  "Your ambulance registration has been sent to the selected hospital for approval. You can sign in after approval.": {
+    en: "Your ambulance registration has been sent to the selected hospital for approval. You can sign in after approval.",
+    am: "የአምቡላንስ ምዝገባዎ ለምርጫው ሆስፒታል ለማጽደቅ ተልኳል። ከፀደቀ በኋላ መግባት ይችላሉ።",
+    om: "Galmeen ambulaansii keessanii raggaasisuuf hospitaala filatametti ergameera. Erga ragga'ee booda seenuu dandeessu.",
+  },
+  "Staff Portal Required": {
+    en: "Staff Portal Required",
+    am: "የሰራተኛ ፖርታል ያስፈልጋል",
+    om: "Poortaaliin Hojjettootaa barbaachisa",
+  },
+  "Admin and hospital accounts must log in through the Staff Portal at /staff.": {
+    en: "Admin and hospital accounts must log in through the Staff Portal at /staff.",
+    am: "የአድሚን እና የሆስፒታል መለያዎች በ /staff የሰራተኛ ፖርታል ብቻ መግባት አለባቸው።",
+    om: "Akkaawuntiiwwan bulchaa fi hospitaalaa karaa poortaalii hojjettootaa /staff irraa qofa seenuu qabu.",
+  },
+  "Please enter your phone number": {
+    en: "Please enter your phone number",
+    am: "እባክዎ ስልክ ቁጥርዎን ያስገቡ",
+    om: "Maaloo lakkoofsa bilbilaa keessan galchaa",
+  },
+  "Enter 9 digits starting with 9 (e.g. 912345678)": {
+    en: "Enter 9 digits starting with 9 (e.g. 912345678)",
+    am: "በ9 የሚጀምሩ 9 አሃዞች ያስገቡ (ለምሳሌ 912345678)",
+    om: "Dijiitii 9 lakkoofsa 9 irraa jalqabamu galchi (fkn 912345678)",
+  },
+  "Please enter your password": {
+    en: "Please enter your password",
+    am: "እባክዎ የይለፍ ቃልዎን ያስገቡ",
+    om: "Maaloo jecha iccitii keessan galchaa",
+  },
+  "Please enter your full name": {
+    en: "Please enter your full name",
+    am: "እባክዎ ሙሉ ስምዎን ያስገቡ",
+    om: "Maaloo maqaa guutuu keessan galchaa",
+  },
+  "Enter first and last name (e.g. Abebe Kebede)": {
+    en: "Enter first and last name (e.g. Abebe Kebede)",
+    am: "ስም እና የአባት ስም ያስገቡ (ለምሳሌ አበበ ከበደ)",
+    om: "Maqaa fi maqaa abbaa galchi (fkn Abebe Kebede)",
+  },
+  "FAN number must be exactly 16 digits": {
+    en: "FAN number must be exactly 16 digits",
+    am: "የFAN ቁጥር በትክክል 16 አሃዞች መሆን አለበት",
+    om: "Lakkoofsi FAN sirriitti dijiitii 16 ta'uu qaba",
+  },
+  "Please enter a password": {
+    en: "Please enter a password",
+    am: "እባክዎ የይለፍ ቃል ያስገቡ",
+    om: "Maaloo jecha iccitii galchaa",
+  },
+  "Password must be at least 6 characters": {
+    en: "Password must be at least 6 characters",
+    am: "የይለፍ ቃል ቢያንስ 6 ፊደላት መሆን አለበት",
+    om: "Jechi iccitii yoo xiqqaate qubee 6 qabaachuu qaba",
+  },
+  "Please choose one of the available blood type options": {
+    en: "Please choose one of the available blood type options",
+    am: "እባክዎ ከሚገኙት የደም አይነቶች አንዱን ይምረጡ",
+    om: "Maaloo filannoowwan gosa dhiigaa keessaa tokko fili",
+  },
+  "Please select a hospital": {
+    en: "Please select a hospital",
+    am: "እባክዎ ሆስፒታል ይምረጡ",
+    om: "Maaloo hospitaala tokko fili",
+  },
+  "Please enter the plate number": {
+    en: "Please enter the plate number",
+    am: "እባክዎ የሰሌዳ ቁጥር ያስገቡ",
+    om: "Maaloo lakkoofsa taargaa galchi",
+  },
+  "Please enter registration number": {
+    en: "Please enter registration number",
+    am: "እባክዎ የምዝገባ ቁጥር ያስገቡ",
+    om: "Maaloo lakkoofsa galmee galchi",
+  },
+  "Login Failed": { en: "Login Failed", am: "መግቢያ አልተሳካም", om: "Seenaan hin milkoofne" },
+  "Failed to sign in": { en: "Failed to sign in", am: "መግባት አልተሳካም", om: "Seenuun hin milkoofne" },
+  "Login failed": { en: "Login failed", am: "መግቢያ አልተሳካም", om: "Seenaan hin milkoofne" },
+  "Registration Failed": {
+    en: "Registration Failed",
+    am: "ምዝገባ አልተሳካም",
+    om: "Galmeen hin milkoofne",
+  },
+  "Registration failed": { en: "Registration failed", am: "ምዝገባ አልተሳካም", om: "Galmeen hin milkoofne" },
+  "Failed to create account": {
+    en: "Failed to create account",
+    am: "መለያ መፍጠር አልተሳካም",
+    om: "Akkaawuntii uumuu hin milkoofne",
+  },
+  "Fayda Verified": { en: "Fayda Verified", am: "ፋይዳ ተረጋግጧል", om: "Faydaan mirkanaa'eera" },
+  "Fayda Verification Failed": {
+    en: "Fayda Verification Failed",
+    am: "የፋይዳ ማረጋገጫ አልተሳካም",
+    om: "Mirkaneessi Faydaa hin milkoofne",
+  },
+  "Fayda Sign-In Failed": {
+    en: "Fayda Sign-In Failed",
+    am: "በፋይዳ መግቢያ አልተሳካም",
+    om: "Seensa Faydaa hin milkoofne",
+  },
+  "Access Denied": { en: "Access Denied", am: "መዳረሻ ተከልክሏል", om: "Seensii dhorkameera" },
+  "This portal is only for admin and hospital accounts.": {
+    en: "This portal is only for admin and hospital accounts.",
+    am: "ይህ ፖርታል ለአድሚን እና ሆስፒታል መለያዎች ብቻ ነው።",
+    om: "Poortaaliin kun akkaawuntiiwwan bulchaa fi hospitaalaa qofaaf dha.",
+  },
+  "Emergency Ambulance Service": {
+    en: "Emergency Ambulance Service",
+    am: "የአደጋ አምቡላንስ አገልግሎት",
+    om: "Tajaajila Ambulaansii Balaa",
+  },
+  "Fetching your location...": {
+    en: "Fetching your location...",
+    am: "አካባቢዎን በመፈለግ ላይ...",
+    om: "Bakka keessan barbaadaa jira...",
+  },
+  "Go to Settings": { en: "Go to Settings", am: "ወደ ቅንብሮች ይሂዱ", om: "Gara qindaa'inaatti deemi" },
+  "Live update": { en: "Live update", am: "ቀጥታ ዝማኔ", om: "Fooyya'insa kallattii" },
+  "Status Updated": { en: "Status Updated", am: "ሁኔታ ተዘምኗል", om: "Haalli fooyya'eera" },
+  "Update Failed": { en: "Update Failed", am: "ማዘመን አልተሳካም", om: "Fooyyessuun hin milkoofne" },
+  "Registration Approved": { en: "Registration Approved", am: "ምዝገባ ጸድቋል", om: "Galmeen ragga'eera" },
+  "Registration Rejected": { en: "Registration Rejected", am: "ምዝገባ ተከልክሏል", om: "Galmeen didameera" },
+  "Approval Update Failed": { en: "Approval Update Failed", am: "የማጽደቅ ማዘመን አልተሳካም", om: "Fooyya'iinsi raggaasii hin milkoofne" },
+  "Loading hospital details...": {
+    en: "Loading hospital details...",
+    am: "የሆስፒታል ዝርዝሮችን በመጫን ላይ...",
+    om: "Bal'ina hospitaalaa fe'aa jira...",
+  },
+  "No ambulances linked yet.": {
+    en: "No ambulances linked yet.",
+    am: "እስካሁን የተገናኙ አምቡላንሶች የሉም።",
+    om: "Ammaaf ambulaansii walqabate hin jiru.",
+  },
+  "No active assignment": {
+    en: "No active assignment",
+    am: "ምንም በሂደት ላይ ያለ ምደባ የለም",
+    om: "Ramaddiin hojii sochiirra jiru hin jiru",
+  },
+  "No active assignment": {
+    en: "No active assignment",
+    am: "ምንም በሂደት ላይ ያለ ምደባ የለም",
+    om: "Ramaddiin hojii sochiirra jiru hin jiru",
+  },
+  "Emergency Tracking": {
+    en: "Emergency Tracking",
+    am: "የአደጋ ክትትል",
+    om: "Hordoffii Balaa",
+  },
+  "Map": { en: "Map", am: "ካርታ", om: "Kaartaa" },
+  "Update Status": { en: "Update Status", am: "ሁኔታ አዘምን", om: "Haala Fooyyessi" },
+  "Medical Notes": { en: "Medical Notes", am: "የህክምና ማስታወሻዎች", om: "Yaadannoowwan Fayyaa" },
+  "Navigate": { en: "Navigate", am: "አቅጣጫ", om: "Qajeelcha" },
+  "Patient": { en: "Patient", am: "ታካሚ", om: "Dhukkubsataa" },
+  "Phone": { en: "Phone", am: "ስልክ", om: "Bilbila" },
+  "Call": { en: "Call", am: "ደውል", om: "Bilbili" },
+  "Blood Type": { en: "Blood Type", am: "የደም አይነት", om: "Gosa Dhiigaa" },
+  "Allergies": { en: "Allergies", am: "አለርጂዎች", om: "Alerjii" },
+  "Emergency Contact": { en: "Emergency Contact", am: "የአደጋ ግንኙነት", om: "Nama Balaa Yeroo Waamamu" },
+  "Hospital Dashboard": {
+    en: "Hospital Dashboard",
+    am: "የሆስፒታል ዳሽቦርድ",
+    om: "Daashboordii Hospitaalaa",
+  },
+  "Admin Dashboard": {
+    en: "Admin Dashboard",
+    am: "የአስተዳዳሪ ዳሽቦርድ",
+    om: "Daashboordii Bulchiinsaa",
+  },
+  "Total": { en: "Total", am: "ጠቅላላ", om: "Waliigala" },
+  "Pending": { en: "Pending", am: "በመጠበቅ ላይ", om: "Eeggachaa" },
+  "Completed": { en: "Completed", am: "ተጠናቋል", om: "Xumurame" },
+  "Available": { en: "Available", am: "ዝግጁ", om: "Qophaa'e" },
+  "Busy": { en: "Busy", am: "ተጠምዷል", om: "Hojii irra" },
+  "Open in Google Maps": {
+    en: "Open in Google Maps",
+    am: "በGoogle Maps ይክፈቱ",
+    om: "Google Maps keessatti bani",
+  },
+  "Live Map": { en: "Live Map", am: "ቀጥታ ካርታ", om: "Kaartaa Kallattii" },
+  "Hospital": { en: "Hospital", am: "ሆስፒታል", om: "Hospitaala" },
+  "CALL\nAMBULANCE": {
+    en: "CALL\nAMBULANCE",
+    am: "አምቡላንስ\nይደውሉ",
+    om: "AMBULAANSII\nBILBILAA",
+  },
+};
+
+const englishToKeyIndex: Map<string, string> = new Map(
+  Object.entries(translations)
+    .filter(([, value]) => Boolean(value?.en))
+    .map(([key, value]) => [value.en, key]),
+);
+
+export function translateText(value: string): string {
+  if (_currentLang === "en") return value;
+  const keyFromEnglish = englishToKeyIndex.get(value);
+  if (keyFromEnglish) {
+    const translated = t(keyFromEnglish);
+    return translated === keyFromEnglish ? value : translated;
+  }
+  const literal = literalTranslations[value];
+  if (!literal) return value;
+  return literal[_currentLang] ?? literal.en ?? value;
+}
