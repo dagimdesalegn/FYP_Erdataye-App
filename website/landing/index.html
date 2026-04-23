@@ -57,7 +57,7 @@
             </p>
             <div class="actions">
               <a class="btn btn-primary" href="/downloads/erdataye.apk">Download Android App</a>
-              <a class="btn btn-ios" href="/">Install on iPhone</a>
+              <a class="btn btn-ios" id="iosInstallBtn" href="#">Install on iPhone</a>
               <a
                 class="btn btn-github"
                 href="https://github.com/dagimdesalegn/FYP_Erdataye-App"
@@ -217,6 +217,20 @@
               <button class="preview-close" id="previewClose" type="button" aria-label="Close preview">×</button>
               <p class="preview-modal-title" id="previewTitle">Screenshot Preview</p>
               <img id="previewImage" src="" alt="" loading="lazy" decoding="async" />
+            </div>
+          </div>
+
+          <div class="ios-install-modal" id="iosInstallModal" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Install on iPhone instructions">
+            <div class="ios-install-card" role="document">
+              <button class="ios-install-close" id="iosInstallClose" type="button" aria-label="Close iPhone install instructions">×</button>
+              <p class="ios-install-title">Install Erdataye on iPhone</p>
+              <ol class="ios-install-steps">
+                <li>Open this page in Safari on your iPhone.</li>
+                <li>Tap the Share button (square with up arrow).</li>
+                <li>Choose Add to Home Screen.</li>
+                <li>Tap Add to install the app icon.</li>
+              </ol>
+              <p class="ios-install-note">If this page opened in a different browser, tap "Open in Safari" first.</p>
             </div>
           </div>
         </div>
@@ -394,6 +408,20 @@
       const previewImage = document.getElementById('previewImage');
       const previewTitle = document.getElementById('previewTitle');
       const previewClose = document.getElementById('previewClose');
+      const iosInstallBtn = document.getElementById('iosInstallBtn');
+      const iosInstallModal = document.getElementById('iosInstallModal');
+      const iosInstallClose = document.getElementById('iosInstallClose');
+
+      const isIOSDevice = (() => {
+        const ua = window.navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua);
+        const isIPadOS = window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1;
+        return isIOS || isIPadOS;
+      })();
+
+      const isStandaloneMode =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.navigator.standalone === true;
 
       const statNumberFormatter = new Intl.NumberFormat('en-US');
 
@@ -493,6 +521,18 @@
         previewImage.setAttribute('src', '');
       };
 
+      const openIosInstallModal = () => {
+        if (!iosInstallModal) return;
+        iosInstallModal.classList.add('open');
+        iosInstallModal.setAttribute('aria-hidden', 'false');
+      };
+
+      const closeIosInstallModal = () => {
+        if (!iosInstallModal) return;
+        iosInstallModal.classList.remove('open');
+        iosInstallModal.setAttribute('aria-hidden', 'true');
+      };
+
       document.querySelectorAll('.preview-btn').forEach((button) => {
         button.addEventListener('click', () => {
           const imagePath = button.getAttribute('data-image');
@@ -504,17 +544,38 @@
 
       previewClose?.addEventListener('click', closePreview);
 
+      iosInstallBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        if (isStandaloneMode) {
+          return;
+        }
+        openIosInstallModal();
+      });
+
+      iosInstallClose?.addEventListener('click', closeIosInstallModal);
+
       previewModal?.addEventListener('click', (event) => {
         if (event.target === previewModal) {
           closePreview();
         }
       });
 
+      iosInstallModal?.addEventListener('click', (event) => {
+        if (event.target === iosInstallModal) {
+          closeIosInstallModal();
+        }
+      });
+
       window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           closePreview();
+          closeIosInstallModal();
         }
       });
+
+      if (!isIOSDevice) {
+        iosInstallBtn?.setAttribute('title', 'Open this page on iPhone Safari to install');
+      }
     </script>
   </body>
 </html>
