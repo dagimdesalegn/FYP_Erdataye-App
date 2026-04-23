@@ -153,6 +153,8 @@ export default function HospitalDashboard() {
   });
   const [approvalRequests, setApprovalRequests] = useState<AmbulanceApprovalRequest[]>([]);
   const [approvalUpdatingUserId, setApprovalUpdatingUserId] = useState<string | null>(null);
+  const [loadingApprovals, setLoadingApprovals] = useState(false);
+  const [approvalLoadError, setApprovalLoadError] = useState<string | null>(null);
 
   // Medical notes state
   const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
@@ -413,6 +415,8 @@ export default function HospitalDashboard() {
     }
 
     try {
+      setLoadingApprovals(true);
+      setApprovalLoadError(null);
       const [emergencyResult, fleetResult, profileResult, approvalsResult] =
         await Promise.allSettled([
           backendGet<EmergencyWithPatient[]>("/ops/hospital/emergencies"),
@@ -477,6 +481,14 @@ export default function HospitalDashboard() {
 
       if (approvalsResult.status === "fulfilled") {
         setApprovalRequests(Array.isArray(approvalsResult.value) ? approvalsResult.value : []);
+      } else {
+        setApprovalRequests([]);
+        setApprovalLoadError(
+          String(
+            (approvalsResult.reason as any)?.message ||
+              "Failed to load approval requests",
+          ),
+        );
       }
     } catch (error) {
       console.error("Error fetching emergencies:", error);
@@ -493,6 +505,7 @@ export default function HospitalDashboard() {
         showError("Load Failed", "Failed to load emergency requests");
       }
     } finally {
+      setLoadingApprovals(false);
       setLoading(false);
       setRefreshing(false);
     }
@@ -1281,18 +1294,38 @@ export default function HospitalDashboard() {
             </View>
           )}
 
-          {approvalRequests.length > 0 && (
-            <View
-              style={[
-                styles.fleetCard,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="verified-user" size={18} color="#0EA5E9" />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Ambulance Approvals</ThemedText>
+          <View
+            style={[
+              styles.fleetCard,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="verified-user" size={18} color="#0EA5E9" />
+              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Ambulance Approvals</ThemedText>
+            </View>
+
+            {loadingApprovals ? (
+              <View style={styles.approvalEmptyState}>
+                <ActivityIndicator size="small" color="#0EA5E9" />
+                <ThemedText style={[styles.approvalMeta, { color: subText }]}>Loading approval requests...</ThemedText>
               </View>
-              {approvalRequests.map((request) => (
+            ) : approvalLoadError ? (
+              <View style={styles.approvalEmptyState}>
+                <ThemedText style={[styles.approvalMeta, { color: "#EF4444" }]}>Unable to load approval requests.</ThemedText>
+                <Pressable
+                  style={[styles.approvalBtn, { backgroundColor: "#0EA5E9", marginTop: 8 }]}
+                  onPress={fetchEmergencies}
+                >
+                  <ThemedText style={styles.approvalBtnText}>Retry</ThemedText>
+                </Pressable>
+              </View>
+            ) : approvalRequests.length === 0 ? (
+              <View style={styles.approvalEmptyState}>
+                <ThemedText style={[styles.approvalMeta, { color: subText }]}>No pending ambulance approvals.</ThemedText>
+              </View>
+            ) : (
+              approvalRequests.map((request) => (
                 <View
                   key={request.user_id}
                   style={[
@@ -1301,14 +1334,14 @@ export default function HospitalDashboard() {
                   ]}
                 >
                   <View style={styles.approvalHeader}>
-                    <ThemedText style={[styles.approvalName, { color: colors.text }]}>
+                    <ThemedText style={[styles.approvalName, { color: colors.text }]}> 
                       {request.full_name || "Ambulance Applicant"}
                     </ThemedText>
-                    <ThemedText style={[styles.approvalMeta, { color: subText }]}>
+                    <ThemedText style={[styles.approvalMeta, { color: subText }]}> 
                       {request.ambulance_type || "standard"}
                     </ThemedText>
                   </View>
-                  <ThemedText style={[styles.approvalMeta, { color: subText }]}>
+                  <ThemedText style={[styles.approvalMeta, { color: subText }]}> 
                     {request.phone || "No phone"} • {request.vehicle_number || "No plate"}
                   </ThemedText>
                   <View style={styles.approvalActions}>
@@ -1328,9 +1361,9 @@ export default function HospitalDashboard() {
                     </Pressable>
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
+              ))
+            )}
+          </View>
 
           {/* Search bar */}
           <View
@@ -3588,6 +3621,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     marginTop: 6,
+  },
+  approvalEmptyState: {
+    minHeight: 64,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
   },
   approvalBtn: {
     flex: 1,
