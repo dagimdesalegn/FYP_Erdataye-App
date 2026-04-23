@@ -22,6 +22,7 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { updateAuthLoginPhone } from "@/utils/auth";
+import { t, translateText } from "@/utils/i18n";
 import {
     getMedicalProfile,
     getUserProfile,
@@ -41,6 +42,8 @@ interface PatientProfileForm {
   emergencyContactName: string;
   emergencyContactPhone: string;
 }
+
+const BLOOD_TYPE_OPTIONS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
 
 /**
  * Parse allergies from DB into a display string.
@@ -87,6 +90,7 @@ export default function PatientProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [successVisible, setSuccessVisible] = useState(false);
   const successAnim = useRef(new Animated.Value(0)).current;
+  const [bloodTypeOpen, setBloodTypeOpen] = useState(false);
   const [form, setForm] = useState<PatientProfileForm>({
     fullName: "",
     phone: "",
@@ -141,7 +145,7 @@ export default function PatientProfileScreen() {
       }
     } catch (error) {
       console.error("Error loading patient data:", error);
-      showError("Load Failed", "Failed to load profile data");
+      showError(translateText("Load Failed"), translateText("Failed to load profile data"));
     } finally {
       setLoading(false);
     }
@@ -173,22 +177,22 @@ export default function PatientProfileScreen() {
 
   const handleSave = async () => {
     if (!user?.id) {
-      showError("Authentication Required", "User not authenticated");
+      showError(translateText("Authentication Required"), translateText("User not authenticated"));
       return;
     }
 
     if (!form.fullName.trim() || form.fullName.trim().length < 2) {
       showError(
-        "Invalid Name",
-        "Please enter a valid full name (at least 2 characters)",
+        translateText("Invalid Name"),
+        translateText("Please enter a valid full name (at least 2 characters)"),
       );
       return;
     }
 
     if (!validatePhone(form.phone)) {
       showError(
-        "Invalid Phone",
-        "Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678",
+        translateText("Invalid Phone"),
+        translateText("Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678"),
       );
       return;
     }
@@ -198,8 +202,8 @@ export default function PatientProfileScreen() {
       !validatePhone(form.emergencyContactPhone)
     ) {
       showError(
-        "Invalid Phone",
-        "Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678",
+        translateText("Invalid Phone"),
+        translateText("Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678"),
       );
       return;
     }
@@ -267,7 +271,7 @@ export default function PatientProfileScreen() {
       });
     } catch (error) {
       console.error("Error saving profile:", error);
-      showError("Save Failed", `Failed to save profile: ${error}`);
+      showError(translateText("Save Failed"), `${translateText("Failed to save profile")}: ${error}`);
     } finally {
       setSaving(false);
     }
@@ -327,7 +331,7 @@ export default function PatientProfileScreen() {
           >
             <MaterialIcons name="check-circle" size={24} color="#FFFFFF" />
             <ThemedText style={styles.successText}>
-              Profile updated successfully!
+              {translateText("Profile updated successfully!")}
             </ThemedText>
           </Animated.View>
         </View>
@@ -386,12 +390,12 @@ export default function PatientProfileScreen() {
                 </View>
               </View>
               <ThemedText style={[styles.headerTitle, { color: textPrimary }]}>
-                Patient Profile
+                {translateText("Patient Profile")}
               </ThemedText>
               <ThemedText
                 style={[styles.headerSubtitle, { color: textSecondary }]}
               >
-                Keep your medical information up to date
+                {translateText("Keep your medical information up to date")}
               </ThemedText>
             </View>
 
@@ -409,15 +413,15 @@ export default function PatientProfileScreen() {
                     { color: isDark ? "#38BDF8" : "#0EA5E9" },
                   ]}
                 >
-                  <MaterialIcons name="person" size={16} /> Personal Information
+                  <MaterialIcons name="person" size={16} /> {translateText("Personal Information")}
                 </ThemedText>
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Full Name *
+                  {t("full_name")} *
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="Enter your full name"
+                  placeholder={translateText("Enter your full name")}
                   placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
                   autoCapitalize="words"
                   value={form.fullName}
@@ -426,7 +430,7 @@ export default function PatientProfileScreen() {
                 />
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Phone Number *
+                  {t("phone_number")} *
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
@@ -455,28 +459,100 @@ export default function PatientProfileScreen() {
                     { color: isDark ? "#38BDF8" : "#0EA5E9" },
                   ]}
                 >
-                  <MaterialIcons name="health-and-safety" size={16} /> Medical
-                  Information
+                  <MaterialIcons name="health-and-safety" size={16} /> {translateText("Medical Information")}
                 </ThemedText>
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Blood Type
+                  {t("blood_type")}
                 </ThemedText>
-                <TextInput
-                  style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="e.g. A+, O-, B-"
-                  placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
-                  value={form.bloodType}
-                  onChangeText={(text) => handleChange("bloodType", text)}
-                  editable={!saving}
-                />
+                <View
+                  style={[
+                    styles.dropdownWrap,
+                    {
+                      borderColor: isDark ? "#2E3236" : "#E6ECF2",
+                      backgroundColor: isDark ? "#0B1220" : "#F8FAFC",
+                    },
+                  ]}
+                >
+                  <Pressable
+                    style={styles.dropdownTrigger}
+                    onPress={() => !saving && setBloodTypeOpen((prev) => !prev)}
+                    disabled={saving}
+                  >
+                    <MaterialIcons
+                      name="bloodtype"
+                      size={16}
+                      color={isDark ? "#94A3B8" : "#64748B"}
+                      style={styles.dropdownIcon}
+                    />
+                    <ThemedText
+                      style={[
+                        styles.dropdownValue,
+                        {
+                          color: form.bloodType
+                            ? textPrimary
+                            : isDark
+                              ? "#6B7280"
+                              : "#94A3B8",
+                        },
+                      ]}
+                    >
+                      {form.bloodType || translateText("Select blood type (optional)")}
+                    </ThemedText>
+                    <MaterialIcons
+                      name={bloodTypeOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                      size={18}
+                      color={isDark ? "#94A3B8" : "#64748B"}
+                    />
+                  </Pressable>
+                  {bloodTypeOpen && (
+                    <View style={[styles.dropdownMenu, { borderTopColor: isDark ? "#2E3236" : "#E6ECF2" }]}> 
+                      <Pressable
+                        style={styles.dropdownOption}
+                        onPress={() => {
+                          handleChange("bloodType", "");
+                          setBloodTypeOpen(false);
+                        }}
+                      >
+                        <ThemedText style={[styles.dropdownOptionText, { color: textSecondary }]}>
+                          {translateText("None")}
+                        </ThemedText>
+                      </Pressable>
+                      {BLOOD_TYPE_OPTIONS.map((bloodType) => (
+                        <Pressable
+                          key={bloodType}
+                          style={styles.dropdownOption}
+                          onPress={() => {
+                            handleChange("bloodType", bloodType);
+                            setBloodTypeOpen(false);
+                          }}
+                        >
+                          <ThemedText
+                            style={[
+                              styles.dropdownOptionText,
+                              {
+                                color: form.bloodType === bloodType ? "#B91C1C" : textPrimary,
+                                fontFamily:
+                                  form.bloodType === bloodType
+                                    ? Fonts.sansExtraBold
+                                    : Fonts.sansSemiBold,
+                              },
+                            ]}
+                          >
+                            {bloodType}
+                          </ThemedText>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Allergies (comma-separated)
+                  {translateText("Allergies (comma-separated)")}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="e.g. Penicillin, Nuts, Dairy"
+                  placeholder={translateText("e.g. Penicillin, Nuts, Dairy")}
                   placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
                   value={form.allergies}
                   onChangeText={(text) => handleChange("allergies", text)}
@@ -486,11 +562,11 @@ export default function PatientProfileScreen() {
                 />
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Medical Conditions (comma-separated)
+                  {translateText("Medical Conditions (comma-separated)")}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="e.g. Asthma, Diabetes, Hypertension"
+                  placeholder={translateText("e.g. Asthma, Diabetes, Hypertension")}
                   placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
                   value={form.medicalConditions}
                   onChangeText={(text) =>
@@ -517,15 +593,15 @@ export default function PatientProfileScreen() {
                     { color: isDark ? "#38BDF8" : "#0EA5E9" },
                   ]}
                 >
-                  <MaterialIcons name="phone" size={16} /> Emergency Contact
+                  <MaterialIcons name="phone" size={16} /> {translateText("Emergency Contact")}
                 </ThemedText>
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Contact Name
+                  {translateText("Contact Name")}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
-                  placeholder="Emergency contact name"
+                  placeholder={translateText("Emergency contact name")}
                   placeholderTextColor={isDark ? "#6B7280" : "#94A3B8"}
                   autoCapitalize="words"
                   value={form.emergencyContactName}
@@ -536,7 +612,7 @@ export default function PatientProfileScreen() {
                 />
 
                 <ThemedText style={[styles.label, { color: textPrimary }]}>
-                  Contact Phone
+                  {translateText("Contact Phone")}
                 </ThemedText>
                 <TextInput
                   style={[styles.input, isDark ? styles.inputDark : null]}
@@ -556,14 +632,14 @@ export default function PatientProfileScreen() {
             {/* Action Buttons */}
             <View style={styles.buttonContainer}>
               <AppButton
-                label={saving ? "Saving..." : "Save Profile"}
+                label={saving ? translateText("Saving...") : translateText("Save Profile")}
                 onPress={handleSave}
                 variant="primary"
                 fullWidth
                 disabled={saving}
               />
               <AppButton
-                label="Cancel"
+                label={translateText("Cancel")}
                 onPress={() => router.back()}
                 variant="secondary"
                 fullWidth
@@ -670,6 +746,37 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B1220",
     borderColor: "#2E3236",
     color: "#ECEDEE",
+  },
+  dropdownWrap: {
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  dropdownTrigger: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  dropdownIcon: {
+    marginRight: 8,
+  },
+  dropdownValue: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: Fonts.sansMedium,
+  },
+  dropdownMenu: {
+    borderTopWidth: 1,
+    paddingVertical: 4,
+  },
+  dropdownOption: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  dropdownOptionText: {
+    fontSize: 14,
+    fontFamily: Fonts.sansSemiBold,
   },
   buttonContainer: {
     gap: 10,

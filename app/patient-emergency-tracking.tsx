@@ -43,6 +43,7 @@ import {
     subscribeToAmbulanceLocation,
     subscribeToEmergency,
 } from "@/utils/patient";
+import { translateText } from "@/utils/i18n";
 
 /* ─── Status notification messages (patient-facing) ───── */
 const STATUS_NOTIFICATIONS: Record<
@@ -506,19 +507,19 @@ export default function PatientEmergencyTrackingScreen() {
     }
 
     if (!driverPhone) {
-      showAlert("Unavailable", "Ambulance phone number is not available yet.");
+      showAlert(translateText("Unavailable"), translateText("Ambulance phone number is not available yet."));
       return;
     }
     try {
       const telUrl = `tel:${driverPhone}`;
       const canOpen = await Linking.canOpenURL(telUrl);
       if (!canOpen) {
-        showError("Call Failed", "This device cannot place a phone call.");
+        showError(translateText("Call Failed"), translateText("This device cannot place a phone call."));
         return;
       }
       await Linking.openURL(telUrl);
     } catch {
-      showError("Call Failed", "Unable to start the phone call.");
+      showError(translateText("Call Failed"), translateText("Unable to start the phone call."));
     }
   };
 
@@ -558,8 +559,8 @@ export default function PatientEmergencyTrackingScreen() {
       const { shareUrl, expiresAt, error: shareError } = await getShareLink();
       if (shareError || !shareUrl) {
         showError(
-          "Share Failed",
-          shareError?.message || "Unable to create share link.",
+          translateText("Share Failed"),
+          shareError?.message || translateText("Unable to create share link."),
         );
         return;
       }
@@ -573,26 +574,26 @@ export default function PatientEmergencyTrackingScreen() {
         ) {
           await (window as any).navigator.clipboard.writeText(shareUrl);
           showSuccess(
-            "Link Copied",
-            `Share link copied to clipboard. Expires: ${new Date(expiresAt).toLocaleString()}`,
+            translateText("Link Copied"),
+            `${translateText("Share link copied to clipboard.")} ${translateText("Expires")}: ${new Date(expiresAt).toLocaleString()}`,
           );
         } else {
           showAlert(
-            "Share Link",
-            `${message}\n\nExpires: ${new Date(expiresAt).toLocaleString()}`,
+            translateText("Share Link"),
+            `${translateText("Live emergency tracking link")}: ${shareUrl}\n\n${translateText("Expires")}: ${new Date(expiresAt).toLocaleString()}`,
           );
         }
       } else {
         await Share.share({
-          title: "Live Emergency Tracking",
-          message: `${message}\nExpires: ${new Date(expiresAt).toLocaleString()}`,
+          title: translateText("Live Emergency Tracking"),
+          message: `${translateText("Live emergency tracking link")}: ${shareUrl}\n${translateText("Expires")}: ${new Date(expiresAt).toLocaleString()}`,
           url: shareUrl,
         });
       }
     } catch (error: any) {
       showError(
-        "Share Failed",
-        error?.message || "Unable to share tracking link.",
+        translateText("Share Failed"),
+        error?.message || translateText("Unable to share tracking link."),
       );
     } finally {
       setSharingLink(false);
@@ -621,8 +622,8 @@ export default function PatientEmergencyTrackingScreen() {
     if (!emergencyId || typeof emergencyId !== "string" || !user?.id) return;
 
     showConfirm(
-      "Cancel Emergency",
-      "You can cancel only within 3 minutes from request creation. Continue?",
+      translateText("Cancel Emergency"),
+      translateText("You can cancel only within 3 minutes from request creation. Continue?"),
       async () => {
         const { success, error } = await cancelEmergencyWithinWindow(
           emergencyId,
@@ -631,15 +632,15 @@ export default function PatientEmergencyTrackingScreen() {
         );
         if (!success) {
           showError(
-            "Cancellation Failed",
-            error?.message || "Unable to cancel emergency request.",
+            translateText("Cancellation Failed"),
+            error?.message || translateText("Unable to cancel emergency request."),
           );
           return;
         }
 
         showSuccess(
-          "Emergency Cancelled",
-          "Your request has been cancelled successfully.",
+          translateText("Emergency Cancelled"),
+          translateText("Your request has been cancelled successfully."),
           () => router.replace("/help" as any),
         );
       },
@@ -654,49 +655,49 @@ export default function PatientEmergencyTrackingScreen() {
           color: "#F59E0B",
           bg: "#FEF3C7",
           icon: "hourglass-top" as const,
-          label: "Finding Ambulance...",
+          label: translateText("Finding Ambulance..."),
         };
       case "assigned":
         return {
           color: "#0EA5E9",
           bg: "#E0F2FE",
           icon: "local-shipping" as const,
-          label: "Ambulance Dispatched",
+          label: translateText("Ambulance Dispatched"),
         };
       case "en_route":
         return {
           color: "#8B5CF6",
           bg: "#EDE9FE",
           icon: "local-hospital" as const,
-          label: "Transporting to Hospital",
+          label: translateText("Transporting to Hospital"),
         };
       case "at_hospital":
         return {
           color: "#7C3AED",
           bg: "#EDE9FE",
           icon: "local-hospital" as const,
-          label: "At Hospital",
+          label: translateText("At Hospital"),
         };
       case "completed":
         return {
           color: "#059669",
           bg: "#ECFDF5",
           icon: "check-circle" as const,
-          label: "Completed",
+          label: translateText("Completed"),
         };
       case "cancelled":
         return {
           color: "#EF4444",
           bg: "#FEE2E2",
           icon: "cancel" as const,
-          label: "Cancelled",
+          label: translateText("Cancelled"),
         };
       default:
         return {
           color: "#6B7280",
           bg: "#F3F4F6",
           icon: "info" as const,
-          label: s,
+          label: translateText(s),
         };
     }
   };
@@ -704,15 +705,15 @@ export default function PatientEmergencyTrackingScreen() {
   const sevMeta = (t: string) => {
     switch (t?.toLowerCase()) {
       case "critical":
-        return { color: "#DC2626", label: "Critical" };
+        return { color: "#DC2626", label: translateText("Critical") };
       case "high":
-        return { color: "#EA580C", label: "High" };
+        return { color: "#EA580C", label: translateText("High") };
       case "medium":
-        return { color: "#0284C7", label: "Medium" };
+        return { color: "#0284C7", label: translateText("Medium") };
       case "low":
-        return { color: "#059669", label: "Low" };
+        return { color: "#059669", label: translateText("Low") };
       default:
-        return { color: "#6B7280", label: t || "Unknown" };
+        return { color: "#6B7280", label: t ? translateText(t) : translateText("Unknown") };
     }
   };
 
@@ -739,10 +740,10 @@ export default function PatientEmergencyTrackingScreen() {
         <View style={styles.errWrap}>
           <MaterialIcons name="error-outline" size={48} color="#EF4444" />
           <ThemedText style={styles.errText}>
-            {error || "Emergency not found"}
+            {error ? translateText(error) : translateText("Emergency not found")}
           </ThemedText>
           <Pressable onPress={() => router.back()} style={styles.errBtn}>
-            <ThemedText style={styles.errBtnText}>Go Back</ThemedText>
+            <ThemedText style={styles.errBtnText}>{translateText("Go Back")}</ThemedText>
           </Pressable>
         </View>
       </View>
@@ -870,16 +871,16 @@ export default function PatientEmergencyTrackingScreen() {
 
   // Status flow steps
   const statusSteps = [
-    { key: "pending", label: "Requested", icon: "hourglass-top" as const },
-    { key: "assigned", label: "Assigned", icon: "local-shipping" as const },
-    { key: "en_route", label: "En Route", icon: "directions-car" as const },
-    { key: "at_scene", label: "Arrived", icon: "place" as const },
+    { key: "pending", label: translateText("Requested"), icon: "hourglass-top" as const },
+    { key: "assigned", label: translateText("Assigned"), icon: "local-shipping" as const },
+    { key: "en_route", label: translateText("En Route"), icon: "directions-car" as const },
+    { key: "at_scene", label: translateText("Arrived"), icon: "place" as const },
     {
       key: "transporting",
-      label: "Transport",
+      label: translateText("Transport"),
       icon: "local-hospital" as const,
     },
-    { key: "completed", label: "Done", icon: "check-circle" as const },
+    { key: "completed", label: translateText("Done"), icon: "check-circle" as const },
   ];
   const currentStepIndex = statusSteps.findIndex(
     (s) => s.key === emergency.status,
@@ -928,10 +929,10 @@ export default function PatientEmergencyTrackingScreen() {
           />
           <View style={{ marginLeft: 10, flex: 1 }}>
             <ThemedText style={styles.notifTitle}>
-              {STATUS_NOTIFICATIONS[statusNotification]?.title}
+              {translateText(STATUS_NOTIFICATIONS[statusNotification]?.title || "")}
             </ThemedText>
             <ThemedText style={styles.notifMsg}>
-              {STATUS_NOTIFICATIONS[statusNotification]?.message}
+              {translateText(STATUS_NOTIFICATIONS[statusNotification]?.message || "")}
             </ThemedText>
           </View>
         </Animated.View>
@@ -973,7 +974,7 @@ export default function PatientEmergencyTrackingScreen() {
           ]}
           numberOfLines={1}
         >
-          Emergency Status
+          {translateText("Emergency Status")}
         </ThemedText>
 
         <Pressable
@@ -1029,7 +1030,7 @@ export default function PatientEmergencyTrackingScreen() {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
-              {distanceText ? `  •  ${distanceText} away` : ""}
+              {distanceText ? `  •  ${distanceText} ${translateText("away")}` : ""}
             </ThemedText>
           </View>
           <View style={[styles.sevChip, { borderColor: sev.color + "60" }]}>
@@ -1128,7 +1129,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                {animatedAmbulanceCoords ? "Live Tracking" : "Your Location"}
+                {animatedAmbulanceCoords ? translateText("Live Tracking") : translateText("Your Location")}
               </ThemedText>
               {distanceText ? (
                 <View style={styles.distBadge}>
@@ -1155,7 +1156,7 @@ export default function PatientEmergencyTrackingScreen() {
                   style={[styles.legendDot, { backgroundColor: "#DC2626" }]}
                 />
                 <ThemedText style={[styles.legendText, { color: subtleText }]}>
-                  {isTransportPhase && hospitalCoords ? "Hospital" : "You"}
+                  {isTransportPhase && hospitalCoords ? translateText("Hospital") : translateText("You")}
                 </ThemedText>
               </View>
               {animatedAmbulanceCoords && (
@@ -1166,7 +1167,7 @@ export default function PatientEmergencyTrackingScreen() {
                   <ThemedText
                     style={[styles.legendText, { color: subtleText }]}
                   >
-                    Ambulance
+                    {translateText("Ambulance")}
                   </ThemedText>
                 </View>
               )}
@@ -1193,7 +1194,7 @@ export default function PatientEmergencyTrackingScreen() {
                 <ThemedText
                   style={{ color: "#FFF", fontFamily: Fonts.sansBold, marginLeft: 8 }}
                 >
-                  Open Clear Route View
+                  {translateText("Open Clear Route View")}
                 </ThemedText>
               </Pressable>
             )}
@@ -1223,7 +1224,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                Assigned Ambulance
+                {translateText("Assigned Ambulance")}
               </ThemedText>
               {!isCompleted && <View style={styles.activeDot} />}
             </View>
@@ -1243,7 +1244,7 @@ export default function PatientEmergencyTrackingScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
-                  Vehicle
+                  {translateText("Vehicle")}
                 </ThemedText>
                 <ThemedText
                   style={[
@@ -1270,7 +1271,7 @@ export default function PatientEmergencyTrackingScreen() {
                   <ThemedText
                     style={[styles.detailLabel, { color: subtleText }]}
                   >
-                    Type
+                    {translateText("Type")}
                   </ThemedText>
                   <ThemedText
                     style={[
@@ -1289,7 +1290,7 @@ export default function PatientEmergencyTrackingScreen() {
               <View style={[styles.etaBadge, { backgroundColor: "#E0F2FE" }]}>
                 <MaterialIcons name="schedule" size={16} color="#0EA5E9" />
                 <ThemedText style={styles.etaText}>
-                  ETA: {assignment.pickup_eta_minutes} min
+                  {translateText("ETA")}: {assignment.pickup_eta_minutes} {translateText("min")}
                 </ThemedText>
               </View>
             )}
@@ -1320,8 +1321,8 @@ export default function PatientEmergencyTrackingScreen() {
                   }}
                 >
                   {canCallDriver
-                    ? "Call Ambulance"
-                    : "Ambulance Phone Unavailable"}
+                    ? translateText("Call Ambulance")
+                    : translateText("Ambulance Phone Unavailable")}
                 </ThemedText>
               </Pressable>
 
@@ -1349,7 +1350,7 @@ export default function PatientEmergencyTrackingScreen() {
                   }}
                 >
                   {canCancelByWindow
-                    ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
+                    ? `${translateText("Cancel Request")} (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
                     : [
                           "en_route",
                           "at_scene",
@@ -1357,8 +1358,8 @@ export default function PatientEmergencyTrackingScreen() {
                           "transporting",
                           "at_hospital",
                         ].includes(emergency.status)
-                      ? "Cancellation Closed (Ambulance Accepted)"
-                      : "Cancellation Window Closed"}
+                      ? translateText("Cancellation Closed (Ambulance Accepted)")
+                      : translateText("Cancellation Window Closed")}
                 </ThemedText>
               </Pressable>
             </View>
@@ -1388,7 +1389,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                Destination Hospital
+                {translateText("Destination Hospital")}
               </ThemedText>
             </View>
 
@@ -1403,7 +1404,7 @@ export default function PatientEmergencyTrackingScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
-                  Hospital
+                  {translateText("Hospital")}
                 </ThemedText>
                 <ThemedText
                   style={[
@@ -1411,7 +1412,7 @@ export default function PatientEmergencyTrackingScreen() {
                     { color: isDark ? "#F1F5F9" : "#0F172A" },
                   ]}
                 >
-                  {hospitalStatus.hospital_name || "Not assigned yet"}
+                  {hospitalStatus.hospital_name || translateText("Not assigned yet")}
                 </ThemedText>
               </View>
             </View>
@@ -1439,7 +1440,7 @@ export default function PatientEmergencyTrackingScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <ThemedText style={[styles.detailLabel, { color: subtleText }]}>
-                  Acceptance
+                  {translateText("Acceptance")}
                 </ThemedText>
                 <ThemedText
                   style={[
@@ -1452,8 +1453,8 @@ export default function PatientEmergencyTrackingScreen() {
                   ]}
                 >
                   {hospitalStatus.is_accepting_emergencies
-                    ? "Accepting emergencies"
-                    : "Temporarily not accepting"}
+                    ? translateText("Accepting emergencies")
+                    : translateText("Temporarily not accepting")}
                 </ThemedText>
               </View>
             </View>
@@ -1464,8 +1465,8 @@ export default function PatientEmergencyTrackingScreen() {
                 <MaterialIcons name="schedule" size={16} color="#7C3AED" />
                 <ThemedText style={[styles.etaText, { color: "#7C3AED" }]}>
                   {hospitalStatus.eta_to_hospital_minutes != null
-                    ? `ETA to hospital: ${hospitalStatus.eta_to_hospital_minutes} min`
-                    : "ETA to hospital pending"}
+                    ? `${translateText("ETA to hospital")}: ${hospitalStatus.eta_to_hospital_minutes} ${translateText("min")}`
+                    : translateText("ETA to hospital pending")}
                   {hospitalStatus.distance_to_hospital_km != null
                     ? ` • ${hospitalStatus.distance_to_hospital_km.toFixed(1)} km`
                     : ""}
@@ -1493,7 +1494,7 @@ export default function PatientEmergencyTrackingScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                Family Live Tracking
+                {translateText("Family Live Tracking")}
               </ThemedText>
             </View>
             <ThemedText
@@ -1502,7 +1503,7 @@ export default function PatientEmergencyTrackingScreen() {
                 { color: subtleText, marginBottom: 10 },
               ]}
             >
-              Share a secure live tracking link with family or guardians.
+              {translateText("Share a secure live tracking link with family or guardians.")}
             </ThemedText>
             <Pressable
               onPress={onShareLiveTracking}
@@ -1521,10 +1522,10 @@ export default function PatientEmergencyTrackingScreen() {
                 style={{ color: "#FFF", fontFamily: Fonts.sansBold, marginLeft: 8 }}
               >
                 {sharingLink
-                  ? "Preparing Share Link..."
+                  ? translateText("Preparing Share Link...")
                   : Platform.OS === "web"
-                    ? "Copy Share Link"
-                    : "Share to Any App"}
+                    ? translateText("Copy Share Link")
+                    : translateText("Share to Any App")}
               </ThemedText>
             </Pressable>
           </View>
@@ -1542,7 +1543,7 @@ export default function PatientEmergencyTrackingScreen() {
             ]}
           >
             <MaterialIcons name="home" size={20} color="#FFF" />
-            <ThemedText style={styles.homeBtnText}>Return Home</ThemedText>
+            <ThemedText style={styles.homeBtnText}>{translateText("Return Home")}</ThemedText>
           </Pressable>
         )}
       </ScrollView>

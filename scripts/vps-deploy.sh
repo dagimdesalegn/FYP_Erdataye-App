@@ -11,6 +11,7 @@ RELEASES_DIR="${RELEASES_DIR:-$BASE_DIR/releases}"
 SHARED_DIR="${SHARED_DIR:-$BASE_DIR/shared}"
 BACKUP_DIR="${BACKUP_DIR:-$BASE_DIR/backups}"
 WEB_ROOT="${WEB_ROOT:-/var/www/erdataya}"
+APK_PUBLIC_DIR="${APK_PUBLIC_DIR:-$WEB_ROOT/downloads}"
 BACKEND_CONTAINER="${BACKEND_CONTAINER:-erdataye-backend}"
 BACKEND_IMAGE_PREFIX="${BACKEND_IMAGE_PREFIX:-erdataye-backend}"
 LIVE_PORT_BIND="${LIVE_PORT_BIND:-127.0.0.1:9000:8000}"
@@ -100,11 +101,28 @@ wait_for_health "http://127.0.0.1:9000/health" 12 2
 
 echo "[7/8] Deploying landing frontend"
 mkdir -p "$deploy_backup_dir/landing"
+mkdir -p "$APK_PUBLIC_DIR"
 [[ -f "$WEB_ROOT/index.html" ]] && cp -a "$WEB_ROOT/index.html" "$deploy_backup_dir/landing/index.html" || true
 [[ -f "$WEB_ROOT/styles.css" ]] && cp -a "$WEB_ROOT/styles.css" "$deploy_backup_dir/landing/styles.css" || true
 [[ -f "$WEB_ROOT/app-update.json" ]] && cp -a "$WEB_ROOT/app-update.json" "$deploy_backup_dir/landing/app-update.json" || true
+[[ -f "$APK_PUBLIC_DIR/erdataye.apk" ]] && cp -a "$APK_PUBLIC_DIR/erdataye.apk" "$deploy_backup_dir/landing/erdataye.apk" || true
 
 rsync -av "$release_dir/website/landing/" "$WEB_ROOT/" >/dev/null
+
+apk_source=""
+if [[ -f "$release_dir/erdataye-release-build27.apk" ]]; then
+  apk_source="$release_dir/erdataye-release-build27.apk"
+elif [[ -f "$release_dir/erdataye-production.apk" ]]; then
+  apk_source="$release_dir/erdataye-production.apk"
+fi
+
+if [[ -n "$apk_source" ]]; then
+  cp -f "$apk_source" "$APK_PUBLIC_DIR/erdataye.apk"
+  cp -f "$apk_source" "$WEB_ROOT/erdataye.apk"
+else
+  echo "WARNING: No APK artifact found in release root; keeping existing public APK." >&2
+fi
+
 echo "$sha" > "$WEB_ROOT/.release-main-sha"
 
 nginx -t >/dev/null
