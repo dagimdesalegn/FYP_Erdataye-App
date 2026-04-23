@@ -679,12 +679,577 @@ const literalTranslations: Record<string, Record<Lang, string>> = {
     am: "በGoogle Maps ይክፈቱ",
     om: "Google Maps keessatti bani",
   },
+  "Load Failed": {
+    en: "Load Failed",
+    am: "መጫን አልተሳካም",
+    om: "Fe'uun hin milkoofne",
+  },
+  "Failed to load profile data": {
+    en: "Failed to load profile data",
+    am: "የመገለጫ መረጃ መጫን አልተሳካም",
+    om: "Odeeffannoo piroofaayilii fe'uun hin milkoofne",
+  },
+  "Authentication Required": {
+    en: "Authentication Required",
+    am: "ማረጋገጫ ያስፈልጋል",
+    om: "Mirkaneessuun barbaachisa",
+  },
+  "User not authenticated": {
+    en: "User not authenticated",
+    am: "ተጠቃሚው አልተረጋገጠም",
+    om: "Fayyadamaan hin mirkanoofne",
+  },
+  "Invalid Name": {
+    en: "Invalid Name",
+    am: "የተሳሳተ ስም",
+    om: "Maqaan sirrii miti",
+  },
+  "Please enter a valid full name (at least 2 characters)": {
+    en: "Please enter a valid full name (at least 2 characters)",
+    am: "እባክዎ ትክክለኛ ሙሉ ስም ያስገቡ (ቢያንስ 2 ፊደል)",
+    om: "Maaloo maqaa guutuu sirrii galchi (yoo xiqqaate qubee 2)",
+  },
+  "Invalid Phone": {
+    en: "Invalid Phone",
+    am: "የተሳሳተ ስልክ",
+    om: "Bilbilli sirrii miti",
+  },
+  "Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678": {
+    en: "Enter a valid Ethiopian phone number starting with 09 or +251.\nExample: 0912345678",
+    am: "በ09 ወይም +251 የሚጀምር ትክክለኛ የኢትዮጵያ ስልክ ቁጥር ያስገቡ።\nምሳሌ: 0912345678",
+    om: "Lakkoofsa bilbilaa Itoophiyaa sirrii 09 yookaan +251 irraa jalqabu galchi.\nFakkeenya: 0912345678",
+  },
+  "Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678": {
+    en: "Emergency contact phone must be a valid Ethiopian number.\nExample: 0912345678",
+    am: "ስልክ የአደጋ ግንኙነት ትክክለኛ የኢትዮጵያ ቁጥር መሆን አለበት።\nምሳሌ: 0912345678",
+    om: "Bilbilli namni balaa yeroo waamamu lakkoofsa Itoophiyaa sirrii ta'uu qaba.\nFakkeenya: 0912345678",
+  },
+  "Save Failed": {
+    en: "Save Failed",
+    am: "ማስቀመጥ አልተሳካም",
+    om: "Kuusuun hin milkoofne",
+  },
+  "Failed to save profile": {
+    en: "Failed to save profile",
+    am: "መገለጫ ማስቀመጥ አልተሳካም",
+    om: "Piroofaayilii kuusuun hin milkoofne",
+  },
+  "Profile updated successfully!": {
+    en: "Profile updated successfully!",
+    am: "መገለጫው በተሳካ ሁኔታ ተዘምኗል!",
+    om: "Piroofaayilli milkaa'inaan fooyya'eera!",
+  },
+  "Patient Profile": {
+    en: "Patient Profile",
+    am: "የታካሚ መገለጫ",
+    om: "Piroofaayilii Dhukkubsataa",
+  },
+  "Keep your medical information up to date": {
+    en: "Keep your medical information up to date",
+    am: "የህክምና መረጃዎን ዘመናዊ ያድርጉ",
+    om: "Odeeffannoo fayyaa kee yeroo yeroon haaromsi",
+  },
+  "Personal Information": {
+    en: "Personal Information",
+    am: "የግል መረጃ",
+    om: "Odeeffannoo Dhuunfaa",
+  },
+  "Medical Information": {
+    en: "Medical Information",
+    am: "የህክምና መረጃ",
+    om: "Odeeffannoo Fayyaa",
+  },
+  "Select blood type (optional)": {
+    en: "Select blood type (optional)",
+    am: "የደም አይነት ይምረጡ (አማራጭ)",
+    om: "Gosa dhiigaa fili (dirqama miti)",
+  },
+  "Allergies (comma-separated)": {
+    en: "Allergies (comma-separated)",
+    am: "አለርጂዎች (በኮማ የተለዩ)",
+    om: "Alerjii (kommaan adda baasame)",
+  },
+  "Medical Conditions (comma-separated)": {
+    en: "Medical Conditions (comma-separated)",
+    am: "የህክምና ሁኔታዎች (በኮማ የተለዩ)",
+    om: "Haala fayyaa (kommaan adda baasame)",
+  },
+  "Contact Name": {
+    en: "Contact Name",
+    am: "የግንኙነት ስም",
+    om: "Maqaa Nama Waamamuu",
+  },
+  "Emergency contact name": {
+    en: "Emergency contact name",
+    am: "የአደጋ ጊዜ ግንኙነት ስም",
+    om: "Maqaa nama balaa yeroo waamamu",
+  },
+  "Contact Phone": {
+    en: "Contact Phone",
+    am: "የግንኙነት ስልክ",
+    om: "Bilbila Nama Waamamuu",
+  },
+  "Saving...": {
+    en: "Saving...",
+    am: "በማስቀመጥ ላይ...",
+    om: "Kuusaa jira...",
+  },
+  "Save Profile": {
+    en: "Save Profile",
+    am: "መገለጫ አስቀምጥ",
+    om: "Piroofaayila Kuusi",
+  },
+  "None": {
+    en: "None",
+    am: "የለም",
+    om: "Hin jiru",
+  },
+  "Unavailable": {
+    en: "Unavailable",
+    am: "አይገኝም",
+    om: "Hin argamu",
+  },
+  "Ambulance phone number is not available yet.": {
+    en: "Ambulance phone number is not available yet.",
+    am: "የአምቡላንስ ስልክ ቁጥር እስካሁን አልተገኘም።",
+    om: "Lakkoofsi bilbilaa ambulaansii ammaaf hin argamne.",
+  },
+  "Call Failed": {
+    en: "Call Failed",
+    am: "ጥሪ አልተሳካም",
+    om: "Bilbiluun hin milkoofne",
+  },
+  "This device cannot place a phone call.": {
+    en: "This device cannot place a phone call.",
+    am: "ይህ መሳሪያ የስልክ ጥሪ ማድረግ አይችልም።",
+    om: "Meeshaan kun bilbila gochuu hin danda'u.",
+  },
+  "Unable to start the phone call.": {
+    en: "Unable to start the phone call.",
+    am: "የስልክ ጥሪውን መጀመር አልተቻለም።",
+    om: "Bilbiluu jalqabuun hin danda'amne.",
+  },
+  "Share Failed": {
+    en: "Share Failed",
+    am: "ማጋራት አልተሳካም",
+    om: "Qooduun hin milkoofne",
+  },
+  "Unable to create share link.": {
+    en: "Unable to create share link.",
+    am: "የማጋሪያ ሊንክ መፍጠር አልተቻለም።",
+    om: "Liinkii qoodinsaa uumuun hin danda'amne.",
+  },
+  "Unable to share tracking link.": {
+    en: "Unable to share tracking link.",
+    am: "የክትትል ሊንክ ማጋራት አልተቻለም።",
+    om: "Liinkii hordoffii qooduun hin danda'amne.",
+  },
+  "Link Copied": {
+    en: "Link Copied",
+    am: "ሊንኩ ተቀድቷል",
+    om: "Liinkiin kopha'eera",
+  },
+  "Share Link": {
+    en: "Share Link",
+    am: "ሊንክ አጋራ",
+    om: "Liinkii Qoodi",
+  },
+  "Emergency Status": {
+    en: "Emergency Status",
+    am: "የአደጋ ሁኔታ",
+    om: "Haala Balaa",
+  },
+  "Requested": {
+    en: "Requested",
+    am: "ተጠይቋል",
+    om: "Gaafatame",
+  },
+  "Assigned": {
+    en: "Assigned",
+    am: "ተመድቧል",
+    om: "Ramadame",
+  },
+  "Arrived": {
+    en: "Arrived",
+    am: "ደርሷል",
+    om: "Ga'eera",
+  },
+  "Transport": {
+    en: "Transport",
+    am: "መጓጓዣ",
+    om: "Geejjiba",
+  },
+  "Done": {
+    en: "Done",
+    am: "ተጠናቋል",
+    om: "Xumurame",
+  },
+  "Finding Ambulance...": {
+    en: "Finding Ambulance...",
+    am: "አምቡላንስ በመፈለግ ላይ...",
+    om: "Ambulaansii barbaadaa jira...",
+  },
+  "Ambulance Dispatched": {
+    en: "Ambulance Dispatched",
+    am: "አምቡላንስ ተልኳል",
+    om: "Ambulaansiin ergameera",
+  },
+  "Transporting to Hospital": {
+    en: "Transporting to Hospital",
+    am: "ወደ ሆስፒታል በመጓጓዝ ላይ",
+    om: "Gara hospitaalaatti geejjibaa jira",
+  },
+  "Cancelled": {
+    en: "Cancelled",
+    am: "ተሰርዟል",
+    om: "Haqameera",
+  },
+  "Unknown": {
+    en: "Unknown",
+    am: "ያልታወቀ",
+    om: "Hin beekamne",
+  },
+  "Go Back": {
+    en: "Go Back",
+    am: "ተመለስ",
+    om: "Deebi'i",
+  },
+  "Emergency not found": {
+    en: "Emergency not found",
+    am: "አደጋው አልተገኘም",
+    om: "Balaan hin argamne",
+  },
+  "Your Location": {
+    en: "Your Location",
+    am: "የእርስዎ አካባቢ",
+    om: "Bakka Kee",
+  },
+  "You": {
+    en: "You",
+    am: "እርስዎ",
+    om: "Ati",
+  },
+  "Ambulance": {
+    en: "Ambulance",
+    am: "አምቡላንስ",
+    om: "Ambulaansii",
+  },
+  "Open Clear Route View": {
+    en: "Open Clear Route View",
+    am: "ግልጽ የመንገድ እይታ ክፈት",
+    om: "Mul'ata karaa ifaa bani",
+  },
+  "Assigned Ambulance": {
+    en: "Assigned Ambulance",
+    am: "የተመደበ አምቡላንስ",
+    om: "Ambulaansii ramadame",
+  },
+  "Vehicle": {
+    en: "Vehicle",
+    am: "ተሽከርካሪ",
+    om: "Konkolaataa",
+  },
+  "ETA": {
+    en: "ETA",
+    am: "የመድረሻ ጊዜ",
+    om: "Yeroo dhaqabaa",
+  },
+  "min": {
+    en: "min",
+    am: "ደቂቃ",
+    om: "daqiiqaa",
+  },
+  "Call Ambulance": {
+    en: "Call Ambulance",
+    am: "አምቡላንስ ይደውሉ",
+    om: "Ambulaansii Bilbilaa",
+  },
+  "Ambulance Phone Unavailable": {
+    en: "Ambulance Phone Unavailable",
+    am: "የአምቡላንስ ስልክ አይገኝም",
+    om: "Bilbilli ambulaansii hin argamu",
+  },
+  "Cancel Request": {
+    en: "Cancel Request",
+    am: "ጥያቄውን ሰርዝ",
+    om: "Gaaffii Haqi",
+  },
+  "Cancellation Closed (Ambulance Accepted)": {
+    en: "Cancellation Closed (Ambulance Accepted)",
+    am: "መሰረዝ ተዘግቷል (አምቡላንስ ተቀብሏል)",
+    om: "Haquun cufameera (Ambulaansiin fudhatameera)",
+  },
+  "Cancellation Window Closed": {
+    en: "Cancellation Window Closed",
+    am: "የመሰረዝ ጊዜ ተዘግቷል",
+    om: "Yeroon haqinsaa cufameera",
+  },
+  "Destination Hospital": {
+    en: "Destination Hospital",
+    am: "መዳረሻ ሆስፒታል",
+    om: "Hospitaala Itti Geeffamu",
+  },
+  "Not assigned yet": {
+    en: "Not assigned yet",
+    am: "እስካሁን አልተመደበም",
+    om: "Ammaaf hin ramadamne",
+  },
+  "Acceptance": {
+    en: "Acceptance",
+    am: "መቀበል",
+    om: "Fudhachuu",
+  },
+  "Accepting emergencies": {
+    en: "Accepting emergencies",
+    am: "አደጋዎችን በመቀበል ላይ",
+    om: "Balaa fudhachaa jira",
+  },
+  "Temporarily not accepting": {
+    en: "Temporarily not accepting",
+    am: "ለጊዜው አይቀበልም",
+    om: "Yeroo ammaaf hin fudhatu",
+  },
+  "ETA to hospital": {
+    en: "ETA to hospital",
+    am: "ወደ ሆስፒታል የመድረሻ ጊዜ",
+    om: "Yeroo hospitaala ga'uu",
+  },
+  "ETA to hospital pending": {
+    en: "ETA to hospital pending",
+    am: "ወደ ሆስፒታል የመድረሻ ጊዜ በመጠበቅ ላይ",
+    om: "Yeroon hospitaala ga'uu eeggachaa jira",
+  },
+  "Family Live Tracking": {
+    en: "Family Live Tracking",
+    am: "የቤተሰብ ቀጥታ ክትትል",
+    om: "Hordoffii kallattii maatii",
+  },
+  "Share a secure live tracking link with family or guardians.": {
+    en: "Share a secure live tracking link with family or guardians.",
+    am: "ከቤተሰብ ወይም አሳዳጊዎች ጋር ደህንነቱ የተጠበቀ የቀጥታ ክትትል ሊንክ ያጋሩ።",
+    om: "Liinkii hordoffii kallattii nageenya qabu maatii yookaan eeggitoota waliin qoodi.",
+  },
+  "Preparing Share Link...": {
+    en: "Preparing Share Link...",
+    am: "የማጋሪያ ሊንክ በመዘጋጀት ላይ...",
+    om: "Liinkii qoodinsaa qopheessaa jira...",
+  },
+  "Copy Share Link": {
+    en: "Copy Share Link",
+    am: "የማጋሪያ ሊንክ ቅዳ",
+    om: "Liinkii qoodinsaa kophi",
+  },
+  "Share to Any App": {
+    en: "Share to Any App",
+    am: "ወደ ማንኛውም መተግበሪያ አጋራ",
+    om: "Appii kamittiyyuu qoodi",
+  },
+  "Return Home": {
+    en: "Return Home",
+    am: "ወደ መነሻ ተመለስ",
+    om: "Gara manaatti deebi'i",
+  },
+  "Cancellation Failed": {
+    en: "Cancellation Failed",
+    am: "መሰረዝ አልተሳካም",
+    om: "Haquun hin milkoofne",
+  },
+  "Unable to cancel emergency request.": {
+    en: "Unable to cancel emergency request.",
+    am: "የአደጋ ጥያቄውን መሰረዝ አልተቻለም።",
+    om: "Gaaffii balaa haquun hin danda'amne.",
+  },
+  "Emergency Cancelled": {
+    en: "Emergency Cancelled",
+    am: "አደጋው ተሰርዟል",
+    om: "Balaan haqameera",
+  },
+  "Your request has been cancelled successfully.": {
+    en: "Your request has been cancelled successfully.",
+    am: "ጥያቄዎ በተሳካ ሁኔታ ተሰርዟል።",
+    om: "Gaaffiin kee milkaa'inaan haqameera.",
+  },
+  "You can cancel only within 3 minutes from request creation. Continue?": {
+    en: "You can cancel only within 3 minutes from request creation. Continue?",
+    am: "ከጥያቄ ፍጠራ በኋላ በ3 ደቂቃ ውስጥ ብቻ መሰረዝ ይችላሉ። ይቀጥሉ?",
+    om: "Gaaffiin erga uumamee booda daqiiqaa 3 keessatti qofa haquu dandeessa. Itti fufnaa?",
+  },
   "Live Map": { en: "Live Map", am: "ቀጥታ ካርታ", om: "Kaartaa Kallattii" },
   "Hospital": { en: "Hospital", am: "ሆስፒታል", om: "Hospitaala" },
   "CALL\nAMBULANCE": {
     en: "CALL\nAMBULANCE",
     am: "አምቡላንስ\nይደውሉ",
     om: "AMBULAANSII\nBILBILAA",
+  },
+  "At Hospital": {
+    en: "At Hospital",
+    am: "ሆስፒታል ውስጥ",
+    om: "Hospitaala keessa",
+  },
+  "En Route": {
+    en: "En Route",
+    am: "በመንገድ ላይ",
+    om: "Karaa irra",
+  },
+  "Critical": {
+    en: "Critical",
+    am: "አስቸኳይ",
+    om: "Baayyee cimaa",
+  },
+  "High": {
+    en: "High",
+    am: "ከፍተኛ",
+    om: "Ol'aanaa",
+  },
+  "Medium": {
+    en: "Medium",
+    am: "መካከለኛ",
+    om: "Giddugaleessa",
+  },
+  "Low": {
+    en: "Low",
+    am: "ዝቅተኛ",
+    om: "Gadi-aanaa",
+  },
+  "Live Tracking": {
+    en: "Live Tracking",
+    am: "ቀጥታ ክትትል",
+    om: "Hordoffii kallattii",
+  },
+  "Type": {
+    en: "Type",
+    am: "አይነት",
+    om: "Gosa",
+  },
+  "away": {
+    en: "away",
+    am: "ርቀት",
+    om: "fagaatee",
+  },
+  "Expires": {
+    en: "Expires",
+    am: "የሚያበቃበት",
+    om: "Yeroo dhumatu",
+  },
+  "Enter your full name": {
+    en: "Enter your full name",
+    am: "ሙሉ ስምዎን ያስገቡ",
+    om: "Maqaa guutuu kee galchi",
+  },
+  "e.g. Penicillin, Nuts, Dairy": {
+    en: "e.g. Penicillin, Nuts, Dairy",
+    am: "ለምሳሌ፦ ፔኒሲሊን፣ ነትስ፣ ወተት",
+    om: "Fkn: Penicillin, Nuts, Dairy",
+  },
+  "e.g. Asthma, Diabetes, Hypertension": {
+    en: "e.g. Asthma, Diabetes, Hypertension",
+    am: "ለምሳሌ፦ አስማ፣ የስኳር ህመም፣ የደም ግፊት",
+    om: "Fkn: Asthma, Diabetes, Hypertension",
+  },
+  "Cancel": {
+    en: "Cancel",
+    am: "ሰርዝ",
+    om: "Haqi",
+  },
+  "Cancel Emergency": {
+    en: "Cancel Emergency",
+    am: "አደጋውን ሰርዝ",
+    om: "Balaa haqi",
+  },
+  "Invalid emergency ID": {
+    en: "Invalid emergency ID",
+    am: "የአደጋ መለያ ልክ አይደለም",
+    om: "Eenyummaa balaa sirrii miti",
+  },
+  "Failed to load emergency details": {
+    en: "Failed to load emergency details",
+    am: "የአደጋ ዝርዝሮችን መጫን አልተሳካም",
+    om: "Bal'ina balaa fe'uun hin milkoofne",
+  },
+  "Request Sent": {
+    en: "Request Sent",
+    am: "ጥያቄ ተልኳል",
+    om: "Gaaffiin ergameera",
+  },
+  "Looking for the nearest available ambulance...": {
+    en: "Looking for the nearest available ambulance...",
+    am: "ቅርብ እና ዝግጁ አምቡላንስ በመፈለግ ላይ...",
+    om: "Ambulaansii dhihoo fi argamu barbaadaa jira...",
+  },
+  "Ambulance Assigned": {
+    en: "Ambulance Assigned",
+    am: "አምቡላንስ ተመድቧል",
+    om: "Ambulaansiin ramadameera",
+  },
+  "An ambulance has been assigned to your emergency.": {
+    en: "An ambulance has been assigned to your emergency.",
+    am: "ለአደጋዎ አምቡላንስ ተመድቧል።",
+    om: "Balaa keef ambulaansiin ramadameera.",
+  },
+  "Ambulance is Coming!": {
+    en: "Ambulance is Coming!",
+    am: "አምቡላንስ እየመጣ ነው!",
+    om: "Ambulaansiin dhufaa jira!",
+  },
+  "The ambulance is on its way to your location.": {
+    en: "The ambulance is on its way to your location.",
+    am: "አምቡላንሱ ወደ እርስዎ አካባቢ እየመጣ ነው።",
+    om: "Ambulaansiin gara bakka kee dhufaa jira.",
+  },
+  "Ambulance Arrived": {
+    en: "Ambulance Arrived",
+    am: "አምቡላንስ ደርሷል",
+    om: "Ambulaansiin ga'eera",
+  },
+  "The ambulance has arrived at your location.": {
+    en: "The ambulance has arrived at your location.",
+    am: "አምቡላንሱ ወደ እርስዎ ቦታ ደርሷል።",
+    om: "Ambulaansiin bakka kee ga'eera.",
+  },
+  "On the Way to Hospital": {
+    en: "On the Way to Hospital",
+    am: "ወደ ሆስፒታል በመንገድ ላይ",
+    om: "Gara hospitaalaatti karaa irra",
+  },
+  "You are being transported to the hospital.": {
+    en: "You are being transported to the hospital.",
+    am: "ወደ ሆስፒታል እየተወሰዱ ነው።",
+    om: "Gara hospitaalaatti geeffamaa jirta.",
+  },
+  "Arrived at Hospital": {
+    en: "Arrived at Hospital",
+    am: "ሆስፒታል ደርሰዋል",
+    om: "Hospitaala ga'ameera",
+  },
+  "You have arrived at the hospital.": {
+    en: "You have arrived at the hospital.",
+    am: "ሆስፒታል ደርሰዋል።",
+    om: "Hospitaala ga'atteetta.",
+  },
+  "Emergency Completed": {
+    en: "Emergency Completed",
+    am: "አደጋው ተጠናቋል",
+    om: "Balaan xumurameera",
+  },
+  "Your emergency request has been completed. Stay safe!": {
+    en: "Your emergency request has been completed. Stay safe!",
+    am: "የአደጋ ጥያቄዎ ተጠናቋል። ደህና ይሁኑ!",
+    om: "Gaaffiin balaa kee xumurameera. Nageenya kee eegi!",
+  },
+  "This emergency request has been cancelled.": {
+    en: "This emergency request has been cancelled.",
+    am: "ይህ የአደጋ ጥያቄ ተሰርዟል።",
+    om: "Gaaffiin balaa kun haqameera.",
+  },
+  "Share link copied to clipboard.": {
+    en: "Share link copied to clipboard.",
+    am: "የማጋሪያ ሊንኩ ወደ ክሊፕቦርድ ተቀድቷል።",
+    om: "Liinkiin qoodinsaa gara clipboard tti kophaa'eera.",
+  },
+  "Live emergency tracking link": {
+    en: "Live emergency tracking link",
+    am: "የቀጥታ የአደጋ ክትትል ሊንክ",
+    om: "Liinkii hordoffii balaa kallattii",
   },
 };
 
