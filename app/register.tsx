@@ -55,6 +55,7 @@ export default function RegisterScreen() {
   const [hospitals, setHospitals] = useState<RegistrationHospitalOption[]>([]);
   const [loadingHospitals, setLoadingHospitals] = useState(false);
   const [userRole, setUserRole] = useState<AppRegistrationRole>("patient");
+  const [bloodTypeOpen, setBloodTypeOpen] = useState(false);
   const { width: windowWidth } = useWindowDimensions();
   const isSmallScreen = windowWidth < 480;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -333,7 +334,7 @@ export default function RegisterScreen() {
         }
       }
 
-      // Ambulance accounts now require explicit hospital approval before activation.
+      // Ambulance accounts require hospital approval before first app access.
       if (userRole === "ambulance") {
         await (await import("@/utils/auth")).signOut();
         setUser(null);
@@ -785,57 +786,77 @@ export default function RegisterScreen() {
                     </ThemedText>
                     <View
                       style={[
-                        styles.bloodTypePanel,
+                        styles.dropdownWrap,
                         {
                           backgroundColor: inputBg,
                           borderColor: fieldErrors.bloodType ? "#DC2626" : inputBorder,
                         },
                       ]}
                     >
-                      <View style={styles.bloodTypeHeader}>
+                      <Pressable
+                        style={styles.dropdownTrigger}
+                        onPress={() => !loading && setBloodTypeOpen((prev) => !prev)}
+                        disabled={loading}
+                      >
                         <MaterialIcons
                           name="bloodtype"
                           size={16}
                           color={fieldErrors.bloodType ? "#DC2626" : textSecondary}
                           style={styles.inputIcon}
                         />
-                        <ThemedText style={[styles.bloodTypeHint, { color: textSecondary }]}>Select blood type (optional)</ThemedText>
-                      </View>
-                      <View style={styles.bloodTypeGrid}>
-                        {BLOOD_TYPE_OPTIONS.map((bloodType) => {
-                          const selected = form.bloodType === bloodType;
-                          return (
+                        <ThemedText
+                          style={[
+                            styles.dropdownValue,
+                            { color: form.bloodType ? textPrimary : placeholderColor },
+                          ]}
+                        >
+                          {form.bloodType || "Select blood type (optional)"}
+                        </ThemedText>
+                        <MaterialIcons
+                          name={bloodTypeOpen ? "keyboard-arrow-up" : "keyboard-arrow-down"}
+                          size={18}
+                          color={textSecondary}
+                        />
+                      </Pressable>
+                      {bloodTypeOpen && (
+                        <View style={[styles.dropdownMenu, { borderTopColor: inputBorder }]}> 
+                          <Pressable
+                            style={styles.dropdownOption}
+                            onPress={() => {
+                              handleChange("bloodType", "");
+                              setBloodTypeOpen(false);
+                            }}
+                          >
+                            <ThemedText style={[styles.dropdownOptionText, { color: textSecondary }]}>None</ThemedText>
+                          </Pressable>
+                          {BLOOD_TYPE_OPTIONS.map((bloodType) => (
                             <Pressable
                               key={bloodType}
-                              onPress={() => handleChange("bloodType", selected ? "" : bloodType)}
-                              disabled={loading}
-                              style={[
-                                styles.bloodTypeChip,
-                                {
-                                  borderColor: selected ? "#DC2626" : inputBorder,
-                                  backgroundColor: selected
-                                    ? isDark
-                                      ? "rgba(220,38,38,0.2)"
-                                      : "#FEE2E2"
-                                    : isDark
-                                      ? "#121826"
-                                      : "#FFFFFF",
-                                },
-                              ]}
+                              style={styles.dropdownOption}
+                              onPress={() => {
+                                handleChange("bloodType", bloodType);
+                                setBloodTypeOpen(false);
+                              }}
                             >
                               <ThemedText
-                                style={{
-                                  fontSize: 12,
-                                  fontFamily: selected ? Fonts.sansExtraBold : Fonts.sansSemiBold,
-                                  color: selected ? "#B91C1C" : textPrimary,
-                                }}
+                                style={[
+                                  styles.dropdownOptionText,
+                                  {
+                                    color:
+                                      form.bloodType === bloodType ? "#B91C1C" : textPrimary,
+                                    fontFamily:
+                                      form.bloodType === bloodType
+                                        ? Fonts.sansExtraBold
+                                        : Fonts.sansSemiBold,
+                                  },
+                                ]}
                               >
                                 {bloodType}
                               </ThemedText>
                             </Pressable>
-                          );
-                        })}
-                      </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
                     {fieldErrors.bloodType ? (
                       <ThemedText style={styles.fieldError}>
@@ -1575,34 +1596,34 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansSemiBold,
     textAlign: "center",
   },
-  bloodTypePanel: {
+  dropdownWrap: {
     borderWidth: 1.5,
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 8,
+    overflow: "hidden",
   },
-  bloodTypeHeader: {
+  dropdownTrigger: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: 44,
+    paddingHorizontal: 10,
   },
-  bloodTypeHint: {
+  dropdownValue: {
+    flex: 1,
     fontSize: 12,
     fontFamily: Fonts.sansMedium,
   },
-  bloodTypeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+  dropdownMenu: {
+    borderTopWidth: 1,
+    maxHeight: 220,
   },
-  bloodTypeChip: {
-    minWidth: 46,
-    height: 32,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    alignItems: "center",
+  dropdownOption: {
+    minHeight: 36,
     justifyContent: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+  },
+  dropdownOptionText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansSemiBold,
   },
   primaryBtn: {
     marginTop: 2,
