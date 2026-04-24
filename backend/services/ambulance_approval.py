@@ -111,24 +111,22 @@ async def _profile_row_to_request(row: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
-async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
-    rows, code = await db_select(
-        _PROFILE_TABLE,
-        {"id": user_id},
-        columns=(
-            "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
-            "ambulance_type,approval_status,created_at,updated_at"
-        ),
-    )
-    if code not in (200, 206) or not rows:
-        return None
+_PROFILE_COLS_FULL = (
+    "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
+    "ambulance_type,approval_status,created_at,updated_at"
+)
+_PROFILE_COLS_MIN = "id,role,hospital_id,full_name,phone,created_at,updated_at"
 
-    if not rows:
-        return None
-    row = dict(rows[0])
-    if str(row.get("role") or "").strip().lower() not in ("ambulance", "driver"):
-        return None
-    return row
+
+async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
+    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_MIN):
+        rows, code = await db_select(_PROFILE_TABLE, {"id": user_id}, columns=cols)
+        if code in (200, 206) and rows:
+            row = dict(rows[0])
+            if str(row.get("role") or "").strip().lower() not in ("ambulance", "driver"):
+                return None
+            return row
+    return None
 
 
 async def upsert_ambulance_registration_request(
@@ -283,22 +281,12 @@ async def list_ambulance_registration_requests(
     if status_norm and status_norm != "pending":
         profile_params["approval_status"] = f"eq.{status_norm}"
 
-    profile_cols = (
-        "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
-        "ambulance_type,approval_status,created_at,updated_at"
-    )
+    # Avoid selecting optional columns that may not exist on older DBs (breaks whole query).
     profile_rows, profile_code = await db_query(
         _PROFILE_TABLE,
-        columns=profile_cols,
+        columns=_PROFILE_COLS_MIN,
         params=profile_params,
     )
-    if _is_missing_column(profile_code, profile_rows, "approval_status"):
-        profile_params.pop("approval_status", None)
-        profile_rows, profile_code = await db_query(
-            _PROFILE_TABLE,
-            columns=profile_cols,
-            params=profile_params,
-        )
     if profile_code not in (200, 206) or not profile_rows:
         return combined
 

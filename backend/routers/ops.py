@@ -224,8 +224,8 @@ class EmergencyHospitalStatusResponse(BaseModel):
 
 async def _get_profile(user_id: str, current_user: dict | None = None) -> dict | None:
     rows, code = await db_select("profiles", {"id": user_id}, columns="id,role,hospital_id")
+    metadata = (current_user or {}).get("user_metadata") or {}
     if code not in (200, 206) or not rows:
-        metadata = (current_user or {}).get("user_metadata") or {}
         metadata_role = str(metadata.get("role") or "").lower()
         if metadata_role in ("admin", "hospital", "driver", "ambulance", "patient"):
             return {
@@ -234,7 +234,13 @@ async def _get_profile(user_id: str, current_user: dict | None = None) -> dict |
                 "hospital_id": metadata.get("hospital_id"),
             }
         return None
-    return rows[0]
+    row = dict(rows[0])
+    # Trigger-created `profiles` rows often omit hospital_id while JWT (staff signup) has it.
+    if not str(row.get("hospital_id") or "").strip() and metadata.get("hospital_id"):
+        row["hospital_id"] = metadata.get("hospital_id")
+    if not str(row.get("role") or "").strip() and metadata.get("role"):
+        row["role"] = metadata.get("role")
+    return row
 
 
 async def _require_role(user_id: str, current_user: dict, allowed: tuple[str, ...]) -> dict:
@@ -563,10 +569,16 @@ async def _resolve_effective_hospital_id(
     requested_hospital_id: str | None = None,
 ) -> str | None:
     role = str(profile.get("role") or "").lower()
-    effective_hospital_id = requested_hospital_id if role == "admin" and requested_hospital_id else profile.get("hospital_id")
+    metadata = current_user.get("user_metadata") or {}
+    effective_hospital_id = (
+        requested_hospital_id if role == "admin" and requested_hospital_id else profile.get("hospital_id")
+    )
+    effective_hospital_id = str(effective_hospital_id or "").strip() or None
+    meta_hid = str(metadata.get("hospital_id") or "").strip()
+    if not effective_hospital_id and meta_hid:
+        effective_hospital_id = meta_hid
 
     if role == "hospital" and not effective_hospital_id:
-        metadata = current_user.get("user_metadata") or {}
         phone = str(metadata.get("phone") or "").strip()
         name = str(metadata.get("full_name") or "").strip()
 
@@ -589,7 +601,7 @@ async def _resolve_effective_hospital_id(
                 effective_hospital_id = str(by_name_rows[0].get("id") or "")
 
         # Persist recovered linkage to reduce future fallback lookups.
-        if effective_hospital_id and not profile.get("hospital_id") and profile.get("id"):
+        if effective_hospital_id and not str(profile.get("hospital_id") or "").strip() and profile.get("id"):
             await db_update(
                 "profiles",
                 {"id": str(profile.get("id"))},
