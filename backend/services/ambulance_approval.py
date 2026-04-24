@@ -1,40 +1,23 @@
 from __future__ import annotations
 
-import json
-import os
 from datetime import datetime, timezone
-from threading import Lock
 from typing import Any
 
-_APPROVALS_FILE = os.path.join(os.path.dirname(__file__), "..", "_ambulance_approvals.json")
-_APPROVALS_LOCK = Lock()
+from services.supabase import db_query, db_select, db_upsert, db_update
+
+_TABLE = "ambulance_registration_requests"
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _load() -> dict[str, dict[str, Any]]:
-    try:
-        with open(_APPROVALS_FILE, "r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-            if isinstance(payload, dict):
-                return {
-                    str(k): v
-                    for k, v in payload.items()
-                    if isinstance(v, dict)
-                }
-    except (FileNotFoundError, OSError, json.JSONDecodeError):
-        return {}
-    return {}
+def _normalize_status(value: str | None) -> str:
+    status = str(value or "").strip().lower()
+    return status if status in ("pending", "approved", "rejected") else "pending"
 
 
-def _save(records: dict[str, dict[str, Any]]) -> None:
-    with open(_APPROVALS_FILE, "w", encoding="utf-8") as handle:
-        json.dump(records, handle, ensure_ascii=True)
-
-
-def upsert_ambulance_registration_request(
+async def upsert_ambulance_registration_request(
     *,
     user_id: str,
     hospital_id: str,
@@ -48,67 +31,71 @@ def upsert_ambulance_registration_request(
     if not user_id:
         raise ValueError("user_id is required")
 
+    existing = await get_ambulance_registration_request(user_id)
     now = _now_iso()
-    with _APPROVALS_LOCK:
-        records = _load()
-        existing = records.get(user_id, {})
-        record = {
-            **existing,
-            "user_id": user_id,
-            "hospital_id": str(hospital_id or "").strip(),
-            "full_name": str(full_name or "").strip(),
-            "phone": str(phone or "").strip(),
-            "vehicle_number": str(vehicle_number or "").strip(),
-            "registration_number": str(registration_number or "").strip(),
-            "ambulance_type": str(ambulance_type or "standard").strip() or "standard",
-            "status": "pending",
-            "requested_at": existing.get("requested_at") or now,
-            "updated_at": now,
-            "reviewed_at": None,
-            "reviewed_by": None,
-            "review_note": None,
-        }
-        records[user_id] = record
-        _save(records)
-        return record
+    payload = {
+        "user_id": user_id,
+        "hospital_id": str(hospital_id or "").strip(),
+        "full_name": str(full_name or "").strip(),
+        "phone": str(phone or "").strip(),
+        "vehicle_number": str(vehicle_number or "").strip(),
+        "registration_number": str(registration_number or "").strip(),
+        "ambulance_type": str(ambulance_type or "standard").strip() or "standard",
+        "status": "pending",
+        "requested_at": existing.get("requested_at") if existing else now,
+        "updated_at": now,
+        "reviewed_at": None,
+        "reviewed_by": None,
+        "review_note": None,
+    }
+
+    rows, code = await db_upsert(_TABLE, payload, on_conflict="user_id")
+    if code not in (200, 201):
+        raise RuntimeError("Failed to upsert ambulance approval request")
+    if isinstance(rows, list) and rows:
+        return dict(rows[0])
+    return payload
 
 
-def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | None:
+async def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | None:
     user_id = str(user_id or "").strip()
     if not user_id:
         return None
-    with _APPROVALS_LOCK:
-        records = _load()
-        row = records.get(user_id)
-        return dict(row) if isinstance(row, dict) else None
+    rows, code = await db_select(_TABLE, {"user_id": user_id})
+    if code not in (200, 206) or not rows:
+        return None
+    row = dict(rows[0])
+    row["status"] = _normalize_status(row.get("status"))
+    return row
 
 
-def list_ambulance_registration_requests(
+async def list_ambulance_registration_requests(
     *,
     hospital_id: str | None = None,
     status: str | None = None,
 ) -> list[dict[str, Any]]:
+    params: dict[str, str] = {"order": "requested_at.desc"}
     hospital_id_norm = str(hospital_id or "").strip()
-    status_norm = str(status or "").strip().lower()
+    if hospital_id_norm:
+        params["hospital_id"] = f"eq.{hospital_id_norm}"
 
-    with _APPROVALS_LOCK:
-        records = _load()
+    status_norm = _normalize_status(status) if status else ""
+    if status_norm:
+        params["status"] = f"eq.{status_norm}"
 
-    rows = []
-    for row in records.values():
-        if not isinstance(row, dict):
-            continue
-        if hospital_id_norm and str(row.get("hospital_id") or "").strip() != hospital_id_norm:
-            continue
-        if status_norm and str(row.get("status") or "").strip().lower() != status_norm:
-            continue
-        rows.append(dict(row))
+    rows, code = await db_query(_TABLE, params=params)
+    if code not in (200, 206) or not rows:
+        return []
 
-    rows.sort(key=lambda item: str(item.get("requested_at") or ""), reverse=True)
-    return rows
+    normalized: list[dict[str, Any]] = []
+    for row in rows:
+        item = dict(row)
+        item["status"] = _normalize_status(item.get("status"))
+        normalized.append(item)
+    return normalized
 
 
-def set_ambulance_registration_status(
+async def set_ambulance_registration_status(
     *,
     user_id: str,
     status: str,
@@ -116,26 +103,25 @@ def set_ambulance_registration_status(
     review_note: str | None = None,
 ) -> dict[str, Any] | None:
     user_id = str(user_id or "").strip()
-    normalized_status = str(status or "").strip().lower()
+    normalized_status = _normalize_status(status)
     if normalized_status not in ("pending", "approved", "rejected"):
         raise ValueError("status must be pending, approved, or rejected")
     if not user_id:
         return None
 
+    existing = await get_ambulance_registration_request(user_id)
+    if not existing:
+        return None
+
     now = _now_iso()
-    with _APPROVALS_LOCK:
-        records = _load()
-        existing = records.get(user_id)
-        if not isinstance(existing, dict):
-            return None
-        updated = {
-            **existing,
-            "status": normalized_status,
-            "updated_at": now,
-            "reviewed_at": now if normalized_status in ("approved", "rejected") else None,
-            "reviewed_by": str(reviewed_by or "").strip() or None,
-            "review_note": str(review_note or "").strip() or None,
-        }
-        records[user_id] = updated
-        _save(records)
-        return updated
+    payload = {
+        "status": normalized_status,
+        "updated_at": now,
+        "reviewed_at": now if normalized_status in ("approved", "rejected") else None,
+        "reviewed_by": str(reviewed_by or "").strip() or None,
+        "review_note": str(review_note or "").strip() or None,
+    }
+    _, code = await db_update(_TABLE, {"user_id": user_id}, payload)
+    if code not in (200, 204):
+        return None
+    return await get_ambulance_registration_request(user_id)
