@@ -251,24 +251,29 @@ async def list_ambulance_registration_requests(
         params["status"] = f"eq.{status_norm}"
 
     rows, code = await db_query(_TABLE, params=params)
+    combined: list[dict[str, Any]] = []
+    seen_user: set[str] = set()
     if code in (200, 206) and rows:
-        normalized: list[dict[str, Any]] = []
         for row in rows:
             item = dict(row)
             item["status"] = _normalize_status(item.get("status"))
-            normalized.append(item)
-        return normalized
+            uid = str(item.get("user_id") or "").strip()
+            if uid:
+                seen_user.add(uid)
+            combined.append(item)
 
-    # Table missing → use profiles. Table exists but empty → still use profiles: pending rows may
-    # only live in `profiles` until backfilled, otherwise the hospital dashboard shows zero forever.
-    if not (
+    # Use profiles when: relation missing / no table rows, OR pending list for a hospital (merge
+    # drivers only stored on `profiles`, and include role=driver — not only role=ambulance).
+    use_profiles = (
         _is_missing_relation(code, rows)
         or (code in (200, 206) and not (rows or []))
-    ):
-        return []
+        or (bool(hospital_id_norm) and status_norm == "pending")
+    )
+    if not use_profiles:
+        return combined
 
     profile_params: dict[str, str] = {
-        "role": "eq.ambulance",
+        "or": "(role.eq.ambulance,role.eq.driver)",
         "order": "updated_at.desc",
     }
     if hospital_id_norm:
@@ -293,16 +298,21 @@ async def list_ambulance_registration_requests(
             params=profile_params,
         )
     if profile_code not in (200, 206) or not profile_rows:
-        return []
+        return combined
 
-    output: list[dict[str, Any]] = []
     for row in profile_rows:
         item = await _profile_row_to_request(dict(row))
         if status_norm and item.get("status") != status_norm:
             continue
-        if str(item.get("user_id") or ""):
-            output.append(item)
-    return output
+        uid = str(item.get("user_id") or "").strip()
+        if not uid:
+            continue
+        if uid in seen_user:
+            continue
+        seen_user.add(uid)
+        combined.append(item)
+
+    return combined
 
 
 async def set_ambulance_registration_status(
