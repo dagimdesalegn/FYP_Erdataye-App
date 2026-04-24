@@ -1,0 +1,90 @@
+# Deploy backend + landing (vps-deploy.sh) and publish the latest release APK to the VPS.
+#
+# Required repository secrets:
+#   VPS_HOST   — e.g. 207.180.205.85
+#   VPS_USER   — e.g. root
+#   VPS_SSH_KEY — full private key (PEM) for key-based SSH (no passwords in CI)
+#
+# Optional:
+#   VPS_PORT   — SSH port (default 22) — set as a variable or extend this file if needed
+#
+name: Deploy to VPS
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Android APK"]
+    types: [completed]
+
+concurrency:
+  group: deploy-vps-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Require VPS SSH secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          missing=0
+          if [ -z "$VPS_HOST" ]; then echo "::error::Secret VPS_HOST is not set."; missing=1; fi
+          if [ -z "$VPS_USER" ]; then echo "::error::Secret VPS_USER is not set."; missing=1; fi
+          if [ -z "$VPS_SSH_KEY" ]; then echo "::error::Secret VPS_SSH_KEY is not set. Add an SSH private key (see repository wiki / maintainer docs)."; missing=1; fi
+          exit "$missing"
+
+      - name: Download latest release APK
+        uses: robinraju/release-downloader@v1.12
+        with:
+          latest: true
+          fileName: erdataye-release.apk
+          out-file-path: release-apk
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage APK for upload
+        run: cp -f release-apk/erdataye-release.apk ./erdataye-release.apk
+
+      - name: Upload APK to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          source: erdataye-release.apk
+          target: /tmp/
+          overwrite: true
+
+      - name: Run vps-deploy.sh and install APK
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -euo pipefail
+            REPO="${{ github.repository }}"
+            curl -fsSL -o /tmp/vps-deploy.sh "https://raw.githubusercontent.com/${REPO}/main/scripts/vps-deploy.sh"
+            chmod +x /tmp/vps-deploy.sh
+            /tmp/vps-deploy.sh
+            install -D -m 0644 /tmp/erdataye-release.apk /var/www/erdataya/downloads/erdataye.apk
+            cp -f /tmp/erdataye-release.apk /var/www/erdataya/erdataye.apk
+            nginx -t
+            systemctl reload nginx
+            rm -f /tmp/erdataye-release.apk
