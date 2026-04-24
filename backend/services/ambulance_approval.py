@@ -220,7 +220,11 @@ async def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | N
         row["status"] = _normalize_status(row.get("status"))
         return row
 
-    if not _is_missing_relation(code, rows):
+    # Same as list: table may exist while this driver's row only exists in `profiles`.
+    use_profile_fallback = _is_missing_relation(code, rows) or (
+        code in (200, 206) and not (rows or [])
+    )
+    if not use_profile_fallback:
         return None
 
     profile_row = await _select_profile_for_approval(user_id)
@@ -252,7 +256,12 @@ async def list_ambulance_registration_requests(
             normalized.append(item)
         return normalized
 
-    if not _is_missing_relation(code, rows):
+    # Table missing → use profiles. Table exists but empty → still use profiles: pending rows may
+    # only live in `profiles` until backfilled, otherwise the hospital dashboard shows zero forever.
+    if not (
+        _is_missing_relation(code, rows)
+        or (code in (200, 206) and not (rows or []))
+    ):
         return []
 
     profile_params: dict[str, str] = {
@@ -315,11 +324,22 @@ async def set_ambulance_registration_status(
         "reviewed_by": str(reviewed_by or "").strip() or None,
         "review_note": str(review_note or "").strip() or None,
     }
-    _, code = await db_update(_TABLE, {"user_id": user_id}, payload)
-    if code in (200, 204):
+    result, code = await db_update(_TABLE, {"user_id": user_id}, payload)
+    table_rows = 0
+    if isinstance(result, list):
+        table_rows = len([r for r in result if isinstance(r, dict)])
+    elif isinstance(result, dict) and result:
+        err = str(result.get("code") or "")
+        if not (err.upper().startswith("PGRST") or err in ("42703", "42P01")):
+            table_rows = 1
+
+    if code in (200, 204) and table_rows > 0:
         return await get_ambulance_registration_request(user_id)
 
-    if not _is_missing_relation(code, None):
+    # Table exists but no row for this user (PATCH matched 0 rows) → persist on profile.
+    if code in (200, 204) and table_rows == 0:
+        pass
+    elif not _is_missing_relation(code, result):
         return None
 
     profile_patch = {
