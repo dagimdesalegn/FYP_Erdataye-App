@@ -251,12 +251,19 @@ export default function DriverHomeScreen() {
     if (!user || !isAvailable) return;
 
     const unsubscribe = subscribeToAssignments(user.id, async (_assignment) => {
-      // Validate the assignment is truly active before showing
-      const { assignment: verified } = await getDriverAssignment(user.id);
-      if (verified) {
-        setHasAssignment(true);
-        setAssignmentCount(1);
-        // Removed popup for new emergency assignment
+      // Surface assignment state immediately for faster UX.
+      setHasAssignment(true);
+      setAssignmentCount(1);
+
+      // Keep a background verification pass so stale inserts don't persist.
+      try {
+        const { assignment: verified } = await getDriverAssignment(user.id);
+        if (!verified) {
+          setHasAssignment(false);
+          setAssignmentCount(0);
+        }
+      } catch {
+        // Leave immediate optimistic state; periodic refresh will reconcile.
       }
     });
 

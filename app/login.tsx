@@ -139,6 +139,29 @@ export default function LoginScreen() {
         );
         return;
       }
+
+      if (
+        (user.role === "ambulance" || user.role === "driver") &&
+        user.approvalStatus &&
+        user.approvalStatus !== "approved"
+      ) {
+        await (await import("@/utils/auth")).signOut();
+        setUser(null);
+        setRegistered(false);
+        setLoading(false);
+        showAlert(
+          translateText("Registration Pending"),
+          user.approvalStatus === "pending"
+            ? translateText(
+                "Your ambulance registration is still pending hospital approval. Please try again after approval.",
+              )
+            : translateText(
+                "Your ambulance registration was rejected by hospital administration. Please contact the hospital for review.",
+              ),
+        );
+        return;
+      }
+
       setUser(user);
       setRegistered(true);
       let route: any;

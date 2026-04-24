@@ -387,27 +387,50 @@ export const getDriverAssignment = async (
   driverId: string,
 ): Promise<{ assignment: AmbulanceAssignment | null; error: Error | null }> => {
   try {
-    try {
-      const res = await backendGet<{ assignment: any | null }>(
-        "/ops/driver/assignment",
-      );
-      const data = res?.assignment;
-      if (data)
-        return {
-          assignment: {
-            ...data,
-            status: data.status ?? "pending",
-          } as AmbulanceAssignment,
-          error: null,
-        };
-      if (res && !data) return { assignment: null, error: null };
-    } catch {
-      /* fall through to Supabase */
+    let ambulanceId: string | null = null;
+
+    // Fast local path first to avoid backend timeout delays during assignment handoff.
+    let { data: ambulanceRow, error: ambulanceError } = await supabase
+      .from("ambulances")
+      .select("id")
+      .eq("current_driver_id", driverId)
+      .limit(1)
+      .maybeSingle();
+
+    if (ambulanceError && isMissingColumnError(ambulanceError, "current_driver_id")) {
+      const { data: legacyRows, error: legacyError } = await supabase
+        .from("ambulances")
+        .select("*")
+        .limit(200);
+      if (legacyError) {
+        ambulanceError = legacyError;
+      } else {
+        const legacyMatch = (legacyRows || []).find((row: any) => {
+          const candidates = [
+            row?.current_driver_id,
+            row?.driver_id,
+            row?.user_id,
+            row?.driver_user_id,
+            row?.assigned_driver_id,
+          ];
+          return candidates.some((value) => String(value ?? "") === driverId);
+        });
+        ambulanceRow = legacyMatch ? { id: legacyMatch.id } : null;
+        ambulanceError = null;
+      }
     }
 
-    const { ambulanceId, error: ambulanceError } =
-      await getDriverAmbulanceId(driverId);
-    if (ambulanceError) throw ambulanceError;
+    if (!ambulanceError && ambulanceRow?.id) {
+      ambulanceId = String(ambulanceRow.id);
+    }
+
+    if (!ambulanceId) {
+      // Backend-assisted fallback for deployments with strict RLS.
+      const fallback = await getDriverAmbulanceId(driverId);
+      if (fallback.error) throw fallback.error;
+      ambulanceId = fallback.ambulanceId;
+    }
+
     if (!ambulanceId) return { assignment: null, error: null };
 
     const db = supabase;
@@ -508,10 +531,51 @@ export const getDriverAssignment = async (
       return { assignment: null, error: null };
     }
 
-    if (error) throw error;
+    if (error) {
+      // Supabase fallback failed: use backend endpoint as last resort.
+      try {
+        const res = await backendGet<{ assignment: any | null }>(
+          "/ops/driver/assignment",
+        );
+        const remote = res?.assignment;
+        if (!remote) return { assignment: null, error: null };
+        return {
+          assignment: {
+            ...remote,
+            status: remote.status ?? "pending",
+          } as AmbulanceAssignment,
+          error: null,
+        };
+      } catch {
+        throw error;
+      }
+    }
+
     const assignment = data
       ? ({ ...data, status: data.status ?? "pending" } as AmbulanceAssignment)
       : null;
+
+    if (!assignment) {
+      // If local read returns empty, double-check backend before concluding no assignment.
+      try {
+        const res = await backendGet<{ assignment: any | null }>(
+          "/ops/driver/assignment",
+        );
+        const remote = res?.assignment;
+        if (remote) {
+          return {
+            assignment: {
+              ...remote,
+              status: remote.status ?? "pending",
+            } as AmbulanceAssignment,
+            error: null,
+          };
+        }
+      } catch {
+        // Keep fast local null result when backend is unavailable.
+      }
+    }
+
     return { assignment, error: null };
   } catch (error) {
     console.error("Error fetching driver assignment:", error);
