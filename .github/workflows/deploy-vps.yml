@@ -12,6 +12,12 @@ name: Deploy to VPS
 
 on:
   workflow_dispatch:
+    inputs:
+      branch:
+        description: "Git branch to build and deploy (use hotfix branch if main is protected)"
+        required: false
+        default: "main"
+        type: string
   workflow_run:
     workflows: ["Build Android APK"]
     types: [completed]
@@ -33,6 +39,9 @@ jobs:
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # workflow_run has no inputs — always use main for automated deploys
+      DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || 'main' }}
 
     steps:
       - name: Require VPS SSH secrets
@@ -80,7 +89,8 @@ jobs:
           script: |
             set -euo pipefail
             REPO="${{ github.repository }}"
-            curl -fsSL -o /tmp/vps-deploy.sh "https://raw.githubusercontent.com/${REPO}/main/scripts/vps-deploy.sh"
+            export BRANCH='${{ env.DEPLOY_BRANCH }}'
+            curl -fsSL -o /tmp/vps-deploy.sh "https://raw.githubusercontent.com/${REPO}/${BRANCH}/scripts/vps-deploy.sh"
             chmod +x /tmp/vps-deploy.sh
             /tmp/vps-deploy.sh
             install -D -m 0644 /tmp/erdataye-release.apk /var/www/erdataya/downloads/erdataye.apk
