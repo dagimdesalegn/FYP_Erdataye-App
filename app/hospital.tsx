@@ -1281,18 +1281,29 @@ export default function HospitalDashboard() {
             </View>
           )}
 
-          {approvalRequests.length > 0 && (
-            <View
-              style={[
-                styles.fleetCard,
-                { backgroundColor: cardBg, borderColor: cardBorder },
-              ]}
-            >
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="verified-user" size={18} color="#0EA5E9" />
-                <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Ambulance Approvals</ThemedText>
+          <View
+            style={[
+              styles.fleetCard,
+              { backgroundColor: cardBg, borderColor: cardBorder },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <MaterialIcons name="verified-user" size={18} color="#0EA5E9" />
+              <ThemedText style={[styles.sectionTitle, { color: colors.text }]}>Ambulance Approvals ({approvalRequests.length})</ThemedText>
+            </View>
+
+            {approvalRequests.length === 0 ? (
+              <View style={[styles.approvalItem, { borderColor: cardBorder, backgroundColor: isDark ? "#161A22" : "#F8FAFC" }]}>
+                <ThemedText style={[styles.approvalMeta, { color: subText }]}>No pending ambulance approvals right now.</ThemedText>
+                <Pressable
+                  style={[styles.approvalBtn, { backgroundColor: "#2563EB", marginTop: 10, alignSelf: "flex-start" }]}
+                  onPress={fetchEmergencies}
+                >
+                  <ThemedText style={styles.approvalBtnText}>Refresh Approvals</ThemedText>
+                </Pressable>
               </View>
-              {approvalRequests.map((request) => (
+            ) : (
+              approvalRequests.map((request) => (
                 <View
                   key={request.user_id}
                   style={[
@@ -1328,9 +1339,9 @@ export default function HospitalDashboard() {
                     </Pressable>
                   </View>
                 </View>
-              ))}
-            </View>
-          )}
+              ))
+            )}
+          </View>
 
           {/* Search bar */}
           <View

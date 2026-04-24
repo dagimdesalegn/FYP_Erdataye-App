@@ -36,6 +36,24 @@ def _is_missing_relation(code: int, payload: Any) -> bool:
     return err_code == "PGRST205" or "could not find the table" in message
 
 
+def _is_missing_column(code: int, payload: Any, column_name: str) -> bool:
+    if code != 400:
+        return False
+
+    candidate: dict[str, Any] | None = None
+    if isinstance(payload, dict):
+        candidate = payload
+    elif isinstance(payload, list) and payload and isinstance(payload[0], dict):
+        candidate = payload[0]
+
+    if not candidate:
+        return False
+
+    err_code = str(candidate.get("code") or "").strip()
+    message = str(candidate.get("message") or "").strip().lower()
+    return err_code == "42703" and column_name.lower() in message
+
+
 def _from_profile_row(row: dict[str, Any]) -> dict[str, Any]:
     updated_at = str(row.get("updated_at") or "") or None
     return {
@@ -55,22 +73,52 @@ def _from_profile_row(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
-    # Try richer columns first, then fall back for deployments where optional
-    # vehicle-related columns are not present on profiles.
-    full_columns = (
-        "id,role,hospital_id,full_name,phone,approval_status,"
-        "vehicle_number,registration_number,ambulance_type,created_at,updated_at"
+async def _infer_profile_status_and_hospital(
+    user_id: str,
+    profile_hospital_id: str | None,
+) -> tuple[str, str | None]:
+    # If an ambulance row is linked to this driver, treat it as approved.
+    rows, code = await db_query(
+        "ambulances",
+        columns="hospital_id",
+        params={
+            "current_driver_id": f"eq.{user_id}",
+            "order": "updated_at.desc",
+            "limit": "1",
+        },
     )
-    rows, code = await db_select(_PROFILE_TABLE, {"id": user_id}, columns=full_columns)
-    if code not in (200, 206):
-        rows, code = await db_select(
-            _PROFILE_TABLE,
-            {"id": user_id},
-            columns="id,role,hospital_id,full_name,phone,approval_status,created_at,updated_at",
-        )
-        if code not in (200, 206) or not rows:
-            return None
+    if code in (200, 206) and rows:
+        inferred_hospital = str(rows[0].get("hospital_id") or "").strip() or None
+        return "approved", inferred_hospital or profile_hospital_id
+
+    return "pending", profile_hospital_id
+
+
+async def _profile_row_to_request(row: dict[str, Any]) -> dict[str, Any]:
+    item = _from_profile_row(row)
+    explicit = _normalize_status(row.get("approval_status"))
+    if explicit in ("approved", "rejected"):
+        item["status"] = explicit
+        return item
+
+    inferred_status, inferred_hospital = await _infer_profile_status_and_hospital(
+        str(item.get("user_id") or ""),
+        str(item.get("hospital_id") or "").strip() or None,
+    )
+    item["status"] = inferred_status
+    if inferred_hospital and not str(item.get("hospital_id") or "").strip():
+        item["hospital_id"] = inferred_hospital
+    return item
+
+
+async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
+    rows, code = await db_select(
+        _PROFILE_TABLE,
+        {"id": user_id},
+        columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
+    )
+    if code not in (200, 206) or not rows:
+        return None
 
     if not rows:
         return None
@@ -126,7 +174,6 @@ async def upsert_ambulance_registration_request(
         "hospital_id": str(hospital_id or "").strip(),
         "full_name": str(full_name or "").strip(),
         "phone": str(phone or "").strip(),
-        "approval_status": "pending",
         "updated_at": now,
     }
     _, fallback_code = await db_update(_PROFILE_TABLE, {"id": user_id}, base_patch)
@@ -137,6 +184,15 @@ async def upsert_ambulance_registration_request(
             {"id": user_id, "role": "ambulance", **base_patch},
             on_conflict="id",
         )
+
+    try:
+        await db_update(
+            _PROFILE_TABLE,
+            {"id": user_id},
+            {"approval_status": "pending", "updated_at": now},
+        )
+    except Exception:
+        pass
 
     extra_patch = {
         "vehicle_number": str(vehicle_number or "").strip() or None,
@@ -150,7 +206,7 @@ async def upsert_ambulance_registration_request(
 
     fallback_row = await _select_profile_for_approval(user_id)
     if fallback_row:
-        return _from_profile_row(fallback_row)
+        return await _profile_row_to_request(fallback_row)
     return {"user_id": user_id, **payload}
 
 
@@ -170,7 +226,7 @@ async def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | N
     profile_row = await _select_profile_for_approval(user_id)
     if not profile_row:
         return None
-    return _from_profile_row(profile_row)
+    return await _profile_row_to_request(profile_row)
 
 
 async def list_ambulance_registration_requests(
@@ -208,15 +264,16 @@ async def list_ambulance_registration_requests(
     if status_norm:
         profile_params["approval_status"] = f"eq.{status_norm}"
 
-    full_columns = (
-        "id,role,hospital_id,full_name,phone,approval_status,"
-        "vehicle_number,registration_number,ambulance_type,created_at,updated_at"
+    profile_rows, profile_code = await db_query(
+        _PROFILE_TABLE,
+        columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
+        params=profile_params,
     )
-    profile_rows, profile_code = await db_query(_PROFILE_TABLE, columns=full_columns, params=profile_params)
-    if profile_code not in (200, 206):
+    if _is_missing_column(profile_code, profile_rows, "approval_status"):
+        profile_params.pop("approval_status", None)
         profile_rows, profile_code = await db_query(
             _PROFILE_TABLE,
-            columns="id,role,hospital_id,full_name,phone,approval_status,created_at,updated_at",
+            columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
             params=profile_params,
         )
     if profile_code not in (200, 206) or not profile_rows:
@@ -224,7 +281,9 @@ async def list_ambulance_registration_requests(
 
     output: list[dict[str, Any]] = []
     for row in profile_rows:
-        item = _from_profile_row(dict(row))
+        item = await _profile_row_to_request(dict(row))
+        if status_norm and item.get("status") != status_norm:
+            continue
         if str(item.get("user_id") or ""):
             output.append(item)
     return output
@@ -267,7 +326,19 @@ async def set_ambulance_registration_status(
         "approval_status": normalized_status,
         "updated_at": now,
     }
-    _, profile_code = await db_update(_PROFILE_TABLE, {"id": user_id}, profile_patch)
-    if profile_code not in (200, 204):
-        return None
-    return await get_ambulance_registration_request(user_id)
+    profile_result, profile_code = await db_update(_PROFILE_TABLE, {"id": user_id}, profile_patch)
+    if profile_code in (200, 204):
+        return await get_ambulance_registration_request(user_id)
+
+    if _is_missing_column(profile_code, profile_result, "approval_status"):
+        # Schema lacks approval_status. Return synthetic row so ops route can
+        # continue with ambulance/profile linkage updates.
+        synthetic = dict(existing)
+        synthetic["status"] = normalized_status
+        synthetic["updated_at"] = now
+        synthetic["reviewed_at"] = now if normalized_status in ("approved", "rejected") else None
+        synthetic["reviewed_by"] = str(reviewed_by or "").strip() or None
+        synthetic["review_note"] = str(review_note or "").strip() or None
+        return synthetic
+
+    return None
