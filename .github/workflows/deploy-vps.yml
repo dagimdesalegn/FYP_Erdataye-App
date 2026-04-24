@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Git branch to build and deploy (use hotfix branch if main is protected)"
+        description: "Branch for backend clone + staff web build (leave empty = branch you run the workflow from)"
         required: false
-        default: "main"
+        default: ""
         type: string
   workflow_run:
     workflows: ["Build Android APK"]
@@ -38,10 +38,11 @@ jobs:
        github.event.workflow_run.head_branch == 'main' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
-      # workflow_run has no inputs — always use main for automated deploys
-      DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || 'main' }}
+      # Manual: empty branch input → deploy the branch selected in “Use workflow from”.
+      # Automated Android hook: always deploy main.
+      DEPLOY_BRANCH: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.branch || github.ref_name) || 'main' }}
 
     steps:
       - name: Require VPS SSH secrets
@@ -56,6 +57,34 @@ jobs:
           if [ -z "$VPS_SSH_KEY" ]; then echo "::error::Secret VPS_SSH_KEY is not set. Add an SSH private key (see repository wiki / maintainer docs)."; missing=1; fi
           exit "$missing"
 
+      - name: Checkout app (staff web + same ref as backend)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_BRANCH }}
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Build staff web (Expo static export)
+        env:
+          CI: "true"
+          EXPO_NO_TELEMETRY: "1"
+        run: |
+          set -euo pipefail
+          npm ci
+          npx expo export --platform web
+          if [ ! -d dist ]; then
+            echo "::error::Expected dist/ after expo export"
+            ls -la
+            exit 1
+          fi
+          tar -C dist -czf staff-web-export.tar.gz .
+
       - name: Download latest release APK
         uses: robinraju/release-downloader@v1.12
         with:
@@ -67,14 +96,14 @@ jobs:
       - name: Stage APK for upload
         run: cp -f release-apk/erdataye-release.apk ./erdataye-release.apk
 
-      - name: Upload APK to VPS
+      - name: Upload APK and staff web bundle to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           port: 22
-          source: erdataye-release.apk
+          source: "erdataye-release.apk,staff-web-export.tar.gz"
           target: /tmp/
           overwrite: true
 
@@ -95,6 +124,12 @@ jobs:
             /tmp/vps-deploy.sh
             install -D -m 0644 /tmp/erdataye-release.apk /var/www/erdataya/downloads/erdataye.apk
             cp -f /tmp/erdataye-release.apk /var/www/erdataya/erdataye.apk
+            if [ -f /tmp/staff-web-export.tar.gz ]; then
+              mkdir -p /var/www/erdataya/staff
+              find /var/www/erdataya/staff -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+              tar -xzf /tmp/staff-web-export.tar.gz -C /var/www/erdataya/staff
+              rm -f /tmp/staff-web-export.tar.gz
+            fi
             nginx -t
             systemctl reload nginx
             rm -f /tmp/erdataye-release.apk
