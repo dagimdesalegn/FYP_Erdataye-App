@@ -252,7 +252,12 @@ async def list_ambulance_registration_requests(
             normalized.append(item)
         return normalized
 
-    if not _is_missing_relation(code, rows):
+    # Table missing → use profiles. Table exists but empty → still use profiles: pending rows may
+    # only live in `profiles` until backfilled, otherwise the hospital dashboard shows zero forever.
+    if not (
+        _is_missing_relation(code, rows)
+        or (code in (200, 206) and not (rows or []))
+    ):
         return []
 
     profile_params: dict[str, str] = {
