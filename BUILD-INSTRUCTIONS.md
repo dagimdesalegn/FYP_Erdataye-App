@@ -211,7 +211,7 @@ Your `.env` file is **automatically included** in builds:
 
 Edit `app.json` before building:
 
-```json
+````json
 {
   "expo": {
     "name": "Erdataya Ambulance",
@@ -226,7 +226,7 @@ Edit `app.json` before building:
     }
   }
 }
-```
+```++++++++++++++++++++++++++++++++++++
 
 ---
 
@@ -237,7 +237,7 @@ Edit `app.json` before building:
 ```bash
 # Clear cache and retry
 eas build --profile production --platform android --clear-cache
-```
+````
 
 ### Need Logs
 
