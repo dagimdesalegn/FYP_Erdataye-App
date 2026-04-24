@@ -278,7 +278,9 @@ async def list_ambulance_registration_requests(
     }
     if hospital_id_norm:
         profile_params["hospital_id"] = f"eq.{hospital_id_norm}"
-    if status_norm:
+    # For pending: do NOT filter `approval_status=eq.pending` in SQL — new rows often have
+    # NULL there; PostgREST excludes NULL on eq.pending. Filter pending in Python below.
+    if status_norm and status_norm != "pending":
         profile_params["approval_status"] = f"eq.{status_norm}"
 
     profile_cols = (
