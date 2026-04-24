@@ -88,6 +88,10 @@ interface AmbulanceApprovalRequest {
   ambulance_type?: string | null;
   status: "pending" | "approved" | "rejected";
   requested_at?: string | null;
+  updated_at?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  review_note?: string | null;
 }
 
 type StatusFilter = "all" | "active" | "at_hospital" | "completed";
@@ -153,6 +157,10 @@ export default function HospitalDashboard() {
   });
   const [approvalRequests, setApprovalRequests] = useState<AmbulanceApprovalRequest[]>([]);
   const [approvalUpdatingUserId, setApprovalUpdatingUserId] = useState<string | null>(null);
+  const [approvalConfirm, setApprovalConfirm] = useState<{
+    request: AmbulanceApprovalRequest;
+    decision: "approved" | "rejected";
+  } | null>(null);
 
   // Medical notes state
   const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
@@ -746,11 +754,17 @@ export default function HospitalDashboard() {
     }
   };
 
+  const approvalDisplay = (v: string | null | undefined) => {
+    const s = String(v ?? "").trim();
+    return s.length > 0 ? s : "—";
+  };
+
   const handleApprovalDecision = async (
     requestUserId: string,
     decision: "approved" | "rejected",
   ) => {
     if (approvalUpdatingUserId) return;
+    setApprovalConfirm(null);
     setApprovalUpdatingUserId(requestUserId);
     try {
       await backendPost(
@@ -1326,14 +1340,18 @@ export default function HospitalDashboard() {
                     <Pressable
                       style={[styles.approvalBtn, { backgroundColor: "#10B981" }]}
                       disabled={approvalUpdatingUserId === request.user_id}
-                      onPress={() => handleApprovalDecision(request.user_id, "approved")}
+                      onPress={() =>
+                        setApprovalConfirm({ request, decision: "approved" })
+                      }
                     >
                       <ThemedText style={styles.approvalBtnText}>Approve</ThemedText>
                     </Pressable>
                     <Pressable
                       style={[styles.approvalBtn, { backgroundColor: "#DC2626" }]}
                       disabled={approvalUpdatingUserId === request.user_id}
-                      onPress={() => handleApprovalDecision(request.user_id, "rejected")}
+                      onPress={() =>
+                        setApprovalConfirm({ request, decision: "rejected" })
+                      }
                     >
                       <ThemedText style={styles.approvalBtnText}>Reject</ThemedText>
                     </Pressable>
@@ -1422,6 +1440,160 @@ export default function HospitalDashboard() {
           )}
         </View>
       </ScrollView>
+
+      {/* Ambulance registration — review all submitted fields before confirm */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={approvalConfirm !== null}
+        onRequestClose={() => setApprovalConfirm(null)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setApprovalConfirm(null)}
+        >
+          <Pressable
+            style={[
+              styles.modalContent,
+              { backgroundColor: isDark ? "#1E2028" : "#FFFFFF", maxHeight: "88%" },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {approvalConfirm && (
+              <>
+                <View style={styles.modalHeader}>
+                  <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
+                    {approvalConfirm.decision === "approved"
+                      ? "Confirm approval"
+                      : "Confirm rejection"}
+                  </ThemedText>
+                  <Pressable
+                    onPress={() => setApprovalConfirm(null)}
+                    style={styles.closeBtn}
+                  >
+                    <MaterialIcons name="close" size={22} color={colors.text} />
+                  </Pressable>
+                </View>
+                <ThemedText
+                  style={[styles.approvalMeta, { color: subText, marginBottom: 12 }]}
+                >
+                  Review every field below before you continue.
+                </ThemedText>
+                <ScrollView
+                  style={{ maxHeight: 360 }}
+                  showsVerticalScrollIndicator
+                >
+                  {(
+                    [
+                      ["Full name", approvalDisplay(approvalConfirm.request.full_name)],
+                      ["Phone", approvalDisplay(approvalConfirm.request.phone)],
+                      [
+                        "Plate / vehicle number",
+                        approvalDisplay(approvalConfirm.request.vehicle_number),
+                      ],
+                      [
+                        "Registration number",
+                        approvalDisplay(approvalConfirm.request.registration_number),
+                      ],
+                      [
+                        "Ambulance type",
+                        approvalDisplay(approvalConfirm.request.ambulance_type),
+                      ],
+                      ["Status", approvalDisplay(approvalConfirm.request.status)],
+                      [
+                        "Requested at",
+                        approvalConfirm.request.requested_at
+                          ? formatDateTime(approvalConfirm.request.requested_at)
+                          : "—",
+                      ],
+                      [
+                        "Last updated",
+                        approvalConfirm.request.updated_at
+                          ? formatDateTime(approvalConfirm.request.updated_at)
+                          : "—",
+                      ],
+                      ["Driver account ID", approvalDisplay(approvalConfirm.request.user_id)],
+                      ["Linked hospital ID", approvalDisplay(approvalConfirm.request.hospital_id)],
+                      [
+                        "Previously reviewed at",
+                        approvalConfirm.request.reviewed_at
+                          ? formatDateTime(approvalConfirm.request.reviewed_at)
+                          : "—",
+                      ],
+                      ["Reviewed by (user id)", approvalDisplay(approvalConfirm.request.reviewed_by)],
+                      ["Review note", approvalDisplay(approvalConfirm.request.review_note)],
+                    ] as const
+                  ).map(([label, value]) => (
+                    <View
+                      key={label}
+                      style={[
+                        styles.approvalDetailRow,
+                        {
+                          borderBottomColor: isDark
+                            ? "rgba(255,255,255,0.08)"
+                            : "rgba(0,0,0,0.06)",
+                        },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.approvalDetailLabel, { color: subText }]}
+                      >
+                        {label}
+                      </ThemedText>
+                      <ThemedText
+                        style={[styles.approvalDetailValue, { color: colors.text }]}
+                      >
+                        {value}
+                      </ThemedText>
+                    </View>
+                  ))}
+                </ScrollView>
+                <View style={[styles.approvalActions, { marginTop: 14 }]}>
+                  <Pressable
+                    style={[
+                      styles.approvalBtn,
+                      { backgroundColor: isDark ? "#374151" : "#E5E7EB" },
+                    ]}
+                    onPress={() => setApprovalConfirm(null)}
+                  >
+                    <ThemedText
+                      style={[styles.approvalBtnText, { color: colors.text }]}
+                    >
+                      Cancel
+                    </ThemedText>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.approvalBtn,
+                      {
+                        backgroundColor:
+                          approvalConfirm.decision === "approved"
+                            ? "#10B981"
+                            : "#DC2626",
+                      },
+                    ]}
+                    disabled={
+                      approvalUpdatingUserId === approvalConfirm.request.user_id
+                    }
+                    onPress={() =>
+                      handleApprovalDecision(
+                        approvalConfirm.request.user_id,
+                        approvalConfirm.decision,
+                      )
+                    }
+                  >
+                    <ThemedText style={styles.approvalBtnText}>
+                      {approvalConfirm.decision === "approved"
+                        ? "Confirm approve"
+                        : "Confirm reject"}
+                    </ThemedText>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Patient Details Modal */}
       <Modal
@@ -3611,6 +3783,21 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontFamily: Fonts.sansBold,
+  },
+  approvalDetailRow: {
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+  },
+  approvalDetailLabel: {
+    fontSize: 11,
+    fontFamily: Fonts.sans,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  approvalDetailValue: {
+    fontSize: 15,
+    fontFamily: Fonts.sans,
   },
   actionRow: { flexDirection: "row", gap: 12, marginTop: 4, marginBottom: 16 },
   actionHintCard: {
