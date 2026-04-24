@@ -510,7 +510,9 @@ export default function DriverHomeScreen() {
             },
           ]}
         >
-          <ThemedText style={styles.cardTitle}>{t("ambulance_status")}</ThemedText>
+          <ThemedText style={styles.cardTitle}>
+            {t("ambulance_status")}
+          </ThemedText>
 
           <Pressable
             onPress={async () => {

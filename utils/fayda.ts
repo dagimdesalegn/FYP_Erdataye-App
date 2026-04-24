@@ -49,7 +49,9 @@ const getAuthorizeUrl = async (
   redirectUri: string,
 ): Promise<FaydaAuthorizeResponse> => {
   const query = `purpose=${encodeURIComponent(purpose)}&redirect_uri=${encodeURIComponent(redirectUri)}`;
-  return backendGet<FaydaAuthorizeResponse>(`/auth/fayda/authorize-url?${query}`);
+  return backendGet<FaydaAuthorizeResponse>(
+    `/auth/fayda/authorize-url?${query}`,
+  );
 };
 
 const exchangeCode = async (

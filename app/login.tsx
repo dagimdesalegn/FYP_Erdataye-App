@@ -119,7 +119,10 @@ export default function LoginScreen() {
       if (error || !user) {
         setLoading(false);
         if (isLikelyConnectivityError(error)) {
-          showAlert(t("internet_required_title"), t("internet_required_message"));
+          showAlert(
+            t("internet_required_title"),
+            t("internet_required_message"),
+          );
           return;
         }
         showError(translateText("Login Failed"), error?.message || translateText("Failed to sign in"));
@@ -194,7 +197,9 @@ export default function LoginScreen() {
 
       if (verified.matched_profile?.exists) {
         const displayName =
-          verified.matched_profile.full_name || verified.full_name || "Verified user";
+          verified.matched_profile.full_name ||
+          verified.full_name ||
+          "Verified user";
         showAlert(
           "Fayda Verified",
           `${displayName} was verified. Enter your password to complete login.`,

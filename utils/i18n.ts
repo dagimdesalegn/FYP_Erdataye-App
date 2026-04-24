@@ -194,7 +194,11 @@ const translations: Record<string, Record<Lang, string>> = {
     am: "ጥሪ አይቀበልም",
     om: "Waamicha hin fudhatu",
   },
-  view_assignment: { en: "View Assignment", am: "ምደባ ይመልከቱ", om: "Ramaddii Ilaali" },
+  view_assignment: {
+    en: "View Assignment",
+    am: "ምደባ ይመልከቱ",
+    om: "Ramaddii Ilaali",
+  },
   active: { en: "Active", am: "በሂደት ላይ", om: "Hojii Irra" },
   total: { en: "Total", am: "ጠቅላላ", om: "Waliigala" },
   completed_history: {
@@ -216,7 +220,11 @@ const translations: Record<string, Record<Lang, string>> = {
     am: "የመሣሪያዎ የአሁን አካባቢ",
     om: "Bakka ammaa meeshaa keessanii",
   },
-  choose_help_type: { en: "Choose help type", am: "የእርዳታ አይነት ይምረጡ", om: "Gosa gargaarsaa fili" },
+  choose_help_type: {
+    en: "Choose help type",
+    am: "የእርዳታ አይነት ይምረጡ",
+    om: "Gosa gargaarsaa fili",
+  },
   for_me: { en: "For me", am: "ለእኔ", om: "Naaf" },
   for_other: { en: "For other", am: "ለሌላ", om: "Nama biraaf" },
   emergency_contacts: {
@@ -229,13 +237,21 @@ const translations: Record<string, Record<Lang, string>> = {
     am: "የኢትዮጵያ የአደጋ አገልግሎቶች",
     om: "Tajaajiloota Balaa Itiyoophiyaa",
   },
-  family_personal: { en: "Family / Personal", am: "ቤተሰብ / የግል", om: "Maatii / Dhuunfaa" },
+  family_personal: {
+    en: "Family / Personal",
+    am: "ቤተሰብ / የግል",
+    om: "Maatii / Dhuunfaa",
+  },
   emergency_ambulance: {
     en: "Emergency (Ambulance)",
     am: "አደጋ (አምቡላንስ)",
     om: "Balaa (Ambulaansii)",
   },
-  fire_emergency: { en: "Fire & Emergency", am: "እሳት እና አደጋ", om: "Ibidda fi Balaa" },
+  fire_emergency: {
+    en: "Fire & Emergency",
+    am: "እሳት እና አደጋ",
+    om: "Ibidda fi Balaa",
+  },
   police: { en: "Police", am: "ፖሊስ", om: "Poolisii" },
   emergency_contact_label: {
     en: "Emergency Contact",

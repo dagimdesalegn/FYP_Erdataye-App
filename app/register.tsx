@@ -27,9 +27,12 @@ import {
     RegistrationHospitalOption,
     signUp,
 } from "@/utils/auth";
-import { t, translateText } from "@/utils/i18n";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
-import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
+import { t, translateText } from "@/utils/i18n";
+import {
+    hasInternetConnection,
+    isLikelyConnectivityError,
+} from "@/utils/network";
 import { upsertMedicalProfile } from "@/utils/profile";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -102,7 +105,9 @@ export default function RegisterScreen() {
     };
 
     const fullName = fromParam(prefillParams.fullName);
-    const nationalId = fromParam(prefillParams.nationalId).replace(/[^0-9]/g, "").slice(0, 16);
+    const nationalId = fromParam(prefillParams.nationalId)
+      .replace(/[^0-9]/g, "")
+      .slice(0, 16);
     const phone = toPhoneInputDigits(fromParam(prefillParams.phone));
 
     if (!fullName && !nationalId && !phone) return;
@@ -287,7 +292,10 @@ export default function RegisterScreen() {
       if (error || !user) {
         console.error("Signup error:", error);
         if (isLikelyConnectivityError(error)) {
-          showAlert(t("internet_required_title"), t("internet_required_message"));
+          showAlert(
+            t("internet_required_title"),
+            t("internet_required_message"),
+          );
           return;
         }
         showError(

@@ -74,7 +74,10 @@ function normalizeApkUrl(rawUrl: unknown): string {
   return DEFAULT_APK_URL;
 }
 
-async function fetchJsonWithTimeout(url: string, timeoutMs: number): Promise<any> {
+async function fetchJsonWithTimeout(
+  url: string,
+  timeoutMs: number,
+): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -101,11 +104,10 @@ export async function checkForAndroidAppUpdate(): Promise<AppUpdateCheckResult |
   }
 
   try {
-    const payload =
-      (await fetchJsonWithTimeout(
-        APP_UPDATE_METADATA_URL,
-        REQUEST_TIMEOUT_MS,
-      )) as RemoteUpdateMetadata;
+    const payload = (await fetchJsonWithTimeout(
+      APP_UPDATE_METADATA_URL,
+      REQUEST_TIMEOUT_MS,
+    )) as RemoteUpdateMetadata;
 
     const latestVersionCode =
       toInt(payload.latestVersionCode) ?? toInt(payload.versionCode);
@@ -137,7 +139,8 @@ export async function checkForAndroidAppUpdate(): Promise<AppUpdateCheckResult |
       latestVersionLabel,
       currentVersionLabel: getCurrentVersionLabel(),
       apkUrl: normalizeApkUrl(payload.apkUrl ?? payload.downloadUrl),
-      message: typeof payload.message === "string" ? payload.message.trim() : "",
+      message:
+        typeof payload.message === "string" ? payload.message.trim() : "",
     };
 
     if (!result.updateAvailable) {

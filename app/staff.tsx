@@ -111,7 +111,10 @@ export default function StaffLoginScreen() {
       if (error || !user) {
         setLoading(false);
         if (isLikelyConnectivityError(error)) {
-          showAlert(t("internet_required_title"), t("internet_required_message"));
+          showAlert(
+            t("internet_required_title"),
+            t("internet_required_message"),
+          );
           return;
         }
         showError(translateText("Login Failed"), error?.message || translateText("Failed to sign in"));

@@ -53,7 +53,7 @@ export function LanguageToggle() {
         ]}
       >
         <MaterialIcons name="language" size={17} color={colors.text} />
-        <ThemedText style={[styles.triggerText, { color: colors.text }]}> 
+        <ThemedText style={[styles.triggerText, { color: colors.text }]}>
           {shortLabel[lang]}
         </ThemedText>
       </Pressable>
@@ -79,7 +79,7 @@ export function LanguageToggle() {
               },
             ]}
           >
-            <ThemedText style={[styles.menuTitle, { color: colors.textMuted }]}> 
+            <ThemedText style={[styles.menuTitle, { color: colors.textMuted }]}>
               {t("language")}
             </ThemedText>
             {options.map((option) => {
@@ -93,17 +93,25 @@ export function LanguageToggle() {
                   style={({ pressed }) => [
                     styles.option,
                     active && {
-                      backgroundColor: colorScheme === "dark" ? "#1F2937" : "#EEF2FF",
-                      borderColor: colorScheme === "dark" ? "#334155" : "#C7D2FE",
+                      backgroundColor:
+                        colorScheme === "dark" ? "#1F2937" : "#EEF2FF",
+                      borderColor:
+                        colorScheme === "dark" ? "#334155" : "#C7D2FE",
                     },
                     pressed && { opacity: 0.85 },
                   ]}
                 >
-                  <ThemedText style={[styles.optionText, { color: colors.text }]}> 
+                  <ThemedText
+                    style={[styles.optionText, { color: colors.text }]}
+                  >
                     {option.label}
                   </ThemedText>
                   {active ? (
-                    <MaterialIcons name="check" size={17} color={colors.primary} />
+                    <MaterialIcons
+                      name="check"
+                      size={17}
+                      color={colors.primary}
+                    />
                   ) : null}
                 </Pressable>
               );

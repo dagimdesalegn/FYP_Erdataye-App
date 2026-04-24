@@ -20,8 +20,7 @@ import "react-native-reanimated";
 
 import { AppStateProvider } from "@/components/app-state";
 import { ErrorBoundary } from "@/components/error-boundary";
-import { ModalProvider } from "@/components/modal-context";
-import { useModal } from "@/components/modal-context";
+import { ModalProvider, useModal } from "@/components/modal-context";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { checkForAndroidAppUpdate } from "@/utils/app-update";

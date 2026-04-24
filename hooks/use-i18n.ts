@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 import {
-  type Lang,
-  getLang,
-  setLang,
-  subscribeLangChange,
-  t,
+    type Lang,
+    getLang,
+    setLang,
+    subscribeLangChange,
+    t,
 } from "@/utils/i18n";
 
 export function useI18n() {
