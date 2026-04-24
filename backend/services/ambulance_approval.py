@@ -115,7 +115,10 @@ async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
     rows, code = await db_select(
         _PROFILE_TABLE,
         {"id": user_id},
-        columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
+        columns=(
+            "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
+            "ambulance_type,approval_status,created_at,updated_at"
+        ),
     )
     if code not in (200, 206) or not rows:
         return None
@@ -273,16 +276,20 @@ async def list_ambulance_registration_requests(
     if status_norm:
         profile_params["approval_status"] = f"eq.{status_norm}"
 
+    profile_cols = (
+        "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
+        "ambulance_type,approval_status,created_at,updated_at"
+    )
     profile_rows, profile_code = await db_query(
         _PROFILE_TABLE,
-        columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
+        columns=profile_cols,
         params=profile_params,
     )
     if _is_missing_column(profile_code, profile_rows, "approval_status"):
         profile_params.pop("approval_status", None)
         profile_rows, profile_code = await db_query(
             _PROFILE_TABLE,
-            columns="id,role,hospital_id,full_name,phone,created_at,updated_at",
+            columns=profile_cols,
             params=profile_params,
         )
     if profile_code not in (200, 206) or not profile_rows:
