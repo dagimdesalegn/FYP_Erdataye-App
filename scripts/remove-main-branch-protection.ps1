@@ -1,4 +1,5 @@
 # Removes GitHub branch protection on `main` (requires repo admin + token).
+# To (re)enable protection, use: ./scripts/enable-main-branch-protection.ps1
 # Usage (PowerShell):  $env:GITHUB_TOKEN = "ghp_..." ; ./scripts/remove-main-branch-protection.ps1
 # Create token: GitHub -> Settings -> Developer settings -> PAT, scope: repo (full control for private repos).
 
