@@ -83,6 +83,7 @@ interface AmbulanceApprovalRequest {
   hospital_id: string;
   full_name?: string | null;
   phone?: string | null;
+  national_id?: string | null;
   vehicle_number?: string | null;
   registration_number?: string | null;
   ambulance_type?: string | null;
@@ -1334,7 +1335,11 @@ export default function HospitalDashboard() {
                     </ThemedText>
                   </View>
                   <ThemedText style={[styles.approvalMeta, { color: subText }]}>
-                    {request.phone || "No phone"} • {request.vehicle_number || "No plate"}
+                    {request.phone || "No phone"}
+                    {request.national_id
+                      ? ` • ID ${request.national_id}`
+                      : ""}
+                    {` • ${request.vehicle_number || "No plate"}`}
                   </ThemedText>
                   <View style={styles.approvalActions}>
                     <Pressable
@@ -1487,6 +1492,10 @@ export default function HospitalDashboard() {
                     [
                       ["Full name", approvalDisplay(approvalConfirm.request.full_name)],
                       ["Phone", approvalDisplay(approvalConfirm.request.phone)],
+                      [
+                        "National ID (Fayda)",
+                        approvalDisplay(approvalConfirm.request.national_id),
+                      ],
                       [
                         "Plate / vehicle number",
                         approvalDisplay(approvalConfirm.request.vehicle_number),

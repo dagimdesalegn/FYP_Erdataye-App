@@ -408,6 +408,7 @@ class AmbulanceApprovalRequest(BaseModel):
     hospital_id: str
     full_name: str | None = None
     phone: str | None = None
+    national_id: str | None = None
     vehicle_number: str | None = None
     registration_number: str | None = None
     ambulance_type: str | None = None

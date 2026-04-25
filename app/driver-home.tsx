@@ -919,17 +919,37 @@ export default function DriverHomeScreen() {
                   label="Phone"
                   value={driverProfile.phone}
                 />
+                <InfoRow
+                  icon="credit-card"
+                  label="National ID"
+                  value={driverProfile.national_id || "Not assigned"}
+                />
                 <InfoRow icon="badge" label="Role" value={driverProfile.role} />
+                <InfoRow
+                  icon="local-offer"
+                  label="Ambulance type"
+                  value={
+                    driverProfile.ambulance_type ||
+                    ambulanceDetails?.type ||
+                    "standard"
+                  }
+                />
                 <InfoRow
                   icon="directions-car"
                   label="Plate Number"
-                  value={ambulanceDetails?.vehicle_number || "Not assigned"}
+                  value={
+                    ambulanceDetails?.vehicle_number ||
+                    driverProfile.vehicle_number ||
+                    "Not assigned"
+                  }
                 />
                 <InfoRow
                   icon="assignment"
                   label="Registration No."
                   value={
-                    ambulanceDetails?.registration_number || "Not assigned"
+                    ambulanceDetails?.registration_number ||
+                    driverProfile.registration_number ||
+                    "Not assigned"
                   }
                 />
                 <InfoRow

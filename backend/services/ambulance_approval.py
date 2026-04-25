@@ -56,11 +56,14 @@ def _is_missing_column(code: int, payload: Any, column_name: str) -> bool:
 
 def _from_profile_row(row: dict[str, Any]) -> dict[str, Any]:
     updated_at = str(row.get("updated_at") or "") or None
+    nid = row.get("national_id")
+    national_id = str(nid).strip() if nid is not None and str(nid).strip() else None
     return {
         "user_id": str(row.get("id") or "").strip(),
         "hospital_id": str(row.get("hospital_id") or "").strip(),
         "full_name": str(row.get("full_name") or "").strip() or None,
         "phone": str(row.get("phone") or "").strip() or None,
+        "national_id": national_id,
         "vehicle_number": str(row.get("vehicle_number") or "").strip() or None,
         "registration_number": str(row.get("registration_number") or "").strip() or None,
         "ambulance_type": str(row.get("ambulance_type") or "").strip() or "standard",
@@ -112,6 +115,10 @@ async def _profile_row_to_request(row: dict[str, Any]) -> dict[str, Any]:
 
 
 _PROFILE_COLS_FULL = (
+    "id,role,hospital_id,full_name,phone,national_id,vehicle_number,registration_number,"
+    "ambulance_type,approval_status,created_at,updated_at"
+)
+_PROFILE_COLS_FULL_NO_NID = (
     "id,role,hospital_id,full_name,phone,vehicle_number,registration_number,"
     "ambulance_type,approval_status,created_at,updated_at"
 )
@@ -120,7 +127,7 @@ _PROFILE_COLS_MIN = "id,role,hospital_id,full_name,phone,created_at,updated_at"
 
 def _overlay_profile_fields(target: dict[str, Any], profile_row: dict[str, Any]) -> None:
     """Fill empty request-row fields from `profiles` (same user)."""
-    for key in ("vehicle_number", "registration_number", "full_name", "phone"):
+    for key in ("vehicle_number", "registration_number", "full_name", "phone", "national_id"):
         raw = profile_row.get(key)
         if raw is None:
             continue
@@ -140,8 +147,52 @@ def _overlay_profile_fields(target: dict[str, Any], profile_row: dict[str, Any])
             target["ambulance_type"] = at
 
 
+async def _enrich_combined_from_profiles_batch(items: list[dict[str, Any]]) -> None:
+    """One batched `profiles` read so hospital list shows plate / reg / national_id even when
+    `ambulance_registration_requests` rows are sparse or out of sync."""
+    if not items:
+        return
+    uids: list[str] = []
+    seen: set[str] = set()
+    for it in items:
+        u = str(it.get("user_id") or "").strip()
+        if u and u not in seen:
+            seen.add(u)
+            uids.append(u)
+    if not uids:
+        return
+
+    column_sets = (
+        "id,vehicle_number,registration_number,national_id,ambulance_type,full_name,phone",
+        "id,vehicle_number,registration_number,national_id,full_name,phone",
+        "id,national_id,full_name,phone",
+    )
+    chunk_size = 120
+    for i in range(0, len(uids), chunk_size):
+        chunk = uids[i : i + chunk_size]
+        in_param = ",".join(chunk)
+        prof_by_id: dict[str, dict[str, Any]] = {}
+        for cols in column_sets:
+            pr, pc = await db_query(
+                _PROFILE_TABLE,
+                columns=cols,
+                params={"id": f"in.({in_param})"},
+            )
+            if pc in (200, 206) and pr:
+                for r in pr:
+                    rid = str(r.get("id") or "").strip()
+                    if rid:
+                        prof_by_id[rid] = dict(r)
+                break
+        for it in items:
+            uid = str(it.get("user_id") or "").strip()
+            prow = prof_by_id.get(uid)
+            if prow:
+                _overlay_profile_fields(it, prow)
+
+
 async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
-    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_MIN):
+    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_FULL_NO_NID, _PROFILE_COLS_MIN):
         rows, code = await db_select(_PROFILE_TABLE, {"id": user_id}, columns=cols)
         if code in (200, 206) and rows:
             row = dict(rows[0])
@@ -241,6 +292,7 @@ async def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | N
     if code in (200, 206) and rows:
         row = dict(rows[0])
         row["status"] = _normalize_status(row.get("status"))
+        await _enrich_combined_from_profiles_batch([row])
         return row
 
     # Same as list: table may exist while this driver's row only exists in `profiles`.
@@ -253,7 +305,9 @@ async def get_ambulance_registration_request(user_id: str) -> dict[str, Any] | N
     profile_row = await _select_profile_for_approval(user_id)
     if not profile_row:
         return None
-    return await _profile_row_to_request(profile_row)
+    out = await _profile_row_to_request(profile_row)
+    await _enrich_combined_from_profiles_batch([out])
+    return out
 
 
 async def list_ambulance_registration_requests(
@@ -290,6 +344,7 @@ async def list_ambulance_registration_requests(
         or (bool(hospital_id_norm) and status_norm == "pending")
     )
     if not use_profiles:
+        await _enrich_combined_from_profiles_batch(combined)
         return combined
 
     profile_params: dict[str, str] = {
@@ -307,7 +362,7 @@ async def list_ambulance_registration_requests(
     # Fall back to MIN if optional columns are missing on older DBs.
     profile_rows: list[Any] = []
     profile_code = 0
-    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_MIN):
+    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_FULL_NO_NID, _PROFILE_COLS_MIN):
         profile_rows, profile_code = await db_query(
             _PROFILE_TABLE,
             columns=cols,
@@ -319,6 +374,7 @@ async def list_ambulance_registration_requests(
         profile_rows = []
 
     if profile_code not in (200, 206) or not profile_rows:
+        await _enrich_combined_from_profiles_batch(combined)
         return combined
 
     combined_by_uid: dict[str, dict[str, Any]] = {}
@@ -343,6 +399,7 @@ async def list_ambulance_registration_requests(
         seen_user.add(uid)
         combined.append(item)
 
+    await _enrich_combined_from_profiles_batch(combined)
     return combined
 
 

@@ -29,6 +29,9 @@ class ProfileResponse(BaseModel):
     role: str
     hospital_id: Optional[str] = None
     national_id: Optional[str] = None
+    vehicle_number: Optional[str] = None
+    registration_number: Optional[str] = None
+    ambulance_type: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -72,9 +75,21 @@ async def get_my_profile(
     current_user: dict = Depends(get_current_user),
 ) -> ProfileResponse:
     user_id: str = current_user["sub"]
-    rows, code = await db_select("profiles", {"id": user_id})
+    rows: list = []
+    code = 0
+    for cols in (
+        "id,full_name,phone,role,hospital_id,national_id,vehicle_number,"
+        "registration_number,ambulance_type,created_at,updated_at",
+        "id,full_name,phone,role,hospital_id,national_id,created_at,updated_at",
+        "id,full_name,phone,role,hospital_id,created_at,updated_at",
+    ):
+        rows, code = await db_select("profiles", {"id": user_id}, columns=cols)
+        if code in (200, 206) and rows:
+            break
+    if not rows:
+        rows, code = await db_select("profiles", {"id": user_id})
 
-    if code != 200 or not rows:
+    if code not in (200, 206) or not rows:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Profile not found.",

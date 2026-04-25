@@ -7,6 +7,10 @@ export interface UserProfile {
   phone: string;
   role: "patient" | "ambulance" | "driver" | "hospital" | "admin";
   hospital_id: string | null;
+  national_id?: string | null;
+  vehicle_number?: string | null;
+  registration_number?: string | null;
+  ambulance_type?: string | null;
   created_at: string;
   updated_at: string;
 }
