@@ -6,6 +6,7 @@ node_modules/
 # Expo
 .expo/
 dist/
+staff-web-export.tar.gz
 web-build/
 expo-env.d.ts
 

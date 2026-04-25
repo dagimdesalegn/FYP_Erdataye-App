@@ -14,7 +14,9 @@
     "lint": "expo lint",
     "test": "jest --config jest.config.js",
     "test:backend": "cd backend && python -m pytest tests -v",
-    "ci:check": "npm run lint && npm run test -- --runInBand && npm run test:backend"
+    "ci:check": "npm run lint && npm run test -- --runInBand && npm run test:backend",
+    "staff:export": "expo export --platform web",
+    "staff:archive": "python scripts/make_staff_web_tar.py"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
