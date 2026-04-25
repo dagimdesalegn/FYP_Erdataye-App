@@ -1326,11 +1326,24 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
 
     approval_status: Literal["pending", "approved", "rejected"] | None = None
     if role_value in ("ambulance", "driver"):
-        approval_row = await get_ambulance_registration_request(user_id)
-        if approval_row:
-            row_status = str(approval_row.get("status") or "pending").lower()
-            if row_status in ("pending", "approved", "rejected"):
-                approval_status = row_status
+        prof_ap, ap_code = await db_select(
+            "profiles",
+            {"id": user_id},
+            columns="approval_status",
+        )
+        if ap_code in (200, 206) and prof_ap:
+            raw_ap = str(prof_ap[0].get("approval_status") or "").strip().lower()
+            if raw_ap == "approved":
+                approval_status = "approved"
+            elif raw_ap == "rejected":
+                approval_status = "rejected"
+
+        if approval_status is None:
+            approval_row = await get_ambulance_registration_request(user_id)
+            if approval_row:
+                row_status = str(approval_row.get("status") or "pending").lower()
+                if row_status in ("pending", "approved", "rejected"):
+                    approval_status = row_status
         if approval_status is None:
             amb_rows, amb_code = await db_select(
                 "ambulances",

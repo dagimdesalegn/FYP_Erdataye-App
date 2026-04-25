@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field, field_validator
 
 from deps import get_current_user
-from services.supabase import db_insert, db_query, db_select, db_update, db_upsert
+from services.supabase import db_delete, db_insert, db_query, db_select, db_update, db_upsert
 from services.ambulance_approval import (
     get_ambulance_registration_request,
     list_ambulance_registration_requests,
@@ -4575,8 +4575,42 @@ async def decide_hospital_ambulance_approval(
         except Exception:
             pass
 
-        vehicle_number = str(existing.get("vehicle_number") or "").strip()
-        if vehicle_number:
+        # Fleet + login: `/login-phone` treats `ambulances.current_driver_id` as approved when
+        # no registration row exists. Always ensure a row (many drivers omit vehicle_number).
+        amb_by_driver, amb_dcode = await db_select(
+            "ambulances",
+            {"current_driver_id": str(target_user_id)},
+            columns="id,vehicle_number",
+        )
+        if amb_dcode in (200, 206) and amb_by_driver:
+            await db_update(
+                "ambulances",
+                {"id": str(amb_by_driver[0].get("id"))},
+                {
+                    "hospital_id": str(effective_hospital_id),
+                    "registration_number": str(existing.get("registration_number") or "").strip() or None,
+                    "type": str(existing.get("ambulance_type") or "standard"),
+                    "is_available": True,
+                    "updated_at": now_iso,
+                },
+            )
+        else:
+            vehicle_number = str(existing.get("vehicle_number") or "").strip()
+            if not vehicle_number:
+                pr, pc = await db_select(
+                    "profiles",
+                    {"id": str(target_user_id)},
+                    columns="vehicle_number,national_id",
+                )
+                if pc in (200, 206) and pr:
+                    vehicle_number = str(pr[0].get("vehicle_number") or "").strip()
+                    if not vehicle_number:
+                        nid = str(pr[0].get("national_id") or "").strip()
+                        if nid:
+                            vehicle_number = f"NID-{nid}"[:64]
+            if not vehicle_number:
+                vehicle_number = f"AUTO-{str(target_user_id).replace('-', '')}"[:64]
+
             existing_amb_rows, _ = await db_select(
                 "ambulances",
                 {"vehicle_number": vehicle_number},
@@ -4608,6 +4642,11 @@ async def decide_hospital_ambulance_approval(
                         "updated_at": now_iso,
                     },
                 )
+
+    try:
+        await db_delete("ambulance_registration_requests", {"user_id": str(target_user_id)})
+    except Exception:
+        pass
 
     return AmbulanceApprovalRequest(**updated)
 
