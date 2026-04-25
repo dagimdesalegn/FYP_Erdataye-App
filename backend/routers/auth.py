@@ -1086,6 +1086,7 @@ async def register(req: RegisterRequest) -> RegisterResponse:
             vehicle_number=(req.vehicle_number or "").strip(),
             registration_number=(req.registration_number or "").strip(),
             ambulance_type=req.ambulance_type or "standard",
+            national_id=(req.national_id or "").strip() or None,
         )
 
         return RegisterResponse(

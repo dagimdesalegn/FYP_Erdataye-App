@@ -32,7 +32,6 @@ import {
     getDriverAssignment,
     getDriverHistory,
     getDriverStats,
-    getHospitalSummary,
     sendLocationUpdate,
     subscribeToAssignments,
     toggleAmbulanceAvailability,
@@ -92,9 +91,6 @@ export default function DriverHomeScreen() {
   const [profileVisible, setProfileVisible] = useState(false);
   const [driverProfile, setDriverProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [hospitalDisplayName, setHospitalDisplayName] =
-    useState<string>("Not assigned");
-
   // Load driver's ambulance ID and details
   useEffect(() => {
     if (!user) return;
@@ -174,27 +170,6 @@ export default function DriverHomeScreen() {
     };
     loadHistory();
   }, [user]);
-
-  useEffect(() => {
-    const resolveHospitalName = async () => {
-      const hospitalId =
-        ambulanceDetails?.hospital_id || driverProfile?.hospital_id;
-      if (!hospitalId) {
-        setHospitalDisplayName("Not assigned");
-        return;
-      }
-
-      const { hospital, error } = await getHospitalSummary(hospitalId);
-      if (error || !hospital) {
-        setHospitalDisplayName("Assigned hospital");
-        return;
-      }
-
-      setHospitalDisplayName(hospital.name || "Assigned hospital");
-    };
-
-    resolveHospitalName();
-  }, [ambulanceDetails?.hospital_id, driverProfile?.hospital_id]);
 
   // Refresh stats, assignment, and history when screen regains focus
   // (e.g. returning from driver-emergency-tracking after completion)
@@ -404,8 +379,9 @@ export default function DriverHomeScreen() {
 
   const handleProfilePress = async () => {
     setProfileVisible(true);
-    if (!user?.id || driverProfile) return;
+    if (!user?.id) return;
     setProfileLoading(true);
+    setDriverProfile(null);
     try {
       const { profile } = await getUserProfile(user.id);
       if (profile) setDriverProfile(profile);
@@ -911,7 +887,7 @@ export default function DriverHomeScreen() {
               >
                 <InfoRow
                   icon="person"
-                  label="Full Name"
+                  label="Full name"
                   value={driverProfile.full_name}
                 />
                 <InfoRow
@@ -921,10 +897,27 @@ export default function DriverHomeScreen() {
                 />
                 <InfoRow
                   icon="credit-card"
-                  label="National ID"
-                  value={driverProfile.national_id || "Not assigned"}
+                  label="National ID (Fayda)"
+                  value={driverProfile.national_id || "—"}
                 />
-                <InfoRow icon="badge" label="Role" value={driverProfile.role} />
+                <InfoRow
+                  icon="directions-car"
+                  label="Plate / vehicle number"
+                  value={
+                    ambulanceDetails?.vehicle_number ||
+                    driverProfile.vehicle_number ||
+                    "—"
+                  }
+                />
+                <InfoRow
+                  icon="assignment"
+                  label="Registration number"
+                  value={
+                    ambulanceDetails?.registration_number ||
+                    driverProfile.registration_number ||
+                    "—"
+                  }
+                />
                 <InfoRow
                   icon="local-offer"
                   label="Ambulance type"
@@ -932,38 +925,6 @@ export default function DriverHomeScreen() {
                     driverProfile.ambulance_type ||
                     ambulanceDetails?.type ||
                     "standard"
-                  }
-                />
-                <InfoRow
-                  icon="directions-car"
-                  label="Plate Number"
-                  value={
-                    ambulanceDetails?.vehicle_number ||
-                    driverProfile.vehicle_number ||
-                    "Not assigned"
-                  }
-                />
-                <InfoRow
-                  icon="assignment"
-                  label="Registration No."
-                  value={
-                    ambulanceDetails?.registration_number ||
-                    driverProfile.registration_number ||
-                    "Not assigned"
-                  }
-                />
-                <InfoRow
-                  icon="local-hospital"
-                  label="Hospital"
-                  value={hospitalDisplayName}
-                />
-                <InfoRow
-                  icon="calendar-today"
-                  label="Member Since"
-                  value={
-                    driverProfile.created_at
-                      ? new Date(driverProfile.created_at).toLocaleDateString()
-                      : ""
                   }
                 />
               </ScrollView>

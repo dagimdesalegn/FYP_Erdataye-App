@@ -191,6 +191,39 @@ async def _enrich_combined_from_profiles_batch(items: list[dict[str, Any]]) -> N
                 _overlay_profile_fields(it, prow)
 
 
+async def _mirror_profile_registration_fields(
+    *,
+    user_id: str,
+    hospital_id: str,
+    full_name: str,
+    phone: str,
+    national_id: str | None,
+    vehicle_number: str,
+    registration_number: str,
+    ambulance_type: str,
+) -> None:
+    """Keep `profiles` in sync with registration so hospital UI and /profiles/me stay accurate."""
+    now = _now_iso()
+    patch: dict[str, Any] = {
+        "hospital_id": str(hospital_id or "").strip(),
+        "full_name": str(full_name or "").strip(),
+        "phone": str(phone or "").strip(),
+        "ambulance_type": str(ambulance_type or "standard").strip() or "standard",
+        "updated_at": now,
+    }
+    vn = str(vehicle_number or "").strip()
+    rn = str(registration_number or "").strip()
+    patch["vehicle_number"] = vn or None
+    patch["registration_number"] = rn or None
+    nid = str(national_id or "").strip()
+    if nid:
+        patch["national_id"] = nid
+    try:
+        await db_update(_PROFILE_TABLE, {"id": user_id}, patch)
+    except Exception:
+        pass
+
+
 async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
     for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_FULL_NO_NID, _PROFILE_COLS_MIN):
         rows, code = await db_select(_PROFILE_TABLE, {"id": user_id}, columns=cols)
@@ -211,6 +244,7 @@ async def upsert_ambulance_registration_request(
     vehicle_number: str,
     registration_number: str,
     ambulance_type: str,
+    national_id: str | None = None,
 ) -> dict[str, Any]:
     user_id = str(user_id or "").strip()
     if not user_id:
@@ -236,6 +270,16 @@ async def upsert_ambulance_registration_request(
 
     rows, code = await db_upsert(_TABLE, payload, on_conflict="user_id")
     if code in (200, 201):
+        await _mirror_profile_registration_fields(
+            user_id=user_id,
+            hospital_id=str(payload["hospital_id"]),
+            full_name=str(payload["full_name"]),
+            phone=str(payload["phone"]),
+            national_id=national_id,
+            vehicle_number=str(vehicle_number or ""),
+            registration_number=str(registration_number or ""),
+            ambulance_type=str(payload["ambulance_type"]),
+        )
         if isinstance(rows, list) and rows:
             return dict(rows[0])
         return payload
@@ -268,15 +312,16 @@ async def upsert_ambulance_registration_request(
     except Exception:
         pass
 
-    extra_patch = {
-        "vehicle_number": str(vehicle_number or "").strip() or None,
-        "registration_number": str(registration_number or "").strip() or None,
-        "ambulance_type": str(ambulance_type or "standard").strip() or "standard",
-    }
-    try:
-        await db_update(_PROFILE_TABLE, {"id": user_id}, extra_patch)
-    except Exception:
-        pass
+    await _mirror_profile_registration_fields(
+        user_id=user_id,
+        hospital_id=str(hospital_id or "").strip(),
+        full_name=str(full_name or "").strip(),
+        phone=str(phone or "").strip(),
+        national_id=national_id,
+        vehicle_number=str(vehicle_number or ""),
+        registration_number=str(registration_number or ""),
+        ambulance_type=str(ambulance_type or "standard"),
+    )
 
     fallback_row = await _select_profile_for_approval(user_id)
     if fallback_row:

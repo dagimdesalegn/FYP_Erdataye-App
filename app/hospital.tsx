@@ -1508,29 +1508,6 @@ export default function HospitalDashboard() {
                         "Ambulance type",
                         approvalDisplay(approvalConfirm.request.ambulance_type),
                       ],
-                      ["Status", approvalDisplay(approvalConfirm.request.status)],
-                      [
-                        "Requested at",
-                        approvalConfirm.request.requested_at
-                          ? formatDateTime(approvalConfirm.request.requested_at)
-                          : "—",
-                      ],
-                      [
-                        "Last updated",
-                        approvalConfirm.request.updated_at
-                          ? formatDateTime(approvalConfirm.request.updated_at)
-                          : "—",
-                      ],
-                      ["Driver account ID", approvalDisplay(approvalConfirm.request.user_id)],
-                      ["Linked hospital ID", approvalDisplay(approvalConfirm.request.hospital_id)],
-                      [
-                        "Previously reviewed at",
-                        approvalConfirm.request.reviewed_at
-                          ? formatDateTime(approvalConfirm.request.reviewed_at)
-                          : "—",
-                      ],
-                      ["Reviewed by (user id)", approvalDisplay(approvalConfirm.request.reviewed_by)],
-                      ["Review note", approvalDisplay(approvalConfirm.request.review_note)],
                     ] as const
                   ).map(([label, value]) => (
                     <View
