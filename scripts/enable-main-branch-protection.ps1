@@ -8,7 +8,8 @@
 # To use a different payload, set MAIN_PROTECTION_JSON to a file path.
 
 $ErrorActionPreference = "Stop"
-$token = $env:GITHUB_TOKEN ?? $env:GH_TOKEN
+$token = $env:GITHUB_TOKEN
+if (-not $token) { $token = $env:GH_TOKEN }
 if (-not $token) {
     Write-Error "Set GITHUB_TOKEN or GH_TOKEN to a token with admin rights on dagimdesalegn/FYP_Erdataye-App."
 }

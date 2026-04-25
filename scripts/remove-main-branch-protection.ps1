@@ -4,7 +4,8 @@
 # Create token: GitHub -> Settings -> Developer settings -> PAT, scope: repo (full control for private repos).
 
 $ErrorActionPreference = "Stop"
-$token = $env:GITHUB_TOKEN ?? $env:GH_TOKEN
+$token = $env:GITHUB_TOKEN
+if (-not $token) { $token = $env:GH_TOKEN }
 if (-not $token) {
     Write-Error "Set GITHUB_TOKEN or GH_TOKEN to a PAT with admin access to the repository."
 }
