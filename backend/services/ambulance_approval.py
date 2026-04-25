@@ -118,6 +118,28 @@ _PROFILE_COLS_FULL = (
 _PROFILE_COLS_MIN = "id,role,hospital_id,full_name,phone,created_at,updated_at"
 
 
+def _overlay_profile_fields(target: dict[str, Any], profile_row: dict[str, Any]) -> None:
+    """Fill empty request-row fields from `profiles` (same user)."""
+    for key in ("vehicle_number", "registration_number", "full_name", "phone"):
+        raw = profile_row.get(key)
+        if raw is None:
+            continue
+        s = str(raw).strip()
+        if not s:
+            continue
+        cur = target.get(key)
+        if cur is None or str(cur).strip() == "":
+            target[key] = s
+    at_raw = profile_row.get("ambulance_type")
+    if at_raw is not None:
+        at = str(at_raw).strip()
+        if at and (
+            target.get("ambulance_type") is None
+            or str(target.get("ambulance_type") or "").strip() == ""
+        ):
+            target["ambulance_type"] = at
+
+
 async def _select_profile_for_approval(user_id: str) -> dict[str, Any] | None:
     for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_MIN):
         rows, code = await db_select(_PROFILE_TABLE, {"id": user_id}, columns=cols)
@@ -281,23 +303,42 @@ async def list_ambulance_registration_requests(
     if status_norm and status_norm != "pending":
         profile_params["approval_status"] = f"eq.{status_norm}"
 
-    # Avoid selecting optional columns that may not exist on older DBs (breaks whole query).
-    profile_rows, profile_code = await db_query(
-        _PROFILE_TABLE,
-        columns=_PROFILE_COLS_MIN,
-        params=profile_params,
-    )
+    # Prefer full profile columns so plate / registration / type show on the hospital UI.
+    # Fall back to MIN if optional columns are missing on older DBs.
+    profile_rows: list[Any] = []
+    profile_code = 0
+    for cols in (_PROFILE_COLS_FULL, _PROFILE_COLS_MIN):
+        profile_rows, profile_code = await db_query(
+            _PROFILE_TABLE,
+            columns=cols,
+            params=profile_params,
+        )
+        if profile_code in (200, 206):
+            profile_rows = list(profile_rows or [])
+            break
+        profile_rows = []
+
     if profile_code not in (200, 206) or not profile_rows:
         return combined
 
+    combined_by_uid: dict[str, dict[str, Any]] = {}
+    for it in combined:
+        u = str(it.get("user_id") or "").strip()
+        if u:
+            combined_by_uid[u] = it
+
     for row in profile_rows:
-        item = await _profile_row_to_request(dict(row))
-        if status_norm and item.get("status") != status_norm:
-            continue
-        uid = str(item.get("user_id") or "").strip()
+        prow = dict(row)
+        uid = str(prow.get("id") or "").strip()
         if not uid:
             continue
-        if uid in seen_user:
+        if uid in combined_by_uid:
+            # Request row exists but may omit plate/registration stored only on profiles.
+            _overlay_profile_fields(combined_by_uid[uid], prow)
+            continue
+
+        item = await _profile_row_to_request(prow)
+        if status_norm and item.get("status") != status_norm:
             continue
         seen_user.add(uid)
         combined.append(item)
