@@ -3,7 +3,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -29,10 +36,10 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { backendPatch } from "@/utils/api";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
-    calculateDistance,
-    parsePostGISPoint,
+  buildDriverPatientMapHtml,
+  buildMapHtml,
+  calculateDistance,
+  parsePostGISPoint,
 } from "@/utils/emergency";
 import {
     cancelEmergencyWithinWindow,
@@ -40,6 +47,7 @@ import {
     getEmergencyCancelWindowState,
     getEmergencyDetails,
     getEmergencyHospitalStatus,
+    type PatientEmergency,
     subscribeToAmbulanceLocation,
     subscribeToEmergency,
 } from "@/utils/patient";
@@ -123,16 +131,60 @@ export default function PatientEmergencyTrackingScreen() {
   const colorScheme = useColorScheme() ?? "light";
   const isDark = colorScheme === "dark";
   const colors = Colors[colorScheme];
-  const { emergencyId } = useLocalSearchParams();
+  const params = useLocalSearchParams<{
+    emergencyId?: string | string[];
+    initialStatus?: string | string[];
+    plat?: string | string[];
+    plng?: string | string[];
+    createdAt?: string | string[];
+  }>();
+  const readParam = (v: string | string[] | undefined) =>
+    Array.isArray(v) ? v[0] : v;
+  const emergencyIdRaw = params.emergencyId;
+  const emergencyId =
+    typeof emergencyIdRaw === "string"
+      ? emergencyIdRaw
+      : Array.isArray(emergencyIdRaw)
+        ? emergencyIdRaw[0]
+        : undefined;
+
+  const optimisticEmergency = useMemo((): PatientEmergency | null => {
+    if (!emergencyId) return null;
+    const plat = Number(readParam(params.plat));
+    const plng = Number(readParam(params.plng));
+    const initialStatus = readParam(params.initialStatus) as
+      | PatientEmergency["status"]
+      | undefined;
+    const createdAt = readParam(params.createdAt);
+    const hasCoords = Number.isFinite(plat) && Number.isFinite(plng);
+    if (!initialStatus && !hasCoords) return null;
+    const st = (initialStatus || "pending") as PatientEmergency["status"];
+    return {
+      id: emergencyId,
+      patient_id: "",
+      status: st,
+      emergency_type: "medium",
+      latitude: hasCoords ? plat : 0,
+      longitude: hasCoords ? plng : 0,
+      created_at: createdAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }, [
+    emergencyId,
+    params.plat,
+    params.plng,
+    params.initialStatus,
+    params.createdAt,
+  ]);
   const { width: windowWidth } = useWindowDimensions();
   const isWide = windowWidth > 600;
   const insets = useSafeAreaInsets();
   const { user } = useAppState();
   const { showAlert, showConfirm, showError, showSuccess } = useModal();
 
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [emergency, setEmergency] = useState<any>(null);
+  const [firstFetchDone, setFirstFetchDone] = useState(false);
   const [assignment, setAssignment] = useState<any>(null);
   const [ambulance, setAmbulance] = useState<any>(null);
   const [hospitalStatus, setHospitalStatus] = useState<any>(null);
@@ -246,14 +298,13 @@ export default function PatientEmergencyTrackingScreen() {
     [],
   );
 
-  const loadData = useCallback(async (showSpinner = true) => {
+  const loadData = useCallback(async () => {
     if (!emergencyId || typeof emergencyId !== "string") {
       setError("Invalid emergency ID");
-      setLoading(false);
+      setFirstFetchDone(true);
       return;
     }
     try {
-      if (showSpinner && !hasDataRef.current) setLoading(true);
       const {
         emergency: emerg,
         assignment: assign,
@@ -261,9 +312,12 @@ export default function PatientEmergencyTrackingScreen() {
         error: err,
       } = await getEmergencyDetails(emergencyId);
       if (err) {
-        setError(err.message);
+        if (!hasDataRef.current) {
+          setError(err.message);
+        }
       } else {
         hasDataRef.current = true;
+        setError(null);
         setEmergency(emerg);
         detailRefreshKeyRef.current = `${String(emerg?.status || "")}|${String(emerg?.assigned_ambulance_id || "")}|${String(emerg?.hospital_id || "")}`;
         setAssignment(assign);
@@ -277,16 +331,30 @@ export default function PatientEmergencyTrackingScreen() {
         }
       }
     } catch (e) {
-      setError("Failed to load emergency details");
+      if (!hasDataRef.current) {
+        setError("Failed to load emergency details");
+      }
       console.error(e);
     } finally {
-      setLoading(false);
+      setFirstFetchDone(true);
     }
   }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus]);
 
+  useLayoutEffect(() => {
+    if (!optimisticEmergency) return;
+    setEmergency((prev: any) =>
+      prev
+        ? prev
+        : {
+            ...optimisticEmergency,
+            patient_id: user?.id ?? optimisticEmergency.patient_id,
+          },
+    );
+  }, [optimisticEmergency, user?.id]);
+
   useEffect(() => {
     void loadData();
-  }, [loadData, applyAmbulanceFix]);
+  }, [loadData]);
 
   // Realtime: emergency status changes
   useEffect(() => {
@@ -470,7 +538,7 @@ export default function PatientEmergencyTrackingScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadData(false);
+    await loadData();
     setRefreshing(false);
   };
 
@@ -717,8 +785,8 @@ export default function PatientEmergencyTrackingScreen() {
     }
   };
 
-  // ─── Loading / Error ──────────────────────────────────
-  if (loading)
+  // ─── Loading / Error (no full-screen block: show tracking UI as soon as URL seeds or fetch returns)
+  if (!emergencyId || typeof emergencyId !== "string") {
     return (
       <View
         style={[
@@ -730,11 +798,20 @@ export default function PatientEmergencyTrackingScreen() {
           },
         ]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ThemedText style={styles.errText}>
+          {translateText("Invalid emergency ID")}
+        </ThemedText>
+        <Pressable onPress={() => router.back()} style={styles.errBtn}>
+          <ThemedText style={styles.errBtnText}>{translateText("Go Back")}</ThemedText>
+        </Pressable>
       </View>
     );
+  }
 
-  if (error || !emergency) {
+  const isInitialHydrating = !emergency && !firstFetchDone;
+  const emergencyView = emergency ?? optimisticEmergency;
+
+  if (error || !emergencyView) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.errWrap}>
@@ -751,11 +828,11 @@ export default function PatientEmergencyTrackingScreen() {
   }
 
   // ─── Computed values ──────────────────────────────────
-  const st = statusMeta(emergency.status);
-  const sev = sevMeta(emergency.emergency_type);
+  const st = statusMeta(emergencyView.status);
+  const sev = sevMeta(emergencyView.emergency_type);
   const fallbackPatientCoords = {
-    latitude: Number(emergency.latitude || 0),
-    longitude: Number(emergency.longitude || 0),
+    latitude: Number(emergencyView.latitude || 0),
+    longitude: Number(emergencyView.longitude || 0),
   };
   const patientCoords = patientLiveCoords ?? fallbackPatientCoords;
   const mapPatientCoords = patientCoords.latitude
@@ -770,7 +847,6 @@ export default function PatientEmergencyTrackingScreen() {
         longitude: Number(animatedAmbulanceCoords.longitude.toFixed(4)),
       }
     : null;
-
   let distanceText = "";
   if (
     animatedAmbulanceCoords &&
@@ -796,10 +872,9 @@ export default function PatientEmergencyTrackingScreen() {
         }
       : null;
   const isTransportPhase = ["transporting", "at_hospital"].includes(
-    String(emergency.status || ""),
+    String(emergencyView.status || ""),
   );
 
-  // Build Google Maps embed URL
   const mapHtml = (() => {
     if (isTransportPhase && mapAmbulanceCoords && hospitalCoords) {
       return buildDriverPatientMapHtml(
@@ -852,10 +927,10 @@ export default function PatientEmergencyTrackingScreen() {
   const cardBorder = colors.border;
   const subtleText = colors.textMuted;
   const isCompleted =
-    emergency.status === "completed" || emergency.status === "cancelled";
+    emergencyView.status === "completed" || emergencyView.status === "cancelled";
   const canCancelByWindow =
     cancelRemainingSeconds > 0 &&
-    ["pending", "assigned"].includes(emergency.status);
+    ["pending", "assigned"].includes(emergencyView.status);
   const statusGradientColors: [string, string] = isDark
     ? [st.color + "40", colors.background]
     : [st.color + "30", colors.surfaceMuted];
@@ -883,10 +958,10 @@ export default function PatientEmergencyTrackingScreen() {
     { key: "completed", label: translateText("Done"), icon: "check-circle" as const },
   ];
   const currentStepIndex = statusSteps.findIndex(
-    (s) => s.key === emergency.status,
+    (s) => s.key === emergencyView.status,
   );
   const resolvedIndex =
-    emergency.status === "at_hospital" ? 4 : currentStepIndex;
+    emergencyView.status === "at_hospital" ? 4 : currentStepIndex;
 
   // ─── Render ───────────────────────────────────────────
   return (
@@ -1026,7 +1101,7 @@ export default function PatientEmergencyTrackingScreen() {
               {st.label}
             </ThemedText>
             <ThemedText style={[styles.statusSub, { color: st.color + "BB" }]}>
-              {new Date(emergency.created_at).toLocaleTimeString([], {
+              {new Date(emergencyView.created_at).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })}
@@ -1039,6 +1114,15 @@ export default function PatientEmergencyTrackingScreen() {
             </ThemedText>
           </View>
         </LinearGradient>
+
+        {isInitialHydrating && (
+          <View style={styles.syncingBar}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <ThemedText style={[styles.syncingText, { color: subtleText }]}>
+              {translateText("Syncing latest emergency details...")}
+            </ThemedText>
+          </View>
+        )}
 
         {/* ── Progress Steps ────────────────────────────── */}
         <View
@@ -1357,7 +1441,7 @@ export default function PatientEmergencyTrackingScreen() {
                           "arrived",
                           "transporting",
                           "at_hospital",
-                        ].includes(emergency.status)
+                        ].includes(emergencyView.status)
                       ? translateText("Cancellation Closed (Ambulance Accepted)")
                       : translateText("Cancellation Window Closed")}
                 </ThemedText>
@@ -1610,6 +1694,19 @@ const styles = StyleSheet.create({
     maxWidth: 640,
     alignSelf: "center" as any,
     width: "100%" as any,
+  },
+  syncingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  syncingText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansMedium,
   },
 
   // Notification toast
