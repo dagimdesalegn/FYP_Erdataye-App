@@ -144,6 +144,20 @@ cp -f "$apk_target" "$WEB_ROOT/erdataye.apk"
 
 echo "$sha" > "$WEB_ROOT/.release-main-sha"
 
+# Clean legacy duplicate nginx site links that reuse the same server_name values.
+if [[ -d /etc/nginx/sites-enabled ]]; then
+  for f in /etc/nginx/sites-enabled/*; do
+    [[ -e "$f" ]] || continue
+    base="$(basename "$f")"
+    case "$base" in
+      erdataye-site.conf|staff-dashboard.conf) continue ;;
+    esac
+    if grep -qE 'erdatayee\.tech|www\.erdatayee\.tech|staff\.erdatayee\.tech|admin\.erdatayee\.tech' "$f" 2>/dev/null; then
+      rm -f "$f"
+    fi
+  done
+fi
+
 nginx -t >/dev/null
 systemctl reload nginx
 

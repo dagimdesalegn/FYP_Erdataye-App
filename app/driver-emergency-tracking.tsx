@@ -4,11 +4,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
+    KeyboardAvoidingView,
     Linking,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
+    TextInput,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -36,9 +38,18 @@ import {
   formatCoords,
   parsePostGISPoint,
 } from "@/utils/emergency";
+import {
+  addMedicalNote,
+  formatNoteTime,
+  getMedicalNotes,
+  type MedicalNote,
+  NOTE_TYPE_LABELS,
+  type NoteType,
+  type Vitals,
+} from "@/utils/medical-notes";
 import { supabase } from "@/utils/supabase";
 
-type Tab = "map" | "status";
+type Tab = "map" | "status" | "notes";
 
 const STATUS_LABELS: Record<
   string,
@@ -88,6 +99,13 @@ export default function DriverEmergencyTrackingScreen() {
   const [locationTracking, setLocationTracking] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("map");
   const lastResyncRef = useRef(0);
+  const [medicalNotes, setMedicalNotes] = useState<MedicalNote[]>([]);
+  const [noteContent, setNoteContent] = useState("");
+  const [noteType, setNoteType] = useState<NoteType>("initial_assessment");
+  const [vitals, setVitals] = useState<Vitals>({});
+  const [submittingNote, setSubmittingNote] = useState(false);
+  const [loadingNotes, setLoadingNotes] = useState(false);
+  const [showNoteComposer, setShowNoteComposer] = useState(false);
 
   const statusFlow = [
     "assigned",
@@ -217,6 +235,43 @@ export default function DriverEmergencyTrackingScreen() {
       supabase.removeChannel(channel);
     };
   }, [emergencyId]);
+
+  const loadNotes = useCallback(async () => {
+    if (!emergencyId) return;
+    setLoadingNotes(true);
+    const { notes } = await getMedicalNotes(emergencyId as string);
+    setMedicalNotes(notes);
+    setLoadingNotes(false);
+  }, [emergencyId]);
+
+  useEffect(() => {
+    if (activeTab === "notes" && emergencyId) {
+      void loadNotes();
+    }
+  }, [activeTab, emergencyId, loadNotes]);
+
+  const handleSubmitNote = async () => {
+    if (!emergencyId || !noteContent.trim()) return;
+    setSubmittingNote(true);
+    const hasVitals = Object.values(vitals).some(
+      (v) => v !== undefined && v !== "" && v !== null,
+    );
+    const { note, error } = await addMedicalNote(
+      emergencyId as string,
+      noteType,
+      noteContent.trim(),
+      hasVitals ? vitals : null,
+    );
+    if (error) {
+      showError("Note Failed", error);
+    } else if (note) {
+      setMedicalNotes((prev) => [...prev, note]);
+      setNoteContent("");
+      setShowNoteComposer(false);
+      showSuccess("Note Saved", "Clinical note sent.");
+    }
+    setSubmittingNote(false);
+  };
 
   // Auto-navigate back to home when emergency is completed or cancelled
   useEffect(() => {
@@ -525,6 +580,24 @@ export default function DriverEmergencyTrackingScreen() {
             ]}
           >
             Update Status
+          </ThemedText>
+        </Pressable>
+        <Pressable
+          onPress={() => setActiveTab("notes")}
+          style={[styles.tabBtn, activeTab === "notes" && styles.tabBtnActive]}
+        >
+          <MaterialIcons
+            name="description"
+            size={18}
+            color={activeTab === "notes" ? "#0EA5E9" : subtleText}
+          />
+          <ThemedText
+            style={[
+              styles.tabLabel,
+              { color: activeTab === "notes" ? "#0EA5E9" : subtleText },
+            ]}
+          >
+            Clinical Notes
           </ThemedText>
         </Pressable>
       </View>
@@ -955,6 +1028,142 @@ export default function DriverEmergencyTrackingScreen() {
             </View>
           </Pressable>
         </ScrollView>
+      ) : activeTab === "notes" ? (
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{ flex: 1 }}
+        >
+          <ScrollView contentContainerStyle={styles.statusScroll} keyboardShouldPersistTaps="handled">
+            <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+              <View style={styles.cardHeader}>
+                <View style={[styles.iconCircle, { backgroundColor: "#EFF6FF" }]}>
+                  <MaterialIcons name="description" size={18} color="#3B82F6" />
+                </View>
+                <ThemedText
+                  style={[
+                    styles.sectionTitle,
+                    { color: isDark ? "#E2E8F0" : "#1E293B", marginBottom: 0, marginLeft: 10 },
+                  ]}
+                >
+                  Clinical Notes ({medicalNotes.length})
+                </ThemedText>
+              </View>
+              {loadingNotes ? (
+                <ActivityIndicator size="small" color={colors.tint} style={{ marginVertical: 16 }} />
+              ) : medicalNotes.length === 0 ? (
+                <ThemedText style={[styles.emptyNoteText, { color: subtleText }]}>
+                  No clinical notes yet.
+                </ThemedText>
+              ) : (
+                medicalNotes.map((n) => {
+                  const meta =
+                    NOTE_TYPE_LABELS[n.note_type as NoteType] || NOTE_TYPE_LABELS.general;
+                  return (
+                    <View key={n.id} style={[styles.noteItem, { borderColor: cardBorder }]}>
+                      <View style={styles.noteHeader}>
+                        <View style={[styles.noteTypeBadge, { backgroundColor: meta.color + "18" }]}>
+                          <MaterialIcons name={meta.icon as any} size={14} color={meta.color} />
+                          <ThemedText style={[styles.noteTypeText, { color: meta.color }]}>
+                            {meta.label}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={[styles.noteTime, { color: subtleText }]}>
+                          {formatNoteTime(n.created_at)}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={[styles.noteContent, { color: isDark ? "#E2E8F0" : "#1E293B" }]}>
+                        {n.content}
+                      </ThemedText>
+                    </View>
+                  );
+                })
+              )}
+            </View>
+
+            {!["completed", "cancelled"].includes(currentStatus) && (
+              <View style={[styles.infoCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                <Pressable
+                  onPress={() => setShowNoteComposer((prev) => !prev)}
+                  style={[
+                    styles.trackingRow,
+                    { backgroundColor: "transparent", borderColor: cardBorder, marginBottom: 0 },
+                  ]}
+                >
+                  <MaterialIcons name="edit-note" size={18} color="#10B981" />
+                  <ThemedText
+                    style={[
+                      styles.trackingLabel,
+                      { color: isDark ? "#E2E8F0" : "#1E293B", marginLeft: 8 },
+                    ]}
+                  >
+                    {showNoteComposer ? "Hide note box" : "Add Clinical Note"}
+                  </ThemedText>
+                </Pressable>
+
+                {showNoteComposer && (
+                  <>
+                    <ThemedText style={[styles.formLabel, { color: subtleText }]}>
+                      NOTE TYPE
+                    </ThemedText>
+                    <View style={styles.noteTypeRow}>
+                      {(["initial_assessment", "transport_observation", "general"] as NoteType[]).map((t) => {
+                        const meta = NOTE_TYPE_LABELS[t];
+                        const selected = noteType === t;
+                        return (
+                          <Pressable
+                            key={t}
+                            onPress={() => setNoteType(t)}
+                            style={[
+                              styles.noteTypeChip,
+                              {
+                                borderColor: selected ? meta.color : cardBorder,
+                                backgroundColor: selected ? meta.color + "15" : "transparent",
+                              },
+                            ]}
+                          >
+                            <MaterialIcons name={meta.icon as any} size={14} color={selected ? meta.color : subtleText} />
+                            <ThemedText style={[styles.noteTypeChipText, { color: selected ? meta.color : subtleText }]}>
+                              {meta.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                    <ThemedText style={[styles.formLabel, { color: subtleText }]}>
+                      OBSERVATION
+                    </ThemedText>
+                    <TextInput
+                      style={[
+                        styles.noteInput,
+                        {
+                          backgroundColor: isDark ? "#1E293B" : "#F8FAFC",
+                          borderColor: cardBorder,
+                          color: isDark ? "#E2E8F0" : "#0F172A",
+                        },
+                      ]}
+                      value={noteContent}
+                      onChangeText={setNoteContent}
+                      placeholder="Write clinical note..."
+                      placeholderTextColor={subtleText}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                      maxLength={2000}
+                    />
+                    <AppButton
+                      label={submittingNote ? "Sending..." : "Send Note"}
+                      onPress={handleSubmitNote}
+                      variant="primary"
+                      fullWidth
+                      disabled={submittingNote || !noteContent.trim()}
+                      style={{ marginTop: 12 }}
+                    />
+                  </>
+                )}
+              </View>
+            )}
+          </ScrollView>
+        </KeyboardAvoidingView>
       ) : null}
     </View>
   );
