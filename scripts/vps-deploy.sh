@@ -162,9 +162,9 @@ nginx -t >/dev/null
 systemctl reload nginx
 
 echo "[8/8] Cleanup + final checks"
-curl -fsS --max-time 8 https://erdatayee.tech/api/health >/dev/null
-curl -fsS --max-time 8 https://staff.erdatayee.tech/api/health >/dev/null
-curl -fsS --max-time 10 https://erdatayee.tech/downloads/erdataye.apk -o /tmp/erdataye.apk.check
+curl -fsS --max-time 8 http://127.0.0.1:9000/health >/dev/null
+curl -fsS --max-time 8 "http://127.0.0.1/api/health" -H "Host: erdatayee.tech" >/dev/null
+curl -fsS --max-time 10 "http://127.0.0.1/downloads/erdataye.apk" -H "Host: erdatayee.tech" -o /tmp/erdataye.apk.check
 test "$(wc -c </tmp/erdataye.apk.check | tr -d ' ')" -gt 1000000
 rm -f /tmp/erdataye.apk.check
 
