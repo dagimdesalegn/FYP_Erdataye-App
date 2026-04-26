@@ -374,6 +374,27 @@ export default function DriverHomeScreen() {
       setHistory(items);
       return;
     }
+    const emergencyStatus = String(
+      assignment?.emergency_requests?.status || "",
+    ).toLowerCase();
+    const emergencyId = assignment?.emergency_id || assignment?.emergency_requests?.id;
+    const isAlreadyAcceptedFlow = [
+      "assigned",
+      "en_route",
+      "at_scene",
+      "arrived",
+      "transporting",
+      "at_hospital",
+    ].includes(emergencyStatus);
+
+    if (isAlreadyAcceptedFlow && emergencyId) {
+      router.push({
+        pathname: "/driver-emergency-tracking" as any,
+        params: { emergencyId },
+      });
+      return;
+    }
+
     router.push("/driver-emergency" as any);
   };
 

@@ -69,8 +69,8 @@ export const Fonts = {
   sansExtraBold: "Inter_800ExtraBold",
   /** 900 – hero text */
   sansBlack: "Inter_900Black",
-  /** Rounded feel for brand headings (same as bold) */
-  rounded: "Inter_700Bold",
+  /** Distinct brand heading feel */
+  rounded: "Inter_900Black",
   serif: Platform.select({
     ios: "New York",
     android: "serif",

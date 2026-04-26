@@ -827,7 +827,12 @@ export default function RegisterScreen() {
                         />
                       </Pressable>
                       {bloodTypeOpen && (
-                        <View style={[styles.dropdownMenu, { borderTopColor: inputBorder }]}> 
+                        <ScrollView
+                          style={[styles.dropdownMenu, { borderTopColor: inputBorder }]}
+                          nestedScrollEnabled
+                          showsVerticalScrollIndicator
+                          keyboardShouldPersistTaps="handled"
+                        >
                           <Pressable
                             style={styles.dropdownOption}
                             onPress={() => {
@@ -835,7 +840,11 @@ export default function RegisterScreen() {
                               setBloodTypeOpen(false);
                             }}
                           >
-                            <ThemedText style={[styles.dropdownOptionText, { color: textSecondary }]}>None</ThemedText>
+                            <ThemedText
+                              style={[styles.dropdownOptionText, { color: textSecondary }]}
+                            >
+                              None
+                            </ThemedText>
                           </Pressable>
                           {BLOOD_TYPE_OPTIONS.map((bloodType) => (
                             <Pressable
@@ -863,7 +872,7 @@ export default function RegisterScreen() {
                               </ThemedText>
                             </Pressable>
                           ))}
-                        </View>
+                        </ScrollView>
                       )}
                     </View>
                     {fieldErrors.bloodType ? (

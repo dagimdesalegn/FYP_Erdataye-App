@@ -123,6 +123,25 @@ else
   echo "WARNING: No APK artifact found in release root; keeping existing public APK." >&2
 fi
 
+# Enforce basic APK integrity so users do not receive a corrupted download.
+apk_target="$APK_PUBLIC_DIR/erdataye.apk"
+if [[ ! -f "$apk_target" ]]; then
+  echo "ERROR: APK missing at $apk_target" >&2
+  exit 1
+fi
+apk_size="$(wc -c < "$apk_target" | tr -d ' ')"
+if [[ "${apk_size:-0}" -lt 1000000 ]]; then
+  echo "ERROR: APK too small (${apk_size} bytes), refusing deployment." >&2
+  exit 1
+fi
+python3 - "$apk_target" <<'PY'
+import pathlib
+import sys
+p = pathlib.Path(sys.argv[1]).read_bytes()[:4]
+raise SystemExit(0 if p.startswith(b"PK") else 1)
+PY
+cp -f "$apk_target" "$WEB_ROOT/erdataye.apk"
+
 echo "$sha" > "$WEB_ROOT/.release-main-sha"
 
 nginx -t >/dev/null
@@ -131,6 +150,9 @@ systemctl reload nginx
 echo "[8/8] Cleanup + final checks"
 curl -fsS --max-time 8 https://erdatayee.tech/api/health >/dev/null
 curl -fsS --max-time 8 https://staff.erdatayee.tech/api/health >/dev/null
+curl -fsS --max-time 10 https://erdatayee.tech/downloads/erdataye.apk -o /tmp/erdataye.apk.check
+test "$(wc -c </tmp/erdataye.apk.check | tr -d ' ')" -gt 1000000
+rm -f /tmp/erdataye.apk.check
 
 echo "Deploy completed"
 echo "  SHA: $sha"
