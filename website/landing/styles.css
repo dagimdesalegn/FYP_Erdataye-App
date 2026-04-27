@@ -1041,19 +1041,19 @@ h1 {
 
 .site-footer {
   margin-top: 26px;
-  border-top: 1px solid #24323f;
+  border-top: 1px solid #1f2a36;
   background:
     radial-gradient(
       860px 260px at 5% -16%,
-      rgba(102, 126, 148, 0.16),
+      rgba(79, 101, 122, 0.14),
       transparent 60%
     ),
     radial-gradient(
       860px 260px at 100% 118%,
-      rgba(90, 108, 125, 0.16),
+      rgba(78, 96, 113, 0.14),
       transparent 60%
     ),
-    linear-gradient(180deg, #0f1720 0%, #182531 100%);
+    linear-gradient(180deg, #070b11 0%, #101822 100%);
 }
 
 .footer-wrap {
@@ -1067,6 +1067,29 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 9px;
+}
+
+.footer-links-col {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(174, 194, 210, 0.16);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.footer-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.footer-links-grid a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(143, 208, 255, 0.08);
+  border: 1px solid rgba(143, 208, 255, 0.18);
 }
 
 .footer-col h3 {
@@ -1109,12 +1132,12 @@ h1 {
 }
 
 .footer-ju {
-  width: 86px;
-  height: 86px;
-  border-radius: 18px;
+  width: 102px;
+  height: 102px;
+  border-radius: 22px;
   object-fit: cover;
-  border: 1px solid rgba(239, 246, 251, 0.35);
-  box-shadow: 0 10px 26px rgba(8, 20, 31, 0.38);
+  border: 1px solid rgba(239, 246, 251, 0.5);
+  box-shadow: 0 14px 30px rgba(5, 15, 24, 0.5);
 }
 
 .footer-meta {
@@ -1136,27 +1159,42 @@ h1 {
 @media (max-width: 920px) {
   .footer-wrap {
     grid-template-columns: 1fr;
-    gap: 12px;
-    padding-top: 18px;
+    gap: 10px;
+    padding-top: 16px;
     padding-bottom: 10px;
   }
 
   .footer-col {
-    text-align: left;
-    align-items: flex-start;
+    text-align: center;
+    align-items: center;
     border: 1px solid rgba(214, 229, 238, 0.14);
-    border-radius: 16px;
-    padding: 14px;
-    background: rgba(242, 248, 252, 0.04);
+    border-radius: 14px;
+    padding: 12px;
+    background: rgba(242, 248, 252, 0.03);
   }
 
   .footer-ju-wrap {
-    justify-content: flex-start;
+    justify-content: center;
+    margin-bottom: 6px;
   }
 
   .footer-ju {
-    width: 96px;
-    height: 96px;
+    width: 88px;
+    height: 88px;
+    border-radius: 18px;
+  }
+
+  .footer-links-col {
+    padding: 12px;
+  }
+
+  .footer-links-grid {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .footer-links-grid a {
+    justify-content: center;
   }
 
   .footer-meta {
