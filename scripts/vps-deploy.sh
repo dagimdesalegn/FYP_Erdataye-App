@@ -109,6 +109,12 @@ mkdir -p "$APK_PUBLIC_DIR"
 
 rsync -av "$release_dir/website/landing/" "$WEB_ROOT/" >/dev/null
 
+# Sync shared app images (team photos, logos) used by landing page.
+if [[ -d "$release_dir/assets/images" ]]; then
+  mkdir -p "$WEB_ROOT/assets/images"
+  rsync -av "$release_dir/assets/images/" "$WEB_ROOT/assets/images/" >/dev/null
+fi
+
 apk_source=""
 if [[ -f "$release_dir/erdataye-release-build27.apk" ]]; then
   apk_source="$release_dir/erdataye-release-build27.apk"
