@@ -109,12 +109,6 @@ mkdir -p "$APK_PUBLIC_DIR"
 
 rsync -av "$release_dir/website/landing/" "$WEB_ROOT/" >/dev/null
 
-# Keep VPS nginx vhosts in sync with repository templates.
-install -D -m 0644 "$release_dir/website/nginx/erdataye-site.conf" /etc/nginx/sites-available/erdataye-site.conf
-install -D -m 0644 "$release_dir/website/nginx/staff-dashboard.conf" /etc/nginx/sites-available/staff-dashboard.conf
-ln -sf /etc/nginx/sites-available/erdataye-site.conf /etc/nginx/sites-enabled/erdataye-site.conf
-ln -sf /etc/nginx/sites-available/staff-dashboard.conf /etc/nginx/sites-enabled/staff-dashboard.conf
-
 apk_source=""
 if [[ -f "$release_dir/erdataye-release-build27.apk" ]]; then
   apk_source="$release_dir/erdataye-release-build27.apk"
