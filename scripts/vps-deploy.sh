@@ -116,11 +116,19 @@ if [[ -d "$release_dir/assets/images" ]]; then
 fi
 
 apk_source=""
-if [[ -f "$release_dir/erdataye-release-build27.apk" ]]; then
-  apk_source="$release_dir/erdataye-release-build27.apk"
-elif [[ -f "$release_dir/erdataye-production.apk" ]]; then
-  apk_source="$release_dir/erdataye-production.apk"
-fi
+best_size=0
+for candidate in \
+  "$release_dir/erdataye-production.apk" \
+  "$release_dir/erdataye-release-build27.apk" \
+  "$release_dir"/*-release.apk \
+  "$release_dir"/*.apk; do
+  [[ -f "$candidate" ]] || continue
+  size="$(wc -c < "$candidate" | tr -d ' ')"
+  if [[ "${size:-0}" -gt "${best_size:-0}" ]]; then
+    best_size="$size"
+    apk_source="$candidate"
+  fi
+done
 
 if [[ -n "$apk_source" ]]; then
   cp -f "$apk_source" "$APK_PUBLIC_DIR/erdataye.apk"
