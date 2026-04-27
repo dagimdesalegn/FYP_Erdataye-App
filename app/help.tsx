@@ -324,13 +324,26 @@ export default function HelpScreen() {
       return;
     }
     if (activeEmergencyId) {
-      router.push(
-        `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
-      );
+      const q = new URLSearchParams({ emergencyId: activeEmergencyId });
+      if (activeEmergency?.status) {
+        q.set("initialStatus", activeEmergency.status);
+      }
+      if (
+        activeEmergency &&
+        Number.isFinite(activeEmergency.latitude) &&
+        Number.isFinite(activeEmergency.longitude)
+      ) {
+        q.set("plat", String(activeEmergency.latitude));
+        q.set("plng", String(activeEmergency.longitude));
+      }
+      if (activeEmergency?.created_at) {
+        q.set("createdAt", activeEmergency.created_at);
+      }
+      router.push(`/patient-emergency-tracking?${q.toString()}`);
       return;
     }
     router.push(`/patient-emergency${locationQuery}`);
-  }, [activeEmergencyId, currentLocation, router, user?.id]);
+  }, [activeEmergency, activeEmergencyId, currentLocation, router, user?.id]);
 
   const handleForMe = () => {
     setHelpOpen(false);
@@ -358,7 +371,7 @@ export default function HelpScreen() {
     }
   };
 
-  if (authLoading || dataLoading) {
+  if (authLoading) {
     return (
       <View
         style={[

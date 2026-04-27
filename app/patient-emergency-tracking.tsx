@@ -157,7 +157,6 @@ export default function PatientEmergencyTrackingScreen() {
       | undefined;
     const createdAt = readParam(params.createdAt);
     const hasCoords = Number.isFinite(plat) && Number.isFinite(plng);
-    if (!initialStatus && !hasCoords) return null;
     const st = (initialStatus || "pending") as PatientEmergency["status"];
     return {
       id: emergencyId,
