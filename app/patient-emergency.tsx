@@ -22,9 +22,9 @@ import { Colors, Fonts } from "@/constants/theme";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    buildPatientRequestMapHtml,
-    calculateDistance,
-    getExplainableTriage,
+  buildPatientRequestMapHtml,
+  calculateDistance,
+  getExplainableTriage,
     getLiveAvailableAmbulances,
     getTrafficAwareDispatch,
     parsePostGISPoint,
@@ -44,7 +44,32 @@ import {
     updatePatientLiveLocation,
 } from "@/utils/patient";
 import { supabase } from "@/utils/supabase";
+import { translateText } from "@/utils/i18n";
 import { useLocalSearchParams, useRouter } from "expo-router";
+
+function patientTrackingHref(
+  emergencyId: string,
+  opts?: {
+    status?: string | null;
+    lat?: number;
+    lng?: number;
+    createdAt?: string | null;
+  },
+) {
+  const q = new URLSearchParams({ emergencyId });
+  if (opts?.status) q.set("initialStatus", opts.status);
+  if (
+    opts?.lat != null &&
+    opts?.lng != null &&
+    Number.isFinite(opts.lat) &&
+    Number.isFinite(opts.lng)
+  ) {
+    q.set("plat", String(opts.lat));
+    q.set("plng", String(opts.lng));
+  }
+  if (opts?.createdAt) q.set("createdAt", opts.createdAt);
+  return `/patient-emergency-tracking?${q.toString()}`;
+}
 
 export default function PatientEmergencyScreen() {
   const _authLoading = useAuthGuard();
@@ -97,6 +122,7 @@ export default function PatientEmergencyScreen() {
     string | null
   >(null);
   const [cancelRemainingSeconds, setCancelRemainingSeconds] = useState(0);
+  const redirectedEmergencyRef = useRef<string | null>(null);
   const [nearbyAmbulances, setNearbyAmbulances] = useState<
     {
       lat: number;
@@ -185,7 +211,7 @@ export default function PatientEmergencyScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.latitude, location?.longitude]);
 
-  // Keep map stable: update map center only on meaningful movement or elapsed time.
+  // Throttle map embed URL updates (reduces WebView reloads).
   useEffect(() => {
     if (!location) return;
     const now = Date.now();
@@ -352,9 +378,14 @@ export default function PatientEmergencyScreen() {
       const status = updated?.status;
       setActiveEmergencyStatus(status ?? null);
       if (status === "en_route" || status === "assigned") {
-        // Ambulance accepted -> auto-navigate to tracking (no popup)
+        // Ambulance accepted -> open tracking immediately (URL seeds UI; no wait on detail API)
         router.push(
-          `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
+          patientTrackingHref(activeEmergencyId, {
+            status: status ?? undefined,
+            lat: updated?.latitude,
+            lng: updated?.longitude,
+            createdAt: updated?.created_at ?? activeEmergencyCreatedAt,
+          }),
         );
       } else if (status === "cancelled") {
         // Ambulance declined / emergency cancelled
@@ -384,13 +415,66 @@ export default function PatientEmergencyScreen() {
       setActiveEmergencyId(emergency.id);
       setActiveEmergencyCreatedAt(emergency.created_at || null);
       setActiveEmergencyStatus(emergency.status || "pending");
+      const st = String(emergency.status || "").toLowerCase();
+      const shouldOpenTracking = [
+        "assigned",
+        "en_route",
+        "at_scene",
+        "arrived",
+        "transporting",
+        "at_hospital",
+      ].includes(st);
+      if (shouldOpenTracking && redirectedEmergencyRef.current !== emergency.id) {
+        redirectedEmergencyRef.current = emergency.id;
+        router.replace(
+          patientTrackingHref(emergency.id, {
+            status: emergency.status,
+            lat: emergency.latitude,
+            lng: emergency.longitude,
+            createdAt: emergency.created_at,
+          }),
+        );
+      }
     } else {
       setHasActiveEmergency(false);
       setActiveEmergencyId(null);
       setActiveEmergencyCreatedAt(null);
       setActiveEmergencyStatus(null);
+      redirectedEmergencyRef.current = null;
     }
   };
+
+  useEffect(() => {
+    if (!hasActiveEmergency || !activeEmergencyId) return;
+    const st = String(activeEmergencyStatus || "").toLowerCase();
+    const shouldOpenTracking = [
+      "assigned",
+      "en_route",
+      "at_scene",
+      "arrived",
+      "transporting",
+      "at_hospital",
+    ].includes(st);
+    if (!shouldOpenTracking) return;
+    if (redirectedEmergencyRef.current === activeEmergencyId) return;
+    redirectedEmergencyRef.current = activeEmergencyId;
+    router.replace(
+      patientTrackingHref(activeEmergencyId, {
+        status: activeEmergencyStatus ?? undefined,
+        lat: location?.latitude,
+        lng: location?.longitude,
+        createdAt: activeEmergencyCreatedAt,
+      }),
+    );
+  }, [
+    hasActiveEmergency,
+    activeEmergencyId,
+    activeEmergencyStatus,
+    activeEmergencyCreatedAt,
+    location?.latitude,
+    location?.longitude,
+    router,
+  ]);
 
   useEffect(() => {
     if (!activeEmergencyCreatedAt) {
@@ -609,7 +693,12 @@ export default function PatientEmergencyScreen() {
             "A nearby ambulance has been auto-assigned. Tracking will open now.",
           );
           router.push(
-            `/patient-emergency-tracking?emergencyId=${emergency.id}`,
+            patientTrackingHref(emergency.id, {
+              status: emergency.status,
+              lat: emergency.latitude,
+              lng: emergency.longitude,
+              createdAt: emergency.created_at,
+            }),
           );
         }
       }
@@ -639,7 +728,12 @@ export default function PatientEmergencyScreen() {
           "Fallback assignment succeeded. A nearby ambulance is on the way.",
         );
         router.push(
-          `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
+          patientTrackingHref(activeEmergencyId, {
+            status: "assigned",
+            lat: location.latitude,
+            lng: location.longitude,
+            createdAt: emergency?.created_at,
+          }),
         );
       }
     } catch (err) {
@@ -704,8 +798,14 @@ export default function PatientEmergencyScreen() {
       setOtherPersonName("");
       setOtherPersonContact("");
 
-      // Navigate immediately to tracking without bulky popup.
-      router.push(`/patient-emergency-tracking?emergencyId=${emergency.id}`);
+      router.push(
+        patientTrackingHref(emergency.id, {
+          status: emergency.status,
+          lat: emergency.latitude,
+          lng: emergency.longitude,
+          createdAt: emergency.created_at,
+        }),
+      );
     } catch (error) {
       console.error("Error creating emergency:", error);
       const errMsg = `Failed to request emergency services: ${error}`;
@@ -851,8 +951,8 @@ export default function PatientEmergencyScreen() {
                 ]}
               >
                 {hasActiveEmergency
-                  ? "Emergency Active"
-                  : "No Active Emergency"}
+                  ? translateText("Emergency Active")
+                  : translateText("No Active Emergency")}
               </ThemedText>
               {/* Refresh button */}
               <Pressable
@@ -897,7 +997,7 @@ export default function PatientEmergencyScreen() {
               <View style={styles.liveStatusRow}>
                 <MaterialIcons name="sync" size={14} color="#0EA5E9" />
                 <ThemedText style={styles.liveStatusLabel}>
-                  Live Status:
+                  {translateText("Live Status")}:
                 </ThemedText>
                 <ThemedText style={styles.liveStatusValue}>
                   {String(activeEmergencyStatus || "pending")
@@ -909,16 +1009,22 @@ export default function PatientEmergencyScreen() {
               <View style={styles.infoCard}>
                 <MaterialIcons name="info" size={20} color="#0EA5E9" />
                 <ThemedText style={styles.infoText}>
-                  A dispatcher has received your call and is locating the
-                  nearest ambulance.
+                  {translateText(
+                    "A dispatcher has received your call and is locating the nearest ambulance.",
+                  )}
                 </ThemedText>
               </View>
 
               <AppButton
-                label="View Status"
+                label={translateText("View Status")}
                 onPress={() =>
                   router.push(
-                    `/patient-emergency-tracking?emergencyId=${activeEmergencyId}`,
+                    patientTrackingHref(activeEmergencyId!, {
+                      status: activeEmergencyStatus ?? undefined,
+                      lat: location?.latitude,
+                      lng: location?.longitude,
+                      createdAt: activeEmergencyCreatedAt,
+                    }),
                   )
                 }
                 variant="primary"
@@ -926,7 +1032,7 @@ export default function PatientEmergencyScreen() {
               />
 
               <AppButton
-                label="Call Dispatcher"
+                label={translateText("Call Dispatcher")}
                 onPress={() =>
                   showAlert("Dispatcher", "Calling dispatch center...")
                 }
@@ -938,7 +1044,7 @@ export default function PatientEmergencyScreen() {
               <AppButton
                 label={
                   canCancelByWindow
-                    ? `Cancel Request (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
+                    ? `${translateText("Cancel Request")} (${Math.floor(cancelRemainingSeconds / 60)}:${String(cancelRemainingSeconds % 60).padStart(2, "0")})`
                     : [
                           "en_route",
                           "at_scene",
@@ -946,8 +1052,8 @@ export default function PatientEmergencyScreen() {
                           "transporting",
                           "at_hospital",
                         ].includes(String(activeEmergencyStatus || ""))
-                      ? "Cancellation Closed (Ambulance Accepted)"
-                      : "Cancellation Window Closed"
+                      ? translateText("Cancellation Closed (Ambulance Accepted)")
+                      : translateText("Cancellation Window Closed")
                 }
                 onPress={handleCancelEmergency}
                 variant="ghost"
@@ -993,22 +1099,22 @@ export default function PatientEmergencyScreen() {
                         style={[styles.nearbyTitle, { color: colors.text }]}
                       >
                         {nearbyAmbulances.length > 0
-                          ? "Nearest live ambulance"
-                          : "Searching for nearby live ambulances..."}
+                          ? translateText("Nearest live ambulance")
+                          : translateText("Searching for nearby live ambulances...")}
                       </ThemedText>
                     </View>
 
                     {!hasNearbyAmbulance ? (
                       <View style={[styles.section, { alignItems: "center" }]}>
                         <ThemedText style={styles.sectionTitle}>
-                          No ambulances are nearby right now
+                          {translateText("No ambulances are nearby right now")}
                         </ThemedText>
                         <ThemedText
                           style={[styles.nearbyEmpty, { color: colors.text }]}
                         >
-                          We cannot take a request until a unit comes online
-                          within range. Try again shortly or chat with first
-                          aid.
+                          {translateText(
+                            "We cannot take a request until a unit comes online within range. Try again shortly or chat with first aid.",
+                          )}
                         </ThemedText>
                         <View style={{ marginTop: 18 }}>
                           <FirstAidFab

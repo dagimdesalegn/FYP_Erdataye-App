@@ -30,11 +30,12 @@ import {
     getPatientInfo,
     subscribeToAssignments,
 } from "@/utils/driver";
+import { translateText } from "@/utils/i18n";
 import {
-    buildDriverPatientMapHtml,
-    buildMapHtml,
-    calculateDistance,
-    parsePostGISPoint,
+  buildDriverPatientMapHtml,
+  buildMapHtml,
+  calculateDistance,
+  parsePostGISPoint,
 } from "@/utils/emergency";
 import { supabase } from "@/utils/supabase";
 
@@ -153,8 +154,8 @@ export default function DriverEmergencyScreen() {
 
         if (error || !asgn) {
           if (!options?.silent) {
-            const message = "No active assignment found";
-            showAlert("Info", message);
+            const message = translateText("No active assignment found");
+            showAlert(translateText("Info"), message);
             router.back();
           }
           return;
@@ -233,8 +234,8 @@ export default function DriverEmergencyScreen() {
         assignment.emergency_id,
       );
       if (error) {
-        const msg = error.message || "Failed to accept emergency";
-        showError("Accept Failed", msg);
+        const msg = error.message || translateText("Failed to accept emergency");
+        showError(translateText("Accept Failed"), msg);
         return;
       }
       router.replace({
@@ -259,8 +260,8 @@ export default function DriverEmergencyScreen() {
           assignment.emergency_id,
         );
         if (error) {
-          const msg = error.message || "Failed to decline";
-          showError("Decline Failed", msg);
+          const msg = error.message || translateText("Failed to decline");
+          showError(translateText("Decline Failed"), msg);
           return;
         }
         router.replace("/driver-home" as any);
@@ -272,8 +273,8 @@ export default function DriverEmergencyScreen() {
     };
 
     showConfirm(
-      "Decline Emergency?",
-      "Are you sure you want to decline this emergency?",
+      translateText("Decline Emergency?"),
+      translateText("Are you sure you want to decline this emergency?"),
       doDecline,
     );
   };
@@ -348,7 +349,7 @@ export default function DriverEmergencyScreen() {
         <View style={styles.emptyWrap}>
           <MaterialIcons name="assignment-late" size={56} color="#94A3B8" />
           <ThemedText style={styles.emptyLabel}>
-            No active assignment
+            {translateText("No active assignment")}
           </ThemedText>
         </View>
       </View>
@@ -372,7 +373,6 @@ export default function DriverEmergencyScreen() {
       km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`;
   }
 
-  // Build Google Maps embed URL
   const mapHtml = (() => {
     if (driverCoords && patientCoords) {
       return buildDriverPatientMapHtml(
@@ -507,7 +507,7 @@ export default function DriverEmergencyScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                Live Map
+                {translateText("Live Map")}
               </ThemedText>
               {distanceText ? (
                 <View style={styles.distBadge}>
@@ -533,7 +533,7 @@ export default function DriverEmergencyScreen() {
               >
                 <MaterialIcons name="navigation" size={18} color="#FFF" />
                 <ThemedText style={styles.navBtnText}>
-                  Open in Google Maps
+                  {translateText("Open in Google Maps")}
                 </ThemedText>
               </Pressable>
             )}
@@ -558,13 +558,13 @@ export default function DriverEmergencyScreen() {
                   { color: isDark ? "#E2E8F0" : "#1E293B" },
                 ]}
               >
-                Patient
+                {translateText("Patient")}
               </ThemedText>
             </View>
 
             <View style={styles.infoRow}>
               <ThemedText style={[styles.infoLabel, { color: subtleText }]}>
-                Name
+                {translateText("Name")}
               </ThemedText>
               <ThemedText
                 style={[
@@ -579,7 +579,7 @@ export default function DriverEmergencyScreen() {
             {patientInfo.phone ? (
               <View style={styles.infoRow}>
                 <ThemedText style={[styles.infoLabel, { color: subtleText }]}>
-                  Phone
+                  {translateText("Phone")}
                 </ThemedText>
                 <View
                   style={[
@@ -604,7 +604,7 @@ export default function DriverEmergencyScreen() {
                     ]}
                   >
                     <MaterialIcons name="call" size={15} color="#FFFFFF" />
-                    <ThemedText style={styles.callNowText}>Call</ThemedText>
+                    <ThemedText style={styles.callNowText}>{translateText("Call")}</ThemedText>
                   </Pressable>
                 </View>
               </View>
@@ -657,7 +657,7 @@ export default function DriverEmergencyScreen() {
                     { color: isDark ? "#F8FAFC" : "#0F172A" },
                   ]}
                 >
-                  Medical Profile
+                  {translateText("Medical Profile")}
                 </ThemedText>
               </View>
 
@@ -677,7 +677,7 @@ export default function DriverEmergencyScreen() {
                       { color: isDark ? "#FCA5A5" : "#B91C1C" },
                     ]}
                   >
-                    Blood Type
+                    {translateText("Blood Type")}
                   </ThemedText>
                   <ThemedText
                     style={[
@@ -685,7 +685,7 @@ export default function DriverEmergencyScreen() {
                       { color: isDark ? "#FEE2E2" : "#7F1D1D" },
                     ]}
                   >
-                    {med?.blood_type || "Not set"}
+                    {med?.blood_type || translateText("Not set")}
                   </ThemedText>
                 </View>
 
@@ -704,7 +704,7 @@ export default function DriverEmergencyScreen() {
                       { color: isDark ? "#FCD34D" : "#92400E" },
                     ]}
                   >
-                    Allergies
+                    {translateText("Allergies")}
                   </ThemedText>
                   <ThemedText
                     style={[
@@ -713,7 +713,7 @@ export default function DriverEmergencyScreen() {
                     ]}
                     numberOfLines={2}
                   >
-                    {med?.allergies || "None reported"}
+                    {med?.allergies || translateText("None reported")}
                   </ThemedText>
                 </View>
               </View>
@@ -742,7 +742,7 @@ export default function DriverEmergencyScreen() {
                       },
                     ]}
                   >
-                    Emergency Contact
+                    {translateText("Emergency Contact")}
                   </ThemedText>
                 </View>
 
@@ -752,7 +752,7 @@ export default function DriverEmergencyScreen() {
                     { color: isDark ? "#E6FFFA" : "#064E3B" },
                   ]}
                 >
-                  {med?.emergency_contact_name || "Not provided"}
+                  {med?.emergency_contact_name || translateText("Not provided")}
                 </ThemedText>
 
                 {med?.emergency_contact_phone ? (
@@ -803,7 +803,7 @@ export default function DriverEmergencyScreen() {
             ) : (
               <>
                 <MaterialIcons name="close" size={18} color="#DC2626" />
-                <ThemedText style={styles.declineBtnText}>Decline</ThemedText>
+                <ThemedText style={styles.declineBtnText}>{translateText("Decline")}</ThemedText>
               </>
             )}
           </Pressable>
@@ -829,7 +829,7 @@ export default function DriverEmergencyScreen() {
                 <>
                   <MaterialIcons name="check" size={18} color="#FFF" />
                   <ThemedText style={styles.acceptBtnText}>
-                    Accept & Go
+                    {translateText("Accept & Go")}
                   </ThemedText>
                 </>
               )}
