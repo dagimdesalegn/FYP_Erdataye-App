@@ -312,7 +312,7 @@ export default function PatientEmergencyTrackingScreen() {
         error: err,
       } = await getEmergencyDetails(emergencyId);
       if (err) {
-        if (!hasDataRef.current) {
+        if (!hasDataRef.current && !optimisticEmergency) {
           setError(err.message);
         }
       } else {
@@ -331,14 +331,14 @@ export default function PatientEmergencyTrackingScreen() {
         }
       }
     } catch (e) {
-      if (!hasDataRef.current) {
+      if (!hasDataRef.current && !optimisticEmergency) {
         setError("Failed to load emergency details");
       }
       console.error(e);
     } finally {
       setFirstFetchDone(true);
     }
-  }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus]);
+  }, [emergencyId, applyAmbulanceFix, refreshHospitalStatus, optimisticEmergency]);
 
   useLayoutEffect(() => {
     if (!optimisticEmergency) return;
@@ -811,7 +811,7 @@ export default function PatientEmergencyTrackingScreen() {
   const isInitialHydrating = !emergency && !firstFetchDone;
   const emergencyView = emergency ?? optimisticEmergency;
 
-  if (error || !emergencyView) {
+  if (!emergencyView) {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <View style={styles.errWrap}>
@@ -1120,6 +1120,26 @@ export default function PatientEmergencyTrackingScreen() {
             <ActivityIndicator size="small" color={colors.primary} />
             <ThemedText style={[styles.syncingText, { color: subtleText }]}>
               {translateText("Syncing latest emergency details...")}
+            </ThemedText>
+          </View>
+        )}
+        {error && (
+          <View
+            style={[
+              styles.softWarnBar,
+              {
+                backgroundColor: isDark
+                  ? "rgba(245,158,11,0.16)"
+                  : "rgba(245,158,11,0.12)",
+                borderColor: isDark
+                  ? "rgba(245,158,11,0.4)"
+                  : "rgba(245,158,11,0.35)",
+              },
+            ]}
+          >
+            <MaterialIcons name="warning-amber" size={16} color="#F59E0B" />
+            <ThemedText style={styles.softWarnText}>
+              {translateText("Live details are syncing. Showing latest known emergency info.")}
             </ThemedText>
           </View>
         )}
@@ -1707,6 +1727,22 @@ const styles = StyleSheet.create({
   syncingText: {
     fontSize: 12,
     fontFamily: Fonts.sansMedium,
+  },
+  softWarnBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  softWarnText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#B45309",
+    fontFamily: Fonts.sansSemiBold,
   },
 
   // Notification toast
