@@ -460,6 +460,18 @@ export default function LoginScreen() {
                   {fieldErrors.password}
                 </ThemedText>
               ) : null}
+              <Pressable
+                onPress={() => !loading && router.push("/forgot-password")}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.forgotPasswordBtn,
+                  pressed && { opacity: 0.75 },
+                ]}
+              >
+                <ThemedText style={[styles.forgotPasswordText, { color: colors.primary }]}> 
+                  {translateText("Forgot Password?")}
+                </ThemedText>
+              </Pressable>
             </View>
 
             <Pressable
@@ -683,6 +695,14 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
+  },
+  forgotPasswordBtn: {
+    alignSelf: "flex-end",
+    marginTop: 10,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansSemiBold,
   },
   /* ---- Primary button ---- */
   primaryBtn: { marginTop: 4, borderRadius: 14, overflow: "hidden" },

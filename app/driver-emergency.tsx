@@ -30,6 +30,7 @@ import {
     getPatientInfo,
     subscribeToAssignments,
 } from "@/utils/driver";
+  import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 import { translateText } from "@/utils/i18n";
 import {
   buildDriverPatientMapHtml,
@@ -220,6 +221,7 @@ export default function DriverEmergencyScreen() {
   useEffect(() => {
     if (!user) return;
     const unsubscribe = subscribeToAssignments(user.id, () => {
+      void triggerEmergencyHapticAlert();
       loadAssignment({ silent: true });
     });
     return unsubscribe;

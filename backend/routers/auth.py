@@ -129,6 +129,10 @@ _fayda_jwks_cache: dict[str, Any] = {
     "keys": [],
 }
 
+# In-memory password reset OTP store (dev-only): user_id -> { otp, expires_at }
+_password_reset_store: dict[str, dict[str, Any]] = {}
+_password_reset_lock = Lock()
+
 
 class FaydaAuthorizeResponse(BaseModel):
     authorization_url: str
@@ -1484,6 +1488,52 @@ class UpdatePhoneResponse(BaseModel):
     message: str
 
 
+class ResetPasswordRequest(BaseModel):
+    phone: str = Field(..., min_length=9, max_length=16)
+    new_password: str = Field(..., min_length=6, max_length=72)
+    full_name: str | None = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("phone")
+    @classmethod
+    def normalise_phone(cls, v: str) -> str:
+        return _normalise_ethiopian_mobile(v)
+
+    @field_validator("full_name")
+    @classmethod
+    def strip_full_name(cls, v: str | None) -> str | None:
+        if v is None:
+          return None
+        value = v.strip()
+        return value or None
+
+
+class ResetPasswordResponse(BaseModel):
+    success: bool
+    message: str
+
+
+class RequestPasswordResetRequest(BaseModel):
+    phone: str
+    full_name: str | None = None
+
+
+class RequestPasswordResetResponse(BaseModel):
+    success: bool
+    otp: str | None = None
+    message: str | None = None
+
+
+class ConfirmPasswordResetRequest(BaseModel):
+    phone: str
+    otp: str
+    new_password: str = Field(..., min_length=6)
+
+
+class ConfirmPasswordResetResponse(BaseModel):
+    success: bool
+    message: str
+
+
 @router.post(
     "/update-phone",
     response_model=UpdatePhoneResponse,
@@ -1507,3 +1557,192 @@ async def update_phone(req: UpdatePhoneRequest) -> UpdatePhoneResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update auth phone.")
 
     return UpdatePhoneResponse(success=True, message="Auth phone updated")
+
+
+@router.post(
+    "/reset-password",
+    response_model=ResetPasswordResponse,
+    summary="Reset a user's password using their phone number",
+)
+async def reset_password(req: ResetPasswordRequest) -> ResetPasswordResponse:
+    """
+    Resets the Supabase Auth password for an existing account after a
+    phone-number lookup. This keeps the flow free and server-side.
+    """
+
+    phone_candidates = _normalize_phone_candidates(req.phone)
+    lookup_rows: list[dict[str, Any]] = []
+
+    for candidate in phone_candidates:
+        rows, code = await db_select(
+            "profiles",
+            {"phone": candidate},
+            columns="id,full_name,phone,role",
+        )
+        if code in (200, 206) and rows:
+            lookup_rows = rows
+            break
+
+    if not lookup_rows:
+        for candidate in phone_candidates:
+            rows, code = await db_select(
+                "hospitals",
+                {"phone": candidate},
+                columns="id,name,phone",
+            )
+            if code in (200, 206) and rows:
+                lookup_rows = [
+                    {
+                        "id": str(rows[0].get("id") or ""),
+                        "full_name": str(rows[0].get("name") or ""),
+                        "phone": str(rows[0].get("phone") or candidate),
+                        "role": "hospital",
+                    }
+                ]
+                break
+
+    if not lookup_rows:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No account found for that phone number.",
+        )
+
+    selected_row: dict[str, Any] | None = None
+    if req.full_name:
+        requested = req.full_name.casefold()
+        for row in lookup_rows:
+          row_name = str(row.get("full_name") or "").strip().casefold()
+          if row_name and row_name == requested:
+            selected_row = row
+            break
+
+    if selected_row is None:
+        selected_row = lookup_rows[0]
+
+    user_id = str(selected_row.get("id") or "")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Unable to resolve the account for that phone number.",
+        )
+
+    data, code = await auth_update_user(
+        user_id,
+        {"password": req.new_password},
+    )
+
+    if code not in (200, 201):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to reset password.",
+        )
+
+    return ResetPasswordResponse(
+        success=True,
+        message="Password reset successfully. You can now sign in with your new password.",
+    )
+
+
+@router.post(
+    "/request-password-reset",
+    response_model=RequestPasswordResetResponse,
+    summary="Request a password reset token for a phone number",
+)
+async def request_password_reset(req: RequestPasswordResetRequest) -> RequestPasswordResetResponse:
+    """
+    Generates a short-lived signed token for password reset and returns it.
+    In production you should send the token to the user's phone via SMS.
+    For development / free flow this endpoint returns the token directly.
+    """
+
+    phone_candidates = _normalize_phone_candidates(req.phone)
+    lookup_rows: list[dict[str, Any]] = []
+
+    for candidate in phone_candidates:
+        rows, code = await db_select(
+            "profiles",
+            {"phone": candidate},
+            columns="id,full_name,phone,role",
+        )
+        if code in (200, 206) and rows:
+            lookup_rows = rows
+            break
+
+    if not lookup_rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No account found for that phone number.")
+
+    selected_row = lookup_rows[0]
+    user_id = str(selected_row.get("id") or "")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unable to resolve the account for that phone number.")
+
+    # Generate a 6-digit OTP (000000-999999)
+    otp_int = secrets.randbelow(1_000_000)
+    otp = f"{otp_int:06d}"
+    now_ts = time.time()
+    expires_at = now_ts + (10 * 60)  # 10 minutes expiry
+
+    # Store OTP in memory (dev/demo flow). Thread-safe access.
+    with _password_reset_lock:
+        # Clean expired
+        expired = [k for k, v in _password_reset_store.items() if float(v.get("expires_at", 0)) <= now_ts]
+        for k in expired:
+            _password_reset_store.pop(k, None)
+
+        _password_reset_store[user_id] = {"otp": otp, "expires_at": expires_at}
+
+    # NOTE: In production, send `otp` to the user's phone via SMS provider instead
+    # of returning it in the API response.
+    return RequestPasswordResetResponse(success=True, otp=otp, message="OTP generated and returned for development testing.")
+
+
+@router.post(
+    "/confirm-password-reset",
+    response_model=ConfirmPasswordResetResponse,
+    summary="Confirm a password reset using a token",
+)
+async def confirm_password_reset(req: ConfirmPasswordResetRequest) -> ConfirmPasswordResetResponse:
+    """
+    Validates the signed token and updates the Supabase Auth password server-side.
+    """
+    phone_candidates = _normalize_phone_candidates(req.phone)
+    lookup_rows: list[dict[str, Any]] = []
+
+    for candidate in phone_candidates:
+        rows, code = await db_select(
+            "profiles",
+            {"phone": candidate},
+            columns="id,full_name,phone,role",
+        )
+        if code in (200, 206) and rows:
+            lookup_rows = rows
+            break
+
+    if not lookup_rows:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No account found for that phone number.")
+
+    selected_row = lookup_rows[0]
+    user_id = str(selected_row.get("id") or "")
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unable to resolve the account for that phone number.")
+
+    # Validate OTP from in-memory store
+    now_ts = time.time()
+    with _password_reset_lock:
+        entry = _password_reset_store.get(user_id)
+        if not entry:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No OTP request found or OTP expired.")
+        if float(entry.get("expires_at", 0)) <= now_ts:
+            _password_reset_store.pop(user_id, None)
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP expired.")
+        if str(entry.get("otp") or "") != str(req.otp):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP.")
+        # consume
+        _password_reset_store.pop(user_id, None)
+
+    data, code = await auth_update_user(user_id, {"password": req.new_password})
+
+    if code not in (200, 201):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to reset password")
+
+    return ConfirmPasswordResetResponse(success=True, message="Password reset successfully. You can now sign in with your new password.")

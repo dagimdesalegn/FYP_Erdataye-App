@@ -194,6 +194,10 @@ function ThemedRoot() {
             options={{ headerShown: false, title: "Login" }}
           />
           <Stack.Screen
+            name="forgot-password"
+            options={{ headerShown: false, title: "Forgot Password" }}
+          />
+          <Stack.Screen
             name="staff"
             options={{ headerShown: false, title: "Staff Login" }}
           />

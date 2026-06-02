@@ -23,6 +23,7 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { calculateDistance } from "@/utils/emergency";
+import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 import { t } from "@/utils/i18n";
 
 import {
@@ -226,6 +227,8 @@ export default function DriverHomeScreen() {
     if (!user || !isAvailable) return;
 
     const unsubscribe = subscribeToAssignments(user.id, async (_assignment) => {
+      void triggerEmergencyHapticAlert();
+
       // Surface assignment state immediately for faster UX.
       setHasAssignment(true);
       setAssignmentCount(1);

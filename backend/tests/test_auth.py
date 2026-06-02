@@ -167,3 +167,29 @@ class TestInputValidation:
                 age=30,
                 severity="extreme",  # not in ['low','medium','high','critical']
             )
+
+
+# ---------------------------------------------------------------------------
+# 5. Password reset
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+class TestPasswordReset:
+    async def test_reset_password_updates_auth_user(self):
+        from routers.auth import ResetPasswordRequest, reset_password
+
+        request = ResetPasswordRequest(
+            phone="0974014207",
+            new_password="NewPass123!",
+            full_name="Test User",
+        )
+
+        mock_select = AsyncMock(return_value=([{"id": "user-1", "full_name": "Test User", "phone": "+251974014207", "role": "patient"}], 200))
+        mock_update = AsyncMock(return_value=({"id": "user-1"}, 200))
+
+        with patch("routers.auth.db_select", mock_select), patch("routers.auth.auth_update_user", mock_update):
+            response = await reset_password(request)
+
+        assert response.success is True
+        assert mock_update.await_count == 1
+        assert mock_update.await_args.args[0] == "user-1"
+        assert mock_update.await_args.args[1] == {"password": "NewPass123!"}

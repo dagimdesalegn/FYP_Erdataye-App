@@ -30,6 +30,31 @@ jest.mock("expo-notifications", () => ({
   AndroidImportance: { MAX: 5 },
 }));
 
+// Mock expo-haptics
+jest.mock("expo-haptics", () => ({
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: {
+    Success: 0,
+    Warning: 1,
+    Error: 2,
+  },
+  ImpactFeedbackStyle: {
+    Light: 0,
+    Medium: 1,
+    Heavy: 2,
+    Rigid: 3,
+    Soft: 4,
+  },
+  AndroidHaptics: {
+    Confirm: 0,
+    Reject: 1,
+    Segment_Tick: 2,
+  },
+}));
+
 // Mock expo-constants
 jest.mock("expo-constants", () => ({
   expoConfig: {
