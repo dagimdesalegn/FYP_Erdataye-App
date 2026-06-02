@@ -23,8 +23,8 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { calculateDistance } from "@/utils/emergency";
-import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 import { t } from "@/utils/i18n";
+import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 
 import {
     ensureAmbulanceHospitalLink,
@@ -380,7 +380,8 @@ export default function DriverHomeScreen() {
     const emergencyStatus = String(
       assignment?.emergency_requests?.status || "",
     ).toLowerCase();
-    const emergencyId = assignment?.emergency_id || assignment?.emergency_requests?.id;
+    const emergencyId =
+      assignment?.emergency_id || assignment?.emergency_requests?.id;
     const isAlreadyAcceptedFlow = [
       "assigned",
       "en_route",

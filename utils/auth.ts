@@ -444,8 +444,6 @@ export const signUp = async (
       };
     }
 
-    
-
     const authEmail = toAuthEmail(phone);
     const ethPhone = toEthiopianPhone(phone);
 
@@ -682,11 +680,19 @@ export const requestPasswordReset = async (
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) {
-      return { success: false, otp: undefined, error: new Error(body?.detail || `Request failed (${res.status})`) };
+      return {
+        success: false,
+        otp: undefined,
+        error: new Error(body?.detail || `Request failed (${res.status})`),
+      };
     }
     return { success: true, otp: body?.otp, error: null };
   } catch (err: any) {
-    return { success: false, otp: undefined, error: err instanceof Error ? err : new Error(String(err)) };
+    return {
+      success: false,
+      otp: undefined,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
   }
 };
 
@@ -706,11 +712,17 @@ export const confirmPasswordReset = async (
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      return { success: false, error: new Error(body?.detail || `Request failed (${res.status})`) };
+      return {
+        success: false,
+        error: new Error(body?.detail || `Request failed (${res.status})`),
+      };
     }
     return { success: true, error: null };
   } catch (err: any) {
-    return { success: false, error: err instanceof Error ? err : new Error(String(err)) };
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
   }
 };
 

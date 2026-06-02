@@ -12,14 +12,12 @@ jest.mock("react-native", () => ({
 jest.mock("expo-notifications", () => ({
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
-  getPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: "granted" })
-  ),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
   requestPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: "granted" })
+    Promise.resolve({ status: "granted" }),
   ),
   getExpoPushTokenAsync: jest.fn(() =>
-    Promise.resolve({ data: "ExponentPushToken[test123]" })
+    Promise.resolve({ data: "ExponentPushToken[test123]" }),
   ),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationResponseReceivedListener: jest.fn(() => ({
@@ -85,10 +83,10 @@ jest.mock("../utils/supabase", () => ({
       signUp: jest.fn(),
       signOut: jest.fn(),
       getUser: jest.fn(() =>
-        Promise.resolve({ data: { user: null }, error: null })
+        Promise.resolve({ data: { user: null }, error: null }),
       ),
       getSession: jest.fn(() =>
-        Promise.resolve({ data: { session: null }, error: null })
+        Promise.resolve({ data: { session: null }, error: null }),
       ),
       onAuthStateChange: jest.fn(() => ({
         data: { subscription: { unsubscribe: jest.fn() } },

@@ -4,9 +4,9 @@
 
 // Mock backendPost before importing
 import {
-  registerForPushNotifications,
-  showLocalNotification,
-  triggerEmergencyHapticAlert,
+    registerForPushNotifications,
+    showLocalNotification,
+    triggerEmergencyHapticAlert,
 } from "../utils/notifications";
 
 jest.mock("../utils/api", () => ({
