@@ -8,8 +8,11 @@ import { Platform } from "react-native";
 
 import { supabase } from "./supabase";
 
+const PRODUCTION_VPS_API = "http://95.111.253.90/api";
 const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
-const ENV_BACKEND_URL = ENV_BACKEND_URL_RAW || "http://localhost:8000";
+const ENV_BACKEND_URL =
+  ENV_BACKEND_URL_RAW ||
+  (Platform.OS === "web" ? PRODUCTION_VPS_API : "http://localhost:8000");
 const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .split(",")
   .map((value) => value.trim())
@@ -18,8 +21,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
 // embedded as expected. Keep public URLs here so mobile requests still work.
 const DEFAULT_PUBLIC_BACKENDS = [
-  "http://192.227.217.222/api",
-  "http://192.227.217.222:8000",
+  "http://95.111.253.90/api",
+  "http://95.111.253.90:8000",
 ];
 
 const DEFAULT_TIMEOUT_MS = 12000;
@@ -66,6 +69,8 @@ const isSecureWebContext = (): boolean => {
 const isInsecureHttp = (url: string): boolean => /^http:\/\//i.test(url);
 const allowInsecureHttpCandidate = (url: string): boolean => {
   if (!isInsecureHttp(url)) return true;
+  // VPS / IP deployments serve the web app over plain HTTP — API must work too.
+  if (Platform.OS === "web" && !isSecureWebContext()) return true;
   return typeof __DEV__ !== "undefined" ? __DEV__ : false;
 };
 

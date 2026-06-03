@@ -65,8 +65,8 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  // Don't render until font loading is resolved (loaded or errored)
-  if (!fontsLoaded && !fontError) {
+  // Web static export: never block first paint on fonts (avoids React #418 hydration mismatch).
+  if (Platform.OS !== "web" && !fontsLoaded && !fontError) {
     return null;
   }
 

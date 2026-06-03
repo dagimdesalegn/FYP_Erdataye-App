@@ -55,12 +55,12 @@ export default function LoginScreen() {
       Animated.timing(fadeIn, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(slideUp, {
         toValue: 0,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
     ]).start();
     // eslint-disable-next-line react-hooks/exhaustive-deps

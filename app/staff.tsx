@@ -46,12 +46,12 @@ export default function StaffLoginScreen() {
       Animated.timing(fadeIn, {
         toValue: 1,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(slideUp, {
         toValue: 0,
         duration: 600,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
     ]).start();
   }, [fadeIn, slideUp]);

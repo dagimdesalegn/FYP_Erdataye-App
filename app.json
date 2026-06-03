@@ -19,7 +19,7 @@
       "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.erdatayeambulance",
-      "versionCode": 10,
+      "versionCode": 51,
       "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -36,7 +36,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.erdataye.ambulance",
-      "buildNumber": "10",
+      "buildNumber": "51",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Allow እርዳታዬ Erdataye to access your location while using the app.",
         "NSMicrophoneUsageDescription": "Allow እርዳታዬ Erdataye to use the microphone for emergency voice guidance.",
