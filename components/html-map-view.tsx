@@ -1,24 +1,19 @@
 /**
- * HtmlMapView — renders a Google Maps embed URL inside a WebView (native) or iframe (web).
- * Provides a single cross-platform API for all map screens.
+ * HtmlMapView — Google Maps embed URL inside a WebView (native) or iframe (web).
  */
 import React, { useMemo, useState } from "react";
 import { Platform, StyleProp, Text, View, ViewStyle } from "react-native";
 import { WebView } from "react-native-webview";
 
 interface HtmlMapViewProps {
-  /** Google Maps embed URL produced by buildMapHtml / buildDriverPatientMapHtml */
   html: string;
-  /** Optional style applied to the container */
   style?: StyleProp<ViewStyle>;
-  /** Title for web iframe accessibility */
   title?: string;
 }
 
 export function HtmlMapView({ html, style, title = "Map" }: HtmlMapViewProps) {
   const [hasError, setHasError] = useState(false);
 
-  // Google Maps embed URLs require being inside an iframe on native WebView.
   const iframeHtml = useMemo(
     () => `<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">

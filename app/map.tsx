@@ -342,19 +342,14 @@ export default function MapScreen() {
   const userLat = mapCenter?.lat ?? location?.coords.latitude ?? 9.02;
   const userLng = mapCenter?.lng ?? location?.coords.longitude ?? 38.75;
 
-  // Build Google Maps embed URL centered on user
   const mapHtml = buildMapHtml(userLat, userLng, 14);
 
   return (
     <ThemedView style={styles.container}>
       <AppHeader title="እርዳታዬ Erdataye" onBackPress={() => router.back()} />
 
-      {/* Google Maps embed */}
       <View style={styles.mapContainer}>
-        <HtmlMapView
-          html={mapHtml}
-          style={{ flex: 1 }}
-        />
+        <HtmlMapView html={mapHtml} style={{ flex: 1 }} />
       </View>
 
       {/* Controls: Refresh only (directions removed) */}
