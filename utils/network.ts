@@ -11,8 +11,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 const PROBE_URLS = [
   ENV_BACKEND_URL_RAW,
   ...BACKEND_FALLBACKS,
-  "https://staff.erdatayee.tech/api/health",
-  "https://erdatayee.tech/api/health",
+  "http://192.227.217.222/api/health",
+  "http://192.227.217.222:8000/health",
 ]
   .filter(Boolean)
   .map((value) => value.replace(/\/+$/, ""));

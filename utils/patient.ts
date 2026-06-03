@@ -185,9 +185,8 @@ interface FamilyShareCreateResponse {
 }
 
 const PREFERRED_SHARE_BASES = [
-  "https://erdatayee.tech/api",
-  "https://www.erdatayee.tech/api",
-  "https://staff.erdatayee.tech/api",
+  "http://192.227.217.222/api",
+  "http://192.227.217.222:8000",
 ];
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");
@@ -288,7 +287,7 @@ export const createFamilyShareLink = async (
     const baseUrl = resolvePublicBackendUrl().replace(/\/$/, "");
     if (!isShareablePublicUrl(baseUrl)) {
       throw new Error(
-        "Family share link is not public yet. Set EXPO_PUBLIC_BACKEND_URL to a public HTTPS URL (for example your ngrok URL).",
+        "Family share link is not public yet. Set EXPO_PUBLIC_BACKEND_URL to a public IP or HTTPS URL.",
       );
     }
     const shareUrl = `${baseUrl}/ops/family/share/live?share_token=${encodeURIComponent(data.share_token)}`;

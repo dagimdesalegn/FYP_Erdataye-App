@@ -3,9 +3,9 @@ import { Platform } from "react-native";
 
 export const APP_UPDATE_METADATA_URL =
   process.env.EXPO_PUBLIC_APP_UPDATE_URL?.trim() ||
-  "https://erdatayee.tech/app-update.json";
+  "http://192.227.217.222/app-update.json";
 
-const DEFAULT_APK_URL = "https://erdatayee.tech/downloads/erdataye.apk";
+const DEFAULT_APK_URL = "http://192.227.217.222/downloads/erdataye.apk";
 const REQUEST_TIMEOUT_MS = 4500;
 
 export type AppUpdateCheckResult = {

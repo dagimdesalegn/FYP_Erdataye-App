@@ -36,13 +36,12 @@ install -D -m 0644 /tmp/erdataye-release-fresh.apk /var/www/erdataya/downloads/e
 cp -f /tmp/erdataye-release-fresh.apk /var/www/erdataya/erdataye.apk
 echo "APK bytes: $SIZE"
 
-echo "=== [3/6] Install nginx vhosts from /tmp (uploaded by deploy client) ==="
-for f in erdataye-site.conf staff-dashboard.conf; do
+echo "=== [3/6] Install nginx vhost from /tmp (uploaded by deploy client) ==="
+for f in erdataye-site.conf; do
   test -f "/tmp/$f" || { echo "Missing /tmp/$f"; exit 1; }
   install -D -m 0644 "/tmp/$f" "/etc/nginx/sites-available/$f"
 done
 ln -sf /etc/nginx/sites-available/erdataye-site.conf /etc/nginx/sites-enabled/erdataye-site.conf
-ln -sf /etc/nginx/sites-available/staff-dashboard.conf /etc/nginx/sites-enabled/staff-dashboard.conf
 
 echo "=== [4/6] Staff web static (zip from client) ==="
 test -f /tmp/staff-web-export.zip
@@ -59,7 +58,7 @@ systemctl reload nginx
 
 echo "=== [6/6] Smoke curl ==="
 set +o pipefail
-curl -fsSI "https://erdatayee.tech/downloads/erdataye.apk" | head -n 15 || true
+curl -fsSI "http://127.0.0.1/downloads/erdataye.apk" | head -n 15 || true
 set -o pipefail
-curl -fsS "https://erdatayee.tech/api/health" || true
+curl -fsS "http://127.0.0.1/api/health" || true
 echo "FULL_DEPLOY_OK"

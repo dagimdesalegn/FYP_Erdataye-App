@@ -18,10 +18,8 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
 // embedded as expected. Keep public URLs here so mobile requests still work.
 const DEFAULT_PUBLIC_BACKENDS = [
-  "https://staff.erdatayee.tech/api",
-  "https://erdatayee.tech/api",
-  "http://207.180.205.85/api",
-  "http://207.180.205.85:8000",
+  "http://192.227.217.222/api",
+  "http://192.227.217.222:8000",
 ];
 
 const DEFAULT_TIMEOUT_MS = 12000;

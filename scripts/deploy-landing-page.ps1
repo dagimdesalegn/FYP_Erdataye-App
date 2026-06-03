@@ -1,10 +1,7 @@
 param(
-  [string]$ServerIp = "207.180.205.85",
+  [string]$ServerIp = "192.227.217.222",
   [string]$Username = "root",
-  [System.Management.Automation.PSCredential]$AdminCredential,
-  [string]$Domain = "erdataye.com",
-  [string]$WwwDomain = "www.erdataye.com",
-  [string]$StaffDomain = "staff.erdataye.com"
+  [System.Management.Automation.PSCredential]$AdminCredential
 )
 
 $ErrorActionPreference = "Stop"
@@ -46,22 +43,12 @@ rm -f $tmpZip
 # Keep APK aliases stable
 mkdir -p /var/www/erdataya/downloads
 
-# Install nginx vhost from repository templates (domain placeholders replaced)
+# Install nginx vhost from repository template.
 cat > /etc/nginx/sites-available/erdataye-site.conf <<'NGINXCONF'
 $(Get-Content -Path "website/nginx/erdataye-site.conf" -Raw)
 NGINXCONF
 
-cat > /etc/nginx/sites-available/staff-dashboard.conf <<'NGINXSTAFF'
-$(Get-Content -Path "website/nginx/staff-dashboard.conf" -Raw)
-NGINXSTAFF
-
-sed -i "s/erdataye.com/$Domain/g" /etc/nginx/sites-available/erdataye-site.conf
-sed -i "s/www.erdataye.com/$WwwDomain/g" /etc/nginx/sites-available/erdataye-site.conf
-sed -i "s/staff.erdataye.com/$StaffDomain/g" /etc/nginx/sites-available/staff-dashboard.conf
-sed -i "s/admin.erdataye.com/admin.$Domain/g" /etc/nginx/sites-available/staff-dashboard.conf
-
 ln -sf /etc/nginx/sites-available/erdataye-site.conf /etc/nginx/sites-enabled/erdataye-site.conf
-ln -sf /etc/nginx/sites-available/staff-dashboard.conf /etc/nginx/sites-enabled/staff-dashboard.conf
 
 nginx -t
 systemctl reload nginx
@@ -71,9 +58,9 @@ systemctl reload nginx
 
   "Landing page deployed successfully."
   $result.Output
-  "Open: http://$Domain"
-  "APK: http://$Domain/erdataye.apk"
-  "Staff dashboard target: http://$StaffDomain"
+  "Open: http://$ServerIp"
+  "APK: http://$ServerIp/downloads/erdataye.apk"
+  "Staff dashboard: http://$ServerIp/staff"
 
   Remove-SFTPSession -SessionId $scp.SessionId | Out-Null
 }
