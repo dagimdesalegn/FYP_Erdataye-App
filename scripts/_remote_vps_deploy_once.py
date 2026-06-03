@@ -13,7 +13,7 @@ REPO = os.environ.get("DEPLOY_REPO", "dagimdesalegn/FYP_Erdataye-App")
 BRANCH = os.environ.get("DEPLOY_BRANCH", "main")
 
 REMOTE = f"""set -euo pipefail
-curl -fsSL -o /tmp/vps-deploy.sh "https://raw.githubusercontent.com/{REPO}/{BRANCH}/scripts/vps-deploy.sh"
+curl -fsSL -o /tmp/vps-deploy.sh "https://raw.githubusercontent.com/{REPO}/{BRANCH}/scripts/vps-deploy.sh?ts=$(date +%s)"
 chmod +x /tmp/vps-deploy.sh
 exec /tmp/vps-deploy.sh
 """
