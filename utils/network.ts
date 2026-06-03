@@ -1,6 +1,15 @@
 import { Platform } from "react-native";
 
-const CONNECTIVITY_TIMEOUT_MS = 4000;
+const CONNECTIVITY_TIMEOUT_MS = 8000;
+
+const PRODUCTION_VPS_HEALTH = "http://95.111.253.90/api/health";
+const SUPABASE_HEALTH = (() => {
+  const base = (process.env.EXPO_PUBLIC_SUPABASE_URL || "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (base) return `${base}/auth/v1/health`;
+  return "https://padezipdfcicydyncmkw.supabase.co/auth/v1/health";
+})();
 
 const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
 const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
@@ -8,29 +17,20 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((value) => value.trim())
   .filter(Boolean);
 
-const PRODUCTION_HEALTH_PROBES = [
-  "http://95.111.253.90/api/health",
-  "http://95.111.253.90:8000/health",
-];
-
-const SUPABASE_PROBE =
-  (process.env.EXPO_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "") +
-  "/auth/v1/health";
+const toHealthUrl = (value: string): string => {
+  const v = value.replace(/\/+$/, "");
+  if (v.endsWith("/health")) return v;
+  if (v.endsWith("/api")) return `${v}/health`;
+  return `${v}/health`;
+};
 
 const PROBE_URLS = [
-  ...PRODUCTION_HEALTH_PROBES,
-  SUPABASE_PROBE,
-  ENV_BACKEND_URL_RAW ? `${ENV_BACKEND_URL_RAW.replace(/\/+$/, "")}/health`.replace("/api/health", "/health") : "",
-  ENV_BACKEND_URL_RAW?.replace(/\/+$/, "") || "",
-  ...BACKEND_FALLBACKS,
+  PRODUCTION_VPS_HEALTH,
+  SUPABASE_HEALTH,
+  ENV_BACKEND_URL_RAW ? toHealthUrl(ENV_BACKEND_URL_RAW) : "",
+  ...BACKEND_FALLBACKS.map(toHealthUrl),
 ]
   .filter(Boolean)
-  .map((value) => {
-    const v = value.replace(/\/+$/, "");
-    if (v.endsWith("/health")) return v;
-    if (v.includes("/api")) return `${v.replace(/\/api$/, "")}/api/health`.replace("//api", "/api");
-    return `${v}/health`;
-  })
   .filter((v, i, a) => a.indexOf(v) === i);
 
 const withTimeout = async (url: string, timeoutMs: number) => {
@@ -47,6 +47,9 @@ const withTimeout = async (url: string, timeoutMs: number) => {
   }
 };
 
+const probeSucceeded = (response: Response): boolean =>
+  response.ok || response.status === 401 || response.status === 403;
+
 export async function hasInternetConnection(): Promise<boolean> {
   if (
     Platform.OS === "web" &&
@@ -56,18 +59,22 @@ export async function hasInternetConnection(): Promise<boolean> {
     return false;
   }
 
-  for (const baseUrl of PROBE_URLS) {
+  for (const probeUrl of PROBE_URLS) {
     try {
-      const probeUrl = baseUrl.endsWith("/health")
-        ? baseUrl
-        : `${baseUrl}/health`;
       const response = await withTimeout(probeUrl, CONNECTIVITY_TIMEOUT_MS);
-      if (response.ok || response.status === 401 || response.status === 403) {
+      if (probeSucceeded(response)) {
         return true;
       }
     } catch {
       // Try next probe target.
     }
+  }
+
+  // Release Android builds can false-negative on HTTP health probes even when
+  // the device is online. Let auth/API calls surface real errors instead of
+  // blocking login with a misleading offline message.
+  if (Platform.OS !== "web") {
+    return true;
   }
 
   return false;
@@ -78,9 +85,12 @@ export function isLikelyConnectivityError(error: unknown): boolean {
   return (
     message.includes("network request failed") ||
     message.includes("failed to fetch") ||
+    message.includes("unable to reach backend") ||
+    message.includes("unreachable") ||
     message.includes("offline") ||
     message.includes("timed out") ||
     message.includes("timeout") ||
-    message.includes("internet")
+    message.includes("internet") ||
+    message.includes("aborted")
   );
 }
