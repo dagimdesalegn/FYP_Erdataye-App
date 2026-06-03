@@ -149,20 +149,9 @@ export default function ForgotPasswordScreen() {
                   translateText("OTP copied to clipboard."),
                 );
               } else {
-                // Try expo-clipboard dynamically (may not be installed in minimal env)
-                try {
-                  // eslint-disable-next-line @typescript-eslint/no-var-requires
-                  const Clipboard = await import("expo-clipboard");
-                  await Clipboard.setStringAsync(otpToShow);
-                  showAlert(
-                    translateText("Copied"),
-                    translateText("OTP copied to clipboard."),
-                  );
-                } catch {
-                  showAlert(translateText("OTP"), otpToShow);
-                }
+                showAlert(translateText("OTP"), otpToShow);
               }
-            } catch (e) {
+            } catch {
               showAlert(translateText("OTP"), otpToShow);
             }
           },
