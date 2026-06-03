@@ -44,8 +44,9 @@ const isSecureWebContext = (): boolean => {
 const isInsecureHttp = (url: string): boolean => /^http:\/\//i.test(url);
 const allowInsecureHttpCandidate = (url: string): boolean => {
   if (!isInsecureHttp(url)) return true;
-  // VPS / IP deployments serve the web app over plain HTTP — API must work too.
-  if (Platform.OS === "web" && !isSecureWebContext()) return true;
+  // Mobile release APK talks to VPS over plain HTTP (usesCleartextTraffic).
+  if (Platform.OS !== "web") return true;
+  if (!isSecureWebContext()) return true;
   return typeof __DEV__ !== "undefined" ? __DEV__ : false;
 };
 

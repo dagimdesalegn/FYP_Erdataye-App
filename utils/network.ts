@@ -8,14 +8,30 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .map((value) => value.trim())
   .filter(Boolean);
 
-const PROBE_URLS = [
-  ENV_BACKEND_URL_RAW,
-  ...BACKEND_FALLBACKS,
+const PRODUCTION_HEALTH_PROBES = [
   "http://95.111.253.90/api/health",
   "http://95.111.253.90:8000/health",
+];
+
+const SUPABASE_PROBE =
+  (process.env.EXPO_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "") +
+  "/auth/v1/health";
+
+const PROBE_URLS = [
+  ...PRODUCTION_HEALTH_PROBES,
+  SUPABASE_PROBE,
+  ENV_BACKEND_URL_RAW ? `${ENV_BACKEND_URL_RAW.replace(/\/+$/, "")}/health`.replace("/api/health", "/health") : "",
+  ENV_BACKEND_URL_RAW?.replace(/\/+$/, "") || "",
+  ...BACKEND_FALLBACKS,
 ]
   .filter(Boolean)
-  .map((value) => value.replace(/\/+$/, ""));
+  .map((value) => {
+    const v = value.replace(/\/+$/, "");
+    if (v.endsWith("/health")) return v;
+    if (v.includes("/api")) return `${v.replace(/\/api$/, "")}/api/health`.replace("//api", "/api");
+    return `${v}/health`;
+  })
+  .filter((v, i, a) => a.indexOf(v) === i);
 
 const withTimeout = async (url: string, timeoutMs: number) => {
   const controller = new AbortController();
