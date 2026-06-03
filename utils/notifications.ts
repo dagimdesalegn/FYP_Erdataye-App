@@ -191,3 +191,19 @@ export async function showLocalNotification(
     trigger: null, // show immediately
   });
 }
+
+/**
+ * Trigger a strong haptic alert for incoming emergency assignments.
+ */
+export async function triggerEmergencyHapticAlert(): Promise<void> {
+  if (Platform.OS === "web" || IS_EXPO_GO) {
+    return;
+  }
+
+  try {
+    const Haptics = await import("expo-haptics");
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  } catch {
+    // Ignore haptics failures so assignment handling keeps working.
+  }
+}

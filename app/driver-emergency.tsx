@@ -30,13 +30,14 @@ import {
     getPatientInfo,
     subscribeToAssignments,
 } from "@/utils/driver";
-import { translateText } from "@/utils/i18n";
 import {
-  buildDriverPatientMapHtml,
-  buildMapHtml,
-  calculateDistance,
-  parsePostGISPoint,
+    buildDriverPatientMapHtml,
+    buildMapHtml,
+    calculateDistance,
+    parsePostGISPoint,
 } from "@/utils/emergency";
+import { translateText } from "@/utils/i18n";
+import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 import { supabase } from "@/utils/supabase";
 
 interface MedicalProfile {
@@ -220,6 +221,7 @@ export default function DriverEmergencyScreen() {
   useEffect(() => {
     if (!user) return;
     const unsubscribe = subscribeToAssignments(user.id, () => {
+      void triggerEmergencyHapticAlert();
       loadAssignment({ silent: true });
     });
     return unsubscribe;
@@ -234,7 +236,8 @@ export default function DriverEmergencyScreen() {
         assignment.emergency_id,
       );
       if (error) {
-        const msg = error.message || translateText("Failed to accept emergency");
+        const msg =
+          error.message || translateText("Failed to accept emergency");
         showError(translateText("Accept Failed"), msg);
         return;
       }
@@ -604,7 +607,9 @@ export default function DriverEmergencyScreen() {
                     ]}
                   >
                     <MaterialIcons name="call" size={15} color="#FFFFFF" />
-                    <ThemedText style={styles.callNowText}>{translateText("Call")}</ThemedText>
+                    <ThemedText style={styles.callNowText}>
+                      {translateText("Call")}
+                    </ThemedText>
                   </Pressable>
                 </View>
               </View>
@@ -803,7 +808,9 @@ export default function DriverEmergencyScreen() {
             ) : (
               <>
                 <MaterialIcons name="close" size={18} color="#DC2626" />
-                <ThemedText style={styles.declineBtnText}>{translateText("Decline")}</ThemedText>
+                <ThemedText style={styles.declineBtnText}>
+                  {translateText("Decline")}
+                </ThemedText>
               </>
             )}
           </Pressable>

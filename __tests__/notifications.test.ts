@@ -4,8 +4,9 @@
 
 // Mock backendPost before importing
 import {
-  registerForPushNotifications,
-  showLocalNotification,
+    registerForPushNotifications,
+    showLocalNotification,
+    triggerEmergencyHapticAlert,
 } from "../utils/notifications";
 
 jest.mock("../utils/api", () => ({
@@ -17,6 +18,8 @@ jest.mock("../utils/api", () => ({
 const { backendPost: mockBackendPost } = require("../utils/api");
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const MockNotifications = require("expo-notifications");
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const MockHaptics = require("expo-haptics");
 
 describe("Push notification utilities", () => {
   test("registerForPushNotifications returns a token on success", async () => {
@@ -50,6 +53,16 @@ describe("Push notification utilities", () => {
         }),
         trigger: null,
       }),
+    );
+  });
+
+  test("triggerEmergencyHapticAlert calls notificationAsync", async () => {
+    MockHaptics.notificationAsync.mockClear();
+
+    await triggerEmergencyHapticAlert();
+
+    expect(MockHaptics.notificationAsync).toHaveBeenCalledWith(
+      MockHaptics.NotificationFeedbackType.Warning,
     );
   });
 });

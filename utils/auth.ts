@@ -627,6 +627,106 @@ export const signIn = async (
 };
 
 /**
+ * Reset a user's password after a phone-based account lookup.
+ */
+export const resetPasswordWithPhone = async (
+  phone: string,
+  newPassword: string,
+  fullName?: string,
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const res = await fetchBackend("/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone,
+        new_password: newPassword,
+        full_name: fullName || undefined,
+      }),
+    });
+
+    let body: any = {};
+    try {
+      const text = await res.text();
+      body = text ? JSON.parse(text) : {};
+    } catch {
+      body = {};
+    }
+
+    if (!res.ok) {
+      return {
+        success: false,
+        error: new Error(body?.detail || "Failed to reset password"),
+      };
+    }
+
+    return { success: true, error: null };
+  } catch (error) {
+    return { success: false, error: error as Error };
+  }
+};
+
+/**
+ * Request a password reset token (development: token is returned in response).
+ */
+export const requestPasswordReset = async (
+  phone: string,
+): Promise<{ success: boolean; otp?: string; error: Error | null }> => {
+  try {
+    const res = await fetchBackend("/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        success: false,
+        otp: undefined,
+        error: new Error(body?.detail || `Request failed (${res.status})`),
+      };
+    }
+    return { success: true, otp: body?.otp, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      otp: undefined,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
+  }
+};
+
+/**
+ * Confirm a password reset using the token received.
+ */
+export const confirmPasswordReset = async (
+  phone: string,
+  otp: string,
+  newPassword: string,
+): Promise<{ success: boolean; error: Error | null }> => {
+  try {
+    const res = await fetchBackend("/auth/confirm-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone, otp, new_password: newPassword }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return {
+        success: false,
+        error: new Error(body?.detail || `Request failed (${res.status})`),
+      };
+    }
+    return { success: true, error: null };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+    };
+  }
+};
+
+/**
  * Get user role — try metadata first, then profiles DB fallback.
  */
 export const getUserRole = async (userId: string): Promise<UserRole | null> => {

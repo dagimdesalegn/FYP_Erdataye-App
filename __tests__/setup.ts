@@ -12,14 +12,12 @@ jest.mock("react-native", () => ({
 jest.mock("expo-notifications", () => ({
   setNotificationHandler: jest.fn(),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
-  getPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: "granted" })
-  ),
+  getPermissionsAsync: jest.fn(() => Promise.resolve({ status: "granted" })),
   requestPermissionsAsync: jest.fn(() =>
-    Promise.resolve({ status: "granted" })
+    Promise.resolve({ status: "granted" }),
   ),
   getExpoPushTokenAsync: jest.fn(() =>
-    Promise.resolve({ data: "ExponentPushToken[test123]" })
+    Promise.resolve({ data: "ExponentPushToken[test123]" }),
   ),
   addNotificationReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
   addNotificationResponseReceivedListener: jest.fn(() => ({
@@ -28,6 +26,31 @@ jest.mock("expo-notifications", () => ({
   scheduleNotificationAsync: jest.fn(() => Promise.resolve()),
   AndroidNotificationPriority: { HIGH: 4 },
   AndroidImportance: { MAX: 5 },
+}));
+
+// Mock expo-haptics
+jest.mock("expo-haptics", () => ({
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: {
+    Success: 0,
+    Warning: 1,
+    Error: 2,
+  },
+  ImpactFeedbackStyle: {
+    Light: 0,
+    Medium: 1,
+    Heavy: 2,
+    Rigid: 3,
+    Soft: 4,
+  },
+  AndroidHaptics: {
+    Confirm: 0,
+    Reject: 1,
+    Segment_Tick: 2,
+  },
 }));
 
 // Mock expo-constants
@@ -60,10 +83,10 @@ jest.mock("../utils/supabase", () => ({
       signUp: jest.fn(),
       signOut: jest.fn(),
       getUser: jest.fn(() =>
-        Promise.resolve({ data: { user: null }, error: null })
+        Promise.resolve({ data: { user: null }, error: null }),
       ),
       getSession: jest.fn(() =>
-        Promise.resolve({ data: { session: null }, error: null })
+        Promise.resolve({ data: { session: null }, error: null }),
       ),
       onAuthStateChange: jest.fn(() => ({
         data: { subscription: { unsubscribe: jest.fn() } },

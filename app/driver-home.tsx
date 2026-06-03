@@ -24,6 +24,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signOut } from "@/utils/auth";
 import { calculateDistance } from "@/utils/emergency";
 import { t } from "@/utils/i18n";
+import { triggerEmergencyHapticAlert } from "@/utils/notifications";
 
 import {
     ensureAmbulanceHospitalLink,
@@ -226,6 +227,8 @@ export default function DriverHomeScreen() {
     if (!user || !isAvailable) return;
 
     const unsubscribe = subscribeToAssignments(user.id, async (_assignment) => {
+      void triggerEmergencyHapticAlert();
+
       // Surface assignment state immediately for faster UX.
       setHasAssignment(true);
       setAssignmentCount(1);
@@ -377,7 +380,8 @@ export default function DriverHomeScreen() {
     const emergencyStatus = String(
       assignment?.emergency_requests?.status || "",
     ).toLowerCase();
-    const emergencyId = assignment?.emergency_id || assignment?.emergency_requests?.id;
+    const emergencyId =
+      assignment?.emergency_id || assignment?.emergency_requests?.id;
     const isAlreadyAcceptedFlow = [
       "assigned",
       "en_route",

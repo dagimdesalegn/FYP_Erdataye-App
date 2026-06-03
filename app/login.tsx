@@ -22,7 +22,10 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { t, translateText } from "@/utils/i18n";
-import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
+import {
+    hasInternetConnection,
+    isLikelyConnectivityError,
+} from "@/utils/network";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -96,7 +99,9 @@ export default function LoginScreen() {
     if (!form.phone) {
       errors.phone = translateText("Please enter your phone number");
     } else if (!validatePhone(form.phone)) {
-      errors.phone = translateText("Enter 9 digits starting with 9 (e.g. 912345678)");
+      errors.phone = translateText(
+        "Enter 9 digits starting with 9 (e.g. 912345678)",
+      );
     }
     if (!form.password) {
       errors.password = translateText("Please enter your password");
@@ -125,7 +130,10 @@ export default function LoginScreen() {
           );
           return;
         }
-        showError(translateText("Login Failed"), error?.message || translateText("Failed to sign in"));
+        showError(
+          translateText("Login Failed"),
+          error?.message || translateText("Failed to sign in"),
+        );
         return;
       }
       if (user.role === "admin" || user.role === "hospital") {
@@ -135,7 +143,9 @@ export default function LoginScreen() {
         setLoading(false);
         showAlert(
           translateText("Staff Portal Required"),
-          translateText("Admin and hospital accounts must log in through the Staff Portal at /staff."),
+          translateText(
+            "Admin and hospital accounts must log in through the Staff Portal at /staff.",
+          ),
         );
         return;
       }
@@ -198,7 +208,10 @@ export default function LoginScreen() {
         showAlert(t("internet_required_title"), t("internet_required_message"));
         return;
       }
-      showError(translateText("Login Failed"), `${translateText("Login failed")}: ${String(err)}`);
+      showError(
+        translateText("Login Failed"),
+        `${translateText("Login failed")}: ${String(err)}`,
+      );
     }
   };
 
@@ -460,6 +473,20 @@ export default function LoginScreen() {
                   {fieldErrors.password}
                 </ThemedText>
               ) : null}
+              <Pressable
+                onPress={() => !loading && router.push("/forgot-password")}
+                disabled={loading}
+                style={({ pressed }) => [
+                  styles.forgotPasswordBtn,
+                  pressed && { opacity: 0.75 },
+                ]}
+              >
+                <ThemedText
+                  style={[styles.forgotPasswordText, { color: colors.primary }]}
+                >
+                  {translateText("Forgot Password?")}
+                </ThemedText>
+              </Pressable>
             </View>
 
             <Pressable
@@ -683,6 +710,14 @@ const styles = StyleSheet.create({
     color: "#DC2626",
     marginTop: 2,
     marginLeft: 2,
+  },
+  forgotPasswordBtn: {
+    alignSelf: "flex-end",
+    marginTop: 10,
+  },
+  forgotPasswordText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansSemiBold,
   },
   /* ---- Primary button ---- */
   primaryBtn: { marginTop: 4, borderRadius: 14, overflow: "hidden" },
