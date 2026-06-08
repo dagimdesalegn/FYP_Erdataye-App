@@ -42,7 +42,8 @@ class Settings(BaseSettings):
     # ── CORS ──────────────────────────────────────────────────────────────────
     allowed_origins: str = (
         "http://localhost:8081,http://localhost:19006,exp://localhost:8081," \
-        "http://192.227.217.222,http://192.227.217.222:8081"
+        "https://erdatayee.tech,https://www.erdatayee.tech," \
+        "https://staff.erdatayee.tech,https://admin.erdatayee.tech"
     )
 
     model_config = SettingsConfigDict(

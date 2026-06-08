@@ -2,7 +2,7 @@ import { Platform } from "react-native";
 
 const CONNECTIVITY_TIMEOUT_MS = 8000;
 
-const PRODUCTION_VPS_HEALTH = "http://95.111.253.90/api/health";
+const PRODUCTION_VPS_HEALTH = "https://www.erdatayee.tech/api/health";
 const SUPABASE_HEALTH = (() => {
   const base = (process.env.EXPO_PUBLIC_SUPABASE_URL || "")
     .trim()

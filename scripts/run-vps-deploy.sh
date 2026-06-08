@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage:
 #   VPS_PASS='your-password' ./scripts/run-vps-deploy.sh
 
-VPS_HOST="${VPS_HOST:-192.227.217.222}"
+VPS_HOST="${VPS_HOST:-95.111.253.90}"
 VPS_USER="${VPS_USER:-root}"
 VPS_PORT="${VPS_PORT:-22}"
 VPS_PASS="${VPS_PASS:-}"

@@ -2,7 +2,7 @@ import { AuthChangeEvent, AuthError, Session } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
-const PRODUCTION_VPS_API = "http://95.111.253.90/api";
+const PRODUCTION_VPS_API = "https://www.erdatayee.tech/api";
 const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
 const ENV_BACKEND_URL =
   ENV_BACKEND_URL_RAW ||
@@ -13,10 +13,11 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
   .filter(Boolean);
 
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
-// embedded as expected. Keep public URLs here so auth still works on devices.
+// embedded as expected. Keep public HTTPS URLs here so auth still works on devices.
 const DEFAULT_PUBLIC_BACKENDS = [
-  "http://95.111.253.90/api",
-  "http://95.111.253.90:8000",
+  "https://www.erdatayee.tech/api",
+  "https://staff.erdatayee.tech/api",
+  "https://admin.erdatayee.tech/api",
 ];
 
 const CONNECT_TIMEOUT_MS = 12000;
@@ -44,7 +45,7 @@ const isSecureWebContext = (): boolean => {
 const isInsecureHttp = (url: string): boolean => /^http:\/\//i.test(url);
 const allowInsecureHttpCandidate = (url: string): boolean => {
   if (!isInsecureHttp(url)) return true;
-  // Mobile release APK talks to VPS over plain HTTP (usesCleartextTraffic).
+  // Native development may still use LAN/local HTTP; production fallbacks use HTTPS.
   if (Platform.OS !== "web") return true;
   if (!isSecureWebContext()) return true;
   return typeof __DEV__ !== "undefined" ? __DEV__ : false;

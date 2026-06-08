@@ -185,8 +185,7 @@ interface FamilyShareCreateResponse {
 }
 
 const PREFERRED_SHARE_BASES = [
-  "http://192.227.217.222/api",
-  "http://192.227.217.222:8000",
+  "https://www.erdatayee.tech/api",
 ];
 
 const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, "");

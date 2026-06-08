@@ -7,7 +7,7 @@ from pathlib import Path
 
 import paramiko
 
-HOST = os.environ.get("VPS_HOST", "192.227.217.222")
+HOST = os.environ.get("VPS_HOST", "95.111.253.90")
 USER = os.environ.get("VPS_USER", "root")
 PASSWORD = os.environ.get("VPS_ROOT_PASS", "").strip()
 ROOT = Path(__file__).resolve().parents[1]

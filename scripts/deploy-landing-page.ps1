@@ -1,5 +1,5 @@
 param(
-  [string]$ServerIp = "192.227.217.222",
+  [string]$ServerIp = "95.111.253.90",
   [string]$Username = "root",
   [System.Management.Automation.PSCredential]$AdminCredential
 )

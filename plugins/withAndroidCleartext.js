@@ -14,7 +14,6 @@ const NETWORK_SECURITY_CONFIG = `<?xml version="1.0" encoding="utf-8"?>
     </trust-anchors>
   </base-config>
   <domain-config cleartextTrafficPermitted="true">
-    <domain includeSubdomains="true">95.111.253.90</domain>
     <domain includeSubdomains="true">localhost</domain>
     <domain includeSubdomains="true">10.0.2.2</domain>
   </domain-config>
