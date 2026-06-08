@@ -1402,26 +1402,31 @@ async def login_phone(req: PhoneLoginRequest) -> PhoneTokenResponse:
                 row = inserted[0] if isinstance(inserted, list) else inserted
                 resolved_hospital_id = str(row.get("id") or "")
 
-        # Remove hospital row from profiles if it exists.
-        if user_id:
-            await db_delete("profiles", {"id": user_id})
-
         if resolved_hospital_id:
-            metadata = {
-                **metadata,
-                "role": "hospital",
-                "phone": phone,
-                "full_name": full_name,
-                "hospital_id": resolved_hospital_id,
-            }
-            hospital_id = resolved_hospital_id
-            await auth_update_user(
-                user_id,
-                {
-                    "user_metadata": metadata,
-                    "email_confirm": True,
-                },
+            metadata_needs_update = (
+                metadata.get("role") != "hospital"
+                or str(metadata.get("phone") or "") != phone
+                or str(metadata.get("full_name") or "") != full_name
+                or str(metadata.get("hospital_id") or "") != resolved_hospital_id
             )
+            if metadata_needs_update:
+                metadata = {
+                    **metadata,
+                    "role": "hospital",
+                    "phone": phone,
+                    "full_name": full_name,
+                    "hospital_id": resolved_hospital_id,
+                }
+                if user_id:
+                    await db_delete("profiles", {"id": user_id})
+                    await auth_update_user(
+                        user_id,
+                        {
+                            "user_metadata": metadata,
+                            "email_confirm": True,
+                        },
+                    )
+            hospital_id = resolved_hospital_id
 
     return PhoneTokenResponse(
         access_token=data["access_token"],

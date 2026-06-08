@@ -22,10 +22,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { signIn } from "@/utils/auth";
 import { startFaydaOAuth, toPhoneInputDigits } from "@/utils/fayda";
 import { t, translateText } from "@/utils/i18n";
-import {
-    hasInternetConnection,
-    isLikelyConnectivityError,
-} from "@/utils/network";
+import { hasInternetConnection, isLikelyConnectivityError } from "@/utils/network";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -108,12 +105,6 @@ export default function LoginScreen() {
     }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      return;
-    }
-
-    const online = await hasInternetConnection();
-    if (!online) {
-      showAlert(t("internet_required_title"), t("internet_required_message"));
       return;
     }
 

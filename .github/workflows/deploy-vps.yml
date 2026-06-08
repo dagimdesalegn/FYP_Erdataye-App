@@ -50,11 +50,15 @@ jobs:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_PASSWORD: ${{ secrets.VPS_PASSWORD }}
         run: |
           missing=0
           if [ -z "$VPS_HOST" ]; then echo "::error::Secret VPS_HOST is not set."; missing=1; fi
           if [ -z "$VPS_USER" ]; then echo "::error::Secret VPS_USER is not set."; missing=1; fi
-          if [ -z "$VPS_SSH_KEY" ]; then echo "::error::Secret VPS_SSH_KEY is not set. Add an SSH private key (see repository wiki / maintainer docs)."; missing=1; fi
+          if [ -z "$VPS_SSH_KEY" ] && [ -z "$VPS_PASSWORD" ]; then
+            echo "::error::Set either VPS_SSH_KEY or VPS_PASSWORD for deployment."
+            missing=1
+          fi
           exit "$missing"
 
       - name: Checkout app (staff web + same ref as backend)
@@ -107,6 +111,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           source: "erdataye-release.apk,staff-web-export.tar.gz"
           target: /tmp/
@@ -118,6 +123,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           script_stop: true
           script: |
