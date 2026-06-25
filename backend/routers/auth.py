@@ -249,19 +249,19 @@ async def _load_fayda_discovery() -> dict[str, Any]:
     override_userinfo = (settings.fayda_userinfo_endpoint or "").strip()
     override_jwks = (settings.fayda_jwks_uri or "").strip()
 
-    if override_auth and override_token and override_userinfo and override_jwks:
-        return {
-            "issuer": "https://esignet.ida.fayda.et",
-            "authorization_endpoint": override_auth,
-            "token_endpoint": override_token,
-            "userinfo_endpoint": override_userinfo,
-            "jwks_uri": override_jwks,
-        }
-
     now_ts = time.time()
     cached = _fayda_discovery_cache.get("data")
     if cached and float(_fayda_discovery_cache.get("expires_at", 0)) > now_ts:
-        return cached
+        data = dict(cached)
+        if override_auth:
+            data["authorization_endpoint"] = override_auth
+        if override_token:
+            data["token_endpoint"] = override_token
+        if override_userinfo:
+            data["userinfo_endpoint"] = override_userinfo
+        if override_jwks:
+            data["jwks_uri"] = override_jwks
+        return data
 
     discovery_url = (settings.fayda_discovery_url or "").strip()
     if not discovery_url:
@@ -294,6 +294,15 @@ async def _load_fayda_discovery() -> dict[str, Any]:
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Invalid Fayda discovery metadata (missing: {', '.join(missing)}).",
         )
+
+    if override_auth:
+        data["authorization_endpoint"] = override_auth
+    if override_token:
+        data["token_endpoint"] = override_token
+    if override_userinfo:
+        data["userinfo_endpoint"] = override_userinfo
+    if override_jwks:
+        data["jwks_uri"] = override_jwks
 
     _fayda_discovery_cache["data"] = data
     _fayda_discovery_cache["expires_at"] = now_ts + 3600
