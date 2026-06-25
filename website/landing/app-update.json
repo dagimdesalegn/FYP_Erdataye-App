@@ -2,7 +2,7 @@
   "latestVersion": "1.0.2",
   "latestVersionCode": 55,
   "minSupportedVersionCode": 8,
-  "apkUrl": "https://www.erdatayee.tech/downloads/erdataye.apk",
+  "apkUrl": "https://erdatayee.tech/downloads/erdataye.apk",
   "force": false,
   "message": "A new Erdataye app update is available. Install the latest version for improved reliability and emergency response updates."
 }

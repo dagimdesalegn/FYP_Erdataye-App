@@ -161,9 +161,9 @@ const translations: Record<string, Record<Lang, string>> = {
     om: "Dogoggora liinkii fooyya'iinsaa",
   },
   update_open_failed_message: {
-    en: "Could not open the update link. Please visit https://www.erdatayee.tech/downloads/erdataye.apk",
-    am: "የማዘመኛ ሊንኩን መክፈት አልተቻለም። እባክዎ https://www.erdatayee.tech/downloads/erdataye.apk ይጎብኙ",
-    om: "Liinkii fooyya'iinsaa banuu hin dandeenye. Maaloo https://www.erdatayee.tech/downloads/erdataye.apk daawwadhaa",
+    en: "Could not open the update link. Please visit https://erdatayee.tech/downloads/erdataye.apk",
+    am: "የማዘመኛ ሊንኩን መክፈት አልተቻለም። እባክዎ https://erdatayee.tech/downloads/erdataye.apk ይጎብኙ",
+    om: "Liinkii fooyya'iinsaa banuu hin dandeenye. Maaloo https://erdatayee.tech/downloads/erdataye.apk daawwadhaa",
   },
   update_now: {
     en: "Update Now",

@@ -8,7 +8,7 @@ import { Platform } from "react-native";
 
 import { supabase } from "./supabase";
 
-const PRODUCTION_VPS_API = "https://www.erdatayee.tech/api";
+const PRODUCTION_VPS_API = "https://erdatayee.tech/api";
 const ENV_BACKEND_URL_RAW = process.env.EXPO_PUBLIC_BACKEND_URL?.trim() || "";
 const ENV_BACKEND_URL =
   ENV_BACKEND_URL_RAW ||
@@ -21,6 +21,7 @@ const BACKEND_FALLBACKS = (process.env.EXPO_PUBLIC_BACKEND_FALLBACKS || "")
 // Safety net for release builds where EXPO_PUBLIC_* env values may not be
 // embedded as expected. Keep public HTTPS URLs here so mobile requests still work.
 const DEFAULT_PUBLIC_BACKENDS = [
+  "https://erdatayee.tech/api",
   "https://www.erdatayee.tech/api",
   "https://staff.erdatayee.tech/api",
   "https://admin.erdatayee.tech/api",

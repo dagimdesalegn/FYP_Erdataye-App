@@ -185,6 +185,7 @@ interface FamilyShareCreateResponse {
 }
 
 const PREFERRED_SHARE_BASES = [
+  "https://erdatayee.tech/api",
   "https://www.erdatayee.tech/api",
 ];
 
