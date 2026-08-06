@@ -13,7 +13,7 @@ PyJWT>=2.9.0
 cryptography>=42.0.0
 
 # Settings from environment variables
-pydantic-settings>=2.4.0
+pydantic-settings>=2.14.0
 pydantic>=2.8.0
 
 # Env file support
