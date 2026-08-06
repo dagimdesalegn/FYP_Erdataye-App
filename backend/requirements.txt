@@ -17,7 +17,7 @@ pydantic-settings>=2.4.0
 pydantic>=2.8.0
 
 # Env file support
-python-dotenv>=1.0.0
+python-dotenv>=1.2.2
 
 # Testing
 pytest>=8.0.0
